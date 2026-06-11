@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """
-GenZHype | discovery scraper v2.
-Primary: PRAW (official Reddit API | immune to IP blocks, complete data).
-Fallback: public .json endpoints via Scrapling if no API creds present.
+GenZHype | discovery scraper v3.
+Primary: PRAW (official Reddit API). Fallback: public .json via urllib (stdlib).
 POSTs candidates to the site's ingest API. Runs on GitHub Actions cron.
 """
 import json
@@ -18,12 +17,12 @@ SUBREDDITS = [
     "TikTokCringe",
 ]
 
-UA = "GenZHypeDesk/2.0 research scraper"
+UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:130.0) Gecko/20100101 Firefox/130.0"
 MIN_SCORE = 200
 MAX_PER_SUB = 8
 
 
-def heat(upvotes: int, comments: int) -> int:
+def heat(upvotes, comments):
     raw = upvotes + comments * 3
     if raw >= 20000: return 95
     if raw >= 10000: return 85
@@ -57,7 +56,7 @@ def via_praw():
     reddit = praw.Reddit(
         client_id=os.environ["REDDIT_CLIENT_ID"],
         client_secret=os.environ["REDDIT_CLIENT_SECRET"],
-        user_agent=UA,
+        user_agent="GenZHypeDesk/3.0 research",
     )
     out = []
     for sub in SUBREDDITS:
@@ -77,17 +76,23 @@ def via_praw():
     return out
 
 
+def http_get_json(url):
+    req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "application/json"})
+    with urllib.request.urlopen(req, timeout=30) as r:
+        return json.loads(r.read().decode())
+
+
 def via_public_json():
-    from scrapling.fetchers import Fetcher
     out = []
     for sub in SUBREDDITS:
-        url = f"https://www.reddit.com/r/{sub}/hot.json?limit=25"
-        page = Fetcher.get(url, headers={"User-Agent": UA}, timeout=30)
-        if page.status != 200:
-            print(f"  ! r/{sub} HTTP {page.status}", file=sys.stderr)
+        url = f"https://www.reddit.com/r/{sub}/hot.json?limit=25&raw_json=1"
+        try:
+            data = http_get_json(url)
+        except Exception as e:
+            print(f"  ! r/{sub} failed: {e}", file=sys.stderr)
             continue
         n = 0
-        for child in json.loads(page.body).get("data", {}).get("children", []):
+        for child in data.get("data", {}).get("children", []):
             p = child.get("data", {})
             if p.get("stickied") or p.get("over_18"):
                 continue
@@ -112,7 +117,7 @@ def via_public_json():
 def post_ingest(items):
     payload = json.dumps({"token": os.environ["INGEST_TOKEN"], "items": items}).encode()
     req = urllib.request.Request(os.environ["INGEST_URL"], data=payload,
-                                 headers={"Content-Type": "application/json"})
+                                 headers={"Content-Type": "application/json", "User-Agent": UA})
     with urllib.request.urlopen(req, timeout=30) as r:
         return json.loads(r.read().decode())
 
@@ -127,7 +132,7 @@ def main():
         print("no Reddit API creds | using public json fallback")
         items = via_public_json()
     if not items:
-        print("no candidates this run")
+        print("no candidates this run (sources may be blocking this IP)")
         return 0
     res = post_ingest(items)
     print(f"ingest: {res}")
