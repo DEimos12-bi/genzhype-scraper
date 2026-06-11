@@ -1,23 +1,37 @@
 #!/usr/bin/env python3
 """
-GenZHype | discovery scraper v3.
-Primary: PRAW (official Reddit API). Fallback: public .json via urllib (stdlib).
-POSTs candidates to the site's ingest API. Runs on GitHub Actions cron.
+GenZHype | discovery scraper v4.
+Sources that work from datacenter IPs, no auth:
+  - Google Trends RSS (US trending searches + traffic estimates)
+  - Pop-culture / creator-news RSS feeds (TMZ, Dexerto, etc.)
+Optional when creds exist: Reddit via PRAW. Reddit public JSON kept for local runs.
+POSTs candidates to the site's ingest API.
 """
 import json
 import os
+import re
 import sys
 import urllib.request
-
-SUBREDDITS = [
-    "youtubedrama",
-    "LivestreamFail",
-    "Fauxmoi",
-    "InternetDrama",
-    "TikTokCringe",
-]
+import xml.etree.ElementTree as ET
 
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:130.0) Gecko/20100101 Firefox/130.0"
+
+RSS_FEEDS = [
+    ("tmz", "https://www.tmz.com/rss.xml"),
+    ("dexerto", "https://www.dexerto.com/feed/"),
+    ("distractify", "https://www.distractify.com/rss"),
+    ("dailydot", "https://www.dailydot.com/feed/"),
+]
+
+# creator-drama relevance filter for news/trends
+KEYWORDS = re.compile(
+    r"tiktok|youtub|stream|twitch|kick\b|influencer|creator|drama|feud|beef|"
+    r"onlyfans|podcast|viral|expose|allegat|apolog|cancel|leak|deplatform|"
+    r"mrbeast|ishowspeed|kai cenat|adin ross|fanum|druski|sketch\b",
+    re.I,
+)
+
+TRENDS_RSS = "https://trends.google.com/trending/rss?geo=US"
 MIN_SCORE = 200
 MAX_PER_SUB = 8
 
@@ -32,85 +46,100 @@ def heat(upvotes, comments):
     return 30
 
 
-def to_candidate(sub, title, ups, ncm, permalink, ext_url, created, selftext):
-    return {
-        "type": "drama",
-        "name": title[:240],
-        "angle": f"surfaced on r/{sub}",
-        "heat_score": heat(ups, ncm),
-        "era": "present",
-        "signals": {
-            "source": f"reddit:r/{sub}",
-            "ups": ups,
-            "comments": ncm,
-            "permalink": permalink,
-            "external_url": ext_url or "",
-            "created_utc": created,
-            "selftext_excerpt": (selftext or "")[:800],
-        },
-    }
+def http_get(url):
+    req = urllib.request.Request(url, headers={"User-Agent": UA})
+    with urllib.request.urlopen(req, timeout=30) as r:
+        return r.read()
+
+
+def candidate(name, angle, score, signals):
+    return {"type": "drama", "name": name[:240], "angle": angle[:240],
+            "heat_score": score, "era": "present", "signals": signals}
+
+
+def traffic_to_heat(t):
+    n = re.sub(r"[^0-9]", "", t or "")
+    n = int(n) if n else 0
+    if n >= 2000000: return 95
+    if n >= 1000000: return 85
+    if n >= 500000:  return 70
+    if n >= 200000:  return 55
+    return 40
+
+
+def via_google_trends():
+    out = []
+    try:
+        root = ET.fromstring(http_get(TRENDS_RSS))
+    except Exception as e:
+        print(f"  ! google trends failed: {e}", file=sys.stderr)
+        return out
+    ns = {"ht": "https://trends.google.com/trending/rss"}
+    for item in root.iter("item"):
+        title = (item.findtext("title") or "").strip()
+        traffic = item.findtext("ht:approx_traffic", default="", namespaces=ns)
+        if not title:
+            continue
+        h = traffic_to_heat(traffic)
+        # keep if drama-relevant, or if it is a huge cultural moment
+        if not KEYWORDS.search(title) and h < 70:
+            continue
+        news_title = ""
+        news = item.find("ht:news_item", ns)
+        if news is not None:
+            news_title = (news.findtext("ht:news_item_title", default="", namespaces=ns) or "").strip()
+        out.append(candidate(
+            title, f"US Google Trends ({traffic or 'rising'})", h,
+            {"source": "google-trends", "approx_traffic": traffic, "news_title": news_title[:300]}))
+    print(f"google trends: {len(out)} candidates")
+    return out
+
+
+def via_rss():
+    out = []
+    for feed_name, url in RSS_FEEDS:
+        try:
+            root = ET.fromstring(http_get(url))
+        except Exception as e:
+            print(f"  ! {feed_name} rss failed: {e}", file=sys.stderr)
+            continue
+        n = 0
+        for item in root.iter("item"):
+            title = (item.findtext("title") or "").strip()
+            link = (item.findtext("link") or "").strip()
+            desc = re.sub(r"<[^>]+>", " ", item.findtext("description") or "")[:600]
+            if not title or not KEYWORDS.search(title + " " + desc):
+                continue
+            out.append(candidate(
+                title, f"via {feed_name} rss", 45,
+                {"source": f"rss:{feed_name}", "url": link, "desc_excerpt": desc.strip()}))
+            n += 1
+            if n >= 6:
+                break
+        print(f"{feed_name} rss: {n} candidates")
+    return out
 
 
 def via_praw():
     import praw
-    reddit = praw.Reddit(
-        client_id=os.environ["REDDIT_CLIENT_ID"],
-        client_secret=os.environ["REDDIT_CLIENT_SECRET"],
-        user_agent="GenZHypeDesk/3.0 research",
-    )
+    reddit = praw.Reddit(client_id=os.environ["REDDIT_CLIENT_ID"],
+                         client_secret=os.environ["REDDIT_CLIENT_SECRET"],
+                         user_agent="GenZHypeDesk/4.0 research")
     out = []
-    for sub in SUBREDDITS:
+    for sub in ["youtubedrama", "LivestreamFail", "Fauxmoi", "InternetDrama", "TikTokCringe"]:
         n = 0
         for p in reddit.subreddit(sub).hot(limit=25):
             if p.stickied or p.over_18 or p.score < MIN_SCORE:
                 continue
-            out.append(to_candidate(
-                sub, p.title, int(p.score), int(p.num_comments),
-                "https://reddit.com" + p.permalink,
-                p.url if not p.is_self else "",
-                p.created_utc, getattr(p, "selftext", "")))
+            out.append(candidate(
+                p.title, f"surfaced on r/{sub}", heat(int(p.score), int(p.num_comments)),
+                {"source": f"reddit:r/{sub}", "ups": int(p.score), "comments": int(p.num_comments),
+                 "permalink": "https://reddit.com" + p.permalink,
+                 "selftext_excerpt": (getattr(p, "selftext", "") or "")[:800]}))
             n += 1
             if n >= MAX_PER_SUB:
                 break
         print(f"r/{sub}: {n} candidates (praw)")
-    return out
-
-
-def http_get_json(url):
-    req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "application/json"})
-    with urllib.request.urlopen(req, timeout=30) as r:
-        return json.loads(r.read().decode())
-
-
-def via_public_json():
-    out = []
-    for sub in SUBREDDITS:
-        url = f"https://www.reddit.com/r/{sub}/hot.json?limit=25&raw_json=1"
-        try:
-            data = http_get_json(url)
-        except Exception as e:
-            print(f"  ! r/{sub} failed: {e}", file=sys.stderr)
-            continue
-        n = 0
-        for child in data.get("data", {}).get("children", []):
-            p = child.get("data", {})
-            if p.get("stickied") or p.get("over_18"):
-                continue
-            ups = int(p.get("ups", 0))
-            if ups < MIN_SCORE:
-                continue
-            title = (p.get("title") or "").strip()
-            if not title:
-                continue
-            out.append(to_candidate(
-                sub, title, ups, int(p.get("num_comments", 0)),
-                "https://reddit.com" + (p.get("permalink") or ""),
-                p.get("url_overridden_by_dest") or p.get("url"),
-                p.get("created_utc"), p.get("selftext")))
-            n += 1
-            if n >= MAX_PER_SUB:
-                break
-        print(f"r/{sub}: {n} candidates (public json)")
     return out
 
 
@@ -126,13 +155,16 @@ def main():
     if not os.environ.get("INGEST_URL") or not os.environ.get("INGEST_TOKEN"):
         print("missing INGEST_URL / INGEST_TOKEN", file=sys.stderr)
         return 1
+    items = []
+    items += via_google_trends()
+    items += via_rss()
     if os.environ.get("REDDIT_CLIENT_ID") and os.environ.get("REDDIT_CLIENT_SECRET"):
-        items = via_praw()
-    else:
-        print("no Reddit API creds | using public json fallback")
-        items = via_public_json()
+        try:
+            items += via_praw()
+        except Exception as e:
+            print(f"  ! praw failed: {e}", file=sys.stderr)
     if not items:
-        print("no candidates this run (sources may be blocking this IP)")
+        print("no candidates this run")
         return 0
     res = post_ingest(items)
     print(f"ingest: {res}")
