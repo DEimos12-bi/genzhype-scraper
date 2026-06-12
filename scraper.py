@@ -33,21 +33,41 @@ _socket.getaddrinfo = lambda *a, **k: [x for x in _gai(*a, **k) if x[0] == _sock
 
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:130.0) Gecko/20100101 Firefox/130.0"
 
+# Realistic browser header SETS (Scrapling/browserforge idea, dependency-free):
+# rotate per run so the plain-urllib fallback path doesn't send one fixed
+# fingerprint. Rotation is per-process-run (seeded by run minute via os time
+# is unavailable deterministically; we rotate by a module counter instead).
+_HEADER_SETS = [
+    {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:130.0) Gecko/20100101 Firefox/130.0",
+     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8", "Accept-Language": "en-US,en;q=0.9"},
+    {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,*/*;q=0.8", "Accept-Language": "en-US,en;q=0.9"},
+    {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15",
+     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8", "Accept-Language": "en-US,en;q=0.9"},
+    {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:130.0) Gecko/20100101 Firefox/130.0",
+     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8", "Accept-Language": "en-US,en;q=0.9"},
+]
+_hdr_i = 0
+def _next_headers():
+    global _hdr_i
+    h = _HEADER_SETS[_hdr_i % len(_HEADER_SETS)]
+    _hdr_i += 1
+    return dict(h)
+
 # --- HTTP GET: mirrors Scrapling's "static engine" (curl_cffi browser-TLS
 #     impersonation + stealthy headers + retries + timeout). curl_cffi when
-#     present (TLS fingerprint dodges naive datacenter blocks), urllib fallback.
+#     present (TLS fingerprint dodges naive datacenter blocks), urllib fallback
+#     with rotating realistic headers otherwise.
 try:
     from curl_cffi import requests as _cffi
     def _http_once(url):
-        r = _cffi.get(url, impersonate="firefox", timeout=30,
-                      headers={"User-Agent": UA, "Accept-Language": "en-US,en;q=0.9"})
+        r = _cffi.get(url, impersonate="firefox", timeout=30, headers=_next_headers())
         r.raise_for_status()
         return r.content
     _HTTP_ENGINE = "curl_cffi"
 except Exception:
     def _http_once(url):
-        req = urllib.request.Request(url, headers={"User-Agent": UA,
-                                                   "Accept-Language": "en-US,en;q=0.9"})
+        req = urllib.request.Request(url, headers=_next_headers())
         with urllib.request.urlopen(req, timeout=30) as r:
             return r.read()
     _HTTP_ENGINE = "urllib"
