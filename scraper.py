@@ -73,7 +73,9 @@ except Exception:
     _HTTP_ENGINE = "urllib"
 
 
-def http_get(url, retries=3, retry_delay=2):
+def http_get(url, retries=2, retry_delay=2):
+    # fail FAST on a slow/dead feed (1 retry) so one hung source can't bloat the
+    # whole run; a missed feed just yields fewer candidates this cycle.
     last = None
     for i in range(retries):
         try:
@@ -279,33 +281,48 @@ def via_praw():
     return out
 
 
-def post_ingest_once(items):
+def _post_chunk(items, attempts=3):
+    """Deliver one chunk. requests when present (robust), urllib otherwise.
+    60s timeout; 3 attempts 15s apart. Returns the parsed JSON or raises."""
     body = {"token": os.environ["INGEST_TOKEN"], "items": items}
     url = os.environ["INGEST_URL"]
-    try:
-        import requests
-        r = requests.post(url, json=body, headers={"User-Agent": UA}, timeout=30)
-        r.raise_for_status()
-        return r.json()
-    except ImportError:
-        payload = json.dumps(body).encode()
-        req = urllib.request.Request(url, data=payload,
-                                     headers={"Content-Type": "application/json", "User-Agent": UA})
-        with urllib.request.urlopen(req, timeout=30) as r:
-            return json.loads(r.read().decode())
-
-
-def post_ingest(items, attempts=3):
     last = None
     for i in range(1, attempts + 1):
         try:
-            return post_ingest_once(items)
+            try:
+                import requests
+                r = requests.post(url, json=body, headers={"User-Agent": UA}, timeout=60)
+                r.raise_for_status()
+                return r.json()
+            except ImportError:
+                payload = json.dumps(body).encode()
+                req = urllib.request.Request(url, data=payload,
+                                             headers={"Content-Type": "application/json", "User-Agent": UA})
+                with urllib.request.urlopen(req, timeout=60) as r:
+                    return json.loads(r.read().decode())
         except Exception as e:
             last = e
             print(f"  ! ingest attempt {i}/{attempts} failed: {e}", file=sys.stderr)
             if i < attempts:
-                time.sleep(20)
+                time.sleep(15)
     raise last
+
+
+def post_ingest(items, chunk=20):
+    """Deliver in small chunks: each POST is fast (dodges payload/connect
+    timeouts) and partial success is kept even if a later chunk fails."""
+    total_ins, total_skip, sent_ok = 0, 0, 0
+    for c in range(0, len(items), chunk):
+        part = items[c:c + chunk]
+        try:
+            res = _post_chunk(part)
+            total_ins += int(res.get("inserted", 0))
+            total_skip += int(res.get("skipped_dupes_or_invalid", 0))
+            sent_ok += len(part)
+        except Exception as e:
+            print(f"  ! chunk {c // chunk + 1} dropped after retries: {e}", file=sys.stderr)
+    return {"ok": sent_ok > 0, "inserted": total_ins,
+            "skipped_dupes_or_invalid": total_skip, "delivered": sent_ok}
 
 
 def dedupe(items):
@@ -338,8 +355,13 @@ def main():
     if not items:
         print("no candidates this run")
         return 0
+    # trim bulky Reddit text so POST bodies stay small and fast
+    for it in items:
+        sx = it.get("signals", {}).get("selftext_excerpt")
+        if sx:
+            it["signals"]["selftext_excerpt"] = sx[:300]
     res = post_ingest(items)
-    print(f"ingest: {res}  (sent {len(items)})")
+    print(f"ingest: {res}  (harvested {len(items)})")
     return 0 if res.get("ok") else 1
 
 
