@@ -1,18 +1,28 @@
 #!/usr/bin/env python3
 """
-GenZHype | discovery scraper v4.
+GenZHype | discovery scraper v5.
 Sources that work from datacenter IPs, no auth:
   - Google Trends RSS (US trending searches + traffic estimates)
   - Pop-culture / creator-news RSS feeds (TMZ, Dexerto, etc.)
 Optional when creds exist: Reddit via PRAW. Reddit public JSON kept for local runs.
 POSTs candidates to the site's ingest API.
+v5 fixes: force IPv4 (GitHub runners have no IPv6 route -> errno 101 on hosts
+with AAAA records), deliver via requests when available (proven path), and
+retry delivery 3x before failing the run.
 """
 import json
 import os
 import re
 import sys
+import time
 import urllib.request
 import xml.etree.ElementTree as ET
+
+# FORCE IPv4: GitHub-hosted runners cannot route IPv6; genzhype.com publishes
+# an AAAA record, so stdlib connects tried IPv6 first and died (errno 101).
+import socket as _socket
+_gai = _socket.getaddrinfo
+_socket.getaddrinfo = lambda *a, **k: [x for x in _gai(*a, **k) if x[0] == _socket.AF_INET]
 
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:130.0) Gecko/20100101 Firefox/130.0"
 
@@ -143,12 +153,35 @@ def via_praw():
     return out
 
 
-def post_ingest(items):
-    payload = json.dumps({"token": os.environ["INGEST_TOKEN"], "items": items}).encode()
-    req = urllib.request.Request(os.environ["INGEST_URL"], data=payload,
-                                 headers={"Content-Type": "application/json", "User-Agent": UA})
-    with urllib.request.urlopen(req, timeout=30) as r:
-        return json.loads(r.read().decode())
+def post_ingest_once(items):
+    """One delivery attempt. Prefers requests (the proven path from the
+    receipts worker); falls back to stdlib urllib if requests is absent."""
+    body = {"token": os.environ["INGEST_TOKEN"], "items": items}
+    url = os.environ["INGEST_URL"]
+    try:
+        import requests
+        r = requests.post(url, json=body, headers={"User-Agent": UA}, timeout=30)
+        r.raise_for_status()
+        return r.json()
+    except ImportError:
+        payload = json.dumps(body).encode()
+        req = urllib.request.Request(url, data=payload,
+                                     headers={"Content-Type": "application/json", "User-Agent": UA})
+        with urllib.request.urlopen(req, timeout=30) as r:
+            return json.loads(r.read().decode())
+
+
+def post_ingest(items, attempts=3):
+    last = None
+    for i in range(1, attempts + 1):
+        try:
+            return post_ingest_once(items)
+        except Exception as e:
+            last = e
+            print(f"  ! ingest attempt {i}/{attempts} failed: {e}", file=sys.stderr)
+            if i < attempts:
+                time.sleep(20)
+    raise last
 
 
 def main():
