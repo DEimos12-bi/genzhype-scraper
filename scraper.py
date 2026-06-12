@@ -1,14 +1,21 @@
 #!/usr/bin/env python3
 """
-GenZHype | discovery scraper v5.
-Sources that work from datacenter IPs, no auth:
-  - Google Trends RSS (US trending searches + traffic estimates)
-  - Pop-culture / creator-news RSS feeds (TMZ, Dexerto, etc.)
-Optional when creds exist: Reddit via PRAW. Reddit public JSON kept for local runs.
+GenZHype | discovery scraper v6.
+Open, no-auth, datacenter-safe sources (widened from v5):
+  - Google News RSS search  (creator-drama queries; biggest coverage source)
+  - Publisher RSS feeds      (TMZ, Dexerto, Distractify, DailyDot, Shade Room,
+                              Variety, Pop Crave)
+  - Google Trends RSS        (US trending + traffic estimates)
+  - Reddit via PullPush       (open mirror; Reddit stopped free API keys 12/2025,
+                              public JSON now bot-walled, PullPush is the 2026 way)
+  - Reddit via PRAW           (only if creds are provided; optional)
 POSTs candidates to the site's ingest API.
-v5 fixes: force IPv4 (GitHub runners have no IPv6 route -> errno 101 on hosts
-with AAAA records), deliver via requests when available (proven path), and
-retry delivery 3x before failing the run.
+
+v6 hardening (techniques studied from Scrapling's HTTP layer):
+  - force IPv4 (GitHub runners have no IPv6 route -> errno 101)
+  - curl_cffi browser-TLS impersonation when available, urllib otherwise
+  - per-source try/except so one dead feed never sinks the run
+  - delivery via requests, 3 retries
 """
 import json
 import os
@@ -18,20 +25,67 @@ import time
 import urllib.request
 import xml.etree.ElementTree as ET
 
-# FORCE IPv4: GitHub-hosted runners cannot route IPv6; genzhype.com publishes
-# an AAAA record, so stdlib connects tried IPv6 first and died (errno 101).
+# FORCE IPv4: GitHub-hosted runners cannot route IPv6; some hosts publish AAAA
+# records, so stdlib otherwise tries IPv6 first and dies (errno 101).
 import socket as _socket
 _gai = _socket.getaddrinfo
 _socket.getaddrinfo = lambda *a, **k: [x for x in _gai(*a, **k) if x[0] == _socket.AF_INET]
 
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:130.0) Gecko/20100101 Firefox/130.0"
 
+# --- HTTP GET: mirrors Scrapling's "static engine" (curl_cffi browser-TLS
+#     impersonation + stealthy headers + retries + timeout). curl_cffi when
+#     present (TLS fingerprint dodges naive datacenter blocks), urllib fallback.
+try:
+    from curl_cffi import requests as _cffi
+    def _http_once(url):
+        r = _cffi.get(url, impersonate="firefox", timeout=30,
+                      headers={"User-Agent": UA, "Accept-Language": "en-US,en;q=0.9"})
+        r.raise_for_status()
+        return r.content
+    _HTTP_ENGINE = "curl_cffi"
+except Exception:
+    def _http_once(url):
+        req = urllib.request.Request(url, headers={"User-Agent": UA,
+                                                   "Accept-Language": "en-US,en;q=0.9"})
+        with urllib.request.urlopen(req, timeout=30) as r:
+            return r.read()
+    _HTTP_ENGINE = "urllib"
+
+
+def http_get(url, retries=3, retry_delay=2):
+    last = None
+    for i in range(retries):
+        try:
+            return _http_once(url)
+        except Exception as e:
+            last = e
+            if i < retries - 1:
+                time.sleep(retry_delay)
+    raise last
+
 RSS_FEEDS = [
     ("tmz", "https://www.tmz.com/rss.xml"),
     ("dexerto", "https://www.dexerto.com/feed/"),
     ("distractify", "https://www.distractify.com/rss"),
     ("dailydot", "https://www.dailydot.com/feed/"),
+    ("shaderoom", "https://theshaderoom.com/feed/"),
+    ("variety", "https://variety.com/feed/"),
+    ("popcrave", "https://www.popcrave.com/feed/"),
 ]
+
+# Google News RSS search — open, ~100 items/query, no key. The widest net.
+GOOGLE_NEWS_QUERIES = [
+    "youtuber drama OR controversy",
+    "tiktok creator feud OR beef",
+    "twitch streamer drama",
+    "influencer allegations OR apology",
+]
+def google_news_url(q):
+    from urllib.parse import quote_plus
+    return f"https://news.google.com/rss/search?q={quote_plus(q)}&hl=en-US&gl=US&ceid=US:en"
+
+REDDIT_SUBS = ["youtubedrama", "LivestreamFail", "Fauxmoi", "InternetDrama", "TikTokCringe"]
 
 # creator-drama relevance filter for news/trends
 KEYWORDS = re.compile(
@@ -43,7 +97,7 @@ KEYWORDS = re.compile(
 
 TRENDS_RSS = "https://trends.google.com/trending/rss?geo=US"
 MIN_SCORE = 200
-MAX_PER_SUB = 8
+MAX_PER_SOURCE = 6
 
 
 def heat(upvotes, comments):
@@ -54,12 +108,6 @@ def heat(upvotes, comments):
     if raw >= 2000:  return 60
     if raw >= 800:   return 45
     return 30
-
-
-def http_get(url):
-    req = urllib.request.Request(url, headers={"User-Agent": UA})
-    with urllib.request.urlopen(req, timeout=30) as r:
-        return r.read()
 
 
 def candidate(name, angle, score, signals):
@@ -91,17 +139,38 @@ def via_google_trends():
         if not title:
             continue
         h = traffic_to_heat(traffic)
-        # keep if drama-relevant, or if it is a huge cultural moment
         if not KEYWORDS.search(title) and h < 70:
             continue
-        news_title = ""
         news = item.find("ht:news_item", ns)
-        if news is not None:
-            news_title = (news.findtext("ht:news_item_title", default="", namespaces=ns) or "").strip()
-        out.append(candidate(
-            title, f"US Google Trends ({traffic or 'rising'})", h,
-            {"source": "google-trends", "approx_traffic": traffic, "news_title": news_title[:300]}))
+        news_title = (news.findtext("ht:news_item_title", default="", namespaces=ns).strip()
+                      if news is not None else "")
+        out.append(candidate(title, f"US Google Trends ({traffic or 'rising'})", h,
+                             {"source": "google-trends", "approx_traffic": traffic,
+                              "news_title": news_title[:300]}))
     print(f"google trends: {len(out)} candidates")
+    return out
+
+
+def via_google_news():
+    out = []
+    for q in GOOGLE_NEWS_QUERIES:
+        try:
+            root = ET.fromstring(http_get(google_news_url(q)))
+        except Exception as e:
+            print(f"  ! google news '{q}' failed: {e}", file=sys.stderr)
+            continue
+        n = 0
+        for item in root.iter("item"):
+            title = (item.findtext("title") or "").strip()
+            link = (item.findtext("link") or "").strip()
+            if not title or not KEYWORDS.search(title):
+                continue
+            out.append(candidate(title, f"Google News: {q}", 50,
+                                {"source": "google-news", "query": q, "url": link}))
+            n += 1
+            if n >= MAX_PER_SOURCE:
+                break
+        print(f"google news '{q}': {n} candidates")
     return out
 
 
@@ -120,13 +189,49 @@ def via_rss():
             desc = re.sub(r"<[^>]+>", " ", item.findtext("description") or "")[:600]
             if not title or not KEYWORDS.search(title + " " + desc):
                 continue
-            out.append(candidate(
-                title, f"via {feed_name} rss", 45,
-                {"source": f"rss:{feed_name}", "url": link, "desc_excerpt": desc.strip()}))
+            out.append(candidate(title, f"via {feed_name} rss", 45,
+                                {"source": f"rss:{feed_name}", "url": link,
+                                 "desc_excerpt": desc.strip()}))
             n += 1
-            if n >= 6:
+            if n >= MAX_PER_SOURCE:
                 break
         print(f"{feed_name} rss: {n} candidates")
+    return out
+
+
+def via_pullpush():
+    """Reddit via PullPush.io — open mirror, no auth. Reddit killed free API
+    keys 12/2025 and bot-walled public JSON; PullPush is the 2026 free route."""
+    out = []
+    for sub in REDDIT_SUBS:
+        url = (f"https://api.pullpush.io/reddit/search/submission/"
+               f"?subreddit={sub}&sort=desc&sort_type=score&size=15")
+        try:
+            data = json.loads(http_get(url)).get("data", [])
+        except Exception as e:
+            print(f"  ! pullpush r/{sub} failed: {e}", file=sys.stderr)
+            continue
+        n = 0
+        for p in data:
+            if p.get("stickied") or p.get("over_18"):
+                continue
+            ups = int(p.get("score", 0) or 0)
+            if ups < MIN_SCORE:
+                continue
+            title = (p.get("title") or "").strip()
+            if not title:
+                continue
+            out.append(candidate(title, f"surfaced on r/{sub}",
+                                heat(ups, int(p.get("num_comments", 0) or 0)),
+                                {"source": f"reddit:r/{sub}", "ups": ups,
+                                 "comments": int(p.get("num_comments", 0) or 0),
+                                 "permalink": "https://reddit.com" + (p.get("permalink") or ""),
+                                 "external_url": p.get("url") or "",
+                                 "selftext_excerpt": (p.get("selftext") or "")[:800]}))
+            n += 1
+            if n >= MAX_PER_SOURCE:
+                break
+        print(f"r/{sub}: {n} candidates (pullpush)")
     return out
 
 
@@ -134,28 +239,27 @@ def via_praw():
     import praw
     reddit = praw.Reddit(client_id=os.environ["REDDIT_CLIENT_ID"],
                          client_secret=os.environ["REDDIT_CLIENT_SECRET"],
-                         user_agent="GenZHypeDesk/4.0 research")
+                         user_agent="GenZHypeDesk/6.0 research")
     out = []
-    for sub in ["youtubedrama", "LivestreamFail", "Fauxmoi", "InternetDrama", "TikTokCringe"]:
+    for sub in REDDIT_SUBS:
         n = 0
         for p in reddit.subreddit(sub).hot(limit=25):
             if p.stickied or p.over_18 or p.score < MIN_SCORE:
                 continue
-            out.append(candidate(
-                p.title, f"surfaced on r/{sub}", heat(int(p.score), int(p.num_comments)),
-                {"source": f"reddit:r/{sub}", "ups": int(p.score), "comments": int(p.num_comments),
-                 "permalink": "https://reddit.com" + p.permalink,
-                 "selftext_excerpt": (getattr(p, "selftext", "") or "")[:800]}))
+            out.append(candidate(p.title, f"surfaced on r/{sub}",
+                                heat(int(p.score), int(p.num_comments)),
+                                {"source": f"reddit:r/{sub}", "ups": int(p.score),
+                                 "comments": int(p.num_comments),
+                                 "permalink": "https://reddit.com" + p.permalink,
+                                 "selftext_excerpt": (getattr(p, "selftext", "") or "")[:800]}))
             n += 1
-            if n >= MAX_PER_SUB:
+            if n >= MAX_PER_SOURCE:
                 break
         print(f"r/{sub}: {n} candidates (praw)")
     return out
 
 
 def post_ingest_once(items):
-    """One delivery attempt. Prefers requests (the proven path from the
-    receipts worker); falls back to stdlib urllib if requests is absent."""
     body = {"token": os.environ["INGEST_TOKEN"], "items": items}
     url = os.environ["INGEST_URL"]
     try:
@@ -184,23 +288,38 @@ def post_ingest(items, attempts=3):
     raise last
 
 
+def dedupe(items):
+    seen, out = set(), []
+    for it in items:
+        key = re.sub(r"\s+", " ", (it["name"] or "").lower()).strip()[:120]
+        if key and key not in seen:
+            seen.add(key)
+            out.append(it)
+    return out
+
+
 def main():
     if not os.environ.get("INGEST_URL") or not os.environ.get("INGEST_TOKEN"):
         print("missing INGEST_URL / INGEST_TOKEN", file=sys.stderr)
         return 1
+    print(f"http engine: {_HTTP_ENGINE}")
     items = []
-    items += via_google_trends()
-    items += via_rss()
+    for fn in (via_google_trends, via_google_news, via_rss, via_pullpush):
+        try:
+            items += fn()
+        except Exception as e:
+            print(f"  ! {fn.__name__} crashed: {e}", file=sys.stderr)
     if os.environ.get("REDDIT_CLIENT_ID") and os.environ.get("REDDIT_CLIENT_SECRET"):
         try:
             items += via_praw()
         except Exception as e:
             print(f"  ! praw failed: {e}", file=sys.stderr)
+    items = dedupe(items)
     if not items:
         print("no candidates this run")
         return 0
     res = post_ingest(items)
-    print(f"ingest: {res}")
+    print(f"ingest: {res}  (sent {len(items)})")
     return 0 if res.get("ok") else 1
 
 
