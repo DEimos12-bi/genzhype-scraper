@@ -17,6 +17,7 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -r receipts-worker/requirements.txt
+      - run: pip install "git+https://github.com/xacnio/tweetcapture" || echo "tweetcapture unavailable - card fallback active"
       - run: python receipts-worker/receipts.py
         env:
           SITE_BASE: ${{ secrets.SITE_BASE || 'https://genzhype.com' }}
