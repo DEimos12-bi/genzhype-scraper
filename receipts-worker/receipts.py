@@ -8,7 +8,7 @@ receipt IMAGE, and posts it back to the token-gated ingest:
 
 NO logged-in accounts are used anywhere (brand-account safety rule).
 Env: SITE_BASE (https://genzhype.com), INGEST_TOKEN.
-"""
+""" 
 import io
 import os
 import re
