@@ -1,0 +1,24 @@
+# GenZHype | receipts worker. Place at .github/workflows/receipts.yml in the
+# scraper repo (DEimos12-bi/genzhype-scraper). Reuses the existing
+# INGEST_TOKEN secret; add SITE_BASE=https://genzhype.com as a new secret or var.
+name: receipts
+on:
+  schedule:
+    - cron: "30 */6 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  receipts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r receipts-worker/requirements.txt
+      - run: python receipts-worker/receipts.py
+        env:
+          SITE_BASE: ${{ secrets.SITE_BASE || 'https://genzhype.com' }}
+          INGEST_TOKEN: ${{ secrets.INGEST_TOKEN }}
+
