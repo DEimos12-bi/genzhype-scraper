@@ -1,21 +1,23 @@
 #!/usr/bin/env python3
 """
-GenZHype | discovery scraper v6.
-Open, no-auth, datacenter-safe sources (widened from v5):
-  - Google News RSS search  (creator-drama queries; biggest coverage source)
-  - Publisher RSS feeds      (TMZ, Dexerto, Distractify, DailyDot, Shade Room,
-                              Variety, Pop Crave)
-  - Google Trends RSS        (US trending + traffic estimates)
-  - Reddit via PullPush       (open mirror; Reddit stopped free API keys 12/2025,
-                              public JSON now bot-walled, PullPush is the 2026 way)
-  - Reddit via PRAW           (only if creds are provided; optional)
-POSTs candidates to the site's ingest API.
+GenZHype | discovery scraper v7  (hardening over v6, 2026-06-17).
 
-v6 hardening (techniques studied from Scrapling's HTTP layer):
-  - force IPv4 (GitHub runners have no IPv6 route -> errno 101)
-  - curl_cffi browser-TLS impersonation when available, urllib otherwise
-  - per-source try/except so one dead feed never sinks the run
-  - delivery via requests, 3 retries
+Why v6 kept failing (red X after ~14 min):
+  - GETs used curl_cffi (browser-TLS) and worked, but DELIVERY used plain
+    `requests` (Python's TLS fingerprint) which Hostinger's bot protection
+    intermittently blocks -> all chunks fail -> main() returns 1 -> red.
+  - timeout=30 + retries=2 meant every hung/blocked source (pullpush, tmz 403,
+    redirecting feeds) cost up to 60s, stacking into 14-minute runs that were
+    far more exposed to a transient blip.
+
+v7 changes:
+  - SOURCES FAIL FAST: timeout 12s, 1 retry  -> a dead feed costs <=12s, runs
+    finish in ~2 min instead of 14.
+  - GLOBAL FETCH DEADLINE: stop starting new sources after FETCH_BUDGET seconds.
+  - DELIVERY IS BLOCK-RESISTANT: tries 3 engines per attempt (curl_cffi browser-
+    TLS first, then requests, then urllib), 5 attempts, exponential backoff.
+    Browser-TLS delivery is the actual fix for the intermittent ingest block.
+  - follow redirects (dailydot 308, popcrave 301 feeds now resolve).
 """
 import json
 import os
@@ -25,18 +27,17 @@ import time
 import urllib.request
 import xml.etree.ElementTree as ET
 
-# FORCE IPv4: GitHub-hosted runners cannot route IPv6; some hosts publish AAAA
-# records, so stdlib otherwise tries IPv6 first and dies (errno 101).
+# FORCE IPv4: GitHub-hosted runners cannot route IPv6.
 import socket as _socket
 _gai = _socket.getaddrinfo
 _socket.getaddrinfo = lambda *a, **k: [x for x in _gai(*a, **k) if x[0] == _socket.AF_INET]
 
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:130.0) Gecko/20100101 Firefox/130.0"
 
-# Realistic browser header SETS (Scrapling/browserforge idea, dependency-free):
-# rotate per run so the plain-urllib fallback path doesn't send one fixed
-# fingerprint. Rotation is per-process-run (seeded by run minute via os time
-# is unavailable deterministically; we rotate by a module counter instead).
+GET_TIMEOUT = 12        # was 30 â€” fail fast on dead/slow feeds
+GET_RETRIES = 1         # was 2 â€” one quick retry is enough
+FETCH_BUDGET = 240      # stop starting new sources after this many seconds total
+
 _HEADER_SETS = [
     {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:130.0) Gecko/20100101 Firefox/130.0",
      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8", "Accept-Language": "en-US,en;q=0.9"},
@@ -54,49 +55,44 @@ def _next_headers():
     _hdr_i += 1
     return dict(h)
 
-# --- HTTP GET: mirrors Scrapling's "static engine" (curl_cffi browser-TLS
-#     impersonation + stealthy headers + retries + timeout). curl_cffi when
-#     present (TLS fingerprint dodges naive datacenter blocks), urllib fallback
-#     with rotating realistic headers otherwise.
+# curl_cffi (browser-TLS) when present, urllib fallback. Both follow redirects.
 try:
     from curl_cffi import requests as _cffi
     def _http_once(url):
-        r = _cffi.get(url, impersonate="firefox", timeout=30, headers=_next_headers())
+        r = _cffi.get(url, impersonate="firefox", timeout=GET_TIMEOUT,
+                      headers=_next_headers(), allow_redirects=True)
         r.raise_for_status()
         return r.content
     _HTTP_ENGINE = "curl_cffi"
 except Exception:
     def _http_once(url):
         req = urllib.request.Request(url, headers=_next_headers())
-        with urllib.request.urlopen(req, timeout=30) as r:
+        with urllib.request.urlopen(req, timeout=GET_TIMEOUT) as r:
             return r.read()
     _HTTP_ENGINE = "urllib"
 
 
-def http_get(url, retries=2, retry_delay=2):
-    # fail FAST on a slow/dead feed (1 retry) so one hung source can't bloat the
-    # whole run; a missed feed just yields fewer candidates this cycle.
+def http_get(url, retries=GET_RETRIES, retry_delay=2):
     last = None
-    for i in range(retries):
+    for i in range(retries + 1):
         try:
             return _http_once(url)
         except Exception as e:
             last = e
-            if i < retries - 1:
+            if i < retries:
                 time.sleep(retry_delay)
     raise last
 
 RSS_FEEDS = [
-    ("tmz", "https://www.tmz.com/rss.xml"),
     ("dexerto", "https://www.dexerto.com/feed/"),
     ("distractify", "https://www.distractify.com/rss"),
     ("dailydot", "https://www.dailydot.com/feed/"),
     ("shaderoom", "https://theshaderoom.com/feed/"),
     ("variety", "https://variety.com/feed/"),
     ("popcrave", "https://www.popcrave.com/feed/"),
+    # tmz dropped: returns 403 to datacenter IPs (dead weight, never yields).
 ]
 
-# Google News RSS search — open, ~100 items/query, no key. The widest net.
 GOOGLE_NEWS_QUERIES = [
     "youtuber drama OR controversy",
     "tiktok creator feud OR beef",
@@ -109,7 +105,6 @@ def google_news_url(q):
 
 REDDIT_SUBS = ["youtubedrama", "LivestreamFail", "Fauxmoi", "InternetDrama", "TikTokCringe"]
 
-# creator-drama relevance filter for news/trends
 KEYWORDS = re.compile(
     r"tiktok|youtub|stream|twitch|kick\b|influencer|creator|drama|feud|beef|"
     r"onlyfans|podcast|viral|expose|allegat|apolog|cancel|leak|deplatform|"
@@ -222,8 +217,6 @@ def via_rss():
 
 
 def via_pullpush():
-    """Reddit via PullPush.io — open mirror, no auth. Reddit killed free API
-    keys 12/2025 and bot-walled public JSON; PullPush is the 2026 free route."""
     out = []
     for sub in REDDIT_SUBS:
         url = (f"https://api.pullpush.io/reddit/search/submission/"
@@ -261,7 +254,7 @@ def via_praw():
     import praw
     reddit = praw.Reddit(client_id=os.environ["REDDIT_CLIENT_ID"],
                          client_secret=os.environ["REDDIT_CLIENT_SECRET"],
-                         user_agent="GenZHypeDesk/6.0 research")
+                         user_agent="GenZHypeDesk/7.0 research")
     out = []
     for sub in REDDIT_SUBS:
         n = 0
@@ -281,36 +274,50 @@ def via_praw():
     return out
 
 
-def _post_chunk(items, attempts=3):
-    """Deliver one chunk. requests when present (robust), urllib otherwise.
-    60s timeout; 3 attempts 15s apart. Returns the parsed JSON or raises."""
+# ---- DELIVERY: three engines, browser-TLS first (the v7 fix) ----
+def _deliver_cffi(url, body):
+    from curl_cffi import requests as _cffi
+    r = _cffi.post(url, json=body, impersonate="firefox", timeout=60,
+                   headers={"User-Agent": UA})
+    r.raise_for_status()
+    return r.json()
+
+def _deliver_requests(url, body):
+    import requests
+    r = requests.post(url, json=body, headers={"User-Agent": UA}, timeout=60)
+    r.raise_for_status()
+    return r.json()
+
+def _deliver_urllib(url, body):
+    payload = json.dumps(body).encode()
+    req = urllib.request.Request(url, data=payload,
+                                 headers={"Content-Type": "application/json", "User-Agent": UA})
+    with urllib.request.urlopen(req, timeout=60) as r:
+        return json.loads(r.read().decode())
+
+
+def _post_chunk(items, attempts=5):
+    """Each attempt tries browser-TLS, then requests, then urllib (so a TLS-
+    fingerprint block on one engine is dodged by another). 5 attempts with
+    exponential backoff to outlast a transient host block."""
     body = {"token": os.environ["INGEST_TOKEN"], "items": items}
     url = os.environ["INGEST_URL"]
     last = None
+    delay = 5
     for i in range(1, attempts + 1):
-        try:
+        for engine in (_deliver_cffi, _deliver_requests, _deliver_urllib):
             try:
-                import requests
-                r = requests.post(url, json=body, headers={"User-Agent": UA}, timeout=60)
-                r.raise_for_status()
-                return r.json()
-            except ImportError:
-                payload = json.dumps(body).encode()
-                req = urllib.request.Request(url, data=payload,
-                                             headers={"Content-Type": "application/json", "User-Agent": UA})
-                with urllib.request.urlopen(req, timeout=60) as r:
-                    return json.loads(r.read().decode())
-        except Exception as e:
-            last = e
-            print(f"  ! ingest attempt {i}/{attempts} failed: {e}", file=sys.stderr)
-            if i < attempts:
-                time.sleep(15)
+                return engine(url, body)
+            except Exception as e:
+                last = e
+        print(f"  ! ingest attempt {i}/{attempts} failed (all engines): {last}", file=sys.stderr)
+        if i < attempts:
+            time.sleep(delay)
+            delay = min(delay * 2, 60)
     raise last
 
 
 def post_ingest(items, chunk=20):
-    """Deliver in small chunks: each POST is fast (dodges payload/connect
-    timeouts) and partial success is kept even if a later chunk fails."""
     total_ins, total_skip, sent_ok = 0, 0, 0
     for c in range(0, len(items), chunk):
         part = items[c:c + chunk]
@@ -340,8 +347,12 @@ def main():
         print("missing INGEST_URL / INGEST_TOKEN", file=sys.stderr)
         return 1
     print(f"http engine: {_HTTP_ENGINE}")
+    started = time.time()
     items = []
     for fn in (via_google_trends, via_google_news, via_rss, via_pullpush):
+        if time.time() - started > FETCH_BUDGET:
+            print(f"  ! fetch budget ({FETCH_BUDGET}s) hit; skipping {fn.__name__}", file=sys.stderr)
+            continue
         try:
             items += fn()
         except Exception as e:
@@ -355,13 +366,14 @@ def main():
     if not items:
         print("no candidates this run")
         return 0
-    # trim bulky Reddit text so POST bodies stay small and fast
     for it in items:
         sx = it.get("signals", {}).get("selftext_excerpt")
         if sx:
             it["signals"]["selftext_excerpt"] = sx[:300]
     res = post_ingest(items)
     print(f"ingest: {res}  (harvested {len(items)})")
+    # Green as long as at least one chunk delivered. Only a TOTAL delivery
+    # failure (every engine, every retry, every chunk) goes red.
     return 0 if res.get("ok") else 1
 
 
