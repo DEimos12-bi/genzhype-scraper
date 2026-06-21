@@ -217,6 +217,25 @@ def openverse_candidates(name, n=6):
     except Exception as e: log("  openverse:", e)
     return out
 
+def commons_candidates(name, n=6):
+    """Wikimedia Commons DIRECT search (CC-licensed) — finds files even when the person has no
+    Wikipedia page (so it reaches beyond the single Wikidata P18 photo). API-based = never
+    blocked on the runner, unlike web scrapers."""
+    out = []
+    try:
+        j = http_json("https://commons.wikimedia.org/w/api.php?action=query&format=json&generator=search"
+                      "&gsrsearch=" + urllib.parse.quote(name) + "&gsrnamespace=6&gsrlimit=" + str(n)
+                      + "&prop=imageinfo&iiprop=url|extmetadata&iiurlwidth=1200", 20)
+        for pg in (j.get("query", {}).get("pages", {}) or {}).values():
+            ii = (pg.get("imageinfo") or [{}])[0]
+            u = ii.get("thumburl") or ii.get("url"); ttl = pg.get("title", "")
+            if u and any(u.lower().split("?")[0].endswith(e) for e in (".jpg", ".jpeg", ".png", ".webp")):
+                out.append({"url": u, "credit": "Photo via Wikimedia Commons",
+                            "credit_url": "https://commons.wikimedia.org/wiki/" + urllib.parse.quote(ttl)})
+    except Exception as e:
+        log("  commons:", e)
+    return out
+
 def youtube_channel_candidates(name, n=6):
     """Identity-safe frames from the person's OWN channel uploads + the channel avatar."""
     if not YT_KEY: return []
@@ -253,6 +272,21 @@ def web_candidates(person, context="", n=14):
                 for p in sorted(glob.glob(d + "/*"))]
     except Exception as e:
         log("  web:", e); return []
+
+def google_candidates(person, context="", n=10):
+    """A second web search engine (Google via icrawler) — more reach than Bing alone, feeds
+    the same majority-face verification so coverage goes up without lowering safety."""
+    if not USE_BING: return []
+    try:
+        from icrawler.builtin import GoogleImageCrawler
+        import tempfile, glob
+        q = (context.strip() + " " if context else "") + person + " face"
+        d = tempfile.mkdtemp()
+        GoogleImageCrawler(storage={"root_dir": d}, log_level=50).crawl(keyword=q, max_num=n, filters={"type": "photo"})
+        return [{"url": "file://" + p, "credit": f"Photo of {person} (via web)", "credit_url": ""}
+                for p in sorted(glob.glob(d + "/*"))]
+    except Exception as e:
+        log("  google:", e); return []
 
 def dominant_face_reference(cands):
     """SAFE web identity: from many candidate images, find the face that RECURS the most —
@@ -351,17 +385,17 @@ def process(item):
     if not ref_bytes:
         ref_bytes = channel_face_reference(person) or b""
     if not ref_bytes and USE_BING:
-        wcands = web_candidates(person, summary[:60])
-        rb, members = dominant_face_reference(wcands)        # majority-face = the real person
+        wcands = web_candidates(person, summary[:60]) + google_candidates(person, summary[:60])
+        rb, members = dominant_face_reference(wcands)        # majority-face across Bing + Google
         if rb:
             ref_bytes = rb; web_members = [wcands[i] for i in sorted(members)]
     if not ref_bytes:
         log("  no face reference -> cannot verify identity, staying a card"); return None
 
-    # gather candidates (web_members are already majority-verified; still re-checked below)
-    cands = web_members + openverse_candidates(person) + youtube_channel_candidates(person)
+    # gather candidates from ALL sources (web_members already majority-verified; still re-checked)
+    cands = web_members + commons_candidates(person) + openverse_candidates(person) + youtube_channel_candidates(person)
     if USE_BING and not web_members:
-        cands += web_candidates(person, summary[:60])
+        cands += web_candidates(person, summary[:60]) + google_candidates(person, summary[:60])
     if not cands: log("  no candidates"); return None
 
     scored = []
