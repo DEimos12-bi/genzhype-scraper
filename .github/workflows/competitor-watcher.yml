@@ -1,0 +1,23 @@
+name: GenZHype competitor watcher
+on:
+  schedule:
+    - cron: '0 7 * * *'      # daily 07:00 UTC (the cheap polite poll)
+  workflow_dispatch:          # also runnable on demand from the Actions tab
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install deps
+        run: pip install -r requirements_competitor.txt
+      - name: Run competitor watcher
+        env:
+          COMP_INGEST_URL: ${{ secrets.COMP_INGEST_URL }}
+          INGEST_TOKEN: ${{ secrets.INGEST_TOKEN }}
+          COMPETITORS: ${{ vars.COMPETITORS }}        # optional: comma-separated domains (Settings -> Variables)
+          ARTICLES_PER_COMP: '8'
+        run: python competitor_watcher.py
