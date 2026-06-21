@@ -1,0 +1,15 @@
+# GenZHype Image Engine — external (GitHub Actions). Heavy ML stack; first run is slow
+# (downloads models) but it's a once-a-day job.
+deepface>=0.0.93
+tensorflow-cpu>=2.13
+tf-keras
+retina-face
+opencv-python-headless
+open_clip_torch>=2.24
+torch>=2.2
+nudenet>=3.4
+onnxruntime
+Pillow>=10.0
+numpy>=1.24
+curl_cffi>=0.7
+icrawler>=0.6
