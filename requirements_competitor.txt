@@ -1,0 +1,5 @@
+trafilatura>=1.8
+extruct>=0.16
+curl_cffi>=0.7
+lxml>=5.0
+requests>=2.31
