@@ -3,29 +3,29 @@
 GenZHype | Competitor Intelligence WATCHER  (Phase 2 of the Competitor Engine).
 
 Runs externally on GitHub Actions (like scraper.py). For each competitor it:
-  1. finds sitemaps (robots.txt -> Sitemap: lines, then /sitemap.xml), parses them
-     recursively -> (url, lastmod). lastmod = publishing cadence; the URL SET = which
-     pages exist (the brain diffs it to find newly-published pages).
-  2. takes the most RECENT articles and, per article, extracts the "why they win" signals:
-       - content  via trafilatura (clean word_count, H2 outline, outbound link domains,
-                   author, publish date)
-       - schema   via extruct (their JSON-LD @type set, sameAs/speakable/FAQPage presence)
-       - head tags via lxml (title, meta description, canonical, og:type)
-  3. POSTs all signal bundles to the PHP brain (/api/comp_ingest.php), which stores +
-     diffs them over time. Delivery reuses scraper.py's browser-TLS engines so Hostinger
-     bot-protection can't block it.
+  1. finds sitemaps robustly (robots.txt Sitemap: lines on both www/non-www, then a list
+     of common paths), follows redirects, decompresses gzip, recurses into the MOST RECENT
+     child sitemaps -> (url, lastmod). lastmod = cadence; the URL SET = which pages exist.
+  2. takes the most RECENT articles and per article extracts the "why they win" signals:
+       - content  via trafilatura (word_count, author, publish date, outbound link domains)
+       - schema   via extruct (JSON-LD @type set, sameAs/speakable/FAQPage presence)
+       - head tags via lxml (title, meta description, canonical, og:type, H1/H2 outline)
+  3. POSTs the signal bundles to the PHP brain (/api/comp_ingest.php), which stores + diffs
+     them over time, AND posts a self-diagnosis run report (engine, per-competitor counts,
+     errors) so the pipeline is observable from the DB. Delivery reuses scraper.py's
+     browser-TLS engines so Hostinger bot-protection can't block it.
 
 Env:
   COMP_INGEST_URL   e.g. https://genzhype.com/api/comp_ingest.php   (required)
   INGEST_TOKEN      the site ingest token                          (required)
-  COMPETITORS       comma-separated competitor domains (optional; sensible default below)
+  COMPETITORS       comma-separated competitor domains (optional; default below)
   ARTICLES_PER_COMP how many recent articles to analyze per competitor (default 8)
 
 requirements: trafilatura>=1.8  extruct>=0.16  curl_cffi>=0.7  lxml>=5  requests>=2.31
 """
+import gzip
 import json
 import os
-import re
 import sys
 import time
 import hashlib
@@ -40,16 +40,20 @@ _socket.getaddrinfo = lambda *a, **k: [x for x in _gai(*a, **k) if x[0] == _sock
 
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:130.0) Gecko/20100101 Firefox/130.0"
 GET_TIMEOUT = 15
-FETCH_BUDGET = 300            # stop starting new competitors after this many seconds
+FETCH_BUDGET = 600            # stop starting new competitors after this many seconds
 ARTICLES_PER_COMP = int(os.environ.get("ARTICLES_PER_COMP", "8"))
 
-# The competitive set (edit via the COMPETITORS env / GitHub secret). These are real
-# creator-culture / drama / explainer sites that compete for the same queries.
+# The competitive set (edit via the COMPETITORS env / GitHub variable). Real creator-culture
+# / drama / explainer sites competing for the same queries (all verified to expose sitemaps).
 DEFAULT_COMPETITORS = [
     "dexerto.com", "distractify.com", "knowyourmeme.com", "thethings.com",
-    "popcrave.com", "dailydot.com", "thetab.com",
+    "popcrave.com", "dailydot.com", "thetab.com", "screenrant.com",
 ]
 COMPETITORS = [d.strip() for d in os.environ.get("COMPETITORS", ",".join(DEFAULT_COMPETITORS)).split(",") if d.strip()]
+
+# Common sitemap locations to probe when robots.txt doesn't advertise one.
+SITEMAP_PATHS = ["/sitemap.xml", "/sitemap_index.xml", "/sitemap-index.xml",
+                 "/news-sitemap.xml", "/sitemap_news.xml", "/wp-sitemap.xml"]
 
 # ---- browser-TLS HTTP (curl_cffi) with urllib fallback, like scraper.py ----
 try:
@@ -60,12 +64,19 @@ try:
         r.raise_for_status()
         return r.content
     _ENGINE = "curl_cffi"
-except Exception:
+except Exception as _imp_err:
     def _http_once(url):
-        req = urllib.request.Request(url, headers={"User-Agent": UA})
+        req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept-Encoding": "gzip"})
         with urllib.request.urlopen(req, timeout=GET_TIMEOUT) as r:
-            return r.read()
-    _ENGINE = "urllib"
+            data = r.read()
+            if r.headers.get("Content-Encoding") == "gzip" or data[:2] == b"\x1f\x8b":
+                try:
+                    data = gzip.decompress(data)
+                except Exception:
+                    pass
+            return data
+    _ENGINE = "urllib(curl_cffi-missing)"
+    print(f"WARNING: curl_cffi unavailable ({_imp_err}); using urllib — Cloudflare sites may block.", file=sys.stderr)
 
 def http_get(url, retries=1):
     last = None
@@ -86,40 +97,59 @@ def http_text(url):
 
 # ---- sitemap discovery + parsing ----
 def find_sitemaps(domain):
-    out = []
-    robots = http_text(f"https://{domain}/robots.txt")
-    for line in robots.splitlines():
-        if line.lower().startswith("sitemap:"):
-            out.append(line.split(":", 1)[1].strip())
-    if not out:
-        out = [f"https://{domain}/sitemap.xml", f"https://{domain}/sitemap_index.xml"]
-    return out
+    """Robust: robots.txt Sitemap: lines (both www/non-www), else probe common paths."""
+    cands, seen = [], set()
+    def add(u):
+        u = (u or "").strip()
+        if u and u not in seen:
+            seen.add(u); cands.append(u)
+    for base in (f"https://{domain}", f"https://www.{domain}"):
+        robots = http_text(f"{base}/robots.txt")
+        found = False
+        for line in robots.splitlines():
+            if line.lower().startswith("sitemap:"):
+                add(line.split(":", 1)[1].strip()); found = True
+        if found:
+            return cands                       # robots told us where it lives — trust it
+    for base in (f"https://{domain}", f"https://www.{domain}"):
+        for p in SITEMAP_PATHS:
+            add(base + p)
+    return cands
 
 def _strip_ns(tag):
     return tag.split("}", 1)[-1] if "}" in tag else tag
 
-def parse_sitemap(url, depth=0, seen=None):
-    """Return list of (loc, lastmod). Recurses into <sitemapindex>. Bounded."""
+def _decompress(raw, url):
+    if raw and (url.endswith(".gz") or raw[:2] == b"\x1f\x8b"):
+        try:
+            return gzip.decompress(raw)
+        except Exception:
+            return raw
+    return raw
+
+def parse_sitemap(url, depth=0, seen=None, want=80):
+    """Return list of (loc, lastmod). Recurses into the MOST RECENT child sitemaps. Bounded."""
     if seen is None:
         seen = set()
-    if url in seen or depth > 2 or len(seen) > 60:
+    if url in seen or depth > 3 or len(seen) > 40:
         return []
     seen.add(url)
-    raw = http_get(url) if not url.endswith(".gz") else b""   # skip gzip for v1
+    try:
+        raw = _decompress(http_get(url, retries=1), url)
+    except Exception as e:
+        print(f"    ! fetch sitemap {url}: {e}", file=sys.stderr)
+        return []
     if not raw:
         return []
     try:
         root = ET.fromstring(raw)
-    except Exception:
+    except Exception as e:
+        print(f"    ! parse sitemap {url}: {e}", file=sys.stderr)
         return []
-    rows, children = [], []
+    rows, child_entries = [], []
     for el in root.iter():
         tag = _strip_ns(el.tag)
-        if tag == "sitemap":          # index entry
-            loc = el.findtext("{*}loc") or "".join(c.text or "" for c in el if _strip_ns(c.tag) == "loc")
-            if loc:
-                children.append(loc.strip())
-        elif tag == "url":
+        if tag in ("sitemap", "url"):
             loc = lastmod = None
             for c in el:
                 ct = _strip_ns(c.tag)
@@ -128,9 +158,16 @@ def parse_sitemap(url, depth=0, seen=None):
                 elif ct == "lastmod":
                     lastmod = (c.text or "").strip()
             if loc:
-                rows.append((loc, lastmod or ""))
-    for ch in children[:25]:
-        rows += parse_sitemap(ch, depth + 1, seen)
+                (child_entries if tag == "sitemap" else rows).append((loc, lastmod or ""))
+    # recurse into the freshest child sitemaps first (so we reach recent articles, not 2018)
+    if any(lm for _, lm in child_entries):
+        child_entries.sort(key=lambda e: e[1], reverse=True)
+    else:
+        child_entries = child_entries[::-1]    # no lastmod -> newest is usually listed last
+    for cloc, _ in child_entries[:6]:
+        if len(rows) >= want:
+            break
+        rows += parse_sitemap(cloc, depth + 1, seen, want)
     return rows
 
 # ---- per-article signal extraction ----
@@ -226,18 +263,29 @@ def analyze_article(url):
 
 
 def watch_competitor(domain):
-    items = []
-    entries = []
-    for sm in find_sitemaps(domain):
+    """Returns (signal_items, per_domain_report_dict)."""
+    rep = {"sitemaps_tried": 0, "entries": 0, "articles": 0, "error": ""}
+    items, entries = [], []
+    cands = find_sitemaps(domain)
+    rep["sitemaps_tried"] = len(cands)
+    for sm in cands:
         try:
             entries += parse_sitemap(sm)
         except Exception as e:
             print(f"  ! sitemap {sm} failed: {e}", file=sys.stderr)
-        if len(entries) > 4000:
+        if len(entries) >= 60:
             break
+    # dedupe by url, keep order
+    seenu, uniq = set(), []
+    for u, lm in entries:
+        if u and u not in seenu:
+            seenu.add(u); uniq.append((u, lm))
+    entries = uniq
+    rep["entries"] = len(entries)
     if not entries:
-        print(f"  {domain}: no sitemap entries", file=sys.stderr)
-        return items
+        rep["error"] = "no sitemap entries"
+        print(f"  {domain}: NO sitemap entries (tried {len(cands)} candidates)", file=sys.stderr)
+        return items, rep
     # sitemap-level signal: the URL set (brain diffs it -> newly published pages) + cadence
     locs = sorted({u for u, _ in entries})
     items.append({"url": f"https://{domain}/__sitemap__", "watch_type": "sitemap",
@@ -251,18 +299,18 @@ def watch_competitor(domain):
         try:
             a = analyze_article(u)
             if a:
-                items.append(a)
-            time.sleep(1)              # politeness
+                items.append(a); rep["articles"] += 1
+            time.sleep(0.7)              # politeness
         except Exception as e:
             print(f"    ! analyze {u} failed: {e}", file=sys.stderr)
-    print(f"  {domain}: {len(items)} signals ({len(pick)} articles)")
-    return items
+    print(f"  {domain}: {len(items)} signals ({rep['articles']} articles, {len(entries)} urls)")
+    return items, rep
 
 
 # ---- delivery: browser-TLS first, then requests, then urllib (like scraper.py v7) ----
 def _deliver_cffi(url, body):
-    from curl_cffi import requests as _cffi
-    r = _cffi.post(url, json=body, impersonate="firefox", timeout=60, headers={"User-Agent": UA}); r.raise_for_status(); return r.json()
+    from curl_cffi import requests as _c
+    r = _c.post(url, json=body, impersonate="firefox", timeout=60, headers={"User-Agent": UA}); r.raise_for_status(); return r.json()
 def _deliver_requests(url, body):
     import requests
     r = requests.post(url, json=body, headers={"User-Agent": UA}, timeout=60); r.raise_for_status(); return r.json()
@@ -271,28 +319,43 @@ def _deliver_urllib(url, body):
     with urllib.request.urlopen(req, timeout=60) as r:
         return json.loads(r.read().decode())
 
+def _post(url, body):
+    """Try the 3 delivery engines once each; return parsed json or raise last error."""
+    last = None
+    for engine in (_deliver_cffi, _deliver_requests, _deliver_urllib):
+        try:
+            return engine(url, body)
+        except Exception as e:
+            last = e
+    raise last
+
 def deliver(items, chunk=40):
     url = os.environ["COMP_INGEST_URL"]; tok = os.environ["INGEST_TOKEN"]
     sent = {"first_seen": 0, "changed": 0, "unchanged": 0, "errors": 0}
     for c in range(0, len(items), chunk):
         body = {"token": tok, "items": items[c:c + chunk]}
-        last = None
         for i in range(1, 6):
-            for engine in (_deliver_cffi, _deliver_requests, _deliver_urllib):
-                try:
-                    res = engine(url, body)
-                    for k in sent:
-                        sent[k] += int(res.get(k, 0))
-                    last = None; break
-                except Exception as e:
-                    last = e
-            if last is None:
+            try:
+                res = _post(url, body)
+                for k in sent:
+                    sent[k] += int(res.get(k, 0))
                 break
-            print(f"  ! deliver chunk attempt {i}/5 failed: {last}", file=sys.stderr)
-            time.sleep(min(5 * 2 ** (i - 1), 60))
-        if last is not None:
-            print(f"  ! chunk dropped after retries: {last}", file=sys.stderr)
+            except Exception as e:
+                print(f"  ! deliver chunk attempt {i}/5 failed: {e}", file=sys.stderr)
+                if i == 5:
+                    print(f"  ! chunk dropped after retries: {e}", file=sys.stderr)
+                else:
+                    time.sleep(min(5 * 2 ** (i - 1), 60))
     return sent
+
+def send_run_report(report):
+    """POST the watcher self-diagnosis to the brain (engine, per-domain counts, errors)."""
+    try:
+        body = {"token": os.environ["INGEST_TOKEN"], "run": report}
+        _post(os.environ["COMP_INGEST_URL"], body)
+        print("run report logged")
+    except Exception as e:
+        print(f"  ! run report failed: {e}", file=sys.stderr)
 
 
 def main():
@@ -300,19 +363,25 @@ def main():
         print("missing COMP_INGEST_URL / INGEST_TOKEN", file=sys.stderr); return 1
     print(f"http engine: {_ENGINE} · competitors: {len(COMPETITORS)}")
     started = time.time()
+    report = {"engine": _ENGINE, "domains": {}, "harvested": 0, "delivered": None, "notes": ""}
     allitems = []
     for domain in COMPETITORS:
         if time.time() - started > FETCH_BUDGET:
-            print(f"  ! budget hit; skipping {domain}", file=sys.stderr); continue
+            report["domains"][domain] = {"error": "budget"}; continue
         try:
-            allitems += watch_competitor(domain)
+            its, rep = watch_competitor(domain)
+            allitems += its
+            report["domains"][domain] = rep
         except Exception as e:
+            report["domains"][domain] = {"error": str(e)[:200]}
             print(f"  ! {domain} crashed: {e}", file=sys.stderr)
-    if not allitems:
-        print("no competitor signals this run"); return 0
-    res = deliver(allitems)
+    report["harvested"] = len(allitems)
+    res = deliver(allitems) if allitems else {"first_seen": 0, "changed": 0, "unchanged": 0, "errors": 0}
+    report["delivered"] = res
+    send_run_report(report)
     print(f"delivered: {res}  (harvested {len(allitems)} signals)")
-    return 0 if (res["first_seen"] + res["changed"] + res["unchanged"]) > 0 else 1
+    # RED if we genuinely harvested nothing — so failures are visible, not silently green.
+    return 0 if allitems else 1
 
 
 if __name__ == "__main__":
