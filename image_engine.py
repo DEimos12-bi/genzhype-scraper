@@ -96,6 +96,15 @@ def load_img(b):
     try: return Image.open(io.BytesIO(b)).convert("RGB")
     except Exception: return None
 
+def crop_face_bytes(b, fa, pad=0.4):
+    img = load_img(b)
+    if not img: return None
+    x, y, w, h = fa.get("x",0), fa.get("y",0), fa.get("w",0), fa.get("h",0)
+    if w < 40 or h < 40: return None
+    p = int(max(w, h) * pad)
+    box = (max(0,x-p), max(0,y-p), min(img.width,x+w+p), min(img.height,y+h+p))
+    out = io.BytesIO(); img.crop(box).save(out, "JPEG", quality=90); return out.getvalue()
+
 def is_nsfw(b):
     det = nude_detector()
     if not det: return False
@@ -247,6 +256,40 @@ def fetch_bytes(u):
     try: return http_get(u, 20)
     except Exception: return b""
 
+def channel_face_reference(person):
+    """v2: when there's no Wikimedia photo, build the identity reference from the creator's
+    OWN channel — the face that RECURS across their video thumbnails is the channel owner =
+    the person. This is what unlocks creators like KSI (logo avatar, no licensed photo)."""
+    cands = youtube_channel_candidates(person, 10)
+    if not cands: return None
+    try:
+        from deepface import DeepFace
+        import numpy as np, tempfile
+        crops, embs = [], []
+        for c in cands:
+            b = fetch_bytes(c["url"])
+            if len(b) < 3000: continue
+            t = tempfile.NamedTemporaryFile(suffix=".jpg", delete=False); t.write(b); t.close()
+            try:
+                reps = DeepFace.represent(t.name, model_name="ArcFace", detector_backend="ssd", enforce_detection=True)
+            except Exception:
+                reps = []
+            try: os.unlink(t.name)
+            except Exception: pass
+            for rep in reps:
+                fc = crop_face_bytes(b, rep.get("facial_area", {}))
+                if fc: crops.append(fc); embs.append(rep["embedding"])
+        if not crops: return None
+        if len(crops) == 1: return crops[0]
+        E = np.array(embs); E = E / np.linalg.norm(E, axis=1, keepdims=True)
+        scores = (E @ E.T > 0.45).sum(axis=1)        # how many other faces each one matches
+        best = int(np.argmax(scores))
+        if int(scores[best]) < 2: return None        # no clearly-recurring person -> not confident
+        log(f"  reference built from {person}'s own channel (recurs in {int(scores[best])} thumbnails)")
+        return crops[best]
+    except Exception as e:
+        log("  channel_face_reference:", e); return None
+
 # ---- per-drama pipeline ----
 _ROLE = re.compile(r'^(lego\s+)?(youtuber|streamer|influencer|tiktoker|twitch streamer|rapper|singer|comedian|actor|actress|content creator)\s+', re.I)
 _STOP = re.compile(r"['’]s\b|:|\bvs\.?\b|\b(discusses|dies|died|announces|files|rejects|sparks|arrest|abuse|faces|responds|addresses|slams|quits|leaves|leaving|accused|denies|apologizes|sues|clarifies|breaks|reveals|admits|confirms|after|amid|and|over|gets|goes|calls|hits)\b", re.I)
@@ -263,15 +306,12 @@ def process(item):
     person = best_person(item)
     log(f"#{item['page_id']} {title[:48]} | person={person} | mood={mood}")
 
-    # reference for identity: Wikimedia first; else the channel avatar (must contain a face)
+    # reference for identity: Wikimedia (trusted, occupation-checked) first; else build one
+    # from the creator's OWN channel (v2 — the recurring face across their videos = them).
     ref = wikimedia_ref(person, title + " " + summary)
     ref_bytes = fetch_bytes(ref["url"]) if ref else b""
     if not ref_bytes:
-        yt = youtube_channel_candidates(person, 1)
-        if yt:
-            rb = fetch_bytes(yt[0]["url"])
-            # only a real face can be a reference (a logo avatar can't verify anyone)
-            if rb and same_person(rb, rb) is not None: ref_bytes = rb
+        ref_bytes = channel_face_reference(person) or b""
     if not ref_bytes:
         log("  no face reference -> cannot verify identity, staying a card"); return None
 
