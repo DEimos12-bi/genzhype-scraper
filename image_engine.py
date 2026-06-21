@@ -22,7 +22,14 @@ Env: IMG_BASE (https://genzhype.com), INGEST_TOKEN, YOUTUBE_KEY, OPENVERSE_TOKEN
      MAX_DRAMAS(default 6), USE_BING(0/1).
 requirements: see requirements_image.txt
 """
-import io, os, sys, json, time, base64, hashlib, urllib.request, urllib.parse
+import io, os, sys, json, time, base64, hashlib, re, urllib.request, urllib.parse
+
+# Prevent the classic TensorFlow + PyTorch + onnxruntime segfault (multiple OpenMP runtimes
+# in one process — "OMP: Error #15" / exit 139). Must be set BEFORE any ML import.
+os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
+os.environ.setdefault("OMP_NUM_THREADS", "1")
+os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "3")
+os.environ.setdefault("TF_ENABLE_ONEDNN_OPTS", "0")
 
 # ---- config ----
 BASE   = os.environ.get("IMG_BASE", "https://genzhype.com").rstrip("/")
@@ -161,11 +168,23 @@ def face_crop_webp(b, w=1200, h=630):
     out = io.BytesIO(); crop.save(out, "WEBP", quality=86); return out.getvalue()
 
 # ---- sources ----
-def wikimedia_ref(name):
-    """A trusted reference photo of the person from Wikidata/Wikimedia (or None)."""
+def wikimedia_ref(name, story=""):
+    """A TRUSTED reference photo of the person from Wikidata/Wikimedia (or None). Rejects a
+    famous NAMESAKE in another field (Ben Schneider the folk musician) so we never verify
+    candidates against the wrong person."""
     try:
-        q = http_json("https://www.wikidata.org/w/api.php?action=wbsearchentities&format=json&language=en&type=item&limit=1&search=" + urllib.parse.quote(name))
-        ent = (q.get("search") or [{}])[0].get("id")
+        q = http_json("https://www.wikidata.org/w/api.php?action=wbsearchentities&format=json&language=en&type=item&limit=5&search=" + urllib.parse.quote(name))
+        results = q.get("search") or []
+        if not results: return None
+        top = results[0]
+        desc = (top.get("description") or "").lower()
+        mismatch = any(w in desc for w in ["musician","singer","songwriter","guitarist","drummer","band","composer","footballer","football player","basketball","baseball","cricketer","politician","senator","governor","novelist","author","painter","economist","scientist","physician","astronaut"])
+        creatorish = any(w in desc for w in ["youtuber","streamer","internet","influencer","content creator","twitch","social media","online","personality","gamer","tiktok","podcaster","media"])
+        sl = (name + " " + story).lower()
+        if mismatch and not creatorish and not any(w in sl for w in ["music","song","album","rap","concert","band","sport","politic","film","movie","novel","paint","science"]):
+            log(f"  wikimedia: '{name}' resolves to a non-creator namesake ({desc}) -> skipping reference")
+            return None
+        ent = top.get("id")
         if not ent: return None
         d = http_json(f"https://www.wikidata.org/w/api.php?action=wbgetclaims&format=json&property=P18&entity={ent}")
         img = d.get("claims",{}).get("P18",[{}])[0].get("mainsnak",{}).get("datavalue",{}).get("value")
@@ -229,12 +248,15 @@ def fetch_bytes(u):
     except Exception: return b""
 
 # ---- per-drama pipeline ----
+_ROLE = re.compile(r'^(lego\s+)?(youtuber|streamer|influencer|tiktoker|twitch streamer|rapper|singer|comedian|actor|actress|content creator)\s+', re.I)
+_STOP = re.compile(r"['’]s\b|:|\bvs\.?\b|\b(discusses|dies|died|announces|files|rejects|sparks|arrest|abuse|faces|responds|addresses|slams|quits|leaves|leaving|accused|denies|apologizes|sues|clarifies|breaks|reveals|admits|confirms|after|amid|and|over|gets|goes|calls|hits)\b", re.I)
 def best_person(item):
-    # prefer a name that resolves to a YouTube channel or Wikidata; fall back to first hint
-    for p in item.get("people", []):
-        if len(p.split()) >= 2: return p
-    # else use the leading proper-noun chunk of the title
-    return (item.get("title","").split(":")[0].split(" Discusses")[0].split(" Dies")[0]).strip()[:60]
+    """Extract the story's CENTRAL person from the title (the noisy work-list hint is ignored)."""
+    t = (item.get("title", "") or "").strip()
+    t = _ROLE.sub("", t)                       # drop a leading role descriptor ("Lego YouTuber ...")
+    t = _STOP.split(t)[0]                       # cut at the first action word / possessive / colon
+    name = " ".join(t.strip(" -–—").split()[:3])
+    return name[:60] if len(name) >= 2 else (item.get("title", "")[:40])
 
 def process(item):
     title, summary, mood = item["title"], item.get("summary",""), item.get("mood","neutral")
@@ -242,7 +264,7 @@ def process(item):
     log(f"#{item['page_id']} {title[:48]} | person={person} | mood={mood}")
 
     # reference for identity: Wikimedia first; else the channel avatar (must contain a face)
-    ref = wikimedia_ref(person)
+    ref = wikimedia_ref(person, title + " " + summary)
     ref_bytes = fetch_bytes(ref["url"]) if ref else b""
     if not ref_bytes:
         yt = youtube_channel_candidates(person, 1)
@@ -286,17 +308,20 @@ def main():
     wl = http_json(f"{BASE}/api/img_worklist.php?token={urllib.parse.quote(TOKEN)}&limit={MAXN}")
     items = wl.get("items", [])[:MAXN]
     log(f"worklist: {len(items)} dramas need an image")
-    out = []
+    delivered = 0
     for it in items:
         try:
             r = process(it)
-            if r: out.append(r)
         except Exception as e:
-            log(f"  #{it.get('page_id')} crashed: {e}")
-    if not out:
-        log("nothing publishable this run"); return 0
-    res = http_post(f"{BASE}/api/img_ingest.php", {"token": TOKEN, "items": out})
-    log("delivered:", json.dumps(res))
+            log(f"  #{it.get('page_id')} crashed: {e}"); continue
+        if not r: continue
+        # deliver each image AS SOON as it's ready, so a later crash never loses earlier wins
+        try:
+            res = http_post(f"{BASE}/api/img_ingest.php", {"token": TOKEN, "items": [r]})
+            log("  delivered:", json.dumps(res)); delivered += 1
+        except Exception as e:
+            log("  deliver failed:", e)
+    log(f"done; published {delivered} image(s)")
     return 0
 
 if __name__ == "__main__":
