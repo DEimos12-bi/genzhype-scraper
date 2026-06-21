@@ -1,0 +1,24 @@
+name: GenZHype image engine
+on:
+  schedule:
+    - cron: '0 8 * * *'        # daily 08:00 UTC (after the watcher + distiller)
+  workflow_dispatch:            # run on demand from the Actions tab
+jobs:
+  images:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45         # first run installs torch+tensorflow + downloads models
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install deps
+        run: pip install -r requirements_image.txt
+      - name: Run image engine
+        env:
+          IMG_BASE: 'https://genzhype.com'
+          INGEST_TOKEN: ${{ secrets.INGEST_TOKEN }}
+          YOUTUBE_KEY: ${{ secrets.YOUTUBE_KEY }}     # optional but recommended (add as a repo secret)
+          MAX_DRAMAS: '6'
+          USE_BING: '0'                                # set to '1' to also pull Bing image candidates
+        run: python image_engine.py
