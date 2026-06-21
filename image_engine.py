@@ -115,7 +115,7 @@ def same_person(cand_bytes, ref_bytes):
         paths = []
         for b in (cand_bytes, ref_bytes):
             t = tempfile.NamedTemporaryFile(suffix=".jpg", delete=False); t.write(b); t.close(); paths.append(t.name)
-        out = DeepFace.verify(paths[0], paths[1], model_name="ArcFace", detector_backend="retinaface", enforce_detection=True)
+        out = DeepFace.verify(paths[0], paths[1], model_name="ArcFace", detector_backend="ssd", enforce_detection=True)
         for p in paths: os.unlink(p)
         return bool(out.get("verified"))
     except Exception as e:
@@ -155,7 +155,7 @@ def face_crop_webp(b, w=1200, h=630):
         from deepface import DeepFace
         import tempfile, numpy as np
         t = tempfile.NamedTemporaryFile(suffix=".jpg", delete=False); t.write(b); t.close()
-        faces = DeepFace.extract_faces(t.name, detector_backend="retinaface", enforce_detection=False); os.unlink(t.name)
+        faces = DeepFace.extract_faces(t.name, detector_backend="ssd", enforce_detection=False); os.unlink(t.name)
         if faces:
             fa = max(faces, key=lambda f: f.get("facial_area",{}).get("w",0)).get("facial_area",{})
             cx = fa.get("x",0) + fa.get("w",0)/2; cy = fa.get("y",0) + fa.get("h",0)/2
@@ -303,25 +303,43 @@ def process(item):
             "credit": best_c["credit"], "credit_url": best_c.get("credit_url",""), "identity_ok": True,
             "scores": {"final": round(best_score,3)}}
 
+def _process_and_deliver(item):
+    r = None
+    try: r = process(item)
+    except Exception as e: log("  process error:", e)
+    if not r: return
+    try:
+        res = http_post(f"{BASE}/api/img_ingest.php", {"token": TOKEN, "items": [r]})
+        log("  delivered:", json.dumps(res))
+    except Exception as e:
+        log("  deliver failed:", e)
+
 def main():
     if not TOKEN: log("missing INGEST_TOKEN"); return 1
+    # CHILD MODE: handle exactly one drama, then exit. A native segfault here (deepface/TF)
+    # kills only this child — never the whole run.
+    if len(sys.argv) >= 3 and sys.argv[1] == "--one":
+        try: item = json.loads(sys.argv[2])
+        except Exception: return 2
+        _process_and_deliver(item)
+        return 0
+    # PARENT MODE: fan out one ISOLATED subprocess per drama, so one crash can't sink the rest.
+    import subprocess
     wl = http_json(f"{BASE}/api/img_worklist.php?token={urllib.parse.quote(TOKEN)}&limit={MAXN}")
     items = wl.get("items", [])[:MAXN]
-    log(f"worklist: {len(items)} dramas need an image")
-    delivered = 0
+    log(f"worklist: {len(items)} dramas need an image (each runs isolated)")
     for it in items:
+        log(f"--- #{it.get('page_id')} {str(it.get('title',''))[:46]} ---")
         try:
-            r = process(it)
+            p = subprocess.run([sys.executable, os.path.abspath(__file__), "--one", json.dumps(it)],
+                               timeout=360, env=os.environ.copy())
+            if p.returncode and (p.returncode < 0 or p.returncode >= 128):
+                log(f"  (isolated crash, exit {p.returncode}) -> skipped, stays a card")
+        except subprocess.TimeoutExpired:
+            log("  timed out -> skipped, stays a card")
         except Exception as e:
-            log(f"  #{it.get('page_id')} crashed: {e}"); continue
-        if not r: continue
-        # deliver each image AS SOON as it's ready, so a later crash never loses earlier wins
-        try:
-            res = http_post(f"{BASE}/api/img_ingest.php", {"token": TOKEN, "items": [r]})
-            log("  delivered:", json.dumps(res)); delivered += 1
-        except Exception as e:
-            log("  deliver failed:", e)
-    log(f"done; published {delivered} image(s)")
+            log("  subprocess error:", e)
+    log("done")
     return 0
 
 if __name__ == "__main__":
