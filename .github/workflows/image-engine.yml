@@ -21,4 +21,7 @@ jobs:
           YOUTUBE_KEY: ${{ secrets.YOUTUBE_KEY }}     # optional but recommended (add as a repo secret)
           MAX_DRAMAS: '6'
           USE_BING: '0'                                # set to '1' to also pull Bing image candidates
+          KMP_DUPLICATE_LIB_OK: 'TRUE'                 # stop the TF+torch+onnx OpenMP segfault (exit 139)
+          OMP_NUM_THREADS: '1'
+          TF_CPP_MIN_LOG_LEVEL: '3'
         run: python image_engine.py
