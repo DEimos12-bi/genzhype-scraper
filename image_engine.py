@@ -238,15 +238,52 @@ def youtube_channel_candidates(name, n=6):
     except Exception as e: log("  youtube:", e)
     return out
 
-def bing_candidates(name, n=6):
+def web_candidates(person, context="", n=14):
+    """Web image search (Bing) for the person, biased with a creator-context hint so a
+    non-creator namesake is less likely to dominate. Returns local file:// candidates."""
     if not USE_BING: return []
     try:
         from icrawler.builtin import BingImageCrawler
         import tempfile, glob
+        q = (context.strip() + " " if context else "") + person + " face"
         d = tempfile.mkdtemp()
-        BingImageCrawler(storage={"root_dir": d}).crawl(keyword=name + " portrait", max_num=n)
-        return [{"url": "file://" + p, "credit": "Via web search", "credit_url": ""} for p in glob.glob(d + "/*")]
-    except Exception as e: log("  bing:", e); return []
+        BingImageCrawler(storage={"root_dir": d}, log_level=50).crawl(
+            keyword=q, max_num=n, filters={"type": "photo"})
+        return [{"url": "file://" + p, "credit": f"Photo of {person} (via web)", "credit_url": ""}
+                for p in sorted(glob.glob(d + "/*"))]
+    except Exception as e:
+        log("  web:", e); return []
+
+def dominant_face_reference(cands):
+    """SAFE web identity: from many candidate images, find the face that RECURS the most —
+    that is the person the search is about. A minority namesake is filtered out. Returns
+    (reference_face_bytes, set_of_candidate_indices_that_are_that_person) or (None, set())."""
+    try:
+        from deepface import DeepFace
+        import numpy as np, tempfile
+        faces = []     # (cand_index, embedding, face_bytes)
+        for i, c in enumerate(cands):
+            b = fetch_bytes(c["url"])
+            if len(b) < 3000: continue
+            t = tempfile.NamedTemporaryFile(suffix=".jpg", delete=False); t.write(b); t.close()
+            try: reps = DeepFace.represent(t.name, model_name="ArcFace", detector_backend="ssd", enforce_detection=True)
+            except Exception: reps = []
+            try: os.unlink(t.name)
+            except Exception: pass
+            for rep in reps:
+                fc = crop_face_bytes(b, rep.get("facial_area", {}))
+                if fc: faces.append((i, rep["embedding"], fc))
+        if len(faces) < 3: return None, set()
+        E = np.array([f[1] for f in faces]); E = E / np.linalg.norm(E, axis=1, keepdims=True)
+        match = (E @ E.T) > 0.45
+        scores = match.sum(axis=1)
+        best = int(np.argmax(scores))
+        if int(scores[best]) < 3: return None, set()    # not enough agreement -> not confident
+        members = {faces[j][0] for j in range(len(faces)) if match[best][j]}
+        log(f"  web identity: dominant face recurs in {int(scores[best])} of {len(faces)} detected faces -> confident")
+        return faces[best][2], members
+    except Exception as e:
+        log("  dominant_face_reference:", e); return None, set()
 
 def fetch_bytes(u):
     if u.startswith("file://"):
@@ -306,17 +343,25 @@ def process(item):
     person = best_person(item)
     log(f"#{item['page_id']} {title[:48]} | person={person} | mood={mood}")
 
-    # reference for identity: Wikimedia (trusted, occupation-checked) first; else build one
-    # from the creator's OWN channel (v2 — the recurring face across their videos = them).
+    # reference for identity, most-trusted first: Wikimedia (occupation-checked) -> the
+    # creator's own channel -> the MAJORITY face across web results (the safe web path).
     ref = wikimedia_ref(person, title + " " + summary)
     ref_bytes = fetch_bytes(ref["url"]) if ref else b""
+    web_members = []
     if not ref_bytes:
         ref_bytes = channel_face_reference(person) or b""
+    if not ref_bytes and USE_BING:
+        wcands = web_candidates(person, summary[:60])
+        rb, members = dominant_face_reference(wcands)        # majority-face = the real person
+        if rb:
+            ref_bytes = rb; web_members = [wcands[i] for i in sorted(members)]
     if not ref_bytes:
         log("  no face reference -> cannot verify identity, staying a card"); return None
 
-    # gather candidates from all sources
-    cands = openverse_candidates(person) + youtube_channel_candidates(person) + bing_candidates(person)
+    # gather candidates (web_members are already majority-verified; still re-checked below)
+    cands = web_members + openverse_candidates(person) + youtube_channel_candidates(person)
+    if USE_BING and not web_members:
+        cands += web_candidates(person, summary[:60])
     if not cands: log("  no candidates"); return None
 
     scored = []
