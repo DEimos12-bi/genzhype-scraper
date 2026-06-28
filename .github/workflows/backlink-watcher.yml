@@ -1,0 +1,20 @@
+name: GenZHype backlink watcher
+on:
+  schedule:
+    - cron: '0 10 * * 1'        # weekly, Monday 10:00 UTC (authority moves slowly)
+  workflow_dispatch:
+jobs:
+  backlinks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run backlink watcher
+        env:
+          BACKLINK_BASE: 'https://genzhype.com'
+          INGEST_TOKEN: ${{ secrets.INGEST_TOKEN }}        # no API key needed — reads Common Crawl directly
+          COMPETITORS: ${{ vars.COMPETITORS }}
+        run: python backlink_watcher.py
