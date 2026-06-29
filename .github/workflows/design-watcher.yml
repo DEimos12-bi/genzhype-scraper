@@ -1,0 +1,25 @@
+name: GenZHype design watcher
+on:
+  schedule:
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
+jobs:
+  design:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install dembrandt + headless browser
+        run: |
+          npm install -g dembrandt
+          npx playwright install --with-deps chromium
+      - name: Run design watcher
+        env:
+          DESIGN_BASE: 'https://genzhype.com'
+          INGEST_TOKEN: ${{ secrets.INGEST_TOKEN }}
+          COMPETITORS: ${{ vars.COMPETITORS }}
+          OUR_URLS: 'https://genzhype.com/,https://genzhype.com/drama/'
+        run: node design_watcher.mjs
