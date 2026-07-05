@@ -1,0 +1,29 @@
+name: GenZHype Facebook poster
+on:
+  schedule:
+    - cron: '0 14 * * *'          # daily at 14:00 UTC (spread across the day with the other posters)
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Post to Facebook Page
+        env:
+          SOCIAL_BASE: 'https://genzhype.com'
+          INGEST_TOKEN: ${{ secrets.INGEST_TOKEN }}
+          FB_PAGE_ID: ${{ secrets.FB_PAGE_ID }}
+          FB_PAGE_TOKEN: ${{ secrets.FB_PAGE_TOKEN }}
+        run: python facebook_poster.py
+      - name: Save poster state
+        run: |
+          git config user.name "genzhype-bot"
+          git config user.email "bot@genzhype.com"
+          git add .social 2>/dev/null || true
+          git commit -m "facebook poster state" 2>/dev/null || echo "no state change"
+          git push 2>/dev/null || echo "nothing to push"
