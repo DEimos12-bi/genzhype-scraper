@@ -1,0 +1,29 @@
+name: GenZHype Bluesky poster
+on:
+  schedule:
+    - cron: '0 21 * * *'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Post to Bluesky
+        env:
+          SOCIAL_BASE: 'https://genzhype.com'
+          INGEST_TOKEN: ${{ secrets.INGEST_TOKEN }}
+          BSKY_HANDLE: ${{ secrets.BSKY_HANDLE }}
+          BSKY_APP_PASSWORD: ${{ secrets.BSKY_APP_PASSWORD }}
+        run: python bsky_poster.py
+      - name: Save poster state
+        run: |
+          git config user.name "genzhype-bot"
+          git config user.email "bot@genzhype.com"
+          git add .social 2>/dev/null || true
+          git commit -m "bluesky poster state" 2>/dev/null || echo "no state change"
+          git push 2>/dev/null || echo "nothing to push"
