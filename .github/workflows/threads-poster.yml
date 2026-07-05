@@ -1,0 +1,29 @@
+name: GenZHype Threads poster
+on:
+  schedule:
+    - cron: '0 18 * * *'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Post to Threads
+        env:
+          SOCIAL_BASE: 'https://genzhype.com'
+          INGEST_TOKEN: ${{ secrets.INGEST_TOKEN }}
+          THREADS_USER_ID: ${{ secrets.THREADS_USER_ID }}
+          THREADS_ACCESS_TOKEN: ${{ secrets.THREADS_ACCESS_TOKEN }}
+        run: python threads_poster.py
+      - name: Save poster state
+        run: |
+          git config user.name "genzhype-bot"
+          git config user.email "bot@genzhype.com"
+          git add .social 2>/dev/null || true
+          git commit -m "threads poster state" 2>/dev/null || echo "no state change"
+          git push 2>/dev/null || echo "nothing to push"
