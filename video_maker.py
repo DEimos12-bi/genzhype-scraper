@@ -40,6 +40,13 @@ import traceback
 
 import numpy as np
 import requests
+
+# Sanitize a stale IMAGEIO_FFMPEG_EXE BEFORE any moviepy import: moviepy/imageio read
+# it blindly, and a wrong path (run #1: hardcoded /usr/bin/ffmpeg) crashes AudioFileClip.
+# Unset -> imageio-ffmpeg resolves its own bundled binary; our remux uses _ffmpeg_bin().
+_ff_env = os.environ.get("IMAGEIO_FFMPEG_EXE")
+if _ff_env and not os.path.exists(_ff_env):
+    del os.environ["IMAGEIO_FFMPEG_EXE"]
 from PIL import Image
 
 # ----------------------------------------------------------------------------
@@ -520,7 +527,17 @@ def compose_video(image_path, mp3_path, hook, word_timings, duration, font_path,
 
 def _ffmpeg_bin():
     import shutil
-    return os.environ.get("IMAGEIO_FFMPEG_EXE") or shutil.which("ffmpeg") or "ffmpeg"
+    env = os.environ.get("IMAGEIO_FFMPEG_EXE")
+    if env and os.path.exists(env):          # ignore a stale/wrong env path (run #1 bug)
+        return env
+    which = shutil.which("ffmpeg")
+    if which:
+        return which
+    try:                                      # last resort: imageio-ffmpeg's bundled binary
+        import imageio_ffmpeg
+        return imageio_ffmpeg.get_ffmpeg_exe()
+    except Exception:
+        return "ffmpeg"
 
 
 def _faststart_remux(src, dst):
