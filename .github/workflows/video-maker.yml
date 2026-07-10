@@ -32,7 +32,7 @@ jobs:
       VIDEO_STATE_FILE: .social/video_done.txt
       # Use the runner's preinstalled ffmpeg (has libx264 + aac) instead of the
       # imageio-ffmpeg download; both moviepy and our faststart remux honor this.
-      IMAGEIO_FFMPEG_EXE: /usr/bin/ffmpeg
+      
       # Point the driver at the vendored Turbo tree so it reuses voice.py.
       MPT_HOME: ${{ github.workspace }}/videorepos/mpt
 
