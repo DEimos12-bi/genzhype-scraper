@@ -633,29 +633,33 @@ def fetch_next(done_ids):
 
 
 def post_video(page_id, slug, mp4_path):
-    fname = f"{slug or 'video'}-{page_id}.mp4"
-    data = {"token": INGEST_TOKEN, "page_id": str(page_id), "slug": slug or ""}
+    # Deliver as base64-in-JSON, the image-engine's proven daily-working pattern.
+    # Hostinger's WAF 403-blocks multipart file uploads from datacenter IPs (run #4)
+    # but passes JSON POSTs (scraper + image engine deliver this way every day).
+    import base64
+    with open(mp4_path, "rb") as fh:
+        b64 = base64.b64encode(fh.read()).decode("ascii")
+    body = {"token": INGEST_TOKEN, "page_id": int(page_id),
+            "slug": slug or "", "video_b64": b64}
+    log.info("delivering %s (%.1f MB as base64)", os.path.basename(mp4_path),
+             len(b64) / 1024 / 1024)
     last = None
     for attempt in range(1, 5):
-        # engine 1: curl_cffi browser TLS
+        # engine 1: curl_cffi browser TLS (the pattern that dodges the WAF)
         try:
             from curl_cffi import requests as cffi
-            with open(mp4_path, "rb") as fh:
-                r = cffi.post(RECEIVE_URL, data=data,
-                              files={"file": (fname, fh.read(), "video/mp4")},
-                              timeout=300, headers={"User-Agent": _BROWSER_UA})
+            r = cffi.post(RECEIVE_URL, json=body, impersonate="firefox",
+                          timeout=300, headers={"User-Agent": _BROWSER_UA})
             if r.status_code == 200 and r.json().get("ok"):
                 log.info("posted video for page_id=%s", page_id)
                 return
             last = f"curl_cffi HTTP {r.status_code} {r.text[:200]}"
         except Exception as e:  # noqa: BLE001
             last = f"curl_cffi: {e}"
-        # engine 2: requests
+        # engine 2: requests JSON
         try:
-            with open(mp4_path, "rb") as fh:
-                r = requests.post(RECEIVE_URL, data=data,
-                                  files={"file": (fname, fh, "video/mp4")},
-                                  timeout=300, headers={"User-Agent": _BROWSER_UA})
+            r = requests.post(RECEIVE_URL, json=body, timeout=300,
+                              headers={"User-Agent": _BROWSER_UA})
             ok = r.status_code == 200
             try:
                 ok = ok and bool(r.json().get("ok", ok))
