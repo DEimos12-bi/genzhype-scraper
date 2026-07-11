@@ -331,11 +331,31 @@ def resolve_font():
 # Image + composition helpers
 # ============================================================================
 def download_image(url, dest):
-    r = requests.get(url, timeout=60, headers={"User-Agent": "genzhype-videobot/1"})
-    r.raise_for_status()
-    with open(dest, "wb") as f:
-        f.write(r.content)
-    return dest
+    # same multi-engine + browser-UA treatment as fetch_next: this URL is on
+    # genzhype.com too, so Hostinger's TLS bot-block can hit it identically.
+    last = None
+    for attempt in range(1, 4):
+        try:
+            from curl_cffi import requests as cffi
+            r = cffi.get(url, impersonate="firefox", timeout=60,
+                         headers={"User-Agent": _BROWSER_UA})
+            if r.status_code == 200 and r.content:
+                with open(dest, "wb") as f:
+                    f.write(r.content)
+                return dest
+            last = f"curl_cffi HTTP {r.status_code}"
+        except Exception as e:  # noqa: BLE001
+            last = f"curl_cffi: {e}"
+        try:
+            r = requests.get(url, timeout=60, headers={"User-Agent": _BROWSER_UA})
+            r.raise_for_status()
+            with open(dest, "wb") as f:
+                f.write(r.content)
+            return dest
+        except Exception as e:  # noqa: BLE001
+            last = f"requests: {e}"
+        time.sleep(4 * attempt)
+    raise RuntimeError(f"image download failed: {last}")
 
 
 def cover_fit(pil_img, tw, th):
@@ -571,28 +591,85 @@ def append_done(page_id):
         f.write(f"{page_id}\n")
 
 
+# Hostinger's bot protection TLS-fingerprint-blocks datacenter Python intermittently
+# (the scraper-v7 lesson; it 403'd run #3 from the GH runner while the same URL was 200
+# from elsewhere). Cure = the proven multi-engine pattern: browser-TLS via curl_cffi
+# first, then requests, then urllib — with retries and a browser UA.
+_BROWSER_UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:130.0) "
+               "Gecko/20100101 Firefox/130.0")
+
+
+def _get_json(url, params):
+    qs = "?" + "&".join(f"{k}={requests.utils.quote(str(v))}" for k, v in params.items())
+    last = None
+    for attempt in range(1, 5):
+        # engine 1: curl_cffi browser TLS (dodges the fingerprint block)
+        try:
+            from curl_cffi import requests as cffi
+            r = cffi.get(url + qs, impersonate="firefox", timeout=45,
+                         headers={"User-Agent": _BROWSER_UA})
+            if r.status_code == 200:
+                return r.json()
+            last = f"curl_cffi HTTP {r.status_code}"
+        except Exception as e:  # noqa: BLE001
+            last = f"curl_cffi: {e}"
+        # engine 2: requests with a browser UA
+        try:
+            r = requests.get(url, params=params, timeout=45,
+                             headers={"User-Agent": _BROWSER_UA})
+            if r.status_code == 200:
+                return r.json()
+            last = f"requests HTTP {r.status_code}"
+        except Exception as e:  # noqa: BLE001
+            last = f"requests: {e}"
+        log.warning("fetch attempt %d/4 failed (%s); retrying", attempt, last)
+        time.sleep(5 * attempt)
+    raise RuntimeError(f"fetch_next failed after retries: {last}")
+
+
 def fetch_next(done_ids):
-    params = {"token": INGEST_TOKEN, "done": ",".join(done_ids)}
-    r = requests.get(NEXT_URL, params=params, timeout=45)
-    r.raise_for_status()
-    data = r.json()
+    data = _get_json(NEXT_URL, {"token": INGEST_TOKEN, "done": ",".join(done_ids)})
     return data.get("post")
 
 
 def post_video(page_id, slug, mp4_path):
     fname = f"{slug or 'video'}-{page_id}.mp4"
-    with open(mp4_path, "rb") as fh:
-        files = {"file": (fname, fh, "video/mp4")}
-        data = {"token": INGEST_TOKEN, "page_id": str(page_id), "slug": slug or ""}
-        r = requests.post(RECEIVE_URL, data=data, files=files, timeout=300)
-    ok = r.status_code == 200
-    try:
-        ok = ok and bool(r.json().get("ok", ok))
-    except Exception:  # noqa: BLE001
-        pass
-    if not ok:
-        raise RuntimeError(f"receive failed: HTTP {r.status_code} {r.text[:300]}")
-    log.info("posted video for page_id=%s", page_id)
+    data = {"token": INGEST_TOKEN, "page_id": str(page_id), "slug": slug or ""}
+    last = None
+    for attempt in range(1, 5):
+        # engine 1: curl_cffi browser TLS
+        try:
+            from curl_cffi import requests as cffi
+            with open(mp4_path, "rb") as fh:
+                r = cffi.post(RECEIVE_URL, data=data,
+                              files={"file": (fname, fh.read(), "video/mp4")},
+                              timeout=300, headers={"User-Agent": _BROWSER_UA})
+            if r.status_code == 200 and r.json().get("ok"):
+                log.info("posted video for page_id=%s", page_id)
+                return
+            last = f"curl_cffi HTTP {r.status_code} {r.text[:200]}"
+        except Exception as e:  # noqa: BLE001
+            last = f"curl_cffi: {e}"
+        # engine 2: requests
+        try:
+            with open(mp4_path, "rb") as fh:
+                r = requests.post(RECEIVE_URL, data=data,
+                                  files={"file": (fname, fh, "video/mp4")},
+                                  timeout=300, headers={"User-Agent": _BROWSER_UA})
+            ok = r.status_code == 200
+            try:
+                ok = ok and bool(r.json().get("ok", ok))
+            except Exception:  # noqa: BLE001
+                pass
+            if ok:
+                log.info("posted video for page_id=%s", page_id)
+                return
+            last = f"requests HTTP {r.status_code} {r.text[:200]}"
+        except Exception as e:  # noqa: BLE001
+            last = f"requests: {e}"
+        log.warning("post attempt %d/4 failed (%s); retrying", attempt, last)
+        time.sleep(10 * attempt)
+    raise RuntimeError(f"receive failed after retries: {last}")
 
 
 # ============================================================================
