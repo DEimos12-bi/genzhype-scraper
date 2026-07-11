@@ -30,9 +30,6 @@ jobs:
       VIDEO_BATCH: ${{ github.event.inputs.batch || '1' }}
       VIDEO_WORKDIR: build
       VIDEO_STATE_FILE: .social/video_done.txt
-      # Use the runner's preinstalled ffmpeg (has libx264 + aac) instead of the
-      # imageio-ffmpeg download; both moviepy and our faststart remux honor this.
-      
       # Point the driver at the vendored Turbo tree so it reuses voice.py.
       MPT_HOME: ${{ github.workspace }}/videorepos/mpt
 
@@ -41,8 +38,19 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Verify ffmpeg + fonts (preinstalled on ubuntu-latest)
+        # Resolve the runner's REAL ffmpeg path dynamically — hardcoding /usr/bin/ffmpeg
+        # broke run #1 (current runners ship it elsewhere). moviepy + the faststart
+        # remux both honor IMAGEIO_FFMPEG_EXE; if ffmpeg were ever missing entirely,
+        # the pip-installed imageio-ffmpeg bundles its own binary as the fallback.
         run: |
-          ffmpeg -hide_banner -encoders | grep -E "libx264|aac " || true
+          FF="$(command -v ffmpeg || true)"
+          if [ -n "$FF" ]; then
+            echo "IMAGEIO_FFMPEG_EXE=$FF" >> "$GITHUB_ENV"
+            echo "ffmpeg at: $FF"
+            "$FF" -hide_banner -encoders | grep -E "libx264|aac " || true
+          else
+            echo "no system ffmpeg; imageio-ffmpeg's bundled binary will be used"
+          fi
           fc-list | grep -iE "dejavu|liberation" | head || true
 
       - name: Set up Python
@@ -64,7 +72,8 @@ jobs:
             "Pillow>=10.3" \
             "numpy>=1.26" \
             "requests>=2.31" \
-            "imageio-ffmpeg>=0.5"
+            "imageio-ffmpeg>=0.5" \
+            "curl_cffi>=0.7"
 
       # OPTIONAL: extra deps so the driver imports and reuses Turbo's REAL
       # app.services.voice (its top-level imports need loguru/toml/openai).
