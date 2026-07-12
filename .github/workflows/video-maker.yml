@@ -1,8 +1,17 @@
 name: video-maker
 
-# Renders one GenZHype hero-image short (9:16, Ken-Burns + edge-tts narration +
-# word-by-word captions) per fresh page and POSTs it back to genzhype.com.
+# v3: renders one GenZHype short (9:16, photo scenes alternating with REAL
+# stock b-roll, modern edge-tts narration + word-by-word captions, Gemini
+# vision judge) per fresh page and POSTs it back to genzhype.com.
 # Same token-gated feed + .social dedup pattern as the other posters.
+#
+# OPTIONAL secrets (every one may be absent — the driver degrades gracefully):
+#   PEXELS_API_KEY / PIXABAY_API_KEY  -> real b-roll video scenes (free keys
+#                                        from pexels.com/api, pixabay.com/api);
+#                                        missing -> photos-only (v2 behaviour)
+#   GEMINI_API_KEY                    -> vision judge on the finished mp4;
+#                                        missing -> judge skipped, delivery
+#                                        proceeds unjudged
 
 on:
   schedule:
@@ -32,6 +41,11 @@ jobs:
       VIDEO_STATE_FILE: .social/video_done.txt
       # Point the driver at the vendored Turbo tree so it reuses voice.py.
       MPT_HOME: ${{ github.workspace }}/videorepos/mpt
+      # v3 OPTIONAL keys — unset secrets expand to "" and the driver treats
+      # empty as disabled, so no step ever fails when these are absent.
+      PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
+      PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
 
     steps:
       - name: Checkout
