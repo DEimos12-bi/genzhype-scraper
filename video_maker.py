@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-GenZHype faceless-video maker — v2 "real Reel" (multi-scene).
+GenZHype faceless-video maker — v3 "moving pictures" (real b-roll + judge).
 
 Adapted from the open-source MoneyPrinterTurbo (MPT) engine
 (https://github.com/harry0703/MoneyPrinterTurbo, MIT). This driver pulls a
@@ -22,10 +22,19 @@ REUSE vs REPLACE (see videorepos/ADAPTATION.md for the full map):
               afx.AudioLoop + CompositeAudioClip, video.py generate_video) and
               its encode settings (libx264 + aac + 192k) plus our own
               `-movflags +faststart` remux.
+  * REUSE   -> (v3) Turbo's `app.services.material` stock-video approach:
+              Pexels `/videos/search?orientation=portrait` + Pixabay
+              `/api/videos/` search, best-rendition pick, download-then-probe
+              validation (open with VideoFileClip, require duration>0), URL
+              dedup and an audio-duration download budget. material.py itself
+              is welded to Turbo's config/schema/loguru, so v3 carries a
+              compact in-file port (search_broll_pexels / search_broll_pixabay
+              / BrollFetcher) instead of importing it.
   * REPLACE -> Turbo's `video.combine_videos` / `generate_video` are stock-clip
               oriented. We keep its MoviePy 2.x idioms (ImageClip.resized(
               lambda t), CompositeVideoClip, with_start/with_end/with_position,
-              vfx.CrossFadeIn) but drive them ourselves.
+              VideoFileClip.subclipped/.resized/.cropped, vfx.CrossFadeIn) but
+              drive them ourselves.
 
 WHAT v2 ADDS over the single-image Ken-Burns v1:
   1. MULTI-SCENE CUTS — the voiceover is split into sentence beats using the
@@ -56,6 +65,39 @@ WHAT v2 ADDS over the single-image Ken-Burns v1:
      corrupt/failed visual downloads are dropped from the pool, and everything
      new degrades to the proven v1 behaviour instead of crashing.
 
+WHAT v3 ADDS over v2 (owner verdict on the first render: "an image stuck with
+captions, not a video; voice sounds 2022; text card crop-zoomed into
+unreadable fragments" — the caption sync itself was loved and is untouched):
+  1. REAL B-ROLL — the feed now sends `post.broll` (ordered stock-footage
+     search phrases). Scenes ALTERNATE real photos (hero/people) with REAL
+     STOCK VIDEO matched to those terms in order, via a compact port of
+     Turbo's app/services/material.py (Pexels portrait search + Pixabay,
+     keys from PEXELS_API_KEY / PIXABAY_API_KEY). Each b-roll clip is trimmed
+     to its beat, cover-cropped to 1080x1920, slightly darkened so captions
+     pop, and crossfaded like every other scene. Per-run search+download
+     caches, URL dedup, and a hard budget (~120s / ~80MB). NO key, empty
+     terms, or any search/download failure -> that beat silently falls back
+     to a photo scene (exact v2 behaviour).
+  2. MODERN VOICE — default voice is now en-US-AndrewMultilingualNeural
+     (edge-tts's 2024-gen natural male; Aria was the "sounds 2022" culprit),
+     still +5% rate and still overridable via VIDEO_VOICE. The Multilingual
+     family emits WordBoundary events like any other edge-tts voice, and the
+     SentenceBoundary/even-split fallbacks below remain as safety nets.
+  3. TEXT-HEAVY IMAGE GUARD — before a photo becomes a scene it runs a
+     conservative poster/card detector (filename hints 'social-'/'card', or
+     extreme aspect vs 9:16 AND large flat-color coverage). Text-heavy images
+     are NEVER cover-cropped or Ken-Burns-zoomed: they render "contain"
+     (whole image visible) over a blurred darkened fill with only a gentle
+     <=2% drift. This is the systemic fix for the crop-zoomed-card defect —
+     receipts/screenshots arriving later hit the same guard.
+  4. GEMINI VISION JUDGE — after the faststart remux, 4 evenly-spaced frames
+     + the hook go to gemini-2.5-flash (GEMINI_API_KEY, native REST
+     generateContent, strict-JSON verdict). Unreadable/cut-off text, badly
+     cropped faces, or all-identical frames -> the video is NOT delivered and
+     the run exits non-zero WITHOUT marking the page done, so the next cron
+     retries with a fresh render. Missing key / API error / bad JSON -> the
+     judge is skipped (non-fatal) and delivery proceeds. One call per video.
+
 PROVEN v1 PARTS KEPT VERBATIM: the multi-engine fetch/post (curl_cffi
 browser-TLS first — Hostinger's TLS fingerprint block), base64-in-JSON video
 delivery (WAF blocks multipart), edge-tts synthesis with WordBoundary timings
@@ -68,6 +110,7 @@ Runtime target: GitHub Actions ubuntu-latest (ffmpeg + fonts preinstalled).
 import glob
 import hashlib
 import html
+import json
 import logging
 import math
 import os
@@ -99,7 +142,9 @@ INGEST_TOKEN = os.environ.get("INGEST_TOKEN", "").strip()
 STATE_FILE = os.environ.get("VIDEO_STATE_FILE", ".social/video_done.txt")
 WORKDIR = os.environ.get("VIDEO_WORKDIR", "build")
 
-VOICE = os.environ.get("VIDEO_VOICE", "en-US-AriaNeural")
+# v3: 2024-gen natural voice (the Multilingual family: Andrew/Brian/Emma/Ava).
+# Aria is the 2019-gen voice the owner heard as "2022". Env-overridable.
+VOICE = os.environ.get("VIDEO_VOICE", "en-US-AndrewMultilingualNeural")
 VOICE_RATE = float(os.environ.get("VIDEO_VOICE_RATE", "1.05"))
 VOICE_VOLUME = float(os.environ.get("VIDEO_VOICE_VOLUME", "1.0"))
 VIDEO_BATCH = int(os.environ.get("VIDEO_BATCH", "1"))
@@ -137,6 +182,25 @@ PEOPLE_BUDGET_S = 100          # hard wall-clock cap on all person lookups
 # strikes kill faceless channels). Missing/empty folder -> video stays silent.
 BGM_DIR = os.environ.get("VIDEO_BGM_DIR", ".social/bgm")
 BGM_VOLUME = float(os.environ.get("VIDEO_BGM_VOLUME", "0.10"))
+
+# --- v3: real b-roll (Pexels/Pixabay stock video; Turbo material.py port) ---
+PEXELS_API_KEY = os.environ.get("PEXELS_API_KEY", "").strip()
+PIXABAY_API_KEY = os.environ.get("PIXABAY_API_KEY", "").strip()
+BROLL_TIME_BUDGET_S = float(os.environ.get("BROLL_TIME_BUDGET_S", "120"))
+BROLL_BYTES_BUDGET = int(os.environ.get("BROLL_BYTES_BUDGET",
+                                        str(80 * 1024 * 1024)))
+BROLL_CLIP_CAP = 32 * 1024 * 1024   # single-clip cap so one 4K file can't eat it
+BROLL_DARKEN = 0.78                 # MultiplyColor factor: captions stay readable
+
+# --- v3: text-heavy image guard (posters/cards/receipts NEVER crop-zoomed) ---
+TEXTISH_NAME_HINTS = ("social-", "card")
+TEXTISH_DRIFT = 0.02                # gentle drift only, fraction of W; NO zoom
+TEXTISH_FLAT_FRAC = 0.55            # top-4 quantized colors must cover >= this
+
+# --- v3: Gemini vision judge (the "brain that can see") ---
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "").strip()
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
+JUDGE_FRAMES = 4
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s"
@@ -561,9 +625,46 @@ def wikidata_person_photo_url(name, context=""):
         return None
 
 
+def _flat_color_fraction(img):
+    """Fraction of pixels covered by the 4 most common quantized colors on a
+    64x64 thumbnail. Posters/branded cards have big flat fills; real photos
+    almost never cross ~0.5. Any failure -> 0.0 (treated as a normal photo)."""
+    try:
+        small = img.convert("RGB").resize((64, 64))
+        arr = np.asarray(small, dtype=np.int32) // 32
+        codes = arr[..., 0] * 64 + arr[..., 1] * 8 + arr[..., 2]
+        _, counts = np.unique(codes, return_counts=True)
+        top = int(np.sort(counts)[::-1][:4].sum())
+        return top / float(codes.size)
+    except Exception:  # noqa: BLE001
+        return 0.0
+
+
+def is_text_heavy(path, src_url=""):
+    """v3 guard: conservative text-heavy/poster detector. True only when the
+    source filename carries a hint ('social-'/'card') OR the image is BOTH
+    extreme-aspect vs the 9:16 frame AND dominated by flat color. Text-heavy
+    images are rendered 'contain' (never cover-cropped / Ken-Burns-zoomed) —
+    the systemic fix for the crop-zoomed-unreadable-card defect."""
+    name = (os.path.basename(urllib.parse.urlparse(src_url or "").path)
+            + " " + os.path.basename(path)).lower()
+    if any(hint in name for hint in TEXTISH_NAME_HINTS):
+        return True
+    try:
+        with Image.open(path) as img:
+            w, h = img.size
+            ratio = w / float(h)
+            if 0.42 <= ratio <= 1.95:       # near-frame or normal photo shapes
+                return False
+            return _flat_color_fraction(img) >= TEXTISH_FLAT_FRAC
+    except Exception:  # noqa: BLE001
+        return False
+
+
 def build_visual_pool(post, page_id):
     """Assemble the scene visual pool: feed visuals (hero first) + resolved
-    person photos, deduped, downloaded, validated. Returns local paths."""
+    person photos, deduped, downloaded, validated. Returns a list of
+    {"path", "textish"} dicts (v3: textish photos get the contain renderer)."""
     urls = []
     vis = post.get("visuals")
     if isinstance(vis, list):
@@ -596,14 +697,221 @@ def build_visual_pool(post, page_id):
             seen.add(u)
             ordered.append(u)
 
-    paths = []
+    pool = []
     for i, u in enumerate(ordered[:MAX_POOL]):
         p = fetch_visual(u, os.path.join(WORKDIR, f"vis-{page_id}-{i}"))
         if p:
-            paths.append(p)
+            textish = is_text_heavy(p, src_url=u)
+            if textish:
+                log.info("text-heavy visual -> contain mode (no crop/zoom): %s",
+                         u[:120])
+            pool.append({"path": p, "textish": textish})
     log.info("visual pool: %d usable of %d candidates (%d from people)",
-             len(paths), len(ordered), len(person_urls))
-    return paths
+             len(pool), len(ordered), len(person_urls))
+    return pool
+
+
+# ============================================================================
+# v3: real B-ROLL — compact port of Turbo app/services/material.py
+# (search Pexels portrait + Pixabay, pick best rendition, download, probe with
+# VideoFileClip, dedup URLs, hard time/byte budget). ALL failures degrade to
+# photo scenes; a missing key simply disables the whole feature.
+# ============================================================================
+def _api_json(url, headers=None, timeout=30):
+    """GET JSON from a stock API. requests first (Pexels/Pixabay don't TLS-
+    fingerprint-block), curl_cffi browser-TLS as backup. Never raises."""
+    hdrs = dict(headers or {})
+    hdrs.setdefault("User-Agent", _BROWSER_UA)
+    try:
+        r = requests.get(url, headers=hdrs, timeout=timeout)
+        if r.status_code == 200:
+            return r.json()
+        log.warning("stock api HTTP %d: %s", r.status_code, url[:120])
+    except Exception as e:  # noqa: BLE001
+        log.warning("stock api requests failed (%s); trying curl_cffi", e)
+    try:
+        from curl_cffi import requests as cffi
+        r = cffi.get(url, headers=hdrs, impersonate="firefox", timeout=timeout)
+        if r.status_code == 200:
+            return r.json()
+        log.warning("stock api curl_cffi HTTP %d: %s", r.status_code, url[:120])
+    except Exception as e:  # noqa: BLE001
+        log.warning("stock api curl_cffi failed: %s", e)
+    return None
+
+
+def search_broll_pexels(term):
+    """Port of material.search_videos_pexels, loosened: Turbo demanded an
+    exact 1080x1920 file; we take that when present, else the smallest
+    portrait rendition >=1280 tall (we cover-crop to the frame anyway)."""
+    if not PEXELS_API_KEY:
+        return []
+    q = urllib.parse.urlencode(
+        {"query": term, "per_page": 15, "orientation": "portrait"})
+    data = _api_json(f"https://api.pexels.com/videos/search?{q}",
+                     headers={"Authorization": PEXELS_API_KEY})
+    items = []
+    for v in (data or {}).get("videos") or []:
+        try:
+            dur = float(v.get("duration") or 0)
+        except (TypeError, ValueError):
+            continue
+        best = None                      # (height, url); exact match wins
+        for f in v.get("video_files") or []:
+            w, h = int(f.get("width") or 0), int(f.get("height") or 0)
+            link = f.get("link")
+            if not link or not w or not h:
+                continue
+            if (w, h) == (1080, 1920):
+                best = (h, link)
+                break
+            if h > w and h >= 1280 and (best is None or h < best[0]):
+                best = (h, link)
+        if best and dur > 0:
+            items.append({"url": best[1], "duration": dur,
+                          "provider": "pexels"})
+    return items
+
+
+def search_broll_pixabay(term):
+    """Port of material.search_videos_pixabay. Pixabay has no portrait filter;
+    prefer a portrait variant, else any >=1080 (cover-crop handles landscape)."""
+    if not PIXABAY_API_KEY:
+        return []
+    q = urllib.parse.urlencode({"q": term, "per_page": 30,
+                                "video_type": "all", "key": PIXABAY_API_KEY})
+    data = _api_json(f"https://pixabay.com/api/videos/?{q}")
+    items = []
+    for v in (data or {}).get("hits") or []:
+        try:
+            dur = float(v.get("duration") or 0)
+        except (TypeError, ValueError):
+            continue
+        files = v.get("videos") or {}
+        best = None
+        for variant in ("large", "medium", "small"):
+            f = files.get(variant) or {}
+            w, h = int(f.get("width") or 0), int(f.get("height") or 0)
+            url = f.get("url")
+            if not url or not w or not h:
+                continue
+            if h > w and h >= 1080:      # portrait first
+                best = url
+                break
+            if best is None and max(w, h) >= 1080:
+                best = url
+        if best and dur > 0:
+            items.append({"url": best, "duration": dur,
+                          "provider": "pixabay"})
+    return items
+
+
+class BrollFetcher:
+    """Per-run b-roll manager: walks the feed's `broll` terms IN ORDER (cursor
+    cycles), caches searches and downloads, dedups URLs, and enforces a hard
+    wall-clock + byte budget. clip_for() returns a validated local .mp4 at
+    least `need_s` long, or None -> the caller falls back to a photo scene."""
+
+    def __init__(self, terms):
+        self.terms = [str(t).strip() for t in (terms or []) if str(t).strip()]
+        self.enabled = bool(self.terms) and bool(PEXELS_API_KEY
+                                                 or PIXABAY_API_KEY)
+        if self.terms and not self.enabled:
+            log.info("broll terms present but no PEXELS/PIXABAY key; "
+                     "photos-only (v2 behaviour)")
+        elif not self.terms:
+            log.info("no broll terms in feed; photos-only (v2 behaviour)")
+        self.searches = {}     # term -> [items]
+        self.downloads = {}    # url-hash -> local path or None (failed)
+        self.used = set()      # urls already placed in a scene
+        self.cursor = 0
+        self.t0 = time.time()
+        self.bytes = 0
+
+    def _budget_ok(self):
+        if time.time() - self.t0 > BROLL_TIME_BUDGET_S:
+            log.info("broll time budget (%.0fs) exhausted; photos from here",
+                     BROLL_TIME_BUDGET_S)
+            self.enabled = False
+        elif self.bytes > BROLL_BYTES_BUDGET:
+            log.info("broll byte budget (%.0f MB) exhausted; photos from here",
+                     BROLL_BYTES_BUDGET / 1024 / 1024)
+            self.enabled = False
+        return self.enabled
+
+    def _search(self, term):
+        if term not in self.searches:
+            items = search_broll_pexels(term) + search_broll_pixabay(term)
+            log.info("broll search '%s': %d candidate(s)", term, len(items))
+            self.searches[term] = items
+        return self.searches[term]
+
+    def _download(self, url):
+        key = hashlib.md5(url.split("?")[0].encode()).hexdigest()
+        if key in self.downloads:
+            return self.downloads[key]
+        dest = os.path.join(WORKDIR, f"broll-{key}.mp4")
+        self.downloads[key] = self._stream_to(url, dest)
+        return self.downloads[key]
+
+    def _stream_to(self, url, dest):
+        try:
+            got = 0
+            with requests.get(url, stream=True, timeout=(30, 120),
+                              headers={"User-Agent": _BROWSER_UA}) as r:
+                if r.status_code != 200:
+                    raise RuntimeError(f"HTTP {r.status_code}")
+                with open(dest, "wb") as f:
+                    for chunk in r.iter_content(512 * 1024):
+                        got += len(chunk)
+                        if got > BROLL_CLIP_CAP:
+                            raise RuntimeError("clip exceeds per-clip cap")
+                        f.write(chunk)
+            if got < 20000:
+                raise RuntimeError("suspiciously small file")
+            self.bytes += got
+        except Exception as e:  # noqa: BLE001
+            log.warning("broll download failed (%s): %s", e, url[:120])
+            try:
+                os.remove(dest)
+            except OSError:
+                pass
+            return None
+        # Validate like Turbo's save_video: must open and report a duration.
+        try:
+            from moviepy import VideoFileClip
+            with VideoFileClip(dest) as probe:
+                if not probe.duration or probe.duration <= 0:
+                    raise RuntimeError("zero duration")
+        except Exception as e:  # noqa: BLE001
+            log.warning("broll file invalid (%s): %s", e, url[:120])
+            try:
+                os.remove(dest)
+            except OSError:
+                pass
+            return None
+        return dest
+
+    def clip_for(self, need_s):
+        """Local mp4 >= need_s long for the NEXT term in feed order, or None."""
+        if not self.enabled or not self._budget_ok():
+            return None
+        for _ in range(len(self.terms)):
+            term = self.terms[self.cursor % len(self.terms)]
+            self.cursor += 1
+            for item in self._search(term):
+                if item["duration"] < need_s + 0.25 or item["url"] in self.used:
+                    continue
+                if not self._budget_ok():
+                    return None
+                path = self._download(item["url"])
+                if path:
+                    self.used.add(item["url"])
+                    log.info("broll matched '%s' (%.1fs clip for %.1fs beat, "
+                             "%s)", term, item["duration"], need_s,
+                             item["provider"])
+                    return path
+        return None
 
 
 # ============================================================================
@@ -773,30 +1081,129 @@ def scene_clip(image_path, start, end, motion):
     return clip
 
 
-def plan_scenes(beats, pool_paths, total):
-    """Assign each beat a visual (round-robin, hero first — never the same
-    visual twice in a row when the pool has >=2) and a motion (alternating
-    zoom-in / zoom-out / pan-left / pan-right). Scene N starts exactly at
-    beat N's first-word start; it runs until the next beat's first-word start
-    (+XFADE overlap for the incoming crossfade), so cuts land with the voice."""
+def contain_scene_clip(image_path, start, end):
+    """v3 text-heavy renderer: the WHOLE image fits inside the frame
+    ('contain') over a blurred darkened fill of itself — no cover-crop, no
+    Ken-Burns zoom, only a gentle <=2% horizontal drift so the scene is not
+    dead-static. This is what posters/cards/receipts/screenshots get."""
+    from moviepy import CompositeVideoClip, ImageClip, vfx
+    from PIL import ImageEnhance, ImageFilter
+
+    dur = max(end - start, 0.2)
+    drift = max(2, int(W * TEXTISH_DRIFT))
+    pil = Image.open(image_path).convert("RGB")
+
+    canvas_w = W + drift                       # oversize -> room to drift
+    bg = cover_fit(pil, canvas_w, H).filter(ImageFilter.GaussianBlur(32))
+    bg = ImageEnhance.Brightness(bg).enhance(0.45)
+
+    w, h = pil.size
+    scale = min((W * 0.94) / w, (H * 0.90) / h)
+    fg = pil.resize((max(1, int(w * scale)), max(1, int(h * scale))),
+                    Image.Resampling.LANCZOS)
+    canvas = bg.copy()
+    canvas.paste(fg, ((canvas_w - fg.width) // 2, (H - fg.height) // 2))
+    pil.close()
+
+    base = ImageClip(np.array(canvas)).with_duration(dur)
+
+    def _pos(t, d=dur, px=float(drift)):
+        return (-px * (t / d), 0)
+
+    clip = CompositeVideoClip([base.with_position(_pos)],
+                              size=(W, H)).with_duration(dur)
+    clip = clip.with_start(start)
+    if XFADE > 0 and start > 0:
+        try:
+            clip = clip.with_effects([vfx.CrossFadeIn(min(XFADE, dur / 2))])
+        except Exception as exc:  # noqa: BLE001
+            log.warning("crossfade unavailable (%s); hard cut", exc)
+    return clip
+
+
+def broll_scene_clip(video_path, start, end):
+    """v3: one full-frame B-ROLL scene — trim to the beat length, cover-crop
+    to 1080x1920 (MoviePy 2.x .subclipped/.resized/.cropped), darken slightly
+    so the captions pop over busy footage, crossfade in like every scene.
+    Returns (clip, source): the VideoFileClip must stay OPEN until after
+    write_videofile — the caller closes it."""
+    from moviepy import CompositeVideoClip, VideoFileClip, vfx
+
+    dur = max(end - start, 0.2)
+    src = VideoFileClip(video_path)
+    clip = src.without_audio()
+    if clip.duration and clip.duration > dur + 0.05:
+        off = min(0.3, clip.duration - dur - 0.05)   # skip a hair of slate
+        clip = clip.subclipped(off, off + dur)
+    elif clip.duration and clip.duration < dur:      # guarded by selection;
+        try:                                         # belt-and-suspenders
+            clip = clip.with_effects([vfx.Loop(duration=dur)])
+        except Exception as exc:  # noqa: BLE001
+            log.warning("broll loop unavailable (%s); trimming beat", exc)
+
+    w, h = clip.size
+    scale = max(W / float(w), H / float(h)) * 1.002   # epsilon: rounding can
+    clip = clip.resized(scale)                        # leave the frame 1px shy
+    clip = clip.cropped(width=W, height=H,
+                        x_center=clip.w / 2.0, y_center=clip.h / 2.0)
+    try:
+        clip = clip.with_effects([vfx.MultiplyColor(BROLL_DARKEN)])
+    except Exception as exc:  # noqa: BLE001
+        log.warning("broll darken unavailable (%s)", exc)
+
+    out = CompositeVideoClip([clip.with_position("center")],
+                             size=(W, H)).with_duration(dur)
+    out = out.with_start(start)
+    if XFADE > 0 and start > 0:
+        try:
+            out = out.with_effects([vfx.CrossFadeIn(min(XFADE, dur / 2))])
+        except Exception as exc:  # noqa: BLE001
+            log.warning("crossfade unavailable (%s); hard cut", exc)
+    return out, src
+
+
+def plan_scenes(beats, pool, fetcher, total):
+    """v3 scene planner. Scene N starts exactly at beat N's first-word start
+    and runs to the next beat's start (+XFADE overlap), so cuts land with the
+    voice — unchanged from v2. NEW: scenes ALTERNATE real photos (hero first,
+    round-robin over the photo pool) with B-ROLL video matched to the feed's
+    `broll` terms in order. A beat only becomes b-roll when the fetcher
+    actually delivers a long-enough validated clip; otherwise it falls back
+    to a photo (exact v2 behaviour). Text-heavy photos are flagged for the
+    contain renderer; normal photos keep the v2 motion cycle."""
     motions = ("in", "out", "panl", "panr")
     if not beats:
-        return [{"start": 0.0, "end": total, "path": pool_paths[0],
-                 "motion": "in"}]
+        starts_ends = [(0.0, total)]
+    else:
+        starts = [0.0] + [b[0][1] for b in beats[1:]]
+        starts_ends = []
+        for i in range(len(beats)):
+            end = min(starts[i + 1] + XFADE, total) if i + 1 < len(beats) \
+                else total
+            starts_ends.append((starts[i], end))
 
-    starts = [0.0] + [b[0][1] for b in beats[1:]]
-    scenes = []
-    for i, beat in enumerate(beats):
-        if i + 1 < len(beats):
-            end = min(starts[i + 1] + XFADE, total)
-        else:
-            end = total
-        scenes.append({
-            "start": starts[i],
-            "end": end,
-            "path": pool_paths[i % len(pool_paths)],
-            "motion": motions[i % len(motions)],
-        })
+    scenes, photo_i, motion_i = [], 0, 0
+    for i, (start, end) in enumerate(starts_ends):
+        # Odd slots try b-roll (photo opens the video, hero first). If the
+        # photo pool is empty every slot tries b-roll.
+        want_broll = (i % 2 == 1) or not pool
+        broll_path = fetcher.clip_for(end - start) if want_broll else None
+        if broll_path:
+            scenes.append({"start": start, "end": end, "type": "broll",
+                           "path": broll_path, "motion": "video",
+                           "textish": False})
+            continue
+        if not pool:
+            raise ValueError("no usable photos and no b-roll for a scene")
+        entry = pool[photo_i % len(pool)]
+        photo_i += 1
+        scenes.append({"start": start, "end": end, "type": "photo",
+                       "path": entry["path"],
+                       "motion": "contain" if entry["textish"]
+                       else motions[motion_i % len(motions)],
+                       "textish": entry["textish"]})
+        if not entry["textish"]:
+            motion_i += 1
     return scenes
 
 
@@ -975,23 +1382,36 @@ def pick_bgm(page_id):
 # ============================================================================
 # Main composition
 # ============================================================================
-def compose_video(pool_paths, mp3_path, hook, script, word_timings, duration,
-                  font_path, out_path, bgm_path=None):
+def compose_video(pool, broll_terms, mp3_path, hook, script, word_timings,
+                  duration, font_path, out_path, bgm_path=None):
     from moviepy import AudioFileClip, CompositeVideoClip, afx
 
     total = duration + TAIL_SECONDS
 
-    # --- scenes: sentence beats -> alternating-motion full-frame cuts ---
+    # --- scenes: sentence beats -> photo/b-roll alternating full-frame cuts ---
     beats = split_beats(script, word_timings)
-    scenes = plan_scenes(beats, pool_paths, total)
-    log.info("scene plan: %d scene(s), pool=%d", len(scenes), len(pool_paths))
+    fetcher = BrollFetcher(broll_terms)
+    scenes = plan_scenes(beats, pool, fetcher, total)
+    n_broll = sum(1 for sc in scenes if sc["type"] == "broll")
+    log.info("scene plan: %d scene(s) (%d b-roll), pool=%d",
+             len(scenes), n_broll, len(pool))
     for i, sc in enumerate(scenes):
-        log.info("  scene %d: %.2f-%.2fs motion=%s visual=%s", i + 1,
-                 sc["start"], sc["end"], sc["motion"],
+        log.info("  scene %d: %.2f-%.2fs type=%s motion=%s visual=%s", i + 1,
+                 sc["start"], sc["end"], sc["type"], sc["motion"],
                  os.path.basename(sc["path"]))
 
-    layers = [scene_clip(sc["path"], sc["start"], sc["end"], sc["motion"])
-              for sc in scenes]
+    layers, open_sources = [], []
+    for sc in scenes:
+        if sc["type"] == "broll":
+            clip, src = broll_scene_clip(sc["path"], sc["start"], sc["end"])
+            open_sources.append(src)     # must stay open until after encode
+            layers.append(clip)
+        elif sc["textish"]:
+            layers.append(contain_scene_clip(sc["path"], sc["start"],
+                                             sc["end"]))
+        else:
+            layers.append(scene_clip(sc["path"], sc["start"], sc["end"],
+                                     sc["motion"]))
     layers.append(make_scrim(total))
 
     # --- hook window (v1 logic kept) ---
@@ -1047,6 +1467,11 @@ def compose_video(pool_paths, mp3_path, hook, script, word_timings, duration,
         audio.close()
     except Exception:  # noqa: BLE001
         pass
+    for src in open_sources:             # release b-roll readers post-encode
+        try:
+            src.close()
+        except Exception:  # noqa: BLE001
+            pass
 
     _faststart_remux(tmp, out_path)
     try:
@@ -1080,6 +1505,102 @@ def _faststart_remux(src, dst):
         log.warning("faststart remux failed (%s); falling back to raw output",
                     (r.stderr or "").strip()[:300])
         os.replace(src, dst)
+
+
+# ============================================================================
+# v3: Gemini vision judge — "the brain that can see" the finished video.
+# Unavailability (no key / API down / bad JSON) is NON-fatal: skip + deliver.
+# A NEGATIVE VERDICT is fatal for this page's run: no delivery, no done-mark,
+# so the next cron retries with a freshly-varied render.
+# ============================================================================
+class JudgeRejected(RuntimeError):
+    """The vision judge failed the video: do NOT deliver, do NOT mark done."""
+
+
+_JUDGE_PROMPT = """You are a strict visual QA judge for 9:16 vertical short-form social videos.
+You are given {n} evenly spaced frames from ONE rendered video.
+The video's hook/title is: "{hook}"
+
+FAIL the video if ANY of these is true:
+1. READABILITY: any on-screen text (the hook, captions, or text inside an image) is cut off mid-word or mid-letter, cropped by the frame edge, or zoomed/mangled into unreadable fragments. The big 1-3 word styled captions are intentional and fine; text visibly amputated by cropping is NOT fine.
+2. FRAMING: a human face is badly cropped (eyes or forehead sliced by the frame edge, face half outside the frame).
+3. VARIETY: all frames look essentially identical — a static image with only caption changes, no visual variety between frames.
+
+Minor blur, film grain, compression artifacts, or a darkened background are acceptable. Judge ONLY the three criteria above.
+
+Respond with ONLY this JSON object, no markdown fences, no extra text:
+{{"pass": true, "issues": [], "scores": {{"readability": 0, "framing": 0, "variety": 0}}}}
+where pass is true/false, issues is a list of short problem descriptions (empty when passing), and each score is an integer 0-10."""
+
+
+def _extract_judge_frames(mp4_path, total_s, n=JUDGE_FRAMES):
+    """Grab n evenly-spaced jpeg frames (frame i at (2i+1)/2n of the runtime)
+    downscaled to 540px wide — small payload, still legible for the judge."""
+    ff = _ffmpeg_bin()
+    paths = []
+    for i in range(n):
+        t = max(0.0, total_s * (2 * i + 1) / (2.0 * n))
+        p = os.path.join(WORKDIR, f"judge-{i}.jpg")
+        cmd = [ff, "-y", "-ss", f"{t:.2f}", "-i", mp4_path,
+               "-frames:v", "1", "-q:v", "4", "-vf", "scale=540:-2", p]
+        r = subprocess.run(cmd, capture_output=True, text=True)
+        if r.returncode == 0 and os.path.exists(p) and os.path.getsize(p) > 1000:
+            paths.append(p)
+        else:
+            log.warning("judge frame %d extraction failed", i)
+    return paths
+
+
+def vision_judge(mp4_path, hook, title, total_s):
+    """One gemini-2.5-flash generateContent call (native REST, inline_data
+    jpegs, response_mime_type=application/json). Returns the verdict dict or
+    None when the judge is unavailable — the caller only blocks delivery on
+    an explicit pass=false."""
+    if not GEMINI_API_KEY:
+        log.info("GEMINI_API_KEY not set; skipping vision judge")
+        return None
+    import base64
+    try:
+        frames = _extract_judge_frames(mp4_path, total_s)
+        if len(frames) < 2:
+            log.warning("too few judge frames (%d); skipping judge",
+                        len(frames))
+            return None
+        prompt = _JUDGE_PROMPT.format(
+            n=len(frames), hook=(hook or title or "").replace('"', "'")[:200])
+        parts = [{"text": prompt}]
+        for p in frames:
+            with open(p, "rb") as fh:
+                parts.append({"inline_data": {
+                    "mime_type": "image/jpeg",
+                    "data": base64.b64encode(fh.read()).decode("ascii")}})
+        body = {"contents": [{"parts": parts}],
+                "generationConfig": {"temperature": 0.0,
+                                     "response_mime_type": "application/json"}}
+        url = ("https://generativelanguage.googleapis.com/v1beta/models/"
+               f"{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}")
+        r = requests.post(url, json=body, timeout=90)
+        if r.status_code != 200:
+            log.warning("judge HTTP %d (%s); skipping judge",
+                        r.status_code, r.text[:200])
+            return None
+        text = (r.json()["candidates"][0]["content"]["parts"][0]["text"]
+                or "").strip()
+        if text.startswith("```"):       # belt-and-suspenders fence strip
+            text = text.strip("`").strip()
+            if text.lower().startswith("json"):
+                text = text[4:].strip()
+        verdict = json.loads(text)
+        if not isinstance(verdict, dict) or "pass" not in verdict:
+            log.warning("judge returned unusable JSON; skipping judge")
+            return None
+        log.info("vision judge: pass=%s scores=%s issues=%s",
+                 verdict.get("pass"), verdict.get("scores"),
+                 verdict.get("issues"))
+        return verdict
+    except Exception as exc:  # noqa: BLE001
+        log.warning("vision judge unavailable (%s); delivering unjudged", exc)
+        return None
 
 
 # ============================================================================
@@ -1194,15 +1715,26 @@ def make_one(post, font_path):
 
     os.makedirs(WORKDIR, exist_ok=True)
     pool = build_visual_pool(post, page_id)
-    if not pool:
+    broll_terms = post.get("broll") if isinstance(post.get("broll"), list) \
+        else []
+    if not pool and not (broll_terms and (PEXELS_API_KEY or PIXABAY_API_KEY)):
         raise ValueError(f"post {page_id}: no usable visuals at all")
 
     mp3 = os.path.join(WORKDIR, f"voice-{page_id}.mp3")
     timings, duration = synthesize(script, mp3)
 
     out = os.path.join(WORKDIR, f"video-{page_id}.mp4")
-    compose_video(pool, mp3, hook, script, timings, duration, font_path, out,
-                  bgm_path=pick_bgm(page_id))
+    compose_video(pool, broll_terms, mp3, hook, script, timings, duration,
+                  font_path, out, bgm_path=pick_bgm(page_id))
+
+    # v3: the vision judge sees the FINISHED (faststart-remuxed) artifact.
+    verdict = vision_judge(out, hook, post.get("title", ""),
+                           duration + TAIL_SECONDS)
+    if verdict is not None and verdict.get("pass") is not True:
+        raise JudgeRejected(
+            f"vision judge rejected page {page_id}: "
+            f"issues={verdict.get('issues')} scores={verdict.get('scores')}")
+
     post_video(page_id, slug, out)
     append_done(page_id)
 
