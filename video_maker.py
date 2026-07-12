@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-GenZHype faceless-video maker — v3 "moving pictures" (real b-roll + judge).
+GenZHype faceless-video maker — v4 "the hired editor" (EDL + sound design).
 
 Adapted from the open-source MoneyPrinterTurbo (MPT) engine
 (https://github.com/harry0703/MoneyPrinterTurbo, MIT). This driver pulls a
@@ -98,11 +98,55 @@ unreadable fragments" — the caption sync itself was loved and is untouched):
      retries with a fresh render. Missing key / API error / bad JSON -> the
      judge is skipped (non-fatal) and delivery proceeds. One call per video.
 
+WHAT v4 ADDS over v3 (owner verdict on v3: "clips side by side; a shot dragged
+after its word passed; zero sound design = feels dead/beginner". Spec:
+videorepos/V4-EDITOR-SPEC.md — the researched editor law-book):
+  1. EDL EXECUTION (vertical editing, Laws 3/4/9) — the feed now sends
+     `post.shotlist`: a Director-authored shot list anchored by WORD INDEX
+     into `script.split()`. The maker maps token index -> milliseconds using
+     the TTS WordBoundary timings (1:1 when counts match, the proven
+     proportional fallback otherwise) and renders each shot from
+     `word[w_in].start - 300ms` (visual leads audio, Law 9; clamped monotonic,
+     first shot at 0) to the next shot's t_in. Every shot dies with its
+     phrase. `shot_class: subject` -> next photo from the REAL-photo pool
+     (hero/person/receipt — never stock); `broll` -> Pexels/Pixabay clip for
+     `shot.query`; a failed b-roll fetch falls back to a subject photo (never
+     black, never a crash). Motions: punch_hit (snap 1.0->1.12 in ~3 frames AT
+     the emphasis word, then hold), punch_build (ease 1.0->1.10 across the
+     shot), zoom_out (1.12->1.0), pan_left/right (v3 pans). Identical motion
+     never repeats back-to-back (guarded even though the Director promises).
+     HARD CUTS between shots (Law 7 — the v3 0.15s crossfade is gone inside
+     the sequence; a tiny fade remains only on video start/end).
+     `shotlist` null/malformed -> the entire v3 beat/alternation path runs.
+  2. SOUND ENGINE (Laws 12-19, the missing half) — pydub mix built BEFORE the
+     video encode: VO normalized to -16 dBFS; music bed picked
+     deterministically from .social/bgm (md5 of page_id), looped, at -18dB vs
+     VO, 0.5s master fades; per-shot music states (`bed` / `silence` = bed
+     fully out from 300ms before the shot, back with the next shot's impact /
+     `duck` = extra -4dB); SFX from .social/sfx by filename prefix
+     (whoosh_*/riser_*/impact_*/pop_*): whoosh & impact at the shot's t_in,
+     pop at the emphasis word, riser trimmed to its last <=3s and ending
+     EXACTLY at the NEXT shot's t_in; all SFX >=6dB below VO, variants
+     rotated by shot-index hash; 30ms fades at every music seam (Law 19).
+     LOUDNESS: the mixed track is gain-normalized in pydub toward -14 dBFS
+     average (approx -14 LUFS) with a -1.5 dBFS peak cap, then attached to
+     the video — chosen over an ffmpeg loudnorm pass because it needs no
+     second encode. Missing folders/files or ANY mix failure -> the v3
+     voice+bgm path runs instead (never fatal).
+  3. HOUSE GRADE (Law 22) — one look over every visual so mixed sources feel
+     like one shoot: vectorized numpy grade (teal-lifted shadows +6% blue,
+     warmed highlights +4% red, 1.06 contrast, 1.05 saturation) applied ONCE
+     per photo array and per-frame on b-roll, plus a cached radial vignette
+     (corners to ~0.85) composited as a single static overlay layer.
+  4. JUDGE: one added criterion — consecutive sampled frames must show
+     varied, story-relevant visuals (not near-identical).
+
 PROVEN v1 PARTS KEPT VERBATIM: the multi-engine fetch/post (curl_cffi
 browser-TLS first — Hostinger's TLS fingerprint block), base64-in-JSON video
 delivery (WAF blocks multipart), edge-tts synthesis with WordBoundary timings
 and 403 retries, the ffmpeg resolution chain (_ffmpeg_bin), the dedup state
-file and the faststart remux.
+file and the faststart remux. Also kept whole from v3: visual pool +
+text-heavy guard, BrollFetcher budgets, captions, hook, Gemini judge.
 
 Runtime target: GitHub Actions ubuntu-latest (ffmpeg + fonts preinstalled).
 """
@@ -201,6 +245,37 @@ TEXTISH_FLAT_FRAC = 0.55            # top-4 quantized colors must cover >= this
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "").strip()
 GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
 JUDGE_FRAMES = 4
+
+# --- v4: EDL execution (V4-EDITOR-SPEC.md Laws 3/4/6/7/9) ---
+VISUAL_LEAD_S = float(os.environ.get("VIDEO_VISUAL_LEAD_S", "0.30"))  # Law 9
+MIN_SHOT_S = 0.35              # degenerate shots absorb into the previous one
+PUNCH_HIT_SCALE = 1.12         # Law 6: snap-zoom target (subtle band)
+PUNCH_HIT_FRAMES = 3           # snap duration in frames (~0.1s at 30fps)
+PUNCH_BUILD_SCALE = 1.10       # eased 1.0->1.10 across the shot
+EDGE_FADE_S = 0.15             # tiny fade on video START/END only (hard cuts inside)
+
+# --- v4: sound engine (Laws 12-19) ---
+SFX_DIR = os.environ.get("VIDEO_SFX_DIR", ".social/sfx")
+VO_TARGET_DBFS = -16.0         # VO normalization anchor before the final pass
+BED_DB_VS_VO = -18.0           # Law 13: music bed sits -18dB under the voice
+DUCK_EXTRA_DB = -4.0           # 'duck' music state: extra reduction
+WHOOSH_DB_VS_VO = -6.0         # Law 14: ~50-60% of VO, floor 6dB below
+IMPACT_DB_VS_VO = -6.0
+POP_DB_VS_VO = -8.0
+RISER_DB_VS_VO = -8.0
+RISER_MAX_S = 3.0              # risers keep their LAST <=3s (they peak at the end)
+SILENCE_LEAD_S = 0.30          # music cut this much BEFORE a 'silence' shot
+SEAM_FADE_MS = 30              # Law 19: fade at every music seam (click kill)
+BED_MASTER_FADE_MS = 500       # 0.5s fade in/out on the whole bed
+MIX_TARGET_DBFS = -14.0        # final loudness anchor (approx -14 LUFS)
+MIX_TRUE_PEAK_DBFS = -1.5      # peak ceiling
+
+# --- v4: house grade (Law 22 — one look over every visual) ---
+GRADE_CONTRAST = 1.06
+GRADE_SATURATION = 1.05
+GRADE_TEAL_SHADOWS = 0.06      # +6% blue lift in darks
+GRADE_WARM_HIGHLIGHTS = 0.04   # +4% red lift in highlights
+VIGNETTE_EDGE = 0.85           # corner brightness multiplier
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s"
@@ -814,30 +889,34 @@ class BrollFetcher:
 
     def __init__(self, terms):
         self.terms = [str(t).strip() for t in (terms or []) if str(t).strip()]
-        self.enabled = bool(self.terms) and bool(PEXELS_API_KEY
-                                                 or PIXABAY_API_KEY)
+        self.have_keys = bool(PEXELS_API_KEY or PIXABAY_API_KEY)
+        self.enabled = bool(self.terms) and self.have_keys
         if self.terms and not self.enabled:
             log.info("broll terms present but no PEXELS/PIXABAY key; "
                      "photos-only (v2 behaviour)")
         elif not self.terms:
-            log.info("no broll terms in feed; photos-only (v2 behaviour)")
+            log.info("no broll terms in feed; cursor mode off "
+                     "(v4 per-shot queries may still fetch)")
         self.searches = {}     # term -> [items]
         self.downloads = {}    # url-hash -> local path or None (failed)
         self.used = set()      # urls already placed in a scene
         self.cursor = 0
         self.t0 = time.time()
         self.bytes = 0
+        self.budget_dead = False
 
     def _budget_ok(self):
+        if self.budget_dead:
+            return False
         if time.time() - self.t0 > BROLL_TIME_BUDGET_S:
             log.info("broll time budget (%.0fs) exhausted; photos from here",
                      BROLL_TIME_BUDGET_S)
-            self.enabled = False
+            self.budget_dead = True
         elif self.bytes > BROLL_BYTES_BUDGET:
             log.info("broll byte budget (%.0f MB) exhausted; photos from here",
                      BROLL_BYTES_BUDGET / 1024 / 1024)
-            self.enabled = False
-        return self.enabled
+            self.budget_dead = True
+        return not self.budget_dead
 
     def _search(self, term):
         if term not in self.searches:
@@ -911,6 +990,29 @@ class BrollFetcher:
                              "%s)", term, item["duration"], need_s,
                              item["provider"])
                     return path
+        return None
+
+    def clip_for_query(self, query, need_s):
+        """v4 EDL mode: local mp4 >= need_s long for THIS shot's Director
+        query, or None -> the caller falls back to a subject photo. Shares
+        the run's search/download caches, URL dedup and budgets."""
+        query = str(query or "").strip()
+        if not query or not self.have_keys or not self._budget_ok():
+            return None
+        for item in self._search(query):
+            if item["duration"] < need_s + 0.25 or item["url"] in self.used:
+                continue
+            if not self._budget_ok():
+                return None
+            path = self._download(item["url"])
+            if path:
+                self.used.add(item["url"])
+                log.info("broll shot query '%s' -> %.1fs clip for %.1fs shot "
+                         "(%s)", query, item["duration"], need_s,
+                         item["provider"])
+                return path
+        log.info("broll shot query '%s' yielded nothing usable; subject photo "
+                 "fallback", query)
         return None
 
 
@@ -999,6 +1101,262 @@ def split_beats(script, timings):
 
 
 # ============================================================================
+# v4: HOUSE GRADE (Law 22) — one consistent look over photos AND b-roll so
+# mixed sources feel like one shoot. Cheap vectorized numpy only: applied ONCE
+# per photo array (zero per-frame cost) and per-frame on b-roll video. The
+# vignette is a single cached static overlay layer (radial darken to ~0.85 at
+# the corners), NOT per-frame math.
+# ============================================================================
+def grade_frame(arr):
+    """Teal-shadow/warm-highlight shift + gentle contrast + saturation.
+    uint8 HxWx3 in -> uint8 HxWx3 out. Any failure returns the input."""
+    try:
+        f = arr.astype(np.float32) * (1.0 / 255.0)
+        luma = f[..., 0] * 0.299 + f[..., 1] * 0.587 + f[..., 2] * 0.114
+        # teal shadows: lift blue where it's dark (and not already blue-maxed)
+        f[..., 2] += GRADE_TEAL_SHADOWS * (1.0 - luma) * (1.0 - f[..., 2])
+        # warm highlights: lift red where it's bright
+        f[..., 0] += GRADE_WARM_HIGHLIGHTS * luma * (1.0 - f[..., 0])
+        # contrast around mid-grey (gentle S)
+        f -= 0.5
+        f *= GRADE_CONTRAST
+        f += 0.5
+        # saturation
+        l2 = (f[..., 0] * 0.299 + f[..., 1] * 0.587
+              + f[..., 2] * 0.114)[..., None]
+        f = l2 + (f - l2) * GRADE_SATURATION
+        np.clip(f, 0.0, 1.0, out=f)
+        return (f * 255.0).astype(np.uint8)
+    except Exception:  # noqa: BLE001
+        return arr
+
+
+_VIGNETTE_RGBA = None
+
+
+def make_vignette(duration):
+    """Static full-duration overlay: transparent center, black corners at
+    alpha ~(1-0.85)*255 — visually a radial multiply to ~0.85. Mask cached."""
+    from moviepy import ImageClip
+
+    global _VIGNETTE_RGBA
+    if _VIGNETTE_RGBA is None:
+        y, x = np.ogrid[:H, :W]
+        cx, cy = W / 2.0, H / 2.0
+        r = np.sqrt(((x - cx) / cx) ** 2 + ((y - cy) / cy) ** 2) / math.sqrt(2)
+        mult = 1.0 - (1.0 - VIGNETTE_EDGE) * np.clip(r, 0.0, 1.0) ** 2
+        rgba = np.zeros((H, W, 4), dtype=np.uint8)
+        rgba[..., 3] = ((1.0 - mult) * 255.0).astype(np.uint8)
+        _VIGNETTE_RGBA = rgba
+    return ImageClip(_VIGNETTE_RGBA, transparent=True).with_duration(duration)
+
+
+# ============================================================================
+# v4: EDL EXECUTION — the Director's word-indexed shot list becomes an
+# absolute-time edit decision list (vertical editing: every shot glued to its
+# words). Null/malformed shotlist -> None -> the whole v3 path runs.
+# ============================================================================
+_V4_MOTIONS = ("punch_hit", "punch_build", "zoom_out", "pan_left", "pan_right")
+# Never-identical-back-to-back guard (Law 10); Director promises, we enforce.
+_MOTION_ALTERNATE = {
+    "punch_hit": "punch_build",
+    "punch_build": "zoom_out",
+    "zoom_out": "punch_build",
+    "pan_left": "pan_right",
+    "pan_right": "pan_left",
+}
+
+
+def map_tokens_to_spans(script, timings):
+    """Per-whitespace-token (start_s, end_s) from the TTS word timings — the
+    word-index -> ms bridge the Director schema is anchored on. 1:1 when the
+    token count matches the cue count; otherwise the same proportional
+    mapping split_beats has always used (token k covers timing indexes
+    [k*n/T, (k+1)*n/T)). Monotonicity is enforced."""
+    tokens = [w for w in script.split() if w.strip()]
+    n_tok, n = len(tokens), len(timings)
+    if n_tok == 0 or n == 0:
+        return []
+    spans = []
+    if n == n_tok:
+        spans = [(t[1], t[2]) for t in timings]
+    else:
+        log.info("token/cue count mismatch (%d tokens vs %d cues); "
+                 "proportional mapping", n_tok, n)
+        for k in range(n_tok):
+            a = min(n - 1, (k * n) // n_tok)
+            b = min(n - 1, max(a, ((k + 1) * n) // n_tok - 1))
+            spans.append((timings[a][1], timings[b][2]))
+    fixed, prev_s = [], 0.0
+    for s, e in spans:
+        s = max(s, prev_s)
+        e = max(e, s)
+        fixed.append((s, e))
+        prev_s = s
+    return fixed
+
+
+def build_edl(shotlist, script, timings, total):
+    """Director shot list -> absolute-time EDL. Each shot runs from
+    word[w_in].start - 300ms (Law 9 visual lead; clamped monotonic; first
+    shot at 0) to the NEXT shot's t_in (hard-cut boundary = cut ON the word,
+    early, never late — Laws 3/4); the last shot rides to `total`.
+    Degenerate (<0.35s) shots are absorbed into their predecessor.
+    Returns a list of shot dicts, or None when the shotlist is unusable."""
+    try:
+        if not isinstance(shotlist, dict):
+            return None
+        raw = shotlist.get("shots")
+        if not isinstance(raw, list) or not raw:
+            return None
+        spans = map_tokens_to_spans(script, timings)
+        if not spans:
+            return None
+        n_tok = len(spans)
+        declared = int(shotlist.get("words") or 0)
+        if declared and declared != n_tok:
+            log.warning("shotlist declares %d words, script tokenizes to %d; "
+                        "indexes clamped", declared, n_tok)
+
+        shots = []
+        for s in raw:
+            if not isinstance(s, dict):
+                continue
+            try:
+                w_in = int(s.get("w_in", 0))
+                w_out = int(s.get("w_out", w_in))
+            except (TypeError, ValueError):
+                continue
+            w_in = max(0, min(n_tok - 1, w_in))
+            w_out = max(w_in, min(n_tok - 1, w_out))
+            motion = str(s.get("motion") or "").strip()
+            if motion not in _V4_MOTIONS:
+                motion = "punch_build"
+            sfx = str(s.get("sfx") or "none").strip()
+            if sfx not in ("none", "whoosh", "riser", "impact", "pop"):
+                sfx = "none"
+            music = str(s.get("music") or "bed").strip()
+            if music not in ("bed", "silence", "duck"):
+                music = "bed"
+            emph = s.get("emphasis_w")
+            try:
+                emph = int(emph)
+            except (TypeError, ValueError):
+                emph = None
+            if emph is not None:
+                emph = max(w_in, min(w_out, emph))
+            shots.append({
+                "w_in": w_in, "w_out": w_out,
+                "shot_class": ("broll" if s.get("shot_class") == "broll"
+                               else "subject"),
+                "query": str(s.get("query") or "").strip(),
+                "motion": motion, "sfx": sfx, "music": music,
+                "emph_t": spans[emph][0] if emph is not None else None,
+            })
+        if not shots:
+            return None
+        shots.sort(key=lambda x: x["w_in"])
+
+        # Hard-cut boundaries with the 300ms visual lead, clamped monotonic.
+        bounds = [0.0]
+        for sh in shots[1:]:
+            b = spans[sh["w_in"]][0] - VISUAL_LEAD_S
+            bounds.append(max(b, bounds[-1] + 0.05))
+        bounds.append(max(total, bounds[-1] + 0.05))
+        for i, sh in enumerate(shots):
+            sh["start"] = bounds[i]
+            sh["end"] = bounds[i + 1]
+
+        # Absorb degenerate slivers into the previous shot.
+        merged = []
+        for sh in shots:
+            if merged and (sh["end"] - sh["start"]) < MIN_SHOT_S:
+                merged[-1]["end"] = sh["end"]
+                if merged[-1]["sfx"] == "none" and sh["sfx"] != "none":
+                    merged[-1]["sfx"] = sh["sfx"]
+                continue
+            merged.append(sh)
+        if merged and merged[0]["start"] > 0:
+            merged[0]["start"] = 0.0
+        log.info("EDL: %d shot(s) from %d directed (words=%d)",
+                 len(merged), len(raw), n_tok)
+        return merged
+    except Exception as exc:  # noqa: BLE001
+        log.warning("shotlist unusable (%s); falling back to v3 scene "
+                    "planner", exc)
+        return None
+
+
+def motion_scale_fn(motion, dur, emph_rel):
+    """Zoom curve per V4 spec Law 6. Returns f(t)->scale for .resized()."""
+    if motion == "punch_hit":
+        te = emph_rel if emph_rel is not None else dur * 0.4
+        te = min(max(te, 0.0), max(dur - 0.05, 0.0))
+        snap = max(PUNCH_HIT_FRAMES / float(FPS), 1e-3)
+
+        def _s(t, te=te, snap=snap):
+            if t < te:
+                return 1.0
+            k = min(1.0, (t - te) / snap)
+            return 1.0 + (PUNCH_HIT_SCALE - 1.0) * k   # snap, then HOLD
+        return _s
+    if motion == "zoom_out":
+        def _s(t, d=dur):
+            return max(1.0, PUNCH_HIT_SCALE
+                       - (PUNCH_HIT_SCALE - 1.0) * (t / d))
+        return _s
+
+    def _s(t, d=dur):                                   # punch_build (eased)
+        u = min(1.0, max(0.0, t / d))
+        u = u * u * (3.0 - 2.0 * u)                     # smoothstep
+        return 1.0 + (PUNCH_BUILD_SCALE - 1.0) * u
+    return _s
+
+
+def plan_scenes_edl(edl, pool, fetcher):
+    """v4 planner: the Director decided WHAT; this resolves each shot to a
+    concrete asset. subject -> next photo from the REAL-photo pool (never
+    stock); broll -> stock clip for the shot's query, falling back to a
+    subject photo on any fetch failure (never black). Identical motion never
+    repeats back-to-back."""
+    scenes, photo_i, prev_motion = [], 0, None
+    for sh in edl:
+        need_s = sh["end"] - sh["start"]
+        motion = sh["motion"]
+        if motion == prev_motion:
+            motion = _MOTION_ALTERNATE.get(motion, "punch_build")
+
+        path, typ, textish = None, None, False
+        if sh["shot_class"] == "broll":
+            path = fetcher.clip_for_query(sh["query"], need_s)
+            if path:
+                typ = "broll"
+        if path is None:
+            if pool:
+                entry = pool[photo_i % len(pool)]
+                photo_i += 1
+                path, typ, textish = entry["path"], "photo", entry["textish"]
+            else:
+                path = fetcher.clip_for(need_s)   # last resort: cursor mode
+                if path:
+                    typ = "broll"
+                else:
+                    raise ValueError("no photos and no b-roll for a shot")
+
+        emph_rel = None
+        if sh["emph_t"] is not None:
+            emph_rel = sh["emph_t"] - sh["start"]
+        scenes.append({
+            "start": sh["start"], "end": sh["end"], "type": typ,
+            "path": path, "motion": "contain" if textish else motion,
+            "textish": textish, "emph_rel": emph_rel,
+            "sfx": sh["sfx"], "music": sh["music"], "emph_t": sh["emph_t"],
+        })
+        prev_motion = motion
+    return scenes
+
+
+# ============================================================================
 # Composition: scenes, scrim, hook, chunk captions
 # ============================================================================
 def cover_fit(pil_img, tw, th):
@@ -1028,13 +1386,19 @@ def make_scrim(duration):
     return ImageClip(grad, transparent=True).with_duration(duration)
 
 
-def scene_clip(image_path, start, end, motion):
-    """One full-frame scene with its own motion. `motion` cycles through
-    zoom-in / zoom-out / pan-left / pan-right per scene. Pans on portrait
-    sources become vertical pans (a horizontal pan would crop a tall branded
-    card to a sliver). Cuts land on `start`; XFADE softens the incoming edge."""
+def scene_clip(image_path, start, end, motion, emph_rel=None, xfade=None):
+    """One full-frame photo scene with its own motion. v3 motions ('in',
+    'out', 'panl', 'panr') keep their behaviour; v4 EDL motions ('punch_hit',
+    'punch_build', 'zoom_out', 'pan_left', 'pan_right') run the Law-6 curves
+    (snap zoom AT the emphasis word, eased build, settle-out). Pans on
+    portrait sources become vertical pans. The HOUSE GRADE is baked into the
+    source array once (zero per-frame cost). `xfade=0` -> hard cut (v4);
+    default keeps the v3 crossfade."""
     from moviepy import CompositeVideoClip, ImageClip, vfx
 
+    if xfade is None:
+        xfade = XFADE
+    motion = {"pan_left": "panl", "pan_right": "panr"}.get(motion, motion)
     dur = max(end - start, 0.2)
     pil = Image.open(image_path)
     src_w, src_h = pil.size
@@ -1042,7 +1406,8 @@ def scene_clip(image_path, start, end, motion):
 
     if motion in ("panl", "panr") and not portrait:
         bw = int(W * PAN_SCALE)
-        base = ImageClip(np.array(cover_fit(pil, bw, H))).with_duration(dur)
+        base = ImageClip(grade_frame(np.array(cover_fit(pil, bw, H)))
+                         ).with_duration(dur)
         travel = float(bw - W)
         x0, x1 = (0.0, -travel) if motion == "panl" else (-travel, 0.0)
 
@@ -1052,7 +1417,8 @@ def scene_clip(image_path, start, end, motion):
         moving = base.with_position(_pos)
     elif motion in ("panl", "panr"):
         bh = int(H * PAN_SCALE)
-        base = ImageClip(np.array(cover_fit(pil, W, bh))).with_duration(dur)
+        base = ImageClip(grade_frame(np.array(cover_fit(pil, W, bh)))
+                         ).with_duration(dur)
         travel = float(bh - H)
         y0, y1 = (0.0, -travel) if motion == "panl" else (-travel, 0.0)
 
@@ -1061,8 +1427,11 @@ def scene_clip(image_path, start, end, motion):
 
         moving = base.with_position(_pos)
     else:
-        base = ImageClip(np.array(cover_fit(pil, W, H))).with_duration(dur)
-        if motion == "out":
+        base = ImageClip(grade_frame(np.array(cover_fit(pil, W, H)))
+                         ).with_duration(dur)
+        if motion in ("punch_hit", "punch_build", "zoom_out"):
+            _scale = motion_scale_fn(motion, dur, emph_rel)
+        elif motion == "out":
             def _scale(t, d=dur):
                 return max(1.001, 1.0 + SCENE_ZOOM - SCENE_ZOOM * (t / d))
         else:
@@ -1073,22 +1442,25 @@ def scene_clip(image_path, start, end, motion):
 
     clip = CompositeVideoClip([moving], size=(W, H)).with_duration(dur)
     clip = clip.with_start(start)
-    if XFADE > 0 and start > 0:
+    if xfade > 0 and start > 0:
         try:
-            clip = clip.with_effects([vfx.CrossFadeIn(min(XFADE, dur / 2))])
+            clip = clip.with_effects([vfx.CrossFadeIn(min(xfade, dur / 2))])
         except Exception as exc:  # noqa: BLE001
             log.warning("crossfade unavailable (%s); hard cut", exc)
     return clip
 
 
-def contain_scene_clip(image_path, start, end):
+def contain_scene_clip(image_path, start, end, xfade=None):
     """v3 text-heavy renderer: the WHOLE image fits inside the frame
     ('contain') over a blurred darkened fill of itself — no cover-crop, no
     Ken-Burns zoom, only a gentle <=2% horizontal drift so the scene is not
-    dead-static. This is what posters/cards/receipts/screenshots get."""
+    dead-static. This is what posters/cards/receipts/screenshots get.
+    v4: house grade baked into the composed canvas; xfade=0 -> hard cut."""
     from moviepy import CompositeVideoClip, ImageClip, vfx
     from PIL import ImageEnhance, ImageFilter
 
+    if xfade is None:
+        xfade = XFADE
     dur = max(end - start, 0.2)
     drift = max(2, int(W * TEXTISH_DRIFT))
     pil = Image.open(image_path).convert("RGB")
@@ -1105,7 +1477,7 @@ def contain_scene_clip(image_path, start, end):
     canvas.paste(fg, ((canvas_w - fg.width) // 2, (H - fg.height) // 2))
     pil.close()
 
-    base = ImageClip(np.array(canvas)).with_duration(dur)
+    base = ImageClip(grade_frame(np.array(canvas))).with_duration(dur)
 
     def _pos(t, d=dur, px=float(drift)):
         return (-px * (t / d), 0)
@@ -1113,22 +1485,28 @@ def contain_scene_clip(image_path, start, end):
     clip = CompositeVideoClip([base.with_position(_pos)],
                               size=(W, H)).with_duration(dur)
     clip = clip.with_start(start)
-    if XFADE > 0 and start > 0:
+    if xfade > 0 and start > 0:
         try:
-            clip = clip.with_effects([vfx.CrossFadeIn(min(XFADE, dur / 2))])
+            clip = clip.with_effects([vfx.CrossFadeIn(min(xfade, dur / 2))])
         except Exception as exc:  # noqa: BLE001
             log.warning("crossfade unavailable (%s); hard cut", exc)
     return clip
 
 
-def broll_scene_clip(video_path, start, end):
-    """v3: one full-frame B-ROLL scene — trim to the beat length, cover-crop
-    to 1080x1920 (MoviePy 2.x .subclipped/.resized/.cropped), darken slightly
-    so the captions pop over busy footage, crossfade in like every scene.
+def broll_scene_clip(video_path, start, end, motion=None, emph_rel=None,
+                     xfade=None):
+    """One full-frame B-ROLL scene — trim to the beat length, cover-crop to
+    1080x1920 (MoviePy 2.x .subclipped/.resized/.cropped), darken slightly so
+    the captions pop over busy footage. v4: the house grade runs per-frame
+    (vectorized numpy via image_transform) and EDL zoom motions (punch_hit /
+    punch_build / zoom_out) are applied on top of the cover-crop — pans on
+    video sources map to punch_build. xfade=0 -> hard cut.
     Returns (clip, source): the VideoFileClip must stay OPEN until after
     write_videofile — the caller closes it."""
     from moviepy import CompositeVideoClip, VideoFileClip, vfx
 
+    if xfade is None:
+        xfade = XFADE
     dur = max(end - start, 0.2)
     src = VideoFileClip(video_path)
     clip = src.without_audio()
@@ -1150,13 +1528,26 @@ def broll_scene_clip(video_path, start, end):
         clip = clip.with_effects([vfx.MultiplyColor(BROLL_DARKEN)])
     except Exception as exc:  # noqa: BLE001
         log.warning("broll darken unavailable (%s)", exc)
+    try:
+        clip = clip.image_transform(grade_frame)      # v4 house grade
+    except Exception as exc:  # noqa: BLE001
+        log.warning("broll grade unavailable (%s)", exc)
+
+    if motion in ("punch_hit", "punch_build", "zoom_out", "pan_left",
+                  "pan_right"):
+        if motion in ("pan_left", "pan_right"):       # video pans -> build
+            motion = "punch_build"
+        try:
+            clip = clip.resized(motion_scale_fn(motion, dur, emph_rel))
+        except Exception as exc:  # noqa: BLE001
+            log.warning("broll motion unavailable (%s)", exc)
 
     out = CompositeVideoClip([clip.with_position("center")],
                              size=(W, H)).with_duration(dur)
     out = out.with_start(start)
-    if XFADE > 0 and start > 0:
+    if xfade > 0 and start > 0:
         try:
-            out = out.with_effects([vfx.CrossFadeIn(min(XFADE, dur / 2))])
+            out = out.with_effects([vfx.CrossFadeIn(min(xfade, dur / 2))])
         except Exception as exc:  # noqa: BLE001
             log.warning("crossfade unavailable (%s); hard cut", exc)
     return out, src
@@ -1380,38 +1771,228 @@ def pick_bgm(page_id):
 
 
 # ============================================================================
+# v4: SOUND ENGINE (Laws 12-19) — pydub mix built BEFORE the video encode.
+# Assets: BGM_DIR/*.mp3 beds + SFX_DIR/{whoosh,riser,impact,pop}_*.mp3.
+# Missing folders/files -> that layer silently skipped; ANY failure -> None
+# and the caller runs the v3 voice+bgm path instead. NEVER fatal.
+#
+# LOUDNESS ROUTE (documented design decision): after mixing, the track is
+# gain-normalized with pydub toward -14 dBFS average (approx -14 LUFS; dBFS
+# is an RMS proxy, close enough for speech-led shorts) and capped so the
+# sample peak stays <= -1.5 dBFS. This runs on the audio BEFORE it is
+# attached to the video, so no second video encode is needed — an ffmpeg
+# `loudnorm` filter at the remux step would have forced re-encoding the
+# audio inside an existing mux (or a 2nd pass); this is the simpler,
+# equally effective route at our scale.
+# ============================================================================
+def _sfx_files(category):
+    """All kit files for one category by filename prefix, sorted (stable
+    rotation). Missing folder/empty category -> []."""
+    try:
+        return sorted(glob.glob(os.path.join(SFX_DIR, category + "_*.mp3")))
+    except Exception:  # noqa: BLE001
+        return []
+
+
+def _pick_variant(files, salt):
+    """Deterministic variant rotation (Law 16: rotate 3-5 variants so a
+    repeated sound never becomes a habit)."""
+    if not files:
+        return None
+    idx = int(hashlib.md5(str(salt).encode()).hexdigest(), 16) % len(files)
+    return files[idx]
+
+
+def _load_seg(path):
+    """AudioSegment or None; silent-file (-inf dBFS) and decode failures are
+    both treated as missing."""
+    try:
+        from pydub import AudioSegment
+        seg = AudioSegment.from_file(path)
+        if len(seg) == 0 or seg.dBFS == float("-inf"):
+            return None
+        return seg
+    except Exception as exc:  # noqa: BLE001
+        log.warning("sfx/bgm decode failed (%s): %s", exc, path)
+        return None
+
+
+def _music_intervals(scenes, total_ms):
+    """Per-shot music states -> merged [start_ms, end_ms, extra_db] intervals
+    of AUDIBLE bed. 'silence' shots produce a gap that OPENS 300ms before the
+    shot (Law 17: music out just before the reveal) and CLOSES at the next
+    shot's start (the slam-back). 'duck' carries an extra -4dB."""
+    spans = []
+    for i, sc in enumerate(scenes):
+        a = 0 if i == 0 else int(sc["start"] * 1000)
+        b = total_ms if i == len(scenes) - 1 else int(scenes[i + 1]["start"]
+                                                      * 1000)
+        spans.append([a, max(a, b), sc.get("music") or "bed"])
+    lead = int(SILENCE_LEAD_S * 1000)
+    for i, sp in enumerate(spans):
+        if sp[2] == "silence" and i > 0:
+            sp[0] = max(spans[i - 1][0], sp[0] - lead)
+            spans[i - 1][1] = sp[0]
+    out = []
+    for a, b, state in spans:
+        if state == "silence" or b - a <= 0:
+            continue
+        db = DUCK_EXTRA_DB if state == "duck" else 0.0
+        if out and out[-1][1] >= a and out[-1][2] == db:
+            out[-1][1] = b
+        else:
+            out.append([a, b, db])
+    return out
+
+
+def build_sound_mix(mp3_path, scenes, total, page_id, out_wav):
+    """The full v4 mix: normalized VO + stateful music bed + placed SFX +
+    final loudness pass. Returns out_wav, or None -> v3 audio fallback."""
+    try:
+        from pydub import AudioSegment
+        AudioSegment.converter = _ffmpeg_bin()
+
+        total_ms = int(total * 1000)
+        vo = AudioSegment.from_file(mp3_path)
+        if vo.dBFS == float("-inf"):
+            raise RuntimeError("voice track is silent")
+        vo = vo.apply_gain(VO_TARGET_DBFS - vo.dBFS)   # Law 12 anchor
+        vo_db = vo.dBFS
+        mix = AudioSegment.silent(duration=total_ms, frame_rate=44100)
+        mix = mix.overlay(vo)
+
+        # ---- music bed (deterministic pick, loop, -18dB vs VO, states) ----
+        bed_file = pick_bgm(page_id)
+        bed = _load_seg(bed_file) if bed_file else None
+        if bed is not None:
+            while len(bed) < total_ms:
+                bed = bed + bed
+            bed = bed[:total_ms]
+            bed = bed.apply_gain((vo_db + BED_DB_VS_VO) - bed.dBFS)
+            intervals = _music_intervals(scenes, total_ms)
+            for k, (a, b, extra_db) in enumerate(intervals):
+                piece = bed[a:b]
+                if extra_db:
+                    piece = piece.apply_gain(extra_db)
+                fi = BED_MASTER_FADE_MS if k == 0 else SEAM_FADE_MS
+                fo = (BED_MASTER_FADE_MS if k == len(intervals) - 1
+                      else SEAM_FADE_MS)
+                half = max(1, len(piece) // 2)
+                piece = piece.fade_in(min(fi, half)).fade_out(min(fo, half))
+                mix = mix.overlay(piece, position=a)
+            log.info("sound: bed %s over %d interval(s)",
+                     os.path.basename(bed_file), len(intervals))
+        else:
+            log.info("sound: no music bed (folder empty/undecodable)")
+
+        # ---- SFX placement (Law 15; budget respected upstream by the
+        #      Director — we place exactly what the shotlist asked for) ----
+        kits = {c: _sfx_files(c) for c in ("whoosh", "riser", "impact",
+                                           "pop")}
+        placed = 0
+        for i, sc in enumerate(scenes):
+            cue = sc.get("sfx") or "none"
+            if cue == "none":
+                continue
+            files = kits.get(cue) or []
+            f = _pick_variant(files, f"{page_id}-{i}-{cue}")
+            if not f:
+                continue
+            seg = _load_seg(f)
+            if seg is None:
+                continue
+            if cue == "whoosh":
+                seg = seg.apply_gain((vo_db + WHOOSH_DB_VS_VO) - seg.dBFS)
+                pos = int(sc["start"] * 1000)
+            elif cue == "impact":
+                seg = seg.apply_gain((vo_db + IMPACT_DB_VS_VO) - seg.dBFS)
+                pos = int(sc["start"] * 1000)
+            elif cue == "pop":
+                seg = seg.apply_gain((vo_db + POP_DB_VS_VO) - seg.dBFS)
+                t = sc.get("emph_t")
+                pos = int((t if t is not None else sc["start"]) * 1000)
+            else:                                      # riser
+                if i + 1 >= len(scenes):
+                    continue                           # nothing to rise INTO
+                if len(seg) > int(RISER_MAX_S * 1000):
+                    seg = seg[-int(RISER_MAX_S * 1000):]   # keep the peak end
+                seg = seg.apply_gain((vo_db + RISER_DB_VS_VO) - seg.dBFS)
+                seg = seg.fade_in(SEAM_FADE_MS)
+                pos = int(scenes[i + 1]["start"] * 1000) - len(seg)
+            seg = seg.fade_out(SEAM_FADE_MS)           # Law 19 at SFX tails
+            mix = mix.overlay(seg, position=max(0, min(pos, total_ms - 1)))
+            placed += 1
+        log.info("sound: %d SFX placed", placed)
+
+        # ---- final loudness (see route note above) ----
+        gain = MIX_TARGET_DBFS - mix.dBFS
+        gain = min(gain, MIX_TRUE_PEAK_DBFS - mix.max_dBFS)
+        mix = mix.apply_gain(gain)
+        log.info("sound: final %.1f dBFS avg / %.1f dBFS peak",
+                 mix.dBFS, mix.max_dBFS)
+        mix.export(out_wav, format="wav")
+        if not os.path.exists(out_wav) or os.path.getsize(out_wav) < 1000:
+            raise RuntimeError("mix export produced no file")
+        return out_wav
+    except Exception as exc:  # noqa: BLE001
+        log.warning("v4 sound engine failed (%s); v3 voice+bgm fallback", exc)
+        return None
+
+
+# ============================================================================
 # Main composition
 # ============================================================================
 def compose_video(pool, broll_terms, mp3_path, hook, script, word_timings,
-                  duration, font_path, out_path, bgm_path=None):
-    from moviepy import AudioFileClip, CompositeVideoClip, afx
+                  duration, font_path, out_path, bgm_path=None,
+                  shotlist=None, page_id=0):
+    from moviepy import AudioFileClip, CompositeVideoClip, afx, vfx
 
     total = duration + TAIL_SECONDS
 
-    # --- scenes: sentence beats -> photo/b-roll alternating full-frame cuts ---
+    # Beats always computed: the loved word-pop captions ride on them in BOTH
+    # modes; in v3 fallback mode they also drive the scene plan.
     beats = split_beats(script, word_timings)
     fetcher = BrollFetcher(broll_terms)
-    scenes = plan_scenes(beats, pool, fetcher, total)
+
+    # --- v4 EDL mode when the Director sent a usable shotlist ---
+    edl = build_edl(shotlist, script, word_timings, total) \
+        if shotlist else None
+    v4_mode = edl is not None
+    if v4_mode:
+        scenes = plan_scenes_edl(edl, pool, fetcher)
+    else:
+        if shotlist:
+            log.info("shotlist present but unusable; v3 scene planner")
+        scenes = plan_scenes(beats, pool, fetcher, total)
     n_broll = sum(1 for sc in scenes if sc["type"] == "broll")
-    log.info("scene plan: %d scene(s) (%d b-roll), pool=%d",
-             len(scenes), n_broll, len(pool))
+    log.info("scene plan (%s): %d scene(s) (%d b-roll), pool=%d",
+             "v4 EDL" if v4_mode else "v3 beats", len(scenes), n_broll,
+             len(pool))
     for i, sc in enumerate(scenes):
-        log.info("  scene %d: %.2f-%.2fs type=%s motion=%s visual=%s", i + 1,
-                 sc["start"], sc["end"], sc["type"], sc["motion"],
+        log.info("  scene %d: %.2f-%.2fs type=%s motion=%s sfx=%s music=%s "
+                 "visual=%s", i + 1, sc["start"], sc["end"], sc["type"],
+                 sc["motion"], sc.get("sfx", "-"), sc.get("music", "-"),
                  os.path.basename(sc["path"]))
 
+    xfade = 0.0 if v4_mode else XFADE        # Law 7: hard cuts inside v4
     layers, open_sources = [], []
     for sc in scenes:
         if sc["type"] == "broll":
-            clip, src = broll_scene_clip(sc["path"], sc["start"], sc["end"])
+            clip, src = broll_scene_clip(
+                sc["path"], sc["start"], sc["end"],
+                motion=sc["motion"] if v4_mode else None,
+                emph_rel=sc.get("emph_rel"), xfade=xfade)
             open_sources.append(src)     # must stay open until after encode
             layers.append(clip)
         elif sc["textish"]:
             layers.append(contain_scene_clip(sc["path"], sc["start"],
-                                             sc["end"]))
+                                             sc["end"], xfade=xfade))
         else:
             layers.append(scene_clip(sc["path"], sc["start"], sc["end"],
-                                     sc["motion"]))
+                                     sc["motion"],
+                                     emph_rel=sc.get("emph_rel"),
+                                     xfade=xfade))
+    layers.append(make_vignette(total))      # v4 house look, both modes
     layers.append(make_scrim(total))
 
     # --- hook window (v1 logic kept) ---
@@ -1431,21 +2012,41 @@ def compose_video(pool, broll_terms, mp3_path, hook, script, word_timings,
     layers.extend(chunk_caption_clips(beats, hook_end, duration, font_path))
 
     video = CompositeVideoClip(layers, size=(W, H)).with_duration(total)
-
-    # --- audio: voice + optional quiet BGM (Turbo's generate_video recipe) ---
-    audio = AudioFileClip(mp3_path).with_effects([afx.MultiplyVolume(VOICE_VOLUME)])
-    if bgm_path:
+    if v4_mode and EDGE_FADE_S > 0:
+        # Law 7: hard cuts everywhere INSIDE; only the video's own first and
+        # last frames get a tiny fade so platform players don't pop.
         try:
-            from moviepy import CompositeAudioClip
-            bgm = AudioFileClip(bgm_path).with_effects([
-                afx.MultiplyVolume(BGM_VOLUME),
-                afx.AudioLoop(duration=total),
-                afx.AudioFadeIn(0.5),
-                afx.AudioFadeOut(0.5),
-            ])
-            audio = CompositeAudioClip([audio, bgm])
+            video = video.with_effects([vfx.FadeIn(EDGE_FADE_S),
+                                        vfx.FadeOut(EDGE_FADE_S)])
         except Exception as exc:  # noqa: BLE001
-            log.warning("bgm mix failed (%s); voice only", exc)
+            log.warning("edge fade unavailable (%s)", exc)
+
+    # --- audio ---
+    # v4: the full pydub sound mix (VO + stateful bed + SFX + loudness pass)
+    # replaces the moviepy composite. Any mix failure -> v3 recipe below.
+    mix_wav = None
+    if v4_mode:
+        mix_wav = build_sound_mix(
+            mp3_path, scenes, total, page_id,
+            os.path.join(WORKDIR, f"mix-{page_id}.wav"))
+    if mix_wav:
+        audio = AudioFileClip(mix_wav)
+    else:
+        # v3: voice + optional quiet BGM (Turbo's generate_video recipe)
+        audio = AudioFileClip(mp3_path).with_effects(
+            [afx.MultiplyVolume(VOICE_VOLUME)])
+        if bgm_path:
+            try:
+                from moviepy import CompositeAudioClip
+                bgm = AudioFileClip(bgm_path).with_effects([
+                    afx.MultiplyVolume(BGM_VOLUME),
+                    afx.AudioLoop(duration=total),
+                    afx.AudioFadeIn(0.5),
+                    afx.AudioFadeOut(0.5),
+                ])
+                audio = CompositeAudioClip([audio, bgm])
+            except Exception as exc:  # noqa: BLE001
+                log.warning("bgm mix failed (%s); voice only", exc)
     video = video.with_audio(audio)
 
     tmp = out_path + ".tmp.mp4"
@@ -1525,11 +2126,12 @@ FAIL the video if ANY of these is true:
 1. READABILITY: any on-screen text (the hook, captions, or text inside an image) is cut off mid-word or mid-letter, cropped by the frame edge, or zoomed/mangled into unreadable fragments. The big 1-3 word styled captions are intentional and fine; text visibly amputated by cropping is NOT fine.
 2. FRAMING: a human face is badly cropped (eyes or forehead sliced by the frame edge, face half outside the frame).
 3. VARIETY: all frames look essentially identical — a static image with only caption changes, no visual variety between frames.
+4. EDIT VARIETY: consecutive sampled frames fail to show varied, story-relevant visuals — two adjacent frames are near-identical, or the imagery clearly has nothing to do with the story the hook implies.
 
-Minor blur, film grain, compression artifacts, or a darkened background are acceptable. Judge ONLY the three criteria above.
+Minor blur, film grain, compression artifacts, or a darkened background are acceptable. Judge ONLY the four criteria above.
 
 Respond with ONLY this JSON object, no markdown fences, no extra text:
-{{"pass": true, "issues": [], "scores": {{"readability": 0, "framing": 0, "variety": 0}}}}
+{{"pass": true, "issues": [], "scores": {{"readability": 0, "framing": 0, "variety": 0, "edit_variety": 0}}}}
 where pass is true/false, issues is a list of short problem descriptions (empty when passing), and each score is an integer 0-10."""
 
 
@@ -1723,9 +2325,15 @@ def make_one(post, font_path):
     mp3 = os.path.join(WORKDIR, f"voice-{page_id}.mp3")
     timings, duration = synthesize(script, mp3)
 
+    shotlist = post.get("shotlist")
+    if not isinstance(shotlist, dict):
+        shotlist = None
+        log.info("no shotlist in feed; v3 behaviour throughout")
+
     out = os.path.join(WORKDIR, f"video-{page_id}.mp4")
     compose_video(pool, broll_terms, mp3, hook, script, timings, duration,
-                  font_path, out, bgm_path=pick_bgm(page_id))
+                  font_path, out, bgm_path=pick_bgm(page_id),
+                  shotlist=shotlist, page_id=page_id)
 
     # v3: the vision judge sees the FINISHED (faststart-remuxed) artifact.
     verdict = vision_judge(out, hook, post.get("title", ""),
