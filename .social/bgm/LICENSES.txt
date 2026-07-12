@@ -1,0 +1,17 @@
+GenZHype video-maker v4 music beds — license record
+Collected 2026-07-12. All files from Mixkit (mixkit.co).
+License: Mixkit Stock Music Free License (https://mixkit.co/license/#musicFree)
+ - Free for commercial and non-commercial use, no attribution required.
+ - Covers online video / social media use, including monetized content.
+ - May NOT be resold or redistributed as standalone audio.
+All files verified on download: valid MP3 header, size > 30 KB.
+
+file       | title           | artist            | genre/mood            | length | source URL
+-----------+-----------------+-------------------+-----------------------+--------+---------------------------------------------
+bgm_1.mp3  | Echoes          | Andrew Ev         | Atmospheres (dark)    | 3:46   | https://assets.mixkit.co/music/188/188.mp3
+bgm_2.mp3  | Fright Night    | Michael Ramir C.  | Film Score (tension)  | 1:41   | https://assets.mixkit.co/music/871/871.mp3
+bgm_3.mp3  | Waka Floka Type | Arulo             | Trap (dark, tension)  | 1:43   | https://assets.mixkit.co/music/364/364.mp3
+
+Deploy note: this folder ships to the GitHub runner repo as `.social/bgm/`
+(the maker's BGM_DIR default). Tracks are loop-extended at mix time, so
+60-120s originals are fine.

@@ -1,0 +1,30 @@
+GenZHype video-maker v4 SFX starter kit — license record
+Collected 2026-07-12. All files from Mixkit (mixkit.co).
+License: Mixkit Free Sound Effects License (https://mixkit.co/license/#sfxFree)
+ - Free for commercial and non-commercial use, no attribution required.
+ - May be used in video/social content at scale (covers our automated shorts).
+ - May NOT be resold or redistributed as standalone audio.
+All files verified on download: valid MP3 header (ID3 tag or MPEG frame sync),
+size > 30 KB.
+
+file          | Mixkit title                         | source URL
+--------------+--------------------------------------+------------------------------------------------------------------
+whoosh_1.mp3  | Air woosh                             | https://assets.mixkit.co/active_storage/sfx/1489/1489-preview.mp3
+whoosh_2.mp3  | Fast whoosh transition                | https://assets.mixkit.co/active_storage/sfx/1490/1490-preview.mp3
+whoosh_3.mp3  | Cinematic whoosh fast transition      | https://assets.mixkit.co/active_storage/sfx/1492/1492-preview.mp3
+whoosh_4.mp3  | Cinematic tunnel reverb woosh         | https://assets.mixkit.co/active_storage/sfx/1486/1486-preview.mp3
+whoosh_5.mp3  | Air zoom vacuum                       | https://assets.mixkit.co/active_storage/sfx/2608/2608-preview.mp3
+riser_1.mp3   | Cinematic drama riser                 | https://assets.mixkit.co/active_storage/sfx/632/632-preview.mp3
+riser_2.mp3   | Cinematic synth riser                 | https://assets.mixkit.co/active_storage/sfx/645/645-preview.mp3
+riser_3.mp3   | Cinematic trailer riser               | https://assets.mixkit.co/active_storage/sfx/790/790-preview.mp3
+impact_1.mp3  | Big cinematic impact                  | https://assets.mixkit.co/active_storage/sfx/788/788-preview.mp3
+impact_2.mp3  | Epic movie impact                     | https://assets.mixkit.co/active_storage/sfx/2901/2901-preview.mp3
+impact_3.mp3  | Cinematic whoosh deep impact          | https://assets.mixkit.co/active_storage/sfx/1143/1143-preview.mp3
+pop_1.mp3     | Bell notification                     | https://assets.mixkit.co/active_storage/sfx/933/933-preview.mp3
+pop_2.mp3     | Electric pop                          | https://assets.mixkit.co/active_storage/sfx/2365/2365-preview.mp3
+pop_3.mp3     | Hard pop click                        | https://assets.mixkit.co/active_storage/sfx/2364/2364-preview.mp3
+pop_4.mp3     | Correct answer tone                   | https://assets.mixkit.co/active_storage/sfx/2870/2870-preview.mp3
+
+Deploy note: this folder ships to the GitHub runner repo as `.social/sfx/`
+(the maker's SFX_DIR default). Filename prefixes whoosh_/riser_/impact_/pop_
+are the category keys the sound engine matches on.
