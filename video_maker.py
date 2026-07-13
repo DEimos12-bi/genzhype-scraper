@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-GenZHype faceless-video maker — v4 "the hired editor" (EDL + sound design).
+GenZHype faceless-video maker — v4.5 "real visuals" (EDL + sound + receipts).
 
 Adapted from the open-source MoneyPrinterTurbo (MPT) engine
 (https://github.com/harry0703/MoneyPrinterTurbo, MIT). This driver pulls a
@@ -140,6 +140,28 @@ videorepos/V4-EDITOR-SPEC.md — the researched editor law-book):
      (corners to ~0.85) composited as a single static overlay layer.
   4. JUDGE: one added criterion — consecutive sampled frames must show
      varied, story-relevant visuals (not near-identical).
+
+WHAT v4.5 ADDS over v4 (owner verdict on v4: narration said "MrBeast's
+assistant" while a generic stock clip showed a random assistant dressing an
+actor — every SPECIFIC fact must show its REAL visual. Stock is already
+demoted server-side; this adds the evidence layer):
+  1. RECEIPT SHOTS — the feed now sends `post.receipts`: PNG "evidence cards"
+     (1080x1350, one per dated event, rendered server-side from the REAL
+     event text + source). The Director may emit shot_class 'receipt' with
+     `receipt_i` (index into post.receipts). The maker downloads the cards
+     and renders a receipt shot through the PROVEN text-heavy CONTAIN path
+     (whole card visible over a blurred fill, gentle <=2% drift, NEVER
+     crop/zoom — the systemic fix from v3 applies unchanged). The receipt is
+     on screen exactly while its fact is spoken: the drama-genre trust move.
+  2. RECEIPT SLAM — a receipt shot whose Director sfx is 'none' defaults to a
+     'pop' at its t_in (V4 spec Law 15: message-pop on every receipt is the
+     genre signature). These default pops are budget-exempt: they replace
+     visual variety, they don't compete with the 3-5 story-beat SFX.
+  3. A-ROLL ACCOUNTING — receipts count as A-roll: they reset the
+     consecutive-b-roll counter (new defensive cap: never >2 stock clips in a
+     row even if a malformed shotlist asks for it).
+  4. FALLBACK LADDER — missing receipts array / failed card download ->
+     subject photo (never black, never a crash). No shotlist -> v3 path.
 
 PROVEN v1 PARTS KEPT VERBATIM: the multi-engine fetch/post (curl_cffi
 browser-TLS first — Hostinger's TLS fingerprint block), base64-in-JSON video
@@ -594,9 +616,11 @@ def _trim_letterbox(img, thr=16.0, max_frac=0.28):
         return img
 
 
-def fetch_visual(url, dest):
+def fetch_visual(url, dest, trim=True):
     """Download + validate one visual. Corrupt/tiny/unreadable -> None (dropped
-    from the pool), never a crash. Letterbox bars are trimmed on arrival."""
+    from the pool), never a crash. Letterbox bars are trimmed on arrival
+    (trim=False for receipt cards: their dark paper background sits near the
+    bar-detector threshold and must never be shaved)."""
     data = _download_bytes(url)
     if not data or len(data) < 2000:
         return None
@@ -606,7 +630,7 @@ def fetch_visual(url, dest):
         img = Image.open(dest)
         img.load()                           # force full decode: catches truncation
         img = img.convert("RGB")
-        trimmed = _trim_letterbox(img)
+        trimmed = _trim_letterbox(img) if trim else img
         if trimmed.size != img.size:
             log.info("trimmed letterbox %s -> %s: %s", img.size, trimmed.size,
                      url[:120])
@@ -1245,10 +1269,19 @@ def build_edl(shotlist, script, timings, total):
                 emph = None
             if emph is not None:
                 emph = max(w_in, min(w_out, emph))
+            shot_class = s.get("shot_class")
+            if shot_class not in ("broll", "receipt"):
+                shot_class = "subject"
+            ri = s.get("receipt_i")            # v4.5: evidence-card index
+            try:
+                ri = int(ri)
+            except (TypeError, ValueError):
+                ri = None
+            if shot_class == "receipt" and ri is None:
+                shot_class = "subject"
             shots.append({
                 "w_in": w_in, "w_out": w_out,
-                "shot_class": ("broll" if s.get("shot_class") == "broll"
-                               else "subject"),
+                "shot_class": shot_class, "receipt_i": ri,
                 "query": str(s.get("query") or "").strip(),
                 "motion": motion, "sfx": sfx, "music": music,
                 "emph_t": spans[emph][0] if emph is not None else None,
@@ -1313,13 +1346,19 @@ def motion_scale_fn(motion, dur, emph_rel):
     return _s
 
 
-def plan_scenes_edl(edl, pool, fetcher):
-    """v4 planner: the Director decided WHAT; this resolves each shot to a
-    concrete asset. subject -> next photo from the REAL-photo pool (never
-    stock); broll -> stock clip for the shot's query, falling back to a
-    subject photo on any fetch failure (never black). Identical motion never
-    repeats back-to-back."""
-    scenes, photo_i, prev_motion = [], 0, None
+def plan_scenes_edl(edl, pool, fetcher, receipts=None):
+    """v4/v4.5 planner: the Director decided WHAT; this resolves each shot to
+    a concrete asset. receipt -> the downloaded evidence card, rendered via
+    the text-heavy CONTAIN path (whole card readable, no crop/zoom), with a
+    default 'pop' at t_in when the Director left sfx 'none' (the receipt
+    slam — budget-exempt genre signature); subject -> next photo from the
+    REAL-photo pool (never stock); broll -> stock clip for the shot's query.
+    Receipts and photos count as A-ROLL and reset the consecutive-b-roll
+    counter (defensive cap: max 2 stock clips in a row). Every miss falls
+    back down the ladder (receipt -> photo; broll -> photo); never black.
+    Identical motion never repeats back-to-back."""
+    receipts = receipts or {}
+    scenes, photo_i, prev_motion, consec_broll = [], 0, None, 0
     for sh in edl:
         need_s = sh["end"] - sh["start"]
         motion = sh["motion"]
@@ -1327,10 +1366,24 @@ def plan_scenes_edl(edl, pool, fetcher):
             motion = _MOTION_ALTERNATE.get(motion, "punch_build")
 
         path, typ, textish = None, None, False
-        if sh["shot_class"] == "broll":
-            path = fetcher.clip_for_query(sh["query"], need_s)
+        sfx, emph_t = sh["sfx"], sh["emph_t"]
+        if sh["shot_class"] == "receipt":
+            path = receipts.get(sh.get("receipt_i"))
             if path:
-                typ = "broll"
+                typ, textish = "receipt", True
+                if sfx == "none":            # v4.5: receipt slam default
+                    sfx = "pop"
+                    emph_t = sh["start"]     # slam lands AT t_in
+            else:
+                log.info("receipt %s missing/undownloaded; subject photo "
+                         "fallback", sh.get("receipt_i"))
+        if path is None and sh["shot_class"] == "broll":
+            if consec_broll >= 2:
+                log.info("broll consecutive cap hit; subject photo instead")
+            else:
+                path = fetcher.clip_for_query(sh["query"], need_s)
+                if path:
+                    typ = "broll"
         if path is None:
             if pool:
                 entry = pool[photo_i % len(pool)]
@@ -1342,6 +1395,7 @@ def plan_scenes_edl(edl, pool, fetcher):
                     typ = "broll"
                 else:
                     raise ValueError("no photos and no b-roll for a shot")
+        consec_broll = consec_broll + 1 if typ == "broll" else 0
 
         emph_rel = None
         if sh["emph_t"] is not None:
@@ -1350,7 +1404,7 @@ def plan_scenes_edl(edl, pool, fetcher):
             "start": sh["start"], "end": sh["end"], "type": typ,
             "path": path, "motion": "contain" if textish else motion,
             "textish": textish, "emph_rel": emph_rel,
-            "sfx": sh["sfx"], "music": sh["music"], "emph_t": sh["emph_t"],
+            "sfx": sfx, "music": sh["music"], "emph_t": emph_t,
         })
         prev_motion = motion
     return scenes
@@ -1944,7 +1998,7 @@ def build_sound_mix(mp3_path, scenes, total, page_id, out_wav):
 # ============================================================================
 def compose_video(pool, broll_terms, mp3_path, hook, script, word_timings,
                   duration, font_path, out_path, bgm_path=None,
-                  shotlist=None, page_id=0):
+                  shotlist=None, page_id=0, receipts=None):
     from moviepy import AudioFileClip, CompositeVideoClip, afx, vfx
 
     total = duration + TAIL_SECONDS
@@ -1959,15 +2013,16 @@ def compose_video(pool, broll_terms, mp3_path, hook, script, word_timings,
         if shotlist else None
     v4_mode = edl is not None
     if v4_mode:
-        scenes = plan_scenes_edl(edl, pool, fetcher)
+        scenes = plan_scenes_edl(edl, pool, fetcher, receipts=receipts)
     else:
         if shotlist:
             log.info("shotlist present but unusable; v3 scene planner")
         scenes = plan_scenes(beats, pool, fetcher, total)
     n_broll = sum(1 for sc in scenes if sc["type"] == "broll")
-    log.info("scene plan (%s): %d scene(s) (%d b-roll), pool=%d",
-             "v4 EDL" if v4_mode else "v3 beats", len(scenes), n_broll,
-             len(pool))
+    n_receipt = sum(1 for sc in scenes if sc["type"] == "receipt")
+    log.info("scene plan (%s): %d scene(s) (%d receipt, %d b-roll), pool=%d",
+             "v4 EDL" if v4_mode else "v3 beats", len(scenes), n_receipt,
+             n_broll, len(pool))
     for i, sc in enumerate(scenes):
         log.info("  scene %d: %.2f-%.2fs type=%s motion=%s sfx=%s music=%s "
                  "visual=%s", i + 1, sc["start"], sc["end"], sc["type"],
@@ -2322,6 +2377,24 @@ def make_one(post, font_path):
     if not pool and not (broll_terms and (PEXELS_API_KEY or PIXABAY_API_KEY)):
         raise ValueError(f"post {page_id}: no usable visuals at all")
 
+    # v4.5: REAL evidence cards (post.receipts, idx order — receipt_i maps
+    # into this dict). Download failures just leave holes; the planner falls
+    # back to subject photos per missing index. No trim: the cards' dark
+    # paper background must never be shaved by the letterbox detector.
+    receipt_paths = {}
+    recs = post.get("receipts")
+    if isinstance(recs, list) and recs:
+        for i, u in enumerate(recs[:12]):
+            if not (isinstance(u, str) and u.startswith("http")):
+                continue
+            p = fetch_visual(
+                u, os.path.join(WORKDIR, f"receipt-{page_id}-{i}.png"),
+                trim=False)
+            if p:
+                receipt_paths[i] = p
+        log.info("receipts: %d of %d evidence card(s) downloaded",
+                 len(receipt_paths), len(recs))
+
     mp3 = os.path.join(WORKDIR, f"voice-{page_id}.mp3")
     timings, duration = synthesize(script, mp3)
 
@@ -2333,7 +2406,8 @@ def make_one(post, font_path):
     out = os.path.join(WORKDIR, f"video-{page_id}.mp4")
     compose_video(pool, broll_terms, mp3, hook, script, timings, duration,
                   font_path, out, bgm_path=pick_bgm(page_id),
-                  shotlist=shotlist, page_id=page_id)
+                  shotlist=shotlist, page_id=page_id,
+                  receipts=receipt_paths)
 
     # v3: the vision judge sees the FINISHED (faststart-remuxed) artifact.
     verdict = vision_judge(out, hook, post.get("title", ""),
