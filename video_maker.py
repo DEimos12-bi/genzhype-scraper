@@ -2460,30 +2460,46 @@ def append_done(page_id):
 
 
 def _get_json(url, params):
+    """Fetch the job JSON. PRIMARY = JSON POST via curl_cffi — the exact channel that
+    delivers the finished video every day, so it passes Hostinger's WAF where GETs
+    intermittently 403 (proven: same IP, same server, POSTs never blocked). Falls
+    back to GET with rotating browser fingerprints. Never gives up quietly."""
     qs = "?" + "&".join(f"{k}={requests.utils.quote(str(v))}" for k, v in params.items())
+    # rotate real browser TLS fingerprints so a profile-specific block can't pin us
+    profiles = ["chrome124", "firefox", "safari", "chrome120", "edge101"]
+    hdrs = {"User-Agent": _BROWSER_UA, "Accept": "application/json, text/plain, */*",
+            "Accept-Language": "en-US,en;q=0.9"}
     last = None
-    for attempt in range(1, 5):
-        # engine 1: curl_cffi browser TLS (dodges the fingerprint block)
+    for attempt in range(1, 7):
+        prof = profiles[(attempt - 1) % len(profiles)]
+        # engine 0 (PRIMARY): JSON POST — the daily-working delivery channel
         try:
             from curl_cffi import requests as cffi
-            r = cffi.get(url + qs, impersonate="firefox", timeout=45,
-                         headers={"User-Agent": _BROWSER_UA})
+            r = cffi.post(url, json=params, impersonate=prof, timeout=45, headers=hdrs)
             if r.status_code == 200:
                 return r.json()
-            last = f"curl_cffi HTTP {r.status_code}"
+            last = f"POST/{prof} HTTP {r.status_code}"
         except Exception as e:  # noqa: BLE001
-            last = f"curl_cffi: {e}"
-        # engine 2: requests with a browser UA
+            last = f"POST/{prof}: {e}"
+        # engine 1: curl_cffi GET, rotating fingerprint
         try:
-            r = requests.get(url, params=params, timeout=45,
-                             headers={"User-Agent": _BROWSER_UA})
+            from curl_cffi import requests as cffi
+            r = cffi.get(url + qs, impersonate=prof, timeout=45, headers=hdrs)
+            if r.status_code == 200:
+                return r.json()
+            last = f"GET/{prof} HTTP {r.status_code}"
+        except Exception as e:  # noqa: BLE001
+            last = f"GET/{prof}: {e}"
+        # engine 2: plain requests GET (last resort)
+        try:
+            r = requests.get(url, params=params, timeout=45, headers=hdrs)
             if r.status_code == 200:
                 return r.json()
             last = f"requests HTTP {r.status_code}"
         except Exception as e:  # noqa: BLE001
             last = f"requests: {e}"
-        log.warning("fetch attempt %d/4 failed (%s); retrying", attempt, last)
-        time.sleep(5 * attempt)
+        log.warning("fetch attempt %d/6 failed (%s); retrying", attempt, last)
+        time.sleep(6 * attempt)
     raise RuntimeError(f"fetch_next failed after retries: {last}")
 
 
