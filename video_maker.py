@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
-GenZHype faceless-video maker — v4.5 "real visuals" (EDL + sound + receipts).
+GenZHype faceless-video maker — v5 "story-aware visuals" (EDL + sound +
+receipts + real-post cards + vision re-ranked stock).
 
 Adapted from the open-source MoneyPrinterTurbo (MPT) engine
 (https://github.com/harry0703/MoneyPrinterTurbo, MIT). This driver pulls a
@@ -163,6 +164,28 @@ demoted server-side; this adds the evidence layer):
   4. FALLBACK LADDER — missing receipts array / failed card download ->
      subject photo (never black, never a crash). No shotlist -> v3 path.
 
+WHAT v5 ADDS over v4.5 (owner round-4 verdict: a BLM-protest stock clip played
+over "fans demanding accountability" on an unrelated story — keyword stock
+search has NO story understanding):
+  1. VISION RE-RANK OF STOCK (the Kapwing move, V4-EDITOR-SPEC.md Law 24) —
+     for a b-roll shot we no longer download the first keyword hit. The stock
+     search now keeps each candidate's PREVIEW IMAGE (Pexels returns a video
+     'image' thumbnail; Pixabay per-rendition 'thumbnail'); up to 5 candidate
+     thumbnails + the shot's exact narration phrase + the story title go to
+     gemini-2.5-flash in ONE call, which picks the candidate that matches
+     WHAT IS BEING SAID and rejects any unsafe/mismatched frame (protests,
+     flags, religious/political imagery, children, medical, misreadable human
+     context). Only the chosen candidate's video is downloaded; best=-1 ->
+     subject photo. Verdicts are cached PER QUERY so shots sharing a query
+     share one call; hard cap ~8 vision calls/video (free-tier quota is
+     shared with the site). GEMINI_API_KEY absent or VIDEO_VISION_RERANK=0
+     -> exact v4.5 behaviour (first candidate). ALL failures non-fatal ->
+     first candidate, or the usual subject-photo fallback.
+  2. REAL-POST CARDS (server-side) — post.receipts now also carries tweet-
+     style cards of the REAL posts (text/author/@handle parsed verbatim from
+     the stored X embeds). Nothing changes here beyond the receipts cap: the
+     cards flow through the same receipt_i -> contain-render path.
+
 PROVEN v1 PARTS KEPT VERBATIM: the multi-engine fetch/post (curl_cffi
 browser-TLS first — Hostinger's TLS fingerprint block), base64-in-JSON video
 delivery (WAF blocks multipart), edge-tts synthesis with WordBoundary timings
@@ -267,6 +290,13 @@ TEXTISH_FLAT_FRAC = 0.55            # top-4 quantized colors must cover >= this
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "").strip()
 GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
 JUDGE_FRAMES = 4
+
+# --- v5: vision re-rank of stock candidates (Law 24, the Kapwing move) ---
+# Whole step skippable (quota lever): VIDEO_VISION_RERANK=0 -> v4.5 behaviour.
+VISION_RERANK = os.environ.get("VIDEO_VISION_RERANK", "1").strip() != "0"
+VISION_MAX_CALLS = int(os.environ.get("VIDEO_VISION_MAX_CALLS", "8"))
+VISION_CANDIDATES = 5          # thumbnails per call (4-6 band from the spec)
+VISION_THUMB_TIMEOUT = 10      # seconds per thumbnail download
 
 # --- v4: EDL execution (V4-EDITOR-SPEC.md Laws 3/4/6/7/9) ---
 VISUAL_LEAD_S = float(os.environ.get("VIDEO_VISUAL_LEAD_S", "0.30"))  # Law 9
@@ -868,7 +898,10 @@ def search_broll_pexels(term):
                 best = (h, link)
         if best and dur > 0:
             items.append({"url": best[1], "duration": dur,
-                          "provider": "pexels"})
+                          "provider": "pexels",
+                          # v5: preview frame for the vision re-rank (Pexels
+                          # serves a real still of the video — no download)
+                          "image": str(v.get("image") or "")})
     return items
 
 
@@ -888,6 +921,7 @@ def search_broll_pixabay(term):
             continue
         files = v.get("videos") or {}
         best = None
+        thumb = ""
         for variant in ("large", "medium", "small"):
             f = files.get(variant) or {}
             w, h = int(f.get("width") or 0), int(f.get("height") or 0)
@@ -896,12 +930,15 @@ def search_broll_pixabay(term):
                 continue
             if h > w and h >= 1080:      # portrait first
                 best = url
+                thumb = str(f.get("thumbnail") or "")
                 break
             if best is None and max(w, h) >= 1080:
                 best = url
+                thumb = str(f.get("thumbnail") or "")
         if best and dur > 0:
             items.append({"url": best, "duration": dur,
-                          "provider": "pixabay"})
+                          "provider": "pixabay",
+                          "image": thumb})   # v5: preview for vision re-rank
     return items
 
 
@@ -928,6 +965,12 @@ class BrollFetcher:
         self.t0 = time.time()
         self.bytes = 0
         self.budget_dead = False
+        # v5 vision re-rank state: verdicts cached PER QUERY (shots sharing a
+        # query share one Gemini call — the quota batching the spec demands).
+        # verdict = {"best": url|None, "reject": set(urls), "veto": bool}
+        # veto=True -> Gemini said NO candidate is acceptable for this query.
+        self.rerank = {}
+        self.vision_calls = 0
 
     def _budget_ok(self):
         if self.budget_dead:
@@ -1016,24 +1059,151 @@ class BrollFetcher:
                     return path
         return None
 
-    def clip_for_query(self, query, need_s):
+    # ------------------------------------------------------------------
+    # v5: vision re-rank (Law 24 / the Kapwing move). Keyword search has no
+    # story understanding — the round-4 failure was a BLM-protest clip under
+    # "fans demanding accountability" on an unrelated story. Gemini LOOKS at
+    # the candidate preview frames against the narration phrase and picks /
+    # vetoes. Every failure path returns None = v4.5 first-candidate order.
+    # ------------------------------------------------------------------
+    def _fetch_thumb(self, url):
+        """Small preview jpeg bytes, or None. Never raises."""
+        if not url:
+            return None
+        try:
+            r = requests.get(url, timeout=VISION_THUMB_TIMEOUT,
+                             headers={"User-Agent": _BROWSER_UA})
+            if r.status_code == 200 and 1000 < len(r.content) < 3_000_000:
+                return r.content
+        except Exception as e:  # noqa: BLE001
+            log.debug("thumb fetch failed (%s): %s", e, url[:100])
+        return None
+
+    def _vision_rerank(self, query, phrase, title, cands):
+        """ONE gemini-2.5-flash call: candidate thumbnails + the narration
+        phrase -> {"best": <idx|-1>, "reject": [idx...]}. Returns a verdict
+        dict {"best": url|None, "reject": set(url), "veto": bool} or None
+        when the re-rank is unavailable (no key, disabled, call cap reached,
+        <2 usable thumbnails, API/JSON failure) -> caller keeps v4.5 order."""
+        if not (GEMINI_API_KEY and VISION_RERANK):
+            return None
+        if self.vision_calls >= VISION_MAX_CALLS:
+            log.info("vision re-rank call cap (%d) reached; keyword order",
+                     VISION_MAX_CALLS)
+            return None
+        import base64
+        thumbs = []                      # (candidate_index, jpeg bytes)
+        for i, item in enumerate(cands[:VISION_CANDIDATES]):
+            blob = self._fetch_thumb(item.get("image"))
+            if blob:
+                thumbs.append((i, blob))
+        if len(thumbs) < 2:              # nothing to compare — not worth a call
+            return None
+        self.vision_calls += 1
+        prompt = (
+            "You are matching stock b-roll to one narration moment of a short "
+            "drama-recap video.\n"
+            f'Narration at this moment: "{(phrase or "")[:200]}"\n'
+            f'Story: "{(title or "")[:150]}"\n'
+            f"You get {len(thumbs)} candidate preview frames, in order; "
+            "candidate numbers are " + ", ".join(str(i) for i, _ in thumbs) + ".\n"
+            "Pick the ONE candidate that best matches WHAT IS BEING SAID "
+            "right now. REJECT any candidate that is unsafe or could be "
+            "misread against this story: protests, rallies, marches, flags, "
+            "religious imagery, political imagery, children, medical "
+            "settings, or any human context that could look like a different "
+            "real event. If NO candidate is acceptable, best is -1.\n"
+            'Respond ONLY with JSON: {"best": <candidate number or -1>, '
+            '"reject": [<candidate numbers>]}')
+        parts = [{"text": prompt}]
+        for _, blob in thumbs:
+            parts.append({"inline_data": {
+                "mime_type": "image/jpeg",
+                "data": base64.b64encode(blob).decode("ascii")}})
+        try:
+            body = {"contents": [{"parts": parts}],
+                    "generationConfig": {
+                        "temperature": 0.0,
+                        "response_mime_type": "application/json"}}
+            url = ("https://generativelanguage.googleapis.com/v1beta/models/"
+                   f"{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}")
+            r = requests.post(url, json=body, timeout=60)
+            if r.status_code != 200:
+                log.warning("vision re-rank HTTP %d; keyword order",
+                            r.status_code)
+                return None
+            text = (r.json()["candidates"][0]["content"]["parts"][0]["text"]
+                    or "").strip()
+            if text.startswith("```"):
+                text = text.strip("`").strip()
+                if text.lower().startswith("json"):
+                    text = text[4:].strip()
+            j = json.loads(text)
+            best = int(j.get("best", -1))
+            reject = {int(x) for x in (j.get("reject") or [])
+                      if isinstance(x, (int, float, str))
+                      and str(x).lstrip("-").isdigit()}
+        except Exception as e:  # noqa: BLE001
+            log.warning("vision re-rank failed (%s); keyword order", e)
+            return None
+        sent = {i for i, _ in thumbs}
+        verdict = {"best": None, "reject": set(), "veto": False}
+        for i in reject & sent:
+            verdict["reject"].add(cands[i]["url"])
+        if best == -1:
+            verdict["veto"] = True
+            log.info("vision re-rank '%s': NO candidate acceptable -> "
+                     "subject photo", query)
+        elif best in sent and best not in reject:
+            verdict["best"] = cands[best]["url"]
+            log.info("vision re-rank '%s': picked candidate %d (rejected %s)",
+                     query, best, sorted(reject & sent) or "none")
+        else:
+            log.info("vision re-rank '%s': unusable best=%s; keyword order "
+                     "minus %d rejected", query, best, len(verdict["reject"]))
+        return verdict
+
+    def clip_for_query(self, query, need_s, phrase="", title=""):
         """v4 EDL mode: local mp4 >= need_s long for THIS shot's Director
         query, or None -> the caller falls back to a subject photo. Shares
-        the run's search/download caches, URL dedup and budgets."""
+        the run's search/download caches, URL dedup and budgets.
+        v5: candidates are vision re-ranked against the shot's exact
+        narration phrase before anything is downloaded (see _vision_rerank);
+        a veto returns None (subject photo — never a wrong story clip)."""
         query = str(query or "").strip()
         if not query or not self.have_keys or not self._budget_ok():
             return None
-        for item in self._search(query):
-            if item["duration"] < need_s + 0.25 or item["url"] in self.used:
-                continue
+        cands = [it for it in self._search(query)
+                 if it["duration"] >= need_s + 0.25
+                 and it["url"] not in self.used]
+        if not cands:
+            log.info("broll shot query '%s' yielded nothing usable; subject "
+                     "photo fallback", query)
+            return None
+        if query not in self.rerank:
+            self.rerank[query] = self._vision_rerank(query, phrase, title,
+                                                     cands)
+        verdict = self.rerank[query]
+        if verdict is not None:
+            if verdict["veto"]:
+                return None                       # Gemini: none acceptable
+            ordered = []
+            if verdict["best"]:
+                ordered = [it for it in cands if it["url"] == verdict["best"]]
+            ordered += [it for it in cands
+                        if it["url"] != verdict["best"]
+                        and it["url"] not in verdict["reject"]]
+            cands = ordered
+        for item in cands:
             if not self._budget_ok():
                 return None
             path = self._download(item["url"])
             if path:
                 self.used.add(item["url"])
                 log.info("broll shot query '%s' -> %.1fs clip for %.1fs shot "
-                         "(%s)", query, item["duration"], need_s,
-                         item["provider"])
+                         "(%s%s)", query, item["duration"], need_s,
+                         item["provider"],
+                         ", vision-ranked" if verdict is not None else "")
                 return path
         log.info("broll shot query '%s' yielded nothing usable; subject photo "
                  "fallback", query)
@@ -1236,6 +1406,7 @@ def build_edl(shotlist, script, timings, total):
         spans = map_tokens_to_spans(script, timings)
         if not spans:
             return None
+        tokens = [w for w in script.split() if w.strip()]   # v5: phrase text
         n_tok = len(spans)
         declared = int(shotlist.get("words") or 0)
         if declared and declared != n_tok:
@@ -1285,6 +1456,9 @@ def build_edl(shotlist, script, timings, total):
                 "query": str(s.get("query") or "").strip(),
                 "motion": motion, "sfx": sfx, "music": music,
                 "emph_t": spans[emph][0] if emph is not None else None,
+                # v5: the exact spoken phrase under this shot — the vision
+                # re-rank judges stock candidates against THESE words.
+                "phrase": " ".join(tokens[w_in:w_out + 1]),
             })
         if not shots:
             return None
@@ -1346,7 +1520,7 @@ def motion_scale_fn(motion, dur, emph_rel):
     return _s
 
 
-def plan_scenes_edl(edl, pool, fetcher, receipts=None):
+def plan_scenes_edl(edl, pool, fetcher, receipts=None, title=""):
     """v4/v4.5 planner: the Director decided WHAT; this resolves each shot to
     a concrete asset. receipt -> the downloaded evidence card, rendered via
     the text-heavy CONTAIN path (whole card readable, no crop/zoom), with a
@@ -1381,7 +1555,11 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None):
             if consec_broll >= 2:
                 log.info("broll consecutive cap hit; subject photo instead")
             else:
-                path = fetcher.clip_for_query(sh["query"], need_s)
+                # v5: pass the exact narration phrase + story title so the
+                # vision re-rank can judge candidates against the words.
+                path = fetcher.clip_for_query(sh["query"], need_s,
+                                              phrase=sh.get("phrase", ""),
+                                              title=title)
                 if path:
                     typ = "broll"
         if path is None:
@@ -1998,7 +2176,7 @@ def build_sound_mix(mp3_path, scenes, total, page_id, out_wav):
 # ============================================================================
 def compose_video(pool, broll_terms, mp3_path, hook, script, word_timings,
                   duration, font_path, out_path, bgm_path=None,
-                  shotlist=None, page_id=0, receipts=None):
+                  shotlist=None, page_id=0, receipts=None, title=""):
     from moviepy import AudioFileClip, CompositeVideoClip, afx, vfx
 
     total = duration + TAIL_SECONDS
@@ -2013,7 +2191,8 @@ def compose_video(pool, broll_terms, mp3_path, hook, script, word_timings,
         if shotlist else None
     v4_mode = edl is not None
     if v4_mode:
-        scenes = plan_scenes_edl(edl, pool, fetcher, receipts=receipts)
+        scenes = plan_scenes_edl(edl, pool, fetcher, receipts=receipts,
+                                 title=title)
     else:
         if shotlist:
             log.info("shotlist present but unusable; v3 scene planner")
@@ -2384,7 +2563,9 @@ def make_one(post, font_path):
     receipt_paths = {}
     recs = post.get("receipts")
     if isinstance(recs, list) and recs:
-        for i, u in enumerate(recs[:12]):
+        # v5: cap raised 12 -> 16 (the list now also carries REAL-POST tweet
+        # cards appended after the event cards: up to 10 events + 6 posts).
+        for i, u in enumerate(recs[:16]):
             if not (isinstance(u, str) and u.startswith("http")):
                 continue
             p = fetch_visual(
@@ -2407,7 +2588,7 @@ def make_one(post, font_path):
     compose_video(pool, broll_terms, mp3, hook, script, timings, duration,
                   font_path, out, bgm_path=pick_bgm(page_id),
                   shotlist=shotlist, page_id=page_id,
-                  receipts=receipt_paths)
+                  receipts=receipt_paths, title=post.get("title", ""))
 
     # v3: the vision judge sees the FINISHED (faststart-remuxed) artifact.
     verdict = vision_judge(out, hook, post.get("title", ""),
