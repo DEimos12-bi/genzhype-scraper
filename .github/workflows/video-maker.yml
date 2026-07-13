@@ -9,9 +9,15 @@ name: video-maker
 #   PEXELS_API_KEY / PIXABAY_API_KEY  -> real b-roll video scenes (free keys
 #                                        from pexels.com/api, pixabay.com/api);
 #                                        missing -> photos-only (v2 behaviour)
-#   GEMINI_API_KEY                    -> vision judge on the finished mp4;
-#                                        missing -> judge skipped, delivery
-#                                        proceeds unjudged
+#   GEMINI_API_KEY                    -> vision judge on the finished mp4 AND
+#                                        (v5) vision re-rank of stock b-roll
+#                                        candidates against the narration
+#                                        phrase (max ~8 calls/video, cached
+#                                        per query); missing -> judge skipped
+#                                        + first-candidate stock (v4.5)
+#
+# QUOTA LEVER: set env VIDEO_VISION_RERANK: "0" below to disable ONLY the
+# stock re-rank (keeps the judge) when the shared Gemini free tier runs hot.
 
 on:
   schedule:
