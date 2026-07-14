@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-GenZHype faceless-video maker — v5 "story-aware visuals" (EDL + sound +
-receipts + real-post cards + vision re-ranked stock).
+GenZHype faceless-video maker — v6 "human-editor taste" (person-pinned
+photos + real event images + face-aware phone framing).
 
 Adapted from the open-source MoneyPrinterTurbo (MPT) engine
 (https://github.com/harry0703/MoneyPrinterTurbo, MIT). This driver pulls a
@@ -186,6 +186,37 @@ search has NO story understanding):
      the stored X embeds). Nothing changes here beyond the receipts cap: the
      cards flow through the same receipt_i -> contain-render path.
 
+WHAT v6 ADDS over v5 (owner round-6 verdict: the Director lacks a human
+editor's taste — a named person spoken must show THAT person's real photo on
+those words; a big event must show its real image; and framing must respect
+the phone screen):
+  1. PERSON -> PHOTO — Director shots may carry "person": "<exact name>".
+     The Wikidata person-photo fetch (which already runs) now keeps a
+     name -> pool-entry map; a person shot renders THAT person's photo on
+     exactly those words. Missing/failed photo -> the hero/subject pool
+     round-robin, exactly as before (never a crash).
+  2. visual_i -> REAL EVENT IMAGE — shots may carry "visual_i": n, an index
+     into the feed's visuals[] (hero cover + event YouTube thumbnails; the
+     feed also sends aligned visual_titles[] for logging). The shot then
+     shows that REAL story image. Entries already in the pool are reused;
+     missing ones are fetched on demand; any failure -> pool fallback.
+  3. FACE-AWARE PHONE FRAMING — opencv-python-headless haarcascade
+     frontal-face detection on every PHOTO scene (cached per image). The
+     cover-crop is chosen so the largest face's eyeline sits ~40% from the
+     top of the 1080x1920 frame (upper-third rule), the face stays out of
+     the top-220px/bottom-320px platform UI zones AND above the caption
+     band (face bottom <= 55% of frame height). Ken-Burns/punch motions are
+     ANCHORED on the face point (the image scales around the eyeline, so
+     zoom drift can never push the face out of the safe zone); pans on
+     face photos become face-anchored zooms. No face / no cv2 -> the exact
+     v5 center-crop behaviour.
+  4. PROMO CARD — post.receipts now ends with the single branded GenZHype
+     promo card (kind order server-side: events, posts, promo). It arrives
+     as a receipt index like any card and renders through the same CONTAIN
+     path; the Director/validator guarantee it only rides the final CTA
+     shot. Receipts download cap raised 16 -> 20 so the last card (the
+     promo) is never truncated off the list.
+
 PROVEN v1 PARTS KEPT VERBATIM: the multi-engine fetch/post (curl_cffi
 browser-TLS first — Hostinger's TLS fingerprint block), base64-in-JSON video
 delivery (WAF blocks multipart), edge-tts synthesis with WordBoundary timings
@@ -321,6 +352,13 @@ SEAM_FADE_MS = 30              # Law 19: fade at every music seam (click kill)
 BED_MASTER_FADE_MS = 500       # 0.5s fade in/out on the whole bed
 MIX_TARGET_DBFS = -14.0        # final loudness anchor (approx -14 LUFS)
 MIX_TRUE_PEAK_DBFS = -1.5      # peak ceiling
+
+# --- v6: face-aware phone framing (owner round-6: respect the phone screen) ---
+FACE_FRAMING = os.environ.get("VIDEO_FACE_FRAMING", "1").strip() != "0"
+EYELINE_FRAC = 0.40            # eyeline ~38-42% from frame top (upper third)
+FACE_TOP_MIN = SAFE_TOP + 20   # face never inside the top platform-UI zone
+FACE_BOTTOM_MAX = int(H * 0.55)  # face never under the caption band / bottom UI
+FACE_DETECT_MAX_SIDE = 640     # detection runs on a downscaled copy (speed)
 
 # --- v4: house grade (Law 22 — one look over every visual) ---
 GRADE_CONTRAST = 1.06
@@ -792,8 +830,11 @@ def is_text_heavy(path, src_url=""):
 
 def build_visual_pool(post, page_id):
     """Assemble the scene visual pool: feed visuals (hero first) + resolved
-    person photos, deduped, downloaded, validated. Returns a list of
-    {"path", "textish"} dicts (v3: textish photos get the contain renderer)."""
+    person photos, deduped, downloaded, validated. Returns (pool, person_map):
+    pool is a list of {"path", "textish", "url", "person"} dicts (v3: textish
+    photos get the contain renderer); person_map (v6) maps lowercased person
+    name -> that person's pool entry, so Director shots carrying "person" can
+    show THAT person's real photo on exactly those words."""
     urls = []
     vis = post.get("visuals")
     if isinstance(vis, list):
@@ -802,7 +843,7 @@ def build_visual_pool(post, page_id):
         urls = [post["image"]]
 
     # People -> real photos (more real faces = more scenes). Never fatal.
-    person_urls = []
+    person_urls, url2name = [], {}
     people = post.get("people") or []
     if isinstance(people, list) and people:
         context = f"{post.get('title', '')} {(post.get('script') or '')[:200]}"
@@ -818,6 +859,7 @@ def build_visual_pool(post, page_id):
             if u:
                 log.info("person photo resolved: %s", name)
                 person_urls.append(u)
+                url2name.setdefault(u, name)
 
     # Hero first, then real faces, then the rest (card, receipts thumbnails).
     ordered, seen = [], set()
@@ -826,7 +868,7 @@ def build_visual_pool(post, page_id):
             seen.add(u)
             ordered.append(u)
 
-    pool = []
+    pool, person_map = [], {}
     for i, u in enumerate(ordered[:MAX_POOL]):
         p = fetch_visual(u, os.path.join(WORKDIR, f"vis-{page_id}-{i}"))
         if p:
@@ -834,10 +876,138 @@ def build_visual_pool(post, page_id):
             if textish:
                 log.info("text-heavy visual -> contain mode (no crop/zoom): %s",
                          u[:120])
-            pool.append({"path": p, "textish": textish})
-    log.info("visual pool: %d usable of %d candidates (%d from people)",
-             len(pool), len(ordered), len(person_urls))
-    return pool
+            entry = {"path": p, "textish": textish, "url": u,
+                     "person": url2name.get(u)}
+            pool.append(entry)
+            if entry["person"]:
+                person_map[entry["person"].lower()] = entry
+    log.info("visual pool: %d usable of %d candidates (%d from people, "
+             "%d name-mapped)", len(pool), len(ordered), len(person_urls),
+             len(person_map))
+    return pool, person_map
+
+
+def build_visual_map(post, page_id, pool, shotlist):
+    """v6: resolve the shotlist's visual_i references to local images.
+    visual_i indexes the feed's visuals[] (server and Director share the
+    extraction, so index n is the same image on both sides). Pool entries are
+    reused by URL; indexes outside the pool cap are fetched on demand. Any
+    failure just leaves a hole -> the planner falls back to the pool."""
+    vis = post.get("visuals")
+    urls = [u for u in vis if isinstance(u, str) and u.startswith("http")] \
+        if isinstance(vis, list) else []
+    titles = post.get("visual_titles") if isinstance(
+        post.get("visual_titles"), list) else []
+    needed = set()
+    if isinstance(shotlist, dict):
+        for s in shotlist.get("shots") or []:
+            if not isinstance(s, dict):
+                continue
+            vi = s.get("visual_i")
+            if isinstance(vi, (int, float)) and 0 <= int(vi) < len(urls):
+                needed.add(int(vi))
+    if not needed:
+        return {}
+    by_url = {e.get("url"): e for e in pool}
+    vmap = {}
+    for i in sorted(needed):
+        u = urls[i]
+        entry = by_url.get(u)
+        if entry is None:
+            p = fetch_visual(u, os.path.join(WORKDIR, f"visidx-{page_id}-{i}"))
+            if p:
+                entry = {"path": p, "textish": is_text_heavy(p, src_url=u),
+                         "url": u, "person": None}
+        if entry:
+            vmap[i] = entry
+            t = titles[i] if i < len(titles) else "?"
+            log.info("visual_i %d ready (%s)", i, str(t)[:80])
+        else:
+            log.warning("visual_i %d unavailable; pool fallback", i)
+    return vmap
+
+
+# ============================================================================
+# v6: FACE-AWARE PHONE FRAMING — haarcascade frontal-face detection (cached),
+# eyeline-anchored cover crop, face-anchored zoom motions. Owner round-6:
+# "framing must respect the phone screen". cv2 missing / no face found ->
+# the exact v5 center-crop behaviour. STRICTLY non-fatal everywhere.
+# ============================================================================
+_FACE_CACHE = {}
+_FACE_CASCADE = None
+
+
+def _face_cascade():
+    global _FACE_CASCADE
+    if _FACE_CASCADE is None:
+        import cv2
+        _FACE_CASCADE = cv2.CascadeClassifier(
+            cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
+    return _FACE_CASCADE
+
+
+def detect_face_box(path):
+    """Largest frontal face as (x, y, w, h) in ORIGINAL image pixels, or None.
+    Detection runs on a <=640px copy for speed; results cached per path."""
+    if not FACE_FRAMING:
+        return None
+    if path in _FACE_CACHE:
+        return _FACE_CACHE[path]
+    box = None
+    try:
+        import cv2
+        img = cv2.imread(path)
+        if img is not None and img.size:
+            h, w = img.shape[:2]
+            scale = 1.0
+            if max(w, h) > FACE_DETECT_MAX_SIDE:
+                scale = FACE_DETECT_MAX_SIDE / float(max(w, h))
+                img = cv2.resize(img, (max(1, int(w * scale)),
+                                       max(1, int(h * scale))))
+            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            gray = cv2.equalizeHist(gray)
+            faces = _face_cascade().detectMultiScale(
+                gray, scaleFactor=1.1, minNeighbors=5, minSize=(36, 36))
+            if len(faces):
+                x, y, fw, fh = max(faces, key=lambda f: int(f[2]) * int(f[3]))
+                box = (x / scale, y / scale, fw / scale, fh / scale)
+                log.info("face detected in %s: %dx%d at (%d,%d)",
+                         os.path.basename(path), int(box[2]), int(box[3]),
+                         int(box[0]), int(box[1]))
+    except Exception as exc:  # noqa: BLE001
+        log.warning("face detection unavailable (%s); center framing", exc)
+    _FACE_CACHE[path] = box
+    return box
+
+
+def cover_fit_face(pil_img, tw, th, box):
+    """Cover-crop like cover_fit, but the crop window is chosen so the face's
+    EYELINE sits ~EYELINE_FRAC from the frame top and the face stays inside
+    the phone-safe band (below the top-220px UI zone, above the caption band
+    at 55% height / bottom-320px UI). Horizontal: face centered, clamped.
+    Returns (cropped PIL, (face_cx, eyeline_y) in frame coordinates)."""
+    pil_img = pil_img.convert("RGB")
+    w, h = pil_img.size
+    scale = max(tw / w, th / h)
+    nw, nh = max(tw, int(round(w * scale))), max(th, int(round(h * scale)))
+    img = pil_img.resize((nw, nh), Image.Resampling.LANCZOS)
+    sx, sy = nw / float(w), nh / float(h)
+    fx = box[0] * sx
+    fy = box[1] * sy
+    fw = box[2] * sx
+    fh = box[3] * sy
+    cx = fx + fw / 2.0
+    eye = fy + 0.40 * fh                    # eyes sit ~40% down a haar box
+    top = eye - EYELINE_FRAC * th           # eyeline at the upper-third mark
+    # face bottom above the caption band; face top below the top UI zone.
+    # When the face is taller than the whole safe band (extreme close-up)
+    # the TOP rule wins — a sliced forehead is the judge-failing crop.
+    top = max(top, (fy + fh) - FACE_BOTTOM_MAX)
+    top = min(top, fy - FACE_TOP_MIN)
+    top = max(0.0, min(top, nh - th))
+    left = max(0.0, min(cx - tw / 2.0, nw - tw))
+    img = img.crop((int(left), int(top), int(left) + tw, int(top) + th))
+    return img, (cx - left, eye - top)
 
 
 # ============================================================================
@@ -1450,9 +1620,16 @@ def build_edl(shotlist, script, timings, total):
                 ri = None
             if shot_class == "receipt" and ri is None:
                 shot_class = "subject"
+            person = str(s.get("person") or "").strip() or None   # v6
+            vi = s.get("visual_i")                                # v6
+            try:
+                vi = int(vi)
+            except (TypeError, ValueError):
+                vi = None
             shots.append({
                 "w_in": w_in, "w_out": w_out,
                 "shot_class": shot_class, "receipt_i": ri,
+                "person": person, "visual_i": vi,
                 "query": str(s.get("query") or "").strip(),
                 "motion": motion, "sfx": sfx, "music": music,
                 "emph_t": spans[emph][0] if emph is not None else None,
@@ -1520,18 +1697,25 @@ def motion_scale_fn(motion, dur, emph_rel):
     return _s
 
 
-def plan_scenes_edl(edl, pool, fetcher, receipts=None, title=""):
+def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
+                    person_map=None, visual_map=None):
     """v4/v4.5 planner: the Director decided WHAT; this resolves each shot to
     a concrete asset. receipt -> the downloaded evidence card, rendered via
-    the text-heavy CONTAIN path (whole card readable, no crop/zoom), with a
-    default 'pop' at t_in when the Director left sfx 'none' (the receipt
-    slam — budget-exempt genre signature); subject -> next photo from the
-    REAL-photo pool (never stock); broll -> stock clip for the shot's query.
+    the text-heavy CONTAIN path (whole card readable, no crop/zoom) — the v6
+    branded promo card arrives as the last receipt index and takes this same
+    path; a default 'pop' at t_in when the Director left sfx 'none' (the
+    receipt slam — budget-exempt genre signature); subject -> (v6) the named
+    PERSON's real photo when the shot carries "person", else the shot's
+    visual_i REAL story image, else the next photo from the pool (never
+    stock); broll -> stock clip for the shot's query.
     Receipts and photos count as A-ROLL and reset the consecutive-b-roll
     counter (defensive cap: max 2 stock clips in a row). Every miss falls
-    back down the ladder (receipt -> photo; broll -> photo); never black.
-    Identical motion never repeats back-to-back."""
+    back down the ladder (receipt -> photo; person/visual -> pool photo;
+    broll -> photo); never black. Identical motion never repeats
+    back-to-back."""
     receipts = receipts or {}
+    person_map = person_map or {}
+    visual_map = visual_map or {}
     scenes, photo_i, prev_motion, consec_broll = [], 0, None, 0
     for sh in edl:
         need_s = sh["end"] - sh["start"]
@@ -1551,6 +1735,33 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title=""):
             else:
                 log.info("receipt %s missing/undownloaded; subject photo "
                          "fallback", sh.get("receipt_i"))
+        # v6 TASTE: a subject shot that names a person shows THAT person's
+        # photo; a shot pinned to a real story image (visual_i) shows it.
+        # Adjacent-duplicate guard: the SAME image on two consecutive scenes
+        # reads as a frozen frame (a judge-fail) — the second one falls back
+        # to the pool rotation instead.
+        if path is None and sh["shot_class"] == "subject":
+            entry = None
+            pname = (sh.get("person") or "").strip().lower()
+            if pname and pname in person_map:
+                entry = person_map[pname]
+                log.info("person shot -> %s's photo (%s)", sh["person"],
+                         os.path.basename(entry["path"]))
+            elif pname:
+                log.info("person '%s' has no resolved photo; pool fallback",
+                         sh["person"])
+            if entry is None and sh.get("visual_i") is not None \
+                    and sh["visual_i"] in visual_map:
+                entry = visual_map[sh["visual_i"]]
+                log.info("visual_i %d -> real story image (%s)",
+                         sh["visual_i"], os.path.basename(entry["path"]))
+            if entry is not None and scenes \
+                    and scenes[-1].get("path") == entry["path"]:
+                log.info("pinned image would repeat back-to-back; pool "
+                         "rotation instead")
+                entry = None
+            if entry is not None:
+                path, typ, textish = entry["path"], "photo", entry["textish"]
         if path is None and sh["shot_class"] == "broll":
             if consec_broll >= 2:
                 log.info("broll consecutive cap hit; subject photo instead")
@@ -1618,19 +1829,28 @@ def make_scrim(duration):
     return ImageClip(grad, transparent=True).with_duration(duration)
 
 
-def scene_clip(image_path, start, end, motion, emph_rel=None, xfade=None):
+def scene_clip(image_path, start, end, motion, emph_rel=None, xfade=None,
+               face=None):
     """One full-frame photo scene with its own motion. v3 motions ('in',
     'out', 'panl', 'panr') keep their behaviour; v4 EDL motions ('punch_hit',
     'punch_build', 'zoom_out', 'pan_left', 'pan_right') run the Law-6 curves
     (snap zoom AT the emphasis word, eased build, settle-out). Pans on
     portrait sources become vertical pans. The HOUSE GRADE is baked into the
     source array once (zero per-frame cost). `xfade=0` -> hard cut (v4);
-    default keeps the v3 crossfade."""
+    default keeps the v3 crossfade.
+    v6 `face`: an (x, y, w, h) face box in source pixels. The crop is then
+    eyeline-framed (cover_fit_face) and every zoom is ANCHORED on the face
+    point — the image scales around the eyeline, so motion drift can never
+    push the face out of the phone-safe zone. Pans on face photos become
+    face-anchored zooms (a pan is exactly the motion that walks a face off
+    frame). face=None -> the exact pre-v6 behaviour."""
     from moviepy import CompositeVideoClip, ImageClip, vfx
 
     if xfade is None:
         xfade = XFADE
     motion = {"pan_left": "panl", "pan_right": "panr"}.get(motion, motion)
+    if face is not None and motion in ("panl", "panr"):
+        motion = "in" if motion == "panl" else "out"
     dur = max(end - start, 0.2)
     pil = Image.open(image_path)
     src_w, src_h = pil.size
@@ -1659,8 +1879,16 @@ def scene_clip(image_path, start, end, motion, emph_rel=None, xfade=None):
 
         moving = base.with_position(_pos)
     else:
-        base = ImageClip(grade_frame(np.array(cover_fit(pil, W, H)))
-                         ).with_duration(dur)
+        face_pt = None
+        if face is not None:
+            try:
+                fitted, face_pt = cover_fit_face(pil, W, H, face)
+            except Exception as exc:  # noqa: BLE001
+                log.warning("face framing failed (%s); center crop", exc)
+                fitted, face_pt = cover_fit(pil, W, H), None
+        else:
+            fitted = cover_fit(pil, W, H)
+        base = ImageClip(grade_frame(np.array(fitted))).with_duration(dur)
         if motion in ("punch_hit", "punch_build", "zoom_out"):
             _scale = motion_scale_fn(motion, dur, emph_rel)
         elif motion == "out":
@@ -1669,7 +1897,19 @@ def scene_clip(image_path, start, end, motion, emph_rel=None, xfade=None):
         else:
             def _scale(t, d=dur):
                 return max(1.001, 1.0 + SCENE_ZOOM * (t / d))
-        moving = base.resized(_scale).with_position("center")
+        if face_pt is not None:
+            # anchor the zoom ON the face: position so the eyeline point
+            # stays fixed at its framed coordinate for every scale s>=1
+            # (px = fx*(1-s) <= 0 and the frame stays fully covered).
+            fxp, fyp = face_pt
+
+            def _pos(t, fxp=fxp, fyp=fyp, sc=_scale):
+                s = sc(t)
+                return (fxp * (1.0 - s), fyp * (1.0 - s))
+
+            moving = base.resized(_scale).with_position(_pos)
+        else:
+            moving = base.resized(_scale).with_position("center")
     pil.close()
 
     clip = CompositeVideoClip([moving], size=(W, H)).with_duration(dur)
@@ -2176,7 +2416,8 @@ def build_sound_mix(mp3_path, scenes, total, page_id, out_wav):
 # ============================================================================
 def compose_video(pool, broll_terms, mp3_path, hook, script, word_timings,
                   duration, font_path, out_path, bgm_path=None,
-                  shotlist=None, page_id=0, receipts=None, title=""):
+                  shotlist=None, page_id=0, receipts=None, title="",
+                  person_map=None, visual_map=None):
     from moviepy import AudioFileClip, CompositeVideoClip, afx, vfx
 
     total = duration + TAIL_SECONDS
@@ -2192,7 +2433,8 @@ def compose_video(pool, broll_terms, mp3_path, hook, script, word_timings,
     v4_mode = edl is not None
     if v4_mode:
         scenes = plan_scenes_edl(edl, pool, fetcher, receipts=receipts,
-                                 title=title)
+                                 title=title, person_map=person_map,
+                                 visual_map=visual_map)
     else:
         if shotlist:
             log.info("shotlist present but unusable; v3 scene planner")
@@ -2222,10 +2464,13 @@ def compose_video(pool, broll_terms, mp3_path, hook, script, word_timings,
             layers.append(contain_scene_clip(sc["path"], sc["start"],
                                              sc["end"], xfade=xfade))
         else:
+            # v6: face-aware phone framing on every photo scene (cached
+            # detection; None -> the pre-v6 center crop, never a crash)
             layers.append(scene_clip(sc["path"], sc["start"], sc["end"],
                                      sc["motion"],
                                      emph_rel=sc.get("emph_rel"),
-                                     xfade=xfade))
+                                     xfade=xfade,
+                                     face=detect_face_box(sc["path"])))
     layers.append(make_vignette(total))      # v4 house look, both modes
     layers.append(make_scrim(total))
 
@@ -2566,11 +2811,19 @@ def make_one(post, font_path):
         hook = " ".join(script.split()[:8])
 
     os.makedirs(WORKDIR, exist_ok=True)
-    pool = build_visual_pool(post, page_id)
+    pool, person_map = build_visual_pool(post, page_id)
     broll_terms = post.get("broll") if isinstance(post.get("broll"), list) \
         else []
     if not pool and not (broll_terms and (PEXELS_API_KEY or PIXABAY_API_KEY)):
         raise ValueError(f"post {page_id}: no usable visuals at all")
+
+    shotlist = post.get("shotlist")
+    if not isinstance(shotlist, dict):
+        shotlist = None
+        log.info("no shotlist in feed; v3 behaviour throughout")
+
+    # v6: resolve the shotlist's visual_i references (real story images)
+    visual_map = build_visual_map(post, page_id, pool, shotlist)
 
     # v4.5: REAL evidence cards (post.receipts, idx order — receipt_i maps
     # into this dict). Download failures just leave holes; the planner falls
@@ -2579,9 +2832,9 @@ def make_one(post, font_path):
     receipt_paths = {}
     recs = post.get("receipts")
     if isinstance(recs, list) and recs:
-        # v5: cap raised 12 -> 16 (the list now also carries REAL-POST tweet
-        # cards appended after the event cards: up to 10 events + 6 posts).
-        for i, u in enumerate(recs[:16]):
+        # v6: cap raised 16 -> 20 (up to 10 events + 6 posts + the branded
+        # PROMO card appended LAST — the cap must never cut the promo off).
+        for i, u in enumerate(recs[:20]):
             if not (isinstance(u, str) and u.startswith("http")):
                 continue
             p = fetch_visual(
@@ -2595,16 +2848,12 @@ def make_one(post, font_path):
     mp3 = os.path.join(WORKDIR, f"voice-{page_id}.mp3")
     timings, duration = synthesize(script, mp3)
 
-    shotlist = post.get("shotlist")
-    if not isinstance(shotlist, dict):
-        shotlist = None
-        log.info("no shotlist in feed; v3 behaviour throughout")
-
     out = os.path.join(WORKDIR, f"video-{page_id}.mp4")
     compose_video(pool, broll_terms, mp3, hook, script, timings, duration,
                   font_path, out, bgm_path=pick_bgm(page_id),
                   shotlist=shotlist, page_id=page_id,
-                  receipts=receipt_paths, title=post.get("title", ""))
+                  receipts=receipt_paths, title=post.get("title", ""),
+                  person_map=person_map, visual_map=visual_map)
 
     # v3: the vision judge sees the FINISHED (faststart-remuxed) artifact.
     verdict = vision_judge(out, hook, post.get("title", ""),
