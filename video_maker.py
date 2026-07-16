@@ -642,6 +642,92 @@ def resolve_font():
 # ============================================================================
 # Visual pool: feed visuals + Wikidata person photos (all non-fatal)
 # ============================================================================
+# ============================================================================
+# v10 REAL-SOURCE SCREENSHOTS (owner round-10: evidence = original pixels)
+# ============================================================================
+REAL_SHOTS = os.environ.get("VIDEO_REAL_SHOTS", "1") != "0"
+SHOT_TOTAL_BUDGET_S = 45.0     # wall-clock across ALL screenshots per video
+
+
+def screenshot_articles(targets, page_id):
+    """Screenshot REAL article pages (masthead + headline + lead image, as the
+    site actually renders) — the drama-genre confidence move: FOUND evidence,
+    not made evidence. ONE chromium session for all targets, hard wall-clock
+    budget; every failure is silent (the rendered card stays as fallback).
+    targets: {receipt_idx: url} -> returns {receipt_idx: png_path}."""
+    out = {}
+    try:
+        from playwright.sync_api import sync_playwright
+    except Exception:
+        log.info("playwright not installed; receipt cards only")
+        return out
+    deadline = time.time() + SHOT_TOTAL_BUDGET_S
+    try:
+        with sync_playwright() as pw:
+            browser = pw.chromium.launch(headless=True)
+            ctx = browser.new_context(viewport={"width": 1080, "height": 1500},
+                                      user_agent=_BROWSER_UA,
+                                      locale="en-US")
+            for i, url in targets.items():
+                if time.time() > deadline:
+                    log.info("screenshot budget spent; %d article(s) fall "
+                             "back to cards", len(targets) - len(out))
+                    break
+                path = os.path.join(WORKDIR, f"shot-{page_id}-{i}.png")
+                try:
+                    page = ctx.new_page()
+                    page.goto(url, wait_until="domcontentloaded", timeout=15000)
+                    page.wait_for_timeout(1500)
+                    # best-effort cookie-banner dismissal
+                    for sel in ("#onetrust-accept-btn-handler",
+                                "button[id*='accept' i]",
+                                "button[class*='accept' i]",
+                                "[aria-label*='accept' i]"):
+                        try:
+                            page.locator(sel).first.click(timeout=700)
+                            page.wait_for_timeout(300)
+                            break
+                        except Exception:
+                            pass
+                    # hide sticky overlays below the masthead (keep top nav)
+                    try:
+                        page.evaluate("""() => {
+                          for (const el of document.querySelectorAll('*')) {
+                            const s = getComputedStyle(el);
+                            if ((s.position === 'fixed' || s.position === 'sticky')
+                                && el.getBoundingClientRect().top > 150) {
+                              el.style.visibility = 'hidden';
+                            }
+                          }
+                        }""")
+                    except Exception:
+                        pass
+                    page.screenshot(path=path, clip={"x": 0, "y": 0,
+                                                     "width": 1080,
+                                                     "height": 1350})
+                    page.close()
+                except Exception as exc:  # noqa: BLE001
+                    log.info("screenshot failed (%s): %s",
+                             str(exc)[:80], url[:90])
+                    continue
+                # sanity: reject blank / bot-wall shots (near-uniform frames)
+                try:
+                    g = Image.open(path).convert("L").resize((64, 80))
+                    if float(np.asarray(g).std()) < 8.0:
+                        log.info("screenshot near-blank; card fallback: %s",
+                                 url[:90])
+                        continue
+                except Exception:
+                    continue
+                log.info("REAL source screenshot: %s", url[:100])
+                out[i] = path
+            browser.close()
+    except Exception as exc:  # noqa: BLE001
+        log.info("screenshot engine unavailable (%s); cards only",
+                 str(exc)[:100])
+    return out
+
+
 def _download_bytes(url):
     """Multi-engine download (curl_cffi browser-TLS first — the proven pattern).
     Returns bytes or None; NEVER raises."""
@@ -2937,6 +3023,27 @@ def make_one(post, font_path):
                 receipt_paths[i] = p
         log.info("receipts: %d of %d evidence card(s) downloaded",
                  len(receipt_paths), len(recs))
+
+        # v10 ORIGINAL PIXELS (owner round-10, from the competitor study): for
+        # news-sourced receipts, screenshot the REAL article page — masthead,
+        # headline, lead photo, as it looks on the actual site — and show THAT
+        # as the evidence ("found, not made"). The rendered card stays as the
+        # silent fallback for every failure (paywall/bot-wall/timeout/blank).
+        meta = post.get("receipt_meta")
+        if REAL_SHOTS and isinstance(meta, list):
+            targets = {}
+            for i, m in enumerate(meta[:20]):
+                if (isinstance(m, dict) and m.get("kind") == "event"
+                        and i in receipt_paths):
+                    su = str(m.get("source_url") or "")
+                    if su.startswith("http"):
+                        targets[i] = su
+            if targets:
+                shots = screenshot_articles(targets, page_id)
+                for i, sp in shots.items():
+                    receipt_paths[i] = sp
+                log.info("real-source screenshots: %d of %d article(s); "
+                         "cards cover the rest", len(shots), len(targets))
 
     mp3 = os.path.join(WORKDIR, f"voice-{page_id}.mp3")
     timings, duration = synthesize(script, mp3)
