@@ -274,6 +274,24 @@ produced-energy gap):
      failure -> the proven single-pass synthesize() (captions sync is
      sacred). Kill switch: VIDEO_EXPRESSIVE_TTS=0.
 
+WHAT r13 ADDS (owner-approved REAL FOOTAGE — the standard drama-channel
+fair-use posture: short MUTED excerpts of the actual videos being discussed,
+transformed under our commentary/cards/captions):
+  1. Story visuals that are YouTube thumbnails (i.ytimg.com/vi/<id>/...) can
+     be UPGRADED from a still to a short muted clip of that exact video:
+     yt-dlp downloads ONLY a 14s section (12s-26s, skipping intros) at
+     <=720p, 25s timeout per attempt, android player_client retry, cached
+     per id per run. The scene shows <=3.5s of it (starting 2s into the
+     window), cover-cropped/graded/scrimmed through the existing
+     broll_scene_clip path with motion=punch_build.
+  2. HARD BUDGETS (the fair-use guardrails): max 3 footage scenes per video,
+     max ~8 borrowed seconds total, never two footage scenes consecutive,
+     footage counts as b-roll for the max-2-in-a-row rule, always muted.
+  3. NEVER FATAL: yt-dlp missing, YouTube bot-walling the runner IP, a
+     short/broken file — every miss falls back to the thumbnail still (the
+     exact pre-r13 behaviour) with a loud FOOTAGE log line either way.
+     Kill switch: VIDEO_REAL_FOOTAGE=0.
+
 PROVEN v1 PARTS KEPT VERBATIM: the multi-engine fetch/post (curl_cffi
 browser-TLS first — Hostinger's TLS fingerprint block), base64-in-JSON video
 delivery (WAF blocks multipart), edge-tts synthesis with WordBoundary timings
@@ -291,6 +309,7 @@ import json
 import logging
 import math
 import os
+import re
 import subprocess
 import sys
 import time
@@ -453,6 +472,20 @@ EYELINE_FRAC = 0.40            # eyeline ~38-42% from frame top (upper third)
 FACE_TOP_MIN = SAFE_TOP + 20   # face never inside the top platform-UI zone
 FACE_BOTTOM_MAX = int(H * 0.55)  # face never under the caption band / bottom UI
 FACE_DETECT_MAX_SIDE = 640     # detection runs on a downscaled copy (speed)
+
+# --- r13: REAL FOOTAGE (owner-approved drama-channel fair-use posture) ---
+# A story visual that is a YouTube thumbnail (i.ytimg.com/vi/<id>/...) may be
+# upgraded from a still to a short MUTED clip of that exact video via yt-dlp.
+# Everything here is a fair-use guardrail; every failure path keeps the
+# thumbnail still (pre-r13 behaviour). Kill switch: VIDEO_REAL_FOOTAGE=0.
+REAL_FOOTAGE = os.environ.get("VIDEO_REAL_FOOTAGE", "1").strip() != "0"
+FOOTAGE_MAX_SCENES = 3         # max upgraded scenes per video
+FOOTAGE_MAX_TOTAL_S = 8.0      # max borrowed seconds per video
+FOOTAGE_SCENE_MAX_S = 3.5      # longer beats keep their thumbnail still
+FOOTAGE_SECTION = "*00:00:12-00:00:26"  # fetch a 14s window, skipping intros
+FOOTAGE_SUB_OFF_S = 2.0        # show the sub-segment starting 2s into it
+FOOTAGE_FETCH_TIMEOUT = 25     # seconds per yt-dlp attempt
+FOOTAGE_MAX_FETCHES = 6        # run-level attempt cap (bot-walled runners)
 
 # --- v4: house grade (Law 22 — one look over every visual) ---
 GRADE_CONTRAST = 1.06
@@ -1288,6 +1321,108 @@ def build_visual_map(post, page_id, pool, shotlist):
 
 
 # ============================================================================
+# r13: REAL FOOTAGE — upgrade YouTube-thumbnail stills to short MUTED clips
+# of the actual story videos (yt-dlp section download; drama-channel fair-use
+# posture: tiny excerpts, muted, transformed under commentary/captions).
+# STRICTLY non-fatal: any miss keeps the thumbnail still.
+# ============================================================================
+_YTIMG_RE = re.compile(
+    r"https?://i\.ytimg\.com/vi(?:_webp)?/([A-Za-z0-9_-]{6,20})/")
+_FOOTAGE_CACHE = {}            # video_id -> local path or None (per run)
+_FOOTAGE_FETCHES = 0           # run-level yt-dlp attempt counter
+
+
+def ytimg_video_id(url):
+    """The YouTube video id if `url` is an i.ytimg.com thumbnail, else None
+    (an i.ytimg.com/vi/<id>/ thumbnail IS a frame of that exact video)."""
+    m = _YTIMG_RE.match(url or "")
+    return m.group(1) if m else None
+
+
+def footage_budget_ok(need_s, n_scenes, used_s, consec_broll, prev_footage,
+                      enabled=None):
+    """Pure r13 gate (unit-testable offline): may THIS beat become real
+    footage? Fair-use guardrails: feature flag on; <=3.5s shown per scene;
+    max 3 footage scenes and ~8 borrowed seconds per video; never two
+    footage scenes consecutive; footage counts as b-roll, so it also
+    respects the max-2-videos-in-a-row rule."""
+    if not (REAL_FOOTAGE if enabled is None else enabled):
+        return False
+    if need_s > FOOTAGE_SCENE_MAX_S + 1e-6:
+        return False
+    if n_scenes >= FOOTAGE_MAX_SCENES:
+        return False
+    if used_s + need_s > FOOTAGE_MAX_TOTAL_S + 1e-6:
+        return False
+    if prev_footage or consec_broll >= 2:
+        return False
+    return True
+
+
+def fetch_story_footage(video_id):
+    """Download a short section of the story's own YouTube video via yt-dlp.
+    Returns a local video path or None. Cached per id per run (misses too,
+    so a bot-walled id is never retried within a run). Cloud runner IPs are
+    frequently bot-walled by YouTube — expect partial success; the caller
+    ALWAYS has the thumbnail still as fallback. Never raises."""
+    global _FOOTAGE_FETCHES
+    if video_id in _FOOTAGE_CACHE:
+        return _FOOTAGE_CACHE[video_id]
+    path = None
+    try:
+        import shutil
+        if _FOOTAGE_FETCHES >= FOOTAGE_MAX_FETCHES:
+            log.info("FOOTAGE fetch cap (%d) reached; thumbnail stills from "
+                     "here", FOOTAGE_MAX_FETCHES)
+        elif not shutil.which("yt-dlp"):
+            log.info("FOOTAGE: yt-dlp not on PATH; thumbnail stills only")
+        else:
+            _FOOTAGE_FETCHES += 1
+            outtmpl = os.path.join(WORKDIR, f"foot-{video_id}.%(ext)s")
+            base = ["yt-dlp", "--no-playlist", "--quiet", "--no-warnings",
+                    "-f", "bv*[height<=720][ext=mp4]/b[height<=720]",
+                    "--download-sections", FOOTAGE_SECTION,
+                    "-o", outtmpl,
+                    f"https://www.youtube.com/watch?v={video_id}"]
+            # Attempt 2 = android player_client (the usual cure when the
+            # web client gets the "confirm you're not a bot" wall).
+            retry = base[:1] + ["--extractor-args",
+                                "youtube:player_client=android"] + base[1:]
+            for cmd in (base, retry):
+                try:
+                    subprocess.run(cmd, timeout=FOOTAGE_FETCH_TIMEOUT,
+                                   stdout=subprocess.DEVNULL,
+                                   stderr=subprocess.DEVNULL, check=False)
+                except Exception as exc:  # noqa: BLE001 (timeout included)
+                    log.info("FOOTAGE fetch attempt failed for %s (%s)",
+                             video_id, type(exc).__name__)
+                hits = [p for p in glob.glob(
+                    os.path.join(WORKDIR, f"foot-{video_id}.*"))
+                    if p.rsplit(".", 1)[-1] in ("mp4", "webm", "mkv", "mov")
+                    and os.path.getsize(p) > 30000]
+                if hits:
+                    path = sorted(hits)[0]
+                    break
+        if path:
+            # Probe like BrollFetcher: must open and be long enough to show
+            # the 2s-in sub-segment. Broken partials -> thumbnail still.
+            from moviepy import VideoFileClip
+            v = VideoFileClip(path)
+            d = float(v.duration or 0)
+            v.close()
+            if d < FOOTAGE_SUB_OFF_S + 1.0:
+                log.info("FOOTAGE %s too short (%.1fs); thumbnail fallback",
+                         video_id, d)
+                path = None
+    except Exception as exc:  # noqa: BLE001
+        log.info("FOOTAGE %s unusable (%s); thumbnail fallback",
+                 video_id, exc)
+        path = None
+    _FOOTAGE_CACHE[video_id] = path
+    return path
+
+
+# ============================================================================
 # v6: FACE-AWARE PHONE FRAMING — haarcascade frontal-face detection (cached),
 # eyeline-anchored cover crop, face-anchored zoom motions. Owner round-6:
 # "framing must respect the phone screen". cv2 missing / no face found ->
@@ -2075,11 +2210,17 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
     counter (defensive cap: max 2 stock clips in a row). Every miss falls
     back down the ladder (receipt -> photo; person/visual -> pool photo;
     broll -> photo); never black. Identical motion never repeats
-    back-to-back."""
+    back-to-back.
+    r13 REAL FOOTAGE: a resolved photo whose source URL is a YouTube
+    thumbnail (i.ytimg.com/vi/<id>/) — a pinned visual_i OR a pool-served
+    still — is upgraded to a short MUTED clip of that exact video when the
+    fair-use budget allows (footage_budget_ok); any fetch miss keeps the
+    thumbnail still."""
     receipts = receipts or {}
     person_map = person_map or {}
     visual_map = visual_map or {}
     scenes, prev_motion, consec_broll = [], None, 0
+    foot_n, foot_s = 0, 0.0        # r13: footage scenes / borrowed seconds
     last_used = {}                 # r11 LRU: pool path -> last scene index
     person_rot = {}                # r11: per-person rotation cursor
 
@@ -2110,7 +2251,7 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
         if motion == prev_motion:
             motion = _MOTION_ALTERNATE.get(motion, "punch_build")
 
-        path, typ, textish = None, None, False
+        path, typ, textish, src_url = None, None, False, None
         sfx, emph_t = sh["sfx"], sh["emph_t"]
         if sh["shot_class"] == "receipt":
             path = receipts.get(sh.get("receipt_i"))
@@ -2181,6 +2322,7 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
             if entry is not None:
                 last_used[entry["path"]] = si          # r11: LRU sees pins too
                 path, typ, textish = entry["path"], "photo", entry["textish"]
+                src_url = entry.get("url")             # r13: footage upgrade
         if path is None and sh["shot_class"] == "broll":
             if consec_broll >= 2:
                 log.info("broll consecutive cap hit; subject photo instead")
@@ -2204,12 +2346,41 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                 # no-repeat window (replaces blind round-robin).
                 entry = _lru_pick(si)
                 path, typ, textish = entry["path"], "photo", entry["textish"]
+                src_url = entry.get("url")             # r13: footage upgrade
             else:
                 path = fetcher.clip_for(need_s)   # last resort: cursor mode
                 if path:
                     typ = "broll"
                 else:
                     raise ValueError("no photos and no b-roll for a shot")
+        # --- r13 REAL FOOTAGE upgrade: a photo scene showing a YouTube
+        # thumbnail of one of the story's own videos becomes a short MUTED
+        # clip of that exact video — budget-gated (max 3 scenes, ~8s total,
+        # never consecutive, counts as b-roll), thumbnail kept on any miss.
+        footage = False
+        vid = ytimg_video_id(src_url) if typ == "photo" else None
+        if vid:
+            prev_foot = bool(scenes and scenes[-1].get("footage"))
+            if footage_budget_ok(need_s, foot_n, foot_s, consec_broll,
+                                 prev_foot):
+                fpath = fetch_story_footage(vid)
+                if fpath and fpath in _recent_paths():
+                    # selfcheck law: no path twice inside the window — the
+                    # same video id served twice keeps its thumbnail still.
+                    log.info("FOOTAGE %s repeats within %d scenes; "
+                             "thumbnail kept", vid, POOL_NO_REPEAT_WINDOW)
+                elif fpath:
+                    path, typ, textish = fpath, "broll", False
+                    motion, footage = "punch_build", True
+                    foot_n += 1
+                    foot_s += need_s
+                    log.info("FOOTAGE upgrade: scene %d -> %s (%.2fs shown, "
+                             "%d/%d scenes, %.1f/%.1fs borrowed)", si + 1,
+                             os.path.basename(fpath), need_s, foot_n,
+                             FOOTAGE_MAX_SCENES, foot_s, FOOTAGE_MAX_TOTAL_S)
+                else:
+                    log.info("FOOTAGE unavailable for %s; thumbnail "
+                             "fallback", vid)
         consec_broll = consec_broll + 1 if typ == "broll" else 0
 
         emph_rel = None
@@ -2220,6 +2391,8 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
             "path": path, "motion": "contain" if textish else motion,
             "textish": textish, "emph_rel": emph_rel,
             "sfx": sfx, "music": sh["music"], "emph_t": emph_t,
+            "footage": footage,
+            "src_off": FOOTAGE_SUB_OFF_S if footage else None,
         })
         prev_motion = motion
     return scenes
@@ -2398,13 +2571,16 @@ def contain_scene_clip(image_path, start, end, xfade=None, card=False):
 
 
 def broll_scene_clip(video_path, start, end, motion=None, emph_rel=None,
-                     xfade=None):
+                     xfade=None, t_off=None):
     """One full-frame B-ROLL scene — trim to the beat length, cover-crop to
     1080x1920 (MoviePy 2.x .subclipped/.resized/.cropped), darken slightly so
     the captions pop over busy footage. v4: the house grade runs per-frame
     (vectorized numpy via image_transform) and EDL zoom motions (punch_hit /
     punch_build / zoom_out) are applied on top of the cover-crop — pans on
     video sources map to punch_build. xfade=0 -> hard cut.
+    r13: t_off (real-footage scenes) trims the sub-segment starting that
+    many seconds into the source instead of the default slate-skip; audio is
+    ALWAYS stripped (.without_audio) — footage is muted by construction.
     Returns (clip, source): the VideoFileClip must stay OPEN until after
     write_videofile — the caller closes it."""
     from moviepy import CompositeVideoClip, VideoFileClip, vfx
@@ -2415,7 +2591,11 @@ def broll_scene_clip(video_path, start, end, motion=None, emph_rel=None,
     src = VideoFileClip(video_path)
     clip = src.without_audio()
     if clip.duration and clip.duration > dur + 0.05:
-        off = min(0.3, clip.duration - dur - 0.05)   # skip a hair of slate
+        if t_off is not None:                        # r13 real footage:
+            off = max(0.0, min(float(t_off),         # start 2s into the
+                               clip.duration - dur - 0.05))  # fetched window
+        else:
+            off = min(0.3, clip.duration - dur - 0.05)   # skip a hair of slate
         clip = clip.subclipped(off, off + dur)
     elif clip.duration and clip.duration < dur:      # guarded by selection;
         try:                                         # belt-and-suspenders
@@ -3100,7 +3280,8 @@ def compose_video(pool, broll_terms, mp3_path, hook, script, word_timings,
              n_broll, len(pool))
     for i, sc in enumerate(scenes):
         log.info("  scene %d: %.2f-%.2fs type=%s motion=%s sfx=%s music=%s "
-                 "visual=%s", i + 1, sc["start"], sc["end"], sc["type"],
+                 "visual=%s", i + 1, sc["start"], sc["end"],
+                 sc["type"] + ("(FOOTAGE)" if sc.get("footage") else ""),
                  sc["motion"], sc.get("sfx", "-"), sc.get("music", "-"),
                  os.path.basename(sc["path"]))
 
@@ -3161,7 +3342,8 @@ def compose_video(pool, broll_terms, mp3_path, hook, script, word_timings,
             clip, src = broll_scene_clip(
                 sc["path"], sc["start"], sc["end"],
                 motion=sc["motion"] if v4_mode else None,
-                emph_rel=sc.get("emph_rel"), xfade=xfade)
+                emph_rel=sc.get("emph_rel"), xfade=xfade,
+                t_off=sc.get("src_off"))   # r13: footage starts 2s in
             open_sources.append(src)     # must stay open until after encode
             layers.append(clip)
             scene_clips.append(clip)
