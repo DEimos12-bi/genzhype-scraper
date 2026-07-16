@@ -296,6 +296,13 @@ CHUNK_MAX_WORDS = 3
 SAFE_TOP = 220                 # platform UI safe areas (nothing rendered inside)
 SAFE_BOTTOM = 320
 CAPTION_CENTER_Y = int(H * 0.62)   # lower-middle band, well inside the safe area
+# v9 (owner round-9): on CARD scenes (receipt/post/promo) captions must never sit
+# on the card's own text. The card anchors top (y=240, below the 220px UI zone)
+# and is capped so its bottom lands <=1350; captions on those scenes drop to the
+# cleared band below it, centered here (band ~1420-1540, above the y1600 bottom UI).
+CARD_TOP_Y       = 240
+CARD_MAX_BOTTOM  = 1350
+CARD_CAPTION_Y   = 1480
 
 # --- v2: people photos (Wikidata, image_engine.py's proven flow) ---
 MAX_POOL = 8
@@ -898,9 +905,22 @@ def build_visual_pool(post, page_id):
                 person_urls.append(u)
                 url2name.setdefault(u, name)
 
-    # Hero first, then real faces, then the rest (card, receipts thumbnails).
+    # v9 (owner round-9): the story COVER is a DESIGNED COMPOSITE from the site's
+    # image engine (VS split, AI-art half, text) — a poster, not footage. Crop-
+    # zooming it rendered garbage. So: real faces first, then real event images,
+    # and the cover joins only as LAST RESORT — and always contain-rendered.
+    titles = post.get("visual_titles") or []
+    url_title = {}
+    for _i, _u in enumerate(urls):
+        if _i < len(titles):
+            url_title[_u] = str(titles[_i]).lower()
+
+    def _designed(u):
+        t = url_title.get(u, "")
+        return ("cover" in t) or ("render" in t) or ("card" in t)
+
     ordered, seen = [], set()
-    for u in urls[:1] + person_urls + urls[1:]:
+    for u in person_urls + urls[1:] + urls[:1]:
         if u not in seen:
             seen.add(u)
             ordered.append(u)
@@ -909,7 +929,7 @@ def build_visual_pool(post, page_id):
     for i, u in enumerate(ordered[:MAX_POOL]):
         p = fetch_visual(u, os.path.join(WORKDIR, f"vis-{page_id}-{i}"))
         if p:
-            textish = is_text_heavy(p, src_url=u)
+            textish = is_text_heavy(p, src_url=u) or _designed(u)
             if textish:
                 log.info("text-heavy visual -> contain mode (no crop/zoom): %s",
                          u[:120])
@@ -1959,7 +1979,7 @@ def scene_clip(image_path, start, end, motion, emph_rel=None, xfade=None,
     return clip
 
 
-def contain_scene_clip(image_path, start, end, xfade=None):
+def contain_scene_clip(image_path, start, end, xfade=None, card=False):
     """v3 text-heavy renderer: the WHOLE image fits inside the frame
     ('contain') over a blurred darkened fill of itself — no cover-crop, no
     Ken-Burns zoom, only a gentle <=2% horizontal drift so the scene is not
@@ -1979,11 +1999,17 @@ def contain_scene_clip(image_path, start, end, xfade=None):
     bg = ImageEnhance.Brightness(bg).enhance(0.45)
 
     w, h = pil.size
-    scale = min((W * 0.94) / w, (H * 0.90) / h)
+    if card:
+        # v9: card scenes anchor toward the top so the caption band below stays
+        # clear — top at CARD_TOP_Y, bottom capped at CARD_MAX_BOTTOM.
+        scale = min((W * 0.80) / w, float(CARD_MAX_BOTTOM - CARD_TOP_Y) / h)
+    else:
+        scale = min((W * 0.94) / w, (H * 0.90) / h)
     fg = pil.resize((max(1, int(w * scale)), max(1, int(h * scale))),
                     Image.Resampling.LANCZOS)
     canvas = bg.copy()
-    canvas.paste(fg, ((canvas_w - fg.width) // 2, (H - fg.height) // 2))
+    fg_y = CARD_TOP_Y if card else (H - fg.height) // 2
+    canvas.paste(fg, ((canvas_w - fg.width) // 2, fg_y))
     pil.close()
 
     base = ImageClip(grade_frame(np.array(canvas))).with_duration(dur)
@@ -2224,7 +2250,7 @@ def render_chunk_frame(words, hot_idx, font_path):
     return np.array(canvas)
 
 
-def chunk_caption_clips(beats, hook_end, duration, font_path):
+def chunk_caption_clips(beats, hook_end, duration, font_path, card_windows=None):
     """Word-pop captions: for every chunk, one ImageClip per word-state (the
     spoken word accent-colored + larger). Each state runs from its word's
     start to the next word's start; the chunk's last state holds until the
@@ -2253,10 +2279,16 @@ def chunk_caption_clips(beats, hook_end, duration, font_path):
             except Exception as exc:  # noqa: BLE001
                 log.warning("caption render failed (%s); skipped state", exc)
                 continue
+            mid = (st + en) / 2.0
+            y_center = CAPTION_CENTER_Y
+            for cw_s, cw_e in (card_windows or []):
+                if cw_s <= mid < cw_e:      # v9: this word plays over a card
+                    y_center = CARD_CAPTION_Y
+                    break
             ic = ImageClip(arr, transparent=True)
             ic = ic.with_start(st).with_end(en).with_position(
                 ((W - arr.shape[1]) / 2.0,
-                 CAPTION_CENTER_Y - arr.shape[0] / 2.0))
+                 y_center - arr.shape[0] / 2.0))
             clips.append(ic)
     return clips
 
@@ -2499,7 +2531,8 @@ def compose_video(pool, broll_terms, mp3_path, hook, script, word_timings,
             layers.append(clip)
         elif sc["textish"]:
             layers.append(contain_scene_clip(sc["path"], sc["start"],
-                                             sc["end"], xfade=xfade))
+                                             sc["end"], xfade=xfade,
+                                             card=(sc["type"] == "receipt")))
         else:
             # v6: face-aware phone framing on every photo scene (cached
             # detection; None -> the pre-v6 center crop, never a crash)
@@ -2525,7 +2558,11 @@ def compose_video(pool, broll_terms, mp3_path, hook, script, word_timings,
         layers.append(hc)
 
     # --- word-pop chunk captions after the hook ---
-    layers.extend(chunk_caption_clips(beats, hook_end, duration, font_path))
+    # v9: on card scenes the captions drop below the card (never on its text)
+    card_windows = [(sc["start"], sc["end"]) for sc in scenes
+                    if sc.get("type") == "receipt"]
+    layers.extend(chunk_caption_clips(beats, hook_end, duration, font_path,
+                                      card_windows=card_windows))
 
     video = CompositeVideoClip(layers, size=(W, H)).with_duration(total)
     if v4_mode and EDGE_FADE_S > 0:
