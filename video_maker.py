@@ -221,6 +221,23 @@ the phone screen):
      shot. Receipts download cap raised 16 -> 20 so the last card (the
      promo) is never truncated off the list.
 
+WHAT r11 ADDS (owner round-11 verdict: "more images and persons; more
+intelligent shots — it keeps showing the same image again and again,
+sometimes while talking about something else"; a 17-shot video ran on a
+3-image pool):
+  1. FLOODED POOL — the server now sends up to 24 visuals (per-person recent
+     channel thumbnails + multiple og:images) and people carry
+     "photos": [urls] PLURAL. MAX_POOL raised 8 -> 16 (env-overridable).
+  2. PERSON VARIETY — person_map values are now LISTS of that person's pool
+     entries (avatar first, then recent thumbnails); consecutive shots of the
+     same person cycle their images instead of freezing on the avatar.
+  3. LRU SMART FALLBACK — unpinned subject shots pick the LEAST-RECENTLY-USED
+     pool image outside a 3-scene no-repeat window (replaces blind
+     round-robin; the old adjacent-duplicate guard is subsumed).
+  Server-side the same round adds the Director laws: every subject shot must
+  pin person or visual_i, and a deterministic no-repeat validator (a
+  visual_i never twice in any 4 consecutive shots, max 3 uses per video).
+
 PROVEN v1 PARTS KEPT VERBATIM: the multi-engine fetch/post (curl_cffi
 browser-TLS first — Hostinger's TLS fingerprint block), base64-in-JSON video
 delivery (WAF blocks multipart), edge-tts synthesis with WordBoundary timings
@@ -305,8 +322,13 @@ CARD_MAX_BOTTOM  = 1350
 CARD_CAPTION_Y   = 1480
 
 # --- v2: people photos (Wikidata, image_engine.py's proven flow) ---
-MAX_POOL = 8
+# r11: 8 -> 16. The server now floods the feed with real story imagery
+# (per-person recent channel thumbnails, multiple og:images, people photos
+# PLURAL); an 8-image cap would throw most of it away and the owner's verdict
+# was exactly "same image again and again" on a 3-image pool.
+MAX_POOL = int(os.environ.get("VIDEO_MAX_POOL", "16"))
 PEOPLE_BUDGET_S = 100          # hard wall-clock cap on all person lookups
+POOL_NO_REPEAT_WINDOW = 3      # r11: an image never reappears within 3 scenes
 
 # --- v2: background music ---
 # Drop ONLY CC0 / royalty-free .mp3 tracks in this folder (platform copyright
@@ -947,9 +969,10 @@ def build_visual_pool(post, page_id):
     """Assemble the scene visual pool: feed visuals (hero first) + resolved
     person photos, deduped, downloaded, validated. Returns (pool, person_map):
     pool is a list of {"path", "textish", "url", "person"} dicts (v3: textish
-    photos get the contain renderer); person_map (v6) maps lowercased person
-    name -> that person's pool entry, so Director shots carrying "person" can
-    show THAT person's real photo on exactly those words."""
+    photos get the contain renderer); person_map (r11) maps lowercased person
+    name -> a LIST of that person's pool entries (avatar first, then their
+    recent channel thumbnails), so Director shots carrying "person" can show
+    THAT person's real imagery with variety across consecutive shots."""
     urls = []
     vis = post.get("visuals")
     if isinstance(vis, list):
@@ -964,6 +987,9 @@ def build_visual_pool(post, page_id):
     # feed-provided photo is the FIRST choice for that person; Wikidata here
     # stays the fallback for people without one. Plain-string people (old
     # feed shape) keep the exact previous behaviour.
+    # r11: the feed may also send "photos": [urls] PLURAL per person (avatar
+    # first, then recent real channel thumbnails of the same verified person);
+    # every one joins the pool under that person's name.
     person_urls, url2name = [], {}
     people = post.get("people") or []
     if isinstance(people, list) and people:
@@ -972,16 +998,23 @@ def build_visual_pool(post, page_id):
         for entry in people[:4]:
             if isinstance(entry, dict):
                 name = str(entry.get("name") or "").strip()
-                feed_photo = entry.get("photo")
+                photos = entry.get("photos")
+                if not (isinstance(photos, list) and photos):
+                    photos = [entry.get("photo")]
             else:
-                name, feed_photo = str(entry).strip(), None
+                name, photos = str(entry).strip(), [None]
             if not name:
                 continue
-            if isinstance(feed_photo, str) and feed_photo.startswith("http"):
-                log.info("person photo from feed (site-resolved): %s", name)
-                person_urls.append(feed_photo)
-                url2name.setdefault(feed_photo, name)
-                continue                      # feed photo costs no budget
+            got = 0
+            for ph in photos[:4]:
+                if isinstance(ph, str) and ph.startswith("http"):
+                    person_urls.append(ph)
+                    url2name.setdefault(ph, name)
+                    got += 1
+            if got:
+                log.info("person photos from feed (site-resolved): %s x%d",
+                         name, got)
+                continue                      # feed photos cost no budget
             if time.time() - t0 > PEOPLE_BUDGET_S:
                 log.info("people budget exhausted; skipping remaining names")
                 continue                      # later feed photos must still land
@@ -1023,10 +1056,13 @@ def build_visual_pool(post, page_id):
                      "person": url2name.get(u)}
             pool.append(entry)
             if entry["person"]:
-                person_map[entry["person"].lower()] = entry
+                # r11: LIST per person — avatar + recent thumbnails, in feed
+                # order, so consecutive shots of one person can cycle them.
+                person_map.setdefault(entry["person"].lower(), []).append(entry)
     log.info("visual pool: %d usable of %d candidates (%d from people, "
-             "%d name-mapped)", len(pool), len(ordered), len(person_urls),
-             len(person_map))
+             "%d name(s) mapped: %s)", len(pool), len(ordered),
+             len(person_urls), len(person_map),
+             {k: len(v) for k, v in person_map.items()})
     return pool, person_map
 
 
@@ -1848,9 +1884,12 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
     branded promo card arrives as the last receipt index and takes this same
     path; a default 'pop' at t_in when the Director left sfx 'none' (the
     receipt slam — budget-exempt genre signature); subject -> (v6) the named
-    PERSON's real photo when the shot carries "person", else the shot's
-    visual_i REAL story image, else the next photo from the pool (never
-    stock); broll -> stock clip for the shot's query.
+    PERSON's real imagery when the shot carries "person" (r11: cycling that
+    person's photo LIST for variety), else the shot's visual_i REAL story
+    image, else (r11) the LEAST-RECENTLY-USED pool photo outside a 3-scene
+    no-repeat window — blind round-robin is gone (owner round-11: "it keeps
+    showing the same image again and again"); broll -> stock clip for the
+    shot's query.
     Receipts and photos count as A-ROLL and reset the consecutive-b-roll
     counter (defensive cap: max 2 stock clips in a row). Every miss falls
     back down the ladder (receipt -> photo; person/visual -> pool photo;
@@ -1859,8 +1898,32 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
     receipts = receipts or {}
     person_map = person_map or {}
     visual_map = visual_map or {}
-    scenes, photo_i, prev_motion, consec_broll = [], 0, None, 0
-    for sh in edl:
+    scenes, prev_motion, consec_broll = [], None, 0
+    last_used = {}                 # r11 LRU: pool path -> last scene index
+    person_rot = {}                # r11: per-person rotation cursor
+
+    def _recent_paths(k=POOL_NO_REPEAT_WINDOW):
+        """Image paths of the last k scenes (any type) — the no-repeat window."""
+        return {sc.get("path") for sc in scenes[-k:]}
+
+    def _lru_pick(si):
+        """Least-recently-used pool entry outside the no-repeat window.
+        Never-used entries win first (in pool order: real faces, then story
+        images); if the pool is smaller than the window, fall back to plain
+        LRU but still never repeat the immediately previous scene when any
+        alternative exists."""
+        if not pool:
+            return None
+        recent = _recent_paths()
+        cands = [e for e in pool if e["path"] not in recent]
+        if not cands:
+            prev = scenes[-1].get("path") if scenes else None
+            cands = [e for e in pool if e["path"] != prev] or pool
+        entry = min(cands, key=lambda e: last_used.get(e["path"], -1))
+        last_used[entry["path"]] = si
+        return entry
+
+    for si, sh in enumerate(edl):
         need_s = sh["end"] - sh["start"]
         motion = sh["motion"]
         if motion == prev_motion:
@@ -1879,16 +1942,33 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                 log.info("receipt %s missing/undownloaded; subject photo "
                          "fallback", sh.get("receipt_i"))
         # v6 TASTE: a subject shot that names a person shows THAT person's
-        # photo; a shot pinned to a real story image (visual_i) shows it.
+        # imagery (r11: cycling their photo LIST — avatar, recent thumbnails —
+        # so consecutive shots of one person don't freeze on a single image);
+        # a shot pinned to a real story image (visual_i) shows it.
         # Adjacent-duplicate guard: the SAME image on two consecutive scenes
         # reads as a frozen frame (a judge-fail) — the second one falls back
-        # to the pool rotation instead.
+        # to the LRU pool pick instead.
         if path is None and sh["shot_class"] == "subject":
             entry = None
             pname = (sh.get("person") or "").strip().lower()
-            if pname and pname in person_map:
-                entry = person_map[pname]
-                log.info("person shot -> %s's photo (%s)", sh["person"],
+            p_entries = person_map.get(pname) if pname else None
+            if p_entries:
+                if isinstance(p_entries, dict):        # defensive: old shape
+                    p_entries = [p_entries]
+                recent = _recent_paths()
+                start = person_rot.get(pname, 0)
+                entry = None
+                for k in range(len(p_entries)):        # first of theirs not recent
+                    cand = p_entries[(start + k) % len(p_entries)]
+                    if cand["path"] not in recent:
+                        entry = cand
+                        person_rot[pname] = (start + k + 1) % len(p_entries)
+                        break
+                if entry is None:                      # all recent (tiny list)
+                    entry = p_entries[start % len(p_entries)]
+                    person_rot[pname] = (start + 1) % len(p_entries)
+                log.info("person shot -> %s's photo %d/%d (%s)", sh["person"],
+                         p_entries.index(entry) + 1, len(p_entries),
                          os.path.basename(entry["path"]))
             elif pname:
                 log.info("person '%s' has no resolved photo; pool fallback",
@@ -1900,10 +1980,11 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                          sh["visual_i"], os.path.basename(entry["path"]))
             if entry is not None and scenes \
                     and scenes[-1].get("path") == entry["path"]:
-                log.info("pinned image would repeat back-to-back; pool "
-                         "rotation instead")
+                log.info("pinned image would repeat back-to-back; LRU pool "
+                         "pick instead")
                 entry = None
             if entry is not None:
+                last_used[entry["path"]] = si          # r11: LRU sees pins too
                 path, typ, textish = entry["path"], "photo", entry["textish"]
         if path is None and sh["shot_class"] == "broll":
             if consec_broll >= 2:
@@ -1918,8 +1999,9 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                     typ = "broll"
         if path is None:
             if pool:
-                entry = pool[photo_i % len(pool)]
-                photo_i += 1
+                # r11 SMART FALLBACK: least-recently-used + a 3-scene
+                # no-repeat window (replaces blind round-robin).
+                entry = _lru_pick(si)
                 path, typ, textish = entry["path"], "photo", entry["textish"]
             else:
                 path = fetcher.clip_for(need_s)   # last resort: cursor mode
