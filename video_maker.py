@@ -45,9 +45,13 @@ WHAT v2 ADDS over the single-image Ken-Burns v1:
      pan-left / pan-right, so the video never sits still. Cuts snap to the
      next beat's first-word start (a short CrossFadeIn softens the cut).
   2. VISUAL POOL — the feed now sends `post.visuals` (hero photo, tall branded
-     card, event YouTube thumbnails). `post.people` names are additionally
-     resolved to real photos via Wikidata (wbsearchentities -> P18 ->
-     commons Special:FilePath), mirroring the proven image_engine.py flow;
+     card, event YouTube thumbnails + v8: the site's stored per-drama images).
+     `post.people` arrives as [{"name","photo"}] (v8): a feed-provided photo
+     (server-resolved via the site's arsenal — entity QIDs, verified creator
+     photos, YouTube channel avatars) is that person's FIRST choice; names
+     without one (or plain-string people, the old shape) are resolved via
+     Wikidata (wbsearchentities -> P18 -> commons Special:FilePath), the
+     proven image_engine.py flow;
      every lookup/download failure is non-fatal. Visuals are assigned
      round-robin, hero first — with >=2 visuals no scene repeats its
      predecessor's image; with exactly 1 the motion still alternates per beat
@@ -773,6 +777,24 @@ def wikidata_person_photo_url(name, context=""):
             log.info("wikidata: '%s' resolves to a non-creator namesake (%s); "
                      "skipped", name, desc[:60])
             return None
+        # v8 guard (live-caught bug: "John Davis" resolved to a historical
+        # SAILOR on a death story): a non-creatorish description that reads
+        # historical/military/other-era is never our story's subject.
+        if not creatorish:
+            historicalish = any(w in desc for w in (
+                "sailor", "soldier", "navy", "military", "explorer",
+                "navigator", "bishop", "saint", "monarch", "missionary",
+                "colonel"))
+            if not historicalish:
+                for tok in (desc.replace("(", " ").replace(")", " ")
+                            .replace(",", " ").replace("-", " ").split()):
+                    if tok.isdigit() and len(tok) == 4 and int(tok) < 1950:
+                        historicalish = True
+                        break
+            if historicalish:
+                log.info("wikidata: '%s' resolves to a historical/other-era "
+                         "namesake (%s); skipped", name, desc[:60])
+                return None
         ent = top.get("id")
         if not ent:
             return None
@@ -843,21 +865,36 @@ def build_visual_pool(post, page_id):
         urls = [post["image"]]
 
     # People -> real photos (more real faces = more scenes). Never fatal.
+    # v8: the feed may send people as [{"name":..., "photo": url|None}] — the
+    # server resolved the face through the SITE's full arsenal (stored entity
+    # QIDs, verified Wikidata creator photos, YouTube channel avatars). A
+    # feed-provided photo is the FIRST choice for that person; Wikidata here
+    # stays the fallback for people without one. Plain-string people (old
+    # feed shape) keep the exact previous behaviour.
     person_urls, url2name = [], {}
     people = post.get("people") or []
     if isinstance(people, list) and people:
         context = f"{post.get('title', '')} {(post.get('script') or '')[:200]}"
         t0 = time.time()
-        for name in people[:4]:
-            if time.time() - t0 > PEOPLE_BUDGET_S:
-                log.info("people budget exhausted; skipping remaining names")
-                break
-            name = str(name).strip()
+        for entry in people[:4]:
+            if isinstance(entry, dict):
+                name = str(entry.get("name") or "").strip()
+                feed_photo = entry.get("photo")
+            else:
+                name, feed_photo = str(entry).strip(), None
             if not name:
                 continue
+            if isinstance(feed_photo, str) and feed_photo.startswith("http"):
+                log.info("person photo from feed (site-resolved): %s", name)
+                person_urls.append(feed_photo)
+                url2name.setdefault(feed_photo, name)
+                continue                      # feed photo costs no budget
+            if time.time() - t0 > PEOPLE_BUDGET_S:
+                log.info("people budget exhausted; skipping remaining names")
+                continue                      # later feed photos must still land
             u = wikidata_person_photo_url(name, context)
             if u:
-                log.info("person photo resolved: %s", name)
+                log.info("person photo resolved via wikidata: %s", name)
                 person_urls.append(u)
                 url2name.setdefault(u, name)
 
@@ -2749,6 +2786,25 @@ def _get_json(url, params):
 
 
 def fetch_next(done_ids):
+    """PRIMARY: the static /media/ job feed — a plain JSON asset, indistinguishable
+    from the media files the WAF lets this runner download every day (the /api/
+    endpoint URL itself is what accumulates 403 blocks, GET or POST alike). The
+    done-filter runs client-side. Fallback: the old PHP endpoint."""
+    static_url = os.environ.get("VIDEO_FEED_URL", f"{BASE}/media/vfeed-{INGEST_TOKEN}.json")
+    done_set = {str(d) for d in done_ids}
+    try:
+        feed = _download_bytes(static_url)   # the proven media-path fetcher (curl_cffi first)
+        if not feed:
+            raise RuntimeError("static feed download returned nothing")
+        data = json.loads(feed.decode("utf-8"))
+        for post in data.get("posts") or []:
+            if str(post.get("page_id")) not in done_set:
+                log.info("job from static feed (generated %s)", data.get("generated"))
+                return post
+        log.info("static feed: all %d jobs already done", len(data.get("posts") or []))
+        return None
+    except Exception as e:  # noqa: BLE001
+        log.warning("static feed failed (%s); falling back to api endpoint", e)
     data = _get_json(NEXT_URL, {"token": INGEST_TOKEN, "done": ",".join(done_ids)})
     return data.get("post")
 
