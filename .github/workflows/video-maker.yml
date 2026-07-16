@@ -69,7 +69,10 @@ jobs:
             echo "ffmpeg at: $FF"
             "$FF" -hide_banner -encoders | grep -E "libx264|aac " || true
           else
-            echo "no system ffmpeg; imageio-ffmpeg's bundled binary will be used"
+            echo "no system ffmpeg; installing via apt (pydub needs ffprobe for the sound mix)"
+            sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg || true
+            FF="$(command -v ffmpeg || true)"
+            [ -n "$FF" ] && echo "IMAGEIO_FFMPEG_EXE=$FF" >> "$GITHUB_ENV" || true
           fi
           fc-list | grep -iE "dejavu|liberation" | head || true
 
@@ -97,7 +100,7 @@ jobs:
             "requests>=2.31" \
             "imageio-ffmpeg>=0.5" \
             "curl_cffi>=0.7" \
-            "opencv-python-headless>=4.9"
+            "opencv-python-headless>=4.9,<5"
 
       # OPTIONAL: extra deps so the driver imports and reuses Turbo's REAL
       # app.services.voice (its top-level imports need loguru/toml/openai).
