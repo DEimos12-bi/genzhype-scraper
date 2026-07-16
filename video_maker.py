@@ -238,6 +238,42 @@ sometimes while talking about something else"; a 17-shot video ran on a
   pin person or visual_i, and a deterministic no-repeat validator (a
   visual_i never twice in any 4 consecutive shots, max 3 uses per video).
 
+WHAT r12 ADDS (owner: "any topic, however complicated — the video looks
+NORMAL the whole runtime, nothing weird ever appears" + close the
+produced-energy gap):
+  1. NORMALITY JUDGE — the Gemini judge now samples 10-12 evenly-spaced
+     frames (env VIDEO_JUDGE_FRAMES, still 540px, still ONE call) and runs a
+     WEIRDNESS CHECKLIST (cut text, sliced face, same image in 3+ frames,
+     dead/blank frames, context-mismatched stock, caption-on-card collisions).
+     Verdict JSON gains "weird": [{frame, issue}]. Pass/fail semantics and
+     the JudgeRejected flow are unchanged; no key -> skipped (non-fatal).
+  2. PRE-ENCODE SELFCHECK (no AI, runs before the encode): (a) no scene
+     reuses an image path within a 3-scene window — the r11 guard is now
+     enforced across pinned person/visual_i shots, receipts AND b-roll
+     (plan_scenes_edl holes closed), and a violation HARD-FAILS the run
+     (SelfCheckFailed -> no delivery, retry next run; window relaxes when
+     the total asset count is smaller than the window); (b) scene durations
+     < 0.8s and (c) caption coverage < 80% of speech are logged as warnings
+     only. One SELFCHECK log line carries all results.
+  3. BEAT-CHANGE TRANSITIONS — shots the Director marked sfx='whoosh'
+     (story-beat changes) get a fast produced transition instead of a bare
+     hard cut: a 3-frame horizontal whip-blur slide and a fast cross-zoom
+     punch (pure numpy/PIL, no new deps — the xfade-easing idea ported, not
+     its ffmpeg code), rotating variants, max 3 per video. Everywhere else
+     stays hard cuts. Any failure -> the hard cut we already had.
+  4. PATTERN INTERRUPT (dormant until curated) — if .social/hooks/ holds
+     LICENSED mp4 clips (see ADAPTATION.md), ONE 0.7-1.2s cover-cropped
+     interrupt clip is spliced as an overlay at the Director's riser-shot
+     start (the mid-video re-hook trap) with an impact SFX, rotated per
+     page_id. Empty/missing folder -> feature off. EDL timing untouched.
+  5. EXPRESSIVE NARRATION — the script is synthesized in up to 3 edge-tts
+     segments (hook sentence rate +12% & pitch +2Hz; body at base rate;
+     GenZHype CTA line rate -4%), concatenated sample-accurately with pydub;
+     word-timing offsets are shifted by each segment's REAL audio length and
+     asserted monotonic. Any structural doubt, cue mismatch >10%, or concat
+     failure -> the proven single-pass synthesize() (captions sync is
+     sacred). Kill switch: VIDEO_EXPRESSIVE_TTS=0.
+
 PROVEN v1 PARTS KEPT VERBATIM: the multi-engine fetch/post (curl_cffi
 browser-TLS first — Hostinger's TLS fingerprint block), base64-in-JSON video
 delivery (WAF blocks multipart), edge-tts synthesis with WordBoundary timings
@@ -353,7 +389,32 @@ TEXTISH_FLAT_FRAC = 0.55            # top-4 quantized colors must cover >= this
 # --- v3: Gemini vision judge (the "brain that can see") ---
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "").strip()
 GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
-JUDGE_FRAMES = 4
+# r12: 4 -> 12 sampled frames (the normality floor needs runtime coverage,
+# not spot checks). Still 540px jpegs, still ONE generateContent call.
+JUDGE_FRAMES = int(os.environ.get("VIDEO_JUDGE_FRAMES", "12"))
+
+# --- r12: pre-encode selfcheck (no AI; SELFCHECK log line every run) ---
+SELFCHECK_MIN_SHOT_S = 0.8     # scenes shorter than this are logged (warn only)
+CAPTION_COVERAGE_MIN = 0.80    # captions must cover >=80% of speech (warn only)
+
+# --- r12: beat-change transitions (whoosh shots only; max 3/video) ---
+TRANSITIONS_ON = os.environ.get("VIDEO_TRANSITIONS", "1").strip() != "0"
+TRANSITION_MAX = 3             # produced transitions per video, hard cap
+TRANSITION_WHIP_FRAMES = 3     # horizontal whip-blur slide length (frames)
+TRANSITION_ZOOM_FRAMES = 6     # cross-zoom punch length (frames)
+
+# --- r12: pattern-interrupt clip pool (dormant while the folder is empty).
+# LICENSED clips only — curation rules documented in videorepos/ADAPTATION.md.
+HOOKS_DIR = os.environ.get("VIDEO_HOOKS_DIR", ".social/hooks")
+INTERRUPT_MIN_S = 0.7
+INTERRUPT_MAX_S = 1.2
+
+# --- r12: expressive narration (segmented edge-tts; fallback = single pass) ---
+EXPRESSIVE_TTS = os.environ.get("VIDEO_EXPRESSIVE_TTS", "1").strip() != "0"
+EXPR_HOOK_RATE = 1.12          # hook sentence: urgency
+EXPR_HOOK_PITCH = "+2Hz"       # only passed when edge-tts supports pitch=
+EXPR_CTA_RATE = 0.96           # final CTA line: landing
+EXPR_CUE_TOLERANCE = 0.10      # >10% word-cue mismatch -> single-pass fallback
 
 # --- v5: vision re-rank of stock candidates (Law 24, the Kapwing move) ---
 # Whole step skippable (quota lever): VIDEO_VISION_RERANK=0 -> v4.5 behaviour.
@@ -478,9 +539,10 @@ def _load_mpt_voice():
     return None
 
 
-def _make_communicate(text, voice_name, rate_str):
+def _make_communicate(text, voice_name, rate_str, pitch_str=None):
     """Port of voice.create_edge_tts_communicate: only pass boundary= on
-    edge_tts versions whose Communicate accepts it (7.x)."""
+    edge_tts versions whose Communicate accepts it (7.x). r12: pitch= is
+    passed the same signature-probed way (expressive hook segment only)."""
     import inspect
     import edge_tts
 
@@ -489,17 +551,19 @@ def _make_communicate(text, voice_name, rate_str):
         sig = inspect.signature(edge_tts.Communicate)
         if "boundary" in sig.parameters:
             kwargs["boundary"] = "WordBoundary"
+        if pitch_str and "pitch" in sig.parameters:
+            kwargs["pitch"] = pitch_str
     except (TypeError, ValueError):
         pass
     return edge_tts.Communicate(text, voice_name, **kwargs)
 
 
-def _edge_tts_synthesize(text, voice_name, rate_str, out_mp3):
+def _edge_tts_synthesize(text, voice_name, rate_str, out_mp3, pitch_str=None):
     """Compact port of voice.azure_tts_v1: stream edge-tts audio to disk and
     feed WordBoundary/SentenceBoundary events into a SubMaker (returns cues)."""
     import edge_tts
 
-    communicate = _make_communicate(text, voice_name, rate_str)
+    communicate = _make_communicate(text, voice_name, rate_str, pitch_str)
     sub = edge_tts.SubMaker()
     os.makedirs(os.path.dirname(os.path.abspath(out_mp3)), exist_ok=True)
     with open(out_mp3, "wb") as f:
@@ -622,6 +686,123 @@ def synthesize(script, out_mp3):
             time.sleep(wait)
 
     raise RuntimeError(f"TTS failed after {TTS_OUTER_RETRIES} attempts: {last_err}")
+
+
+# ============================================================================
+# r12: EXPRESSIVE NARRATION — up to 3 edge-tts segments (hook faster+brighter,
+# body at base rate, CTA slower) concatenated with pydub; every word timing is
+# offset by the PREVIOUS segments' real audio length (frame-count accurate).
+# Captions sync is sacred: ANY doubt -> None and the caller runs the proven
+# single-pass synthesize().
+# ============================================================================
+def _expressive_plan(script):
+    """Split the script into (text, rate_mult, pitch) segments on sentence
+    boundaries: [hook sentence, body, CTA line]. Returns a list of 2-3
+    segments, or None when the structure isn't clearly there.
+    NOTE: the Director's mid re-hook stretch (+8%) is deliberately NOT split
+    out — it would need 4-5 segments; the spec caps us at 3."""
+    tokens = [w for w in script.split() if w.strip()]
+    if len(tokens) < 12:
+        return None
+    ends = [i for i, w in enumerate(tokens) if _is_sentence_end(w)]
+    if not ends:
+        return None
+    hook_end = ends[0]                       # first sentence = the spoken hook
+    if not 2 <= hook_end <= 24 or hook_end >= len(tokens) - 6:
+        return None
+    segs = [(" ".join(tokens[:hook_end + 1]), EXPR_HOOK_RATE, EXPR_HOOK_PITCH)]
+    body_start = hook_end + 1
+    # CTA = the last sentence, only when it is the GenZHype CTA line.
+    cta_start = None
+    if len(ends) >= 2 and ends[-1] == len(tokens) - 1:
+        cand = ends[-2] + 1
+        if cand > body_start + 3:
+            cta_text = " ".join(tokens[cand:])
+            if "genzhype" in cta_text.lower() and len(tokens) - cand >= 3:
+                cta_start = cand
+    body_stop = cta_start if cta_start is not None else len(tokens)
+    if body_stop > body_start:
+        segs.append((" ".join(tokens[body_start:body_stop]), 1.0, None))
+    if cta_start is not None:
+        segs.append((" ".join(tokens[cta_start:]), EXPR_CTA_RATE, None))
+    return segs if len(segs) >= 2 else None
+
+
+def synthesize_expressive(script, out_mp3):
+    """Segmented synthesis. Returns (word_timings, duration) or None -> the
+    caller MUST fall back to synthesize(). Verifications before accepting:
+    every segment produced cues; total cue count within EXPR_CUE_TOLERANCE of
+    the script token count; offsets strictly monotonic; concatenated file
+    duration ~= sum of the segment durations."""
+    if not EXPRESSIVE_TTS:
+        return None
+    plan = _expressive_plan(script)
+    if not plan:
+        log.info("expressive TTS: script structure unclear; single-pass")
+        return None
+    try:
+        from pydub import AudioSegment
+        AudioSegment.converter = _ffmpeg_bin()
+
+        pieces, timings, offset = [], [], 0.0
+        for si, (text, mult, pitch) in enumerate(plan):
+            rate_str = _convert_rate_to_percent(VOICE_RATE * mult)
+            seg_mp3 = f"{out_mp3}.seg{si}.mp3"
+            sub, last_err = None, None
+            for attempt in (1, 2):           # light retry; heavy retry lives
+                try:                         # in the single-pass fallback
+                    sub = _edge_tts_synthesize(text, VOICE, rate_str, seg_mp3,
+                                               pitch_str=pitch)
+                    break
+                except Exception as exc:  # noqa: BLE001
+                    last_err = exc
+                    time.sleep(3 * attempt)
+            if sub is None:
+                raise RuntimeError(f"segment {si} TTS failed: {last_err}")
+            seg_t = _explode_multiword(_cues_to_word_timings(sub))
+            if not seg_t:
+                raise RuntimeError(f"segment {si} returned no word cues")
+            audio = AudioSegment.from_file(seg_mp3)
+            seg_dur = audio.frame_count() / float(audio.frame_rate)
+            if seg_dur <= 0 or seg_t[-1][2] > seg_dur + 0.6:
+                raise RuntimeError(f"segment {si} cues overrun its audio")
+            pieces.append(audio)
+            for w, s, e in seg_t:
+                timings.append((w, s + offset, e + offset))
+            offset += seg_dur
+            log.info("expressive TTS: segment %d/%d rate=%s pitch=%s "
+                     "%.2fs %d cue(s)", si + 1, len(plan), rate_str,
+                     pitch or "-", seg_dur, len(seg_t))
+
+        n_tok = len([w for w in script.split() if w.strip()])
+        if abs(len(timings) - n_tok) > max(2, int(n_tok * EXPR_CUE_TOLERANCE)):
+            raise RuntimeError(
+                f"cue/token mismatch too large ({len(timings)} vs {n_tok})")
+        for a, b in zip(timings, timings[1:]):   # sacred: monotonic starts
+            if b[1] + 1e-6 < a[1]:
+                raise RuntimeError("non-monotonic word timings after concat")
+
+        full = pieces[0]
+        for p in pieces[1:]:
+            full += p
+        full.export(out_mp3, format="mp3", bitrate="160k")
+        file_dur = _audio_duration(out_mp3)
+        if file_dur <= 0 or abs(file_dur - offset) > 0.25:
+            raise RuntimeError(
+                f"concat duration drift ({file_dur:.2f}s vs {offset:.2f}s)")
+        duration = max(file_dur, timings[-1][2])
+        log.info("expressive TTS ok: %d segment(s), %.2fs audio, %d word "
+                 "timings", len(plan), duration, len(timings))
+        return timings, duration
+    except Exception as exc:  # noqa: BLE001
+        log.warning("expressive TTS failed (%s); single-pass fallback "
+                    "(captions sync is sacred)", exc)
+        for si in range(len(plan)):
+            try:
+                os.remove(f"{out_mp3}.seg{si}.mp3")
+            except OSError:
+                pass
+        return None
 
 
 def _audio_duration(path):
@@ -1933,7 +2114,14 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
         sfx, emph_t = sh["sfx"], sh["emph_t"]
         if sh["shot_class"] == "receipt":
             path = receipts.get(sh.get("receipt_i"))
-            if path:
+            if path and path in _recent_paths():
+                # r12 selfcheck law: the SAME card twice inside the no-repeat
+                # window reads as a frozen frame — subject photo instead.
+                log.info("receipt %s repeats within %d scenes; subject photo "
+                         "fallback", sh.get("receipt_i"),
+                         POOL_NO_REPEAT_WINDOW)
+                path = None
+            elif path:
                 typ, textish = "receipt", True
                 if sfx == "none":            # v4.5: receipt slam default
                     sfx = "pop"
@@ -1965,11 +2153,16 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                         person_rot[pname] = (start + k + 1) % len(p_entries)
                         break
                 if entry is None:                      # all recent (tiny list)
-                    entry = p_entries[start % len(p_entries)]
-                    person_rot[pname] = (start + 1) % len(p_entries)
-                log.info("person shot -> %s's photo %d/%d (%s)", sh["person"],
-                         p_entries.index(entry) + 1, len(p_entries),
-                         os.path.basename(entry["path"]))
+                    # r12: repeating inside the window is the one hard-fail
+                    # weirdness — LRU pool pick instead of freezing on them.
+                    log.info("person '%s': all %d photo(s) inside the "
+                             "no-repeat window; LRU pool pick instead",
+                             sh["person"], len(p_entries))
+                else:
+                    log.info("person shot -> %s's photo %d/%d (%s)",
+                             sh["person"], p_entries.index(entry) + 1,
+                             len(p_entries),
+                             os.path.basename(entry["path"]))
             elif pname:
                 log.info("person '%s' has no resolved photo; pool fallback",
                          sh["person"])
@@ -1978,10 +2171,12 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                 entry = visual_map[sh["visual_i"]]
                 log.info("visual_i %d -> real story image (%s)",
                          sh["visual_i"], os.path.basename(entry["path"]))
-            if entry is not None and scenes \
-                    and scenes[-1].get("path") == entry["path"]:
-                log.info("pinned image would repeat back-to-back; LRU pool "
-                         "pick instead")
+            # r12: widened from back-to-back to the FULL no-repeat window —
+            # a pinned image inside the window is exactly the "same image
+            # again and again" defect the selfcheck now hard-fails on.
+            if entry is not None and entry["path"] in _recent_paths():
+                log.info("pinned image would repeat within %d scenes; LRU "
+                         "pool pick instead", POOL_NO_REPEAT_WINDOW)
                 entry = None
             if entry is not None:
                 last_used[entry["path"]] = si          # r11: LRU sees pins too
@@ -1995,6 +2190,12 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                 path = fetcher.clip_for_query(sh["query"], need_s,
                                               phrase=sh.get("phrase", ""),
                                               title=title)
+                if path and path in _recent_paths():
+                    # r12 belt-and-suspenders: the used-set already dedups
+                    # per URL, but never let ANY path repeat in the window.
+                    log.info("broll clip repeats within %d scenes; subject "
+                             "photo fallback", POOL_NO_REPEAT_WINDOW)
+                    path = None
                 if path:
                     typ = "broll"
         if path is None:
@@ -2554,9 +2755,12 @@ def _music_intervals(scenes, total_ms):
     return out
 
 
-def build_sound_mix(mp3_path, scenes, total, page_id, out_wav):
+def build_sound_mix(mp3_path, scenes, total, page_id, out_wav,
+                    extra_sfx=None):
     """The full v4 mix: normalized VO + stateful music bed + placed SFX +
-    final loudness pass. Returns out_wav, or None -> v3 audio fallback."""
+    final loudness pass. Returns out_wav, or None -> v3 audio fallback.
+    r12 extra_sfx: [(category, t_seconds)] one-off cues outside the shotlist
+    (the pattern-interrupt impact); missing kit files are silently skipped."""
     try:
         from pydub import AudioSegment
         AudioSegment.converter = _ffmpeg_bin()
@@ -2631,6 +2835,18 @@ def build_sound_mix(mp3_path, scenes, total, page_id, out_wav):
             seg = seg.fade_out(SEAM_FADE_MS)           # Law 19 at SFX tails
             mix = mix.overlay(seg, position=max(0, min(pos, total_ms - 1)))
             placed += 1
+        # r12: one-off cues outside the shotlist (pattern-interrupt impact)
+        for cue, t in (extra_sfx or []):
+            files = kits.get(cue) or []
+            f = _pick_variant(files, f"{page_id}-extra-{cue}-{t}")
+            seg = _load_seg(f) if f else None
+            if seg is None:
+                continue
+            seg = seg.apply_gain((vo_db + IMPACT_DB_VS_VO) - seg.dBFS)
+            seg = seg.fade_out(SEAM_FADE_MS)
+            pos = int(float(t) * 1000)
+            mix = mix.overlay(seg, position=max(0, min(pos, total_ms - 1)))
+            placed += 1
         log.info("sound: %d SFX placed", placed)
 
         # ---- final loudness (see route note above) ----
@@ -2645,6 +2861,207 @@ def build_sound_mix(mp3_path, scenes, total, page_id, out_wav):
         return out_wav
     except Exception as exc:  # noqa: BLE001
         log.warning("v4 sound engine failed (%s); v3 voice+bgm fallback", exc)
+        return None
+
+
+# ============================================================================
+# r12: PRE-ENCODE SELFCHECK — cheap, deterministic, no AI. Runs on the planned
+# scene list BEFORE any frame is rendered. Only the image-repeat assertion is
+# fatal (SelfCheckFailed -> no delivery, no done-mark, retried next run);
+# short scenes and thin caption coverage are logged warnings.
+# Pure function (stdlib only) so it unit-tests offline without moviepy/numpy.
+# ============================================================================
+class SelfCheckFailed(RuntimeError):
+    """Pre-encode selfcheck failed hard: do NOT encode/deliver/mark done."""
+
+
+def selfcheck_scenes(scenes, avail_assets, speech_span=0.0, caption_gap=0.0,
+                     window=3, min_shot_s=0.8, min_caption_cov=0.8):
+    """Inspect a planned scene list. Returns a result dict:
+      eff_window        the applied no-repeat window (relaxed when the total
+                        distinct asset count is smaller than window+1 — you
+                        cannot demand 4-way variety from 2 images)
+      repeats           [(earlier_i, later_i, path)] image-path reuses inside
+                        eff_window (the HARD-fail set)
+      short_scenes      [(i, dur)] scenes shorter than min_shot_s (warn only)
+      caption_coverage  fraction of the speech span covered by hook+captions
+      coverage_ok       caption_coverage >= min_caption_cov (warn only)"""
+    eff_window = max(0, min(int(window), int(avail_assets) - 1))
+    repeats = []
+    for i, sc in enumerate(scenes):
+        p = sc.get("path")
+        if not p:
+            continue
+        for j in range(max(0, i - eff_window), i):
+            if scenes[j].get("path") == p:
+                repeats.append((j, i, p))
+                break
+    short_scenes = []
+    for i, sc in enumerate(scenes):
+        try:
+            dur = float(sc["end"]) - float(sc["start"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if dur < min_shot_s:
+            short_scenes.append((i, round(dur, 3)))
+    coverage = 1.0
+    if speech_span and speech_span > 0:
+        coverage = max(0.0, min(1.0, 1.0 - (max(0.0, caption_gap)
+                                            / float(speech_span))))
+    return {"eff_window": eff_window, "repeats": repeats,
+            "short_scenes": short_scenes, "caption_coverage": coverage,
+            "coverage_ok": coverage >= min_caption_cov}
+
+
+# ============================================================================
+# r12: PRODUCED TRANSITIONS — at story-beat changes ONLY (shots the Director
+# marked sfx='whoosh'), the hard cut is dressed with a short overlay built
+# from the outgoing shot's last frame and the incoming shot's first frame:
+#   whip  = 3-frame horizontal whip-blur slide (the whip-pan idea)
+#   zoom  = fast cross-zoom punch (the gl_CrossZoom idea, ported visually)
+# Pure numpy/PIL, no new deps; variants rotate; max TRANSITION_MAX per video;
+# ANY failure -> the hard cut we already had. Captions stay above (the
+# overlay is inserted below vignette/scrim/hook/caption layers).
+# ============================================================================
+def _hbox_blur(arr, k):
+    """Horizontal box blur, radius k px, via cumsum (cheap, pure numpy)."""
+    if k < 2:
+        return arr
+    f = arr.astype(np.float32)
+    pad = np.pad(f, ((0, 0), (k, k), (0, 0)), mode="edge")
+    c = np.cumsum(pad, axis=1)
+    out = (c[:, 2 * k:, :] - c[:, :-2 * k, :]) / float(2 * k)
+    return np.clip(out, 0.0, 255.0).astype(np.uint8)
+
+
+def _zoom_frame(arr, s):
+    """Center-zoom a full frame by scale s>=1 (PIL resize + center crop)."""
+    if s <= 1.001:
+        return arr
+    img = Image.fromarray(arr)
+    nw, nh = int(round(W * s)), int(round(H * s))
+    img = img.resize((nw, nh), Image.Resampling.BILINEAR)
+    left, top = (nw - W) // 2, (nh - H) // 2
+    return np.asarray(img.crop((left, top, left + W, top + H)))
+
+
+def _whip_frames(f_out, f_in):
+    """3-frame horizontal whip-blur slide from f_out to f_in."""
+    pano = np.concatenate([f_out, f_in], axis=1)      # (H, 2W, 3)
+    frames = []
+    n = TRANSITION_WHIP_FRAMES
+    for i in range(1, n + 1):
+        p = i / float(n + 1)
+        x = int(round(p * W))
+        win = pano[:, x:x + W]
+        k = int(90 * math.sin(math.pi * p))           # blur peaks mid-whip
+        frames.append(_hbox_blur(win, k))
+    return frames
+
+
+def _crosszoom_frames(f_out, f_in):
+    """Fast cross-zoom punch: out zooms IN hard, snaps to in zooming home."""
+    frames = []
+    n = TRANSITION_ZOOM_FRAMES
+    for i in range(1, n + 1):
+        # p reaches 1.0 on the last frame -> scale lands exactly at 1.0 on
+        # the incoming image (no settle pop when the real scene takes over).
+        p = i / float(n)
+        if p < 0.5:
+            src, s = f_out, 1.0 + 0.6 * (p / 0.5)
+        else:
+            src, s = f_in, 1.0 + 0.6 * ((1.0 - p) / 0.5)
+        k = int(36 * math.sin(math.pi * p))           # radial-ish rush
+        frames.append(_hbox_blur(_zoom_frame(src, s), k))
+    return frames
+
+
+def build_transitions(scenes, scene_clips):
+    """Overlay clips for up to TRANSITION_MAX whoosh boundaries. Never
+    raises; every failure is just the hard cut that was there anyway."""
+    from moviepy import ImageSequenceClip
+
+    out, used, variant = [], 0, 0
+    for i in range(1, min(len(scenes), len(scene_clips))):
+        if used >= TRANSITION_MAX:
+            break
+        if scenes[i].get("sfx") != "whoosh":
+            continue
+        try:
+            prev_dur = scenes[i - 1]["end"] - scenes[i - 1]["start"]
+            f_out = np.asarray(
+                scene_clips[i - 1].get_frame(max(0.0, prev_dur - 1.0 / FPS))
+            ).astype(np.uint8)[:, :, :3]
+            f_in = np.asarray(scene_clips[i].get_frame(0.0)
+                              ).astype(np.uint8)[:, :, :3]
+            if f_out.shape != (H, W, 3) or f_in.shape != (H, W, 3):
+                raise ValueError(f"unexpected frame shape {f_out.shape}")
+            kind = "whip" if variant % 2 == 0 else "crosszoom"
+            frames = (_whip_frames if kind == "whip"
+                      else _crosszoom_frames)(f_out, f_in)
+            dur = len(frames) / float(FPS)
+            t0 = scenes[i]["start"] - dur / 2.0
+            t0 = max(t0, scenes[i - 1]["start"] + 0.05)
+            if t0 + dur > scenes[i]["end"] - 0.05:
+                continue                          # boundary too tight
+            clip = (ImageSequenceClip(frames, fps=FPS)
+                    .with_start(t0).with_duration(dur))
+            out.append(clip)
+            used += 1
+            variant += 1
+            log.info("transition %d/%d: %s at %.2fs (beat change)",
+                     used, TRANSITION_MAX, kind, scenes[i]["start"])
+        except Exception as exc:  # noqa: BLE001
+            log.warning("transition at scene %d failed (%s); hard cut", i, exc)
+    return out
+
+
+# ============================================================================
+# r12: PATTERN INTERRUPT — the transitionalhooks.com technique, legal version
+# (LICENSED clips we curated into .social/hooks/ — see ADAPTATION.md). ONE
+# 0.7-1.2s cover-cropped splice at the Director's riser-shot start (the
+# mid-video re-hook trap), impact SFX, per-page rotation. Folder empty or
+# missing -> dormant. EDL/caption timing untouched (pure overlay).
+# ============================================================================
+def build_pattern_interrupt(scenes, page_id):
+    """Returns (overlay_clip, open_source, t0) or None. Never raises."""
+    try:
+        files = sorted(glob.glob(os.path.join(HOOKS_DIR, "*.mp4")))
+        if not files:
+            return None
+        ri = next((i for i, sc in enumerate(scenes)
+                   if sc.get("sfx") == "riser"), None)
+        if ri is None or ri == 0:
+            log.info("pattern interrupt: no riser shot in this EDL; skipped")
+            return None
+        from moviepy import CompositeVideoClip, VideoFileClip
+
+        f = files[int(hashlib.md5(f"hooks-{page_id}".encode()).hexdigest(),
+                      16) % len(files)]
+        src = VideoFileClip(f)
+        src_dur = float(src.duration or 0)
+        scene_dur = scenes[ri]["end"] - scenes[ri]["start"]
+        dur = min(INTERRUPT_MAX_S, src_dur, max(0.0, scene_dur - 0.2))
+        if dur < INTERRUPT_MIN_S:
+            log.info("pattern interrupt: clip/shot too short (%.2fs); "
+                     "skipped", dur)
+            src.close()
+            return None
+        clip = src.without_audio().subclipped(0, dur)
+        w, h = clip.size
+        clip = clip.resized(max(W / float(w), H / float(h)) * 1.002)
+        clip = clip.cropped(width=W, height=H,
+                            x_center=clip.w / 2.0, y_center=clip.h / 2.0)
+        t0 = scenes[ri]["start"]
+        out = (CompositeVideoClip([clip.with_position("center")],
+                                  size=(W, H))
+               .with_duration(dur).with_start(t0))
+        log.info("pattern interrupt: %s (%.2fs) spliced at %.2fs "
+                 "(riser shot %d) + impact SFX", os.path.basename(f),
+                 dur, t0, ri)
+        return out, src, t0
+    except Exception as exc:  # noqa: BLE001
+        log.warning("pattern interrupt failed (%s); skipped", exc)
         return None
 
 
@@ -2687,8 +3104,58 @@ def compose_video(pool, broll_terms, mp3_path, hook, script, word_timings,
                  sc["motion"], sc.get("sfx", "-"), sc.get("music", "-"),
                  os.path.basename(sc["path"]))
 
+    # --- hook window (v1 logic kept; computed early, the selfcheck needs it)
+    hook_words = [w for w in hook.split() if w.strip()]
+    n_hook = len(hook_words)
+    if word_timings and len(word_timings) >= n_hook >= 1:
+        hook_end = word_timings[n_hook - 1][2]
+    else:
+        hook_end = min(2.4, duration * 0.16)
+    hook_end = max(1.2, min(hook_end, 3.2))
+
+    # --- r12 PRE-ENCODE SELFCHECK (cheap, no AI; runs before any rendering).
+    # Coverage model: the hook card covers [0, hook_end]; the word-pop chunk
+    # states cover [first body word, end] gap-free (each state holds until
+    # the next chunk starts) — so the only possible caption hole is between
+    # hook_end and the first body word.
+    body_starts = [wt[1] for beat in beats for wt in beat
+                   if wt[1] >= hook_end - 1e-3]
+    first_body = min(body_starts) if body_starts else None
+    speech_span = caption_gap = 0.0
+    if word_timings:
+        w0, w_end = word_timings[0][1], word_timings[-1][2]
+        speech_span = max(0.0, w_end - w0)
+        cap_from = first_body if first_body is not None else w_end
+        caption_gap = max(0.0, min(cap_from, w_end) - max(hook_end, w0))
+    avail_assets = (len(pool)
+                    + len(set((receipts or {}).values()))
+                    + len({sc["path"] for sc in scenes
+                           if sc["type"] == "broll"}))
+    chk = selfcheck_scenes(scenes, avail_assets, speech_span, caption_gap,
+                           window=POOL_NO_REPEAT_WINDOW,
+                           min_shot_s=SELFCHECK_MIN_SHOT_S,
+                           min_caption_cov=CAPTION_COVERAGE_MIN)
+    log.info("SELFCHECK: repeats=%d short_scenes=%s caption_cov=%.0f%% "
+             "(window=%d, assets=%d)", len(chk["repeats"]),
+             chk["short_scenes"] or "none", chk["caption_coverage"] * 100,
+             chk["eff_window"], avail_assets)
+    if chk["repeats"]:
+        raise SelfCheckFailed(
+            "image path repeats inside the "
+            f"{chk['eff_window']}-scene window: "
+            + "; ".join(f"scene {a + 1}->{b + 1} ({os.path.basename(p)})"
+                        for a, b, p in chk["repeats"][:4]))
+    if chk["short_scenes"]:
+        log.warning("SELFCHECK: %d scene(s) under %.1fs: %s (non-fatal)",
+                    len(chk["short_scenes"]), SELFCHECK_MIN_SHOT_S,
+                    chk["short_scenes"])
+    if not chk["coverage_ok"]:
+        log.warning("SELFCHECK: caption coverage %.0f%% < %.0f%% of speech "
+                    "(non-fatal)", chk["caption_coverage"] * 100,
+                    CAPTION_COVERAGE_MIN * 100)
+
     xfade = 0.0 if v4_mode else XFADE        # Law 7: hard cuts inside v4
-    layers, open_sources = [], []
+    layers, open_sources, scene_clips = [], [], []
     for sc in scenes:
         if sc["type"] == "broll":
             clip, src = broll_scene_clip(
@@ -2697,29 +3164,39 @@ def compose_video(pool, broll_terms, mp3_path, hook, script, word_timings,
                 emph_rel=sc.get("emph_rel"), xfade=xfade)
             open_sources.append(src)     # must stay open until after encode
             layers.append(clip)
+            scene_clips.append(clip)
         elif sc["textish"]:
-            layers.append(contain_scene_clip(sc["path"], sc["start"],
-                                             sc["end"], xfade=xfade,
-                                             card=(sc["type"] == "receipt")))
+            clip = contain_scene_clip(sc["path"], sc["start"],
+                                      sc["end"], xfade=xfade,
+                                      card=(sc["type"] == "receipt"))
+            layers.append(clip)
+            scene_clips.append(clip)
         else:
             # v6: face-aware phone framing on every photo scene (cached
             # detection; None -> the pre-v6 center crop, never a crash)
-            layers.append(scene_clip(sc["path"], sc["start"], sc["end"],
-                                     sc["motion"],
-                                     emph_rel=sc.get("emph_rel"),
-                                     xfade=xfade,
-                                     face=detect_face_box(sc["path"])))
+            clip = scene_clip(sc["path"], sc["start"], sc["end"],
+                              sc["motion"],
+                              emph_rel=sc.get("emph_rel"),
+                              xfade=xfade,
+                              face=detect_face_box(sc["path"]))
+            layers.append(clip)
+            scene_clips.append(clip)
+
+    # --- r12 produced energy: whoosh-boundary transitions + the pattern
+    # interrupt overlay. Both sit BELOW vignette/scrim/hook/captions so the
+    # caption sync and safe areas are untouched. v4 EDL mode only.
+    interrupt_t = None
+    if v4_mode:
+        if TRANSITIONS_ON:
+            layers.extend(build_transitions(scenes, scene_clips))
+        pi = build_pattern_interrupt(scenes, page_id)
+        if pi:
+            i_clip, i_src, interrupt_t = pi
+            layers.append(i_clip)
+            open_sources.append(i_src)   # reader stays open until post-encode
+
     layers.append(make_vignette(total))      # v4 house look, both modes
     layers.append(make_scrim(total))
-
-    # --- hook window (v1 logic kept) ---
-    hook_words = [w for w in hook.split() if w.strip()]
-    n_hook = len(hook_words)
-    if word_timings and len(word_timings) >= n_hook >= 1:
-        hook_end = word_timings[n_hook - 1][2]
-    else:
-        hook_end = min(2.4, duration * 0.16)
-    hook_end = max(1.2, min(hook_end, 3.2))
 
     hc = hook_clip(hook.upper(), 0.0, hook_end, font_path)
     if hc is not None:
@@ -2749,7 +3226,9 @@ def compose_video(pool, broll_terms, mp3_path, hook, script, word_timings,
     if v4_mode:
         mix_wav = build_sound_mix(
             mp3_path, scenes, total, page_id,
-            os.path.join(WORKDIR, f"mix-{page_id}.wav"))
+            os.path.join(WORKDIR, f"mix-{page_id}.wav"),
+            extra_sfx=([("impact", interrupt_t)]
+                       if interrupt_t is not None else None))
     if mix_wav:
         audio = AudioFileClip(mix_wav)
     else:
@@ -2839,21 +3318,24 @@ class JudgeRejected(RuntimeError):
     """The vision judge failed the video: do NOT deliver, do NOT mark done."""
 
 
-_JUDGE_PROMPT = """You are a strict visual QA judge for 9:16 vertical short-form social videos.
-You are given {n} evenly spaced frames from ONE rendered video.
+_JUDGE_PROMPT = """You are the NORMALITY JUDGE for 9:16 vertical short-form social videos. Your one job: guarantee the video looks NORMAL for its entire runtime — nothing weird may ever appear, no matter the topic.
+You are given {n} evenly spaced frames from ONE rendered video, in playback order (frame 1 = earliest).
 The video's hook/title is: "{hook}"
 
-FAIL the video if ANY of these is true:
-1. READABILITY: any on-screen text (the hook, captions, or text inside an image) is cut off mid-word or mid-letter, cropped by the frame edge, or zoomed/mangled into unreadable fragments. The big 1-3 word styled captions are intentional and fine; text visibly amputated by cropping is NOT fine.
-2. FRAMING: a human face is badly cropped (eyes or forehead sliced by the frame edge, face half outside the frame).
-3. VARIETY: all frames look essentially identical — a static image with only caption changes, no visual variety between frames.
-4. EDIT VARIETY: consecutive sampled frames fail to show varied, story-relevant visuals — two adjacent frames are near-identical, or the imagery clearly has nothing to do with the story the hook implies.
+WEIRDNESS CHECKLIST — FAIL the video if ANY sampled frame shows ANY of:
+a. CUT/UNREADABLE TEXT: on-screen text (hook, captions, or text inside an image/screenshot) cut off mid-word or mid-letter, cropped by the frame edge, or zoomed/mangled into unreadable fragments. WHITELISTED and fine: the big styled 1-3 word ALL-CAPS captions.
+b. SLICED FACE: a human face cut by the frame edge (eyes or forehead sliced, face half outside the frame).
+c. REPETITION: the SAME underlying image or photo appears in 3 or more of the sampled frames (ignore the changing captions; judge the background visual).
+d. DEAD FRAME: a near-black, blank, solid-color, corrupted or garbage frame.
+e. CONTEXT MISMATCH: an image that obviously does not belong in an internet-drama recap — corporate stock cliches (handshakes, boardrooms, generic office people), random nature/travel filler, or imagery clearly unrelated to the story the hook implies.
+f. CAPTION COLLISION: caption text sitting on top of the text of a screenshot/receipt/news card so that either becomes hard to read.
 
-Minor blur, film grain, compression artifacts, or a darkened background are acceptable. Judge ONLY the four criteria above.
+Acceptable and NEVER a fail: minor blur, film grain, compression artifacts, darkened or blurred backgrounds, one intentional motion-blur transition frame, the styled captions themselves.
+Judge ONLY the checklist above. Be strict: one weird frame fails the whole video.
 
 Respond with ONLY this JSON object, no markdown fences, no extra text:
-{{"pass": true, "issues": [], "scores": {{"readability": 0, "framing": 0, "variety": 0, "edit_variety": 0}}}}
-where pass is true/false, issues is a list of short problem descriptions (empty when passing), and each score is an integer 0-10."""
+{{"pass": true, "weird": [], "issues": [], "scores": {{"readability": 0, "framing": 0, "variety": 0, "edit_variety": 0}}}}
+where pass is true/false (false whenever weird is non-empty); weird is a list of {{"frame": <1-based frame number>, "issue": "<which checklist letter + short description>"}} covering EVERY checklist hit; issues is a list of short overall problem descriptions (empty when passing); each score is an integer 0-10."""
 
 
 def _extract_judge_frames(mp4_path, total_s, n=JUDGE_FRAMES):
@@ -2917,9 +3399,9 @@ def vision_judge(mp4_path, hook, title, total_s):
         if not isinstance(verdict, dict) or "pass" not in verdict:
             log.warning("judge returned unusable JSON; skipping judge")
             return None
-        log.info("vision judge: pass=%s scores=%s issues=%s",
-                 verdict.get("pass"), verdict.get("scores"),
-                 verdict.get("issues"))
+        log.info("vision judge: pass=%s weird=%s scores=%s issues=%s",
+                 verdict.get("pass"), verdict.get("weird"),
+                 verdict.get("scores"), verdict.get("issues"))
         return verdict
     except Exception as exc:  # noqa: BLE001
         log.warning("vision judge unavailable (%s); delivering unjudged", exc)
@@ -3148,7 +3630,17 @@ def make_one(post, font_path):
                          "cards cover the rest", len(shots), len(targets))
 
     mp3 = os.path.join(WORKDIR, f"voice-{page_id}.mp3")
-    timings, duration = synthesize(script, mp3)
+    # r12: expressive segmented narration first; ANY doubt -> the proven
+    # single-pass path (synthesize_expressive verifies its own offsets and
+    # returns None rather than risk caption sync).
+    result = synthesize_expressive(script, mp3)
+    if result is not None:
+        timings, duration = result
+    else:
+        if EXPRESSIVE_TTS:
+            log.info("expressive TTS unavailable for page %s; single-pass "
+                     "synthesis", page_id)
+        timings, duration = synthesize(script, mp3)
 
     out = os.path.join(WORKDIR, f"video-{page_id}.mp4")
     compose_video(pool, broll_terms, mp3, hook, script, timings, duration,
@@ -3163,7 +3655,8 @@ def make_one(post, font_path):
     if verdict is not None and verdict.get("pass") is not True:
         raise JudgeRejected(
             f"vision judge rejected page {page_id}: "
-            f"issues={verdict.get('issues')} scores={verdict.get('scores')}")
+            f"weird={verdict.get('weird')} issues={verdict.get('issues')} "
+            f"scores={verdict.get('scores')}")
 
     post_video(page_id, slug, out)
     append_done(page_id)
