@@ -108,6 +108,15 @@ jobs:
         run: |
           python -m pip install "loguru==0.7.3" "toml>=0.10" "openai==2.24.0"
 
+      # v10 REAL-SOURCE SCREENSHOTS (optional): chromium to screenshot the
+      # actual article pages as evidence ("original pixels"). Non-fatal —
+      # missing browser just means the rendered cards are used instead.
+      - name: Install chromium for real-source screenshots (optional)
+        continue-on-error: true
+        run: |
+          python -m pip install playwright
+          python -m playwright install --with-deps chromium
+
       # The driver imports Turbo's app.services.voice from MPT_HOME when present.
       # It ALSO has a self-contained edge-tts fallback, so this step is optional:
       # if videorepos/mpt is not vendored in the repo, the run still succeeds.
