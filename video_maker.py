@@ -292,6 +292,22 @@ transformed under our commentary/cards/captions):
      exact pre-r13 behaviour) with a loud FOOTAGE log line either way.
      Kill switch: VIDEO_REAL_FOOTAGE=0.
 
+WHAT r14 ADDS (owner: "the director doesn't really SEE what's going on" —
+sight at both ends; the server side is the seeing pass in visual_sight.php):
+  1. CLIP VERIFYING EYE (render-time, quota-free): sentence-transformers
+     CLIP ViT-B-32 runs on the runner CPU after plan_scenes_edl resolved the
+     photo scenes. Each plain photo scene's image is scored against its
+     shot's exact narration phrase (cosine); a clear mismatch (< 0.18) is
+     SWAPPED to the best pool alternative that beats it by >= 0.06, still
+     respecting the no-repeat window; person-pinned and text-heavy scenes
+     are never touched (the person law and contain path outrank CLIP).
+     Encode budget ~40 images/video (pool encoded once, embeddings reused).
+     Model/install missing -> silently skipped. Kill: VIDEO_CLIP_VERIFY=0.
+  2. SIGHT FLAGS: the feed's visual_flags[] (aligned with visuals[]; from
+     the server's Gemini seeing pass, which actually LOOKED at each image)
+     override the filename/aspect is_text_heavy heuristic for pool entries —
+     sight beats filename guessing. Absent flags -> old heuristic.
+
 PROVEN v1 PARTS KEPT VERBATIM: the multi-engine fetch/post (curl_cffi
 browser-TLS first — Hostinger's TLS fingerprint block), base64-in-JSON video
 delivery (WAF blocks multipart), edge-tts synthesis with WordBoundary timings
@@ -441,6 +457,14 @@ VISION_RERANK = os.environ.get("VIDEO_VISION_RERANK", "1").strip() != "0"
 VISION_MAX_CALLS = int(os.environ.get("VIDEO_VISION_MAX_CALLS", "8"))
 VISION_CANDIDATES = 5          # thumbnails per call (4-6 band from the spec)
 VISION_THUMB_TIMEOUT = 10      # seconds per thumbnail download
+
+# --- r14: CLIP verifying eye (quota-free render-time image<->phrase check) ---
+# sentence-transformers 'clip-ViT-B-32' (~605MB, downloads at first use on the
+# runner; any import/download failure -> the whole check silently skips).
+CLIP_VERIFY = os.environ.get("VIDEO_CLIP_VERIFY", "1").strip() != "0"
+CLIP_SWAP_MIN = float(os.environ.get("VIDEO_CLIP_SWAP_MIN", "0.18"))
+CLIP_SWAP_MARGIN = float(os.environ.get("VIDEO_CLIP_SWAP_MARGIN", "0.06"))
+CLIP_MAX_ENCODES = 40          # image encodings per video (pool encoded once)
 
 # --- v4: EDL execution (V4-EDITOR-SPEC.md Laws 3/4/6/7/9) ---
 VISUAL_LEAD_S = float(os.environ.get("VIDEO_VISUAL_LEAD_S", "0.30"))  # Law 9
@@ -1179,6 +1203,21 @@ def is_text_heavy(path, src_url=""):
         return False
 
 
+def sight_flags_by_url(post):
+    """r14: map url -> sight verdict dict from the feed's visual_flags[]
+    (aligned with visuals[]; entries are {"text_heavy","faces"} or null).
+    Missing/malformed feed field -> {} (heuristics as before)."""
+    vis = post.get("visuals")
+    flags = post.get("visual_flags")
+    out = {}
+    if isinstance(vis, list) and isinstance(flags, list):
+        for i, u in enumerate(vis):
+            if (isinstance(u, str) and i < len(flags)
+                    and isinstance(flags[i], dict)):
+                out[u] = flags[i]
+    return out
+
+
 def build_visual_pool(post, page_id):
     """Assemble the scene visual pool: feed visuals (hero first) + resolved
     person photos, deduped, downloaded, validated. Returns (pool, person_map):
@@ -1252,6 +1291,18 @@ def build_visual_pool(post, page_id):
         t = url_title.get(u, "")
         return ("cover" in t) or ("render" in t) or ("card" in t)
 
+    # r14 SIGHT FLAGS: the server's seeing pass LOOKED at these images; its
+    # per-url text_heavy verdict overrides the filename/aspect heuristic
+    # (sight beats filename guessing). _designed stays an OR on top: a
+    # designed composite cover is a poster regardless of what sight says.
+    url_flag = sight_flags_by_url(post)
+
+    def _textish(local_path, u):
+        fl = url_flag.get(u)
+        if fl is not None:
+            return bool(fl.get("text_heavy")) or _designed(u)
+        return is_text_heavy(local_path, src_url=u) or _designed(u)
+
     ordered, seen = [], set()
     for u in person_urls + urls[1:] + urls[:1]:
         if u not in seen:
@@ -1262,10 +1313,12 @@ def build_visual_pool(post, page_id):
     for i, u in enumerate(ordered[:MAX_POOL]):
         p = fetch_visual(u, os.path.join(WORKDIR, f"vis-{page_id}-{i}"))
         if p:
-            textish = is_text_heavy(p, src_url=u) or _designed(u)
+            textish = _textish(p, u)
             if textish:
-                log.info("text-heavy visual -> contain mode (no crop/zoom): %s",
-                         u[:120])
+                log.info("text-heavy visual (%s) -> contain mode (no "
+                         "crop/zoom): %s",
+                         "sight" if url_flag.get(u) is not None
+                         else "heuristic", u[:120])
             entry = {"path": p, "textish": textish, "url": u,
                      "person": url2name.get(u)}
             pool.append(entry)
@@ -1291,6 +1344,7 @@ def build_visual_map(post, page_id, pool, shotlist):
         if isinstance(vis, list) else []
     titles = post.get("visual_titles") if isinstance(
         post.get("visual_titles"), list) else []
+    url_flag = sight_flags_by_url(post)       # r14 sight flags
     needed = set()
     if isinstance(shotlist, dict):
         for s in shotlist.get("shots") or []:
@@ -1309,7 +1363,10 @@ def build_visual_map(post, page_id, pool, shotlist):
         if entry is None:
             p = fetch_visual(u, os.path.join(WORKDIR, f"visidx-{page_id}-{i}"))
             if p:
-                entry = {"path": p, "textish": is_text_heavy(p, src_url=u),
+                fl = url_flag.get(u)          # r14: sight beats the heuristic
+                textish = (bool(fl.get("text_heavy")) if fl is not None
+                           else is_text_heavy(p, src_url=u))
+                entry = {"path": p, "textish": textish,
                          "url": u, "person": None}
         if entry:
             vmap[i] = entry
@@ -2399,6 +2456,152 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
 
 
 # ============================================================================
+# r14: CLIP VERIFYING EYE — quota-free render-time check that each photo
+# scene's image actually matches the words spoken over it (the runner-side
+# half of "build sight at both ends"; the server half is visual_sight.php).
+# sentence-transformers CLIP ViT-B-32 on the runner CPU (~0.2-0.5s/image,
+# see videorepos/DIRECTOR-UPGRADE-RESEARCH.md §3.6). NEVER fatal: missing
+# install, failed model download, any exception -> scenes unchanged.
+# ============================================================================
+_CLIP_MODEL = None             # None = untried, False = unavailable
+
+
+def _clip_model():
+    """Lazy-load CLIP ViT-B-32; tolerate missing install/download (None)."""
+    global _CLIP_MODEL
+    if _CLIP_MODEL is False:
+        return None
+    if _CLIP_MODEL is None:
+        try:
+            from sentence_transformers import SentenceTransformer
+            t0 = time.time()
+            _CLIP_MODEL = SentenceTransformer("clip-ViT-B-32")
+            log.info("CLIP verify: clip-ViT-B-32 loaded in %.1fs",
+                     time.time() - t0)
+        except Exception as exc:  # noqa: BLE001
+            log.info("CLIP verify unavailable (%s); skipped", exc)
+            _CLIP_MODEL = False
+            return None
+    return _CLIP_MODEL
+
+
+def clip_swap_decisions(paths, checkable, pool_paths, score_fn,
+                        window=POOL_NO_REPEAT_WINDOW,
+                        min_score=CLIP_SWAP_MIN, margin=CLIP_SWAP_MARGIN):
+    """Pure r14 swap chooser (unit-testable offline, no model needed).
+    paths: current image path per scene (every scene, any type);
+    checkable[i]: True when scene i is a plain photo scene eligible for
+    verification; pool_paths: candidate replacement paths (non-textish pool
+    entries with embeddings); score_fn(i, path) -> cosine of that image vs
+    scene i's narration phrase, or None when unknown.
+    A scene swaps only when its own score < min_score AND some candidate —
+    not the same image, not within the no-repeat window on either side —
+    scores >= score + margin; the best such candidate wins. Swaps apply
+    sequentially so later windows see earlier swaps.
+    Returns [(scene_i, old_path, new_path, old_score, new_score), ...]."""
+    paths = list(paths)
+    out = []
+    for i, cur in enumerate(paths):
+        if i >= len(checkable) or not checkable[i]:
+            continue
+        s = score_fn(i, cur)
+        if s is None or s >= min_score:
+            continue
+        lo, hi = max(0, i - window), min(len(paths), i + window + 1)
+        nearby = {paths[k] for k in range(lo, hi) if k != i}
+        best, best_s = None, None
+        for p in pool_paths:
+            if p == cur or p in nearby:
+                continue
+            ps = score_fn(i, p)
+            if ps is None or ps < s + margin:
+                continue
+            if best_s is None or ps > best_s:
+                best, best_s = p, ps
+        if best is not None:
+            out.append((i, cur, best, s, best_s))
+            paths[i] = best
+    return out
+
+
+def clip_verify_scenes(scenes, edl, pool):
+    """r14: verify photo scenes against their narration phrases and swap the
+    clear mismatches (mutates scenes in place). Guardrails: person-pinned
+    shots are never touched (the person law outranks CLIP), text-heavy /
+    receipt / broll / footage scenes are skipped, swapped-in candidates are
+    non-textish pool photos, the no-repeat window is respected, and at most
+    CLIP_MAX_ENCODES images are encoded (pool once, embeddings reused).
+    Never fatal; logs a summary line either way."""
+    if not CLIP_VERIFY:
+        log.info("CLIP verify disabled (VIDEO_CLIP_VERIFY=0)")
+        return
+    try:
+        if not scenes or not edl or len(scenes) != len(edl):
+            return
+        checkable = []
+        for i, sc in enumerate(scenes):
+            sh = edl[i]
+            checkable.append(
+                sc.get("type") == "photo" and not sc.get("textish")
+                and not sc.get("footage") and not sh.get("person")
+                and bool((sh.get("phrase") or "").strip()))
+        if not any(checkable):
+            log.info("CLIP verify: no checkable photo scenes; skipped")
+            return
+        model = _clip_model()
+        if model is None:
+            return
+        # Encode set: checked scene images first, then pool candidates —
+        # capped so one video never costs more than ~CLIP_MAX_ENCODES.
+        cand_pool = [e["path"] for e in pool if not e.get("textish")]
+        img_order = []
+        for i, sc in enumerate(scenes):
+            if checkable[i] and sc["path"] not in img_order:
+                img_order.append(sc["path"])
+        for p in cand_pool:
+            if p not in img_order:
+                img_order.append(p)
+        img_order = img_order[:CLIP_MAX_ENCODES]
+        imgs, keys = [], []
+        for p in img_order:
+            try:
+                with Image.open(p) as im:
+                    imgs.append(im.convert("RGB").copy())
+                keys.append(p)
+            except Exception:  # noqa: BLE001
+                pass
+        if not imgs:
+            return
+        iv = model.encode(imgs, batch_size=8, convert_to_numpy=True,
+                          normalize_embeddings=True, show_progress_bar=False)
+        embs = dict(zip(keys, iv))
+        idxs = [i for i in range(len(scenes)) if checkable[i]]
+        tv = model.encode([str(edl[i]["phrase"])[:200] for i in idxs],
+                          convert_to_numpy=True, normalize_embeddings=True,
+                          show_progress_bar=False)
+        temb = dict(zip(idxs, tv))
+
+        def score_fn(i, path):
+            e, t = embs.get(path), temb.get(i)
+            if e is None or t is None:
+                return None
+            return float(np.dot(e, t))
+
+        pool_paths = [p for p in cand_pool if p in embs]
+        swaps = clip_swap_decisions([sc["path"] for sc in scenes], checkable,
+                                    pool_paths, score_fn)
+        for i, old, new, s_old, s_new in swaps:
+            scenes[i]["path"] = new       # candidates are non-textish photos
+            log.info("CLIP swap: scene %d (%.3f -> %.3f) %s -> %s",
+                     i + 1, s_old, s_new, os.path.basename(old),
+                     os.path.basename(new))
+        log.info("CLIP verify: %d scene(s) checked, %d swap(s), %d image(s) "
+                 "encoded", len(idxs), len(swaps), len(embs))
+    except Exception as exc:  # noqa: BLE001
+        log.warning("CLIP verify failed (%s); scenes unchanged", exc)
+
+
+# ============================================================================
 # Composition: scenes, scrim, hook, chunk captions
 # ============================================================================
 def cover_fit(pil_img, tw, th):
@@ -3269,6 +3472,10 @@ def compose_video(pool, broll_terms, mp3_path, hook, script, word_timings,
         scenes = plan_scenes_edl(edl, pool, fetcher, receipts=receipts,
                                  title=title, person_map=person_map,
                                  visual_map=visual_map)
+        # r14 VERIFYING EYE: quota-free CLIP check that each photo scene's
+        # image matches the words spoken over it; clear mismatches swap to
+        # a better pool image (in-place, never fatal, logs a summary).
+        clip_verify_scenes(scenes, edl, pool)
     else:
         if shotlist:
             log.info("shotlist present but unusable; v3 scene planner")
