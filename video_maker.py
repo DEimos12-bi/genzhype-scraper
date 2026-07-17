@@ -962,9 +962,56 @@ def screenshot_articles(targets, page_id):
                         }""")
                     except Exception:
                         pass
-                    page.screenshot(path=path, clip={"x": 0, "y": 0,
-                                                     "width": 1080,
-                                                     "height": 1350})
+                    # r15 HUMAN CROP (owner: raw full-page shots carried nav/
+                    # ads/whitespace): find the headline and crop tight around
+                    # masthead + h1 + lead image — the screenshot a person
+                    # would take. Any locator failure -> the old top clip.
+                    clip = {"x": 0, "y": 0, "width": 1080, "height": 1350}
+                    try:
+                        h1 = None
+                        for sel in ("article h1", "main h1", "h1"):
+                            loc = page.locator(sel).first
+                            if loc.count() > 0:
+                                bb = loc.bounding_box()
+                                if bb and bb.get("width", 0) > 200:
+                                    h1 = bb
+                                    break
+                        if h1:
+                            img_bb = None
+                            for sel in ("article img", "main img", "img"):
+                                for k in range(min(4, page.locator(sel).count())):
+                                    bb = page.locator(sel).nth(k).bounding_box()
+                                    if (bb and bb.get("width", 0) > 400
+                                            and bb["y"] > h1["y"]
+                                            and bb["y"] < h1["y"] + 1200):
+                                        img_bb = bb
+                                        break
+                                if img_bb:
+                                    break
+                            x = max(0.0, h1["x"] - 24)
+                            y = max(0.0, h1["y"] - 90)
+                            if img_bb:
+                                bottom = img_bb["y"] + img_bb["height"] + 40
+                            else:
+                                bottom = h1["y"] + 700
+                            height = max(600.0, min(1350.0, bottom - y))
+                            width = min(1032.0, 1080 - x)
+                            clip = {"x": x, "y": y,
+                                    "width": width, "height": height}
+                    except Exception:  # noqa: BLE001
+                        pass
+                    page.screenshot(path=path, clip=clip)
+                    # upscale narrow crops to full card width
+                    try:
+                        im = Image.open(path)
+                        if im.width < 1080:
+                            r = 1080.0 / im.width
+                            im = im.resize((1080, int(im.height * r)),
+                                           Image.Resampling.LANCZOS)
+                            im.save(path)
+                        im.close()
+                    except Exception:  # noqa: BLE001
+                        pass
                     page.close()
                 except Exception as exc:  # noqa: BLE001
                     log.info("screenshot failed (%s): %s",
@@ -2083,12 +2130,21 @@ _MOTION_ALTERNATE = {
 }
 
 
+def _norm_word(w):
+    """Normalize a token for alignment: lowercase, strip punctuation."""
+    return re.sub(r"[^a-z0-9']+", "", w.lower())
+
+
 def map_tokens_to_spans(script, timings):
     """Per-whitespace-token (start_s, end_s) from the TTS word timings — the
     word-index -> ms bridge the Director schema is anchored on. 1:1 when the
-    token count matches the cue count; otherwise the same proportional
-    mapping split_beats has always used (token k covers timing indexes
-    [k*n/T, (k+1)*n/T)). Monotonicity is enforced."""
+    token count matches the cue count. r15: on mismatch, REAL fuzzy alignment
+    (difflib on normalized word lists) instead of proportional guessing — the
+    proportional path accumulated drift, so mid/late-video shots landed AFTER
+    their words (the owner's 'image comes after they stopped talking about
+    it'). Matched tokens take their cue's exact times; unmatched tokens
+    interpolate between the nearest matched anchors. Monotonicity enforced."""
+    import difflib
     tokens = [w for w in script.split() if w.strip()]
     n_tok, n = len(tokens), len(timings)
     if n_tok == 0 or n == 0:
@@ -2097,12 +2153,52 @@ def map_tokens_to_spans(script, timings):
     if n == n_tok:
         spans = [(t[1], t[2]) for t in timings]
     else:
-        log.info("token/cue count mismatch (%d tokens vs %d cues); "
-                 "proportional mapping", n_tok, n)
-        for k in range(n_tok):
-            a = min(n - 1, (k * n) // n_tok)
-            b = min(n - 1, max(a, ((k + 1) * n) // n_tok - 1))
-            spans.append((timings[a][1], timings[b][2]))
+        tok_n = [_norm_word(w) for w in tokens]
+        cue_n = [_norm_word(t[0]) for t in timings]
+        anchor = {}                              # token idx -> cue idx
+        sm = difflib.SequenceMatcher(a=tok_n, b=cue_n, autojunk=False)
+        for blk in sm.get_matching_blocks():
+            for k in range(blk.size):
+                anchor[blk.a + k] = blk.b + k
+        matched = len(anchor)
+        if matched < max(3, n_tok // 4):
+            # hopeless alignment -> old proportional behaviour
+            log.info("ALIGNMENT: only %d/%d tokens matched; proportional "
+                     "fallback", matched, n_tok)
+            for k in range(n_tok):
+                a = min(n - 1, (k * n) // n_tok)
+                b = min(n - 1, max(a, ((k + 1) * n) // n_tok - 1))
+                spans.append((timings[a][1], timings[b][2]))
+        else:
+            # interpolate unmatched tokens between nearest matched anchors
+            idxs = sorted(anchor.keys())
+            max_gap = 0
+            for k in range(n_tok):
+                if k in anchor:
+                    c = timings[anchor[k]]
+                    spans.append((c[1], c[2]))
+                    continue
+                lo = max((i for i in idxs if i < k), default=None)
+                hi = min((i for i in idxs if i > k), default=None)
+                if lo is None and hi is None:
+                    spans.append((0.0, 0.0))
+                elif lo is None:
+                    c = timings[anchor[hi]]
+                    spans.append((c[1], c[1]))
+                elif hi is None:
+                    c = timings[anchor[lo]]
+                    spans.append((c[2], c[2]))
+                else:
+                    t0 = timings[anchor[lo]][2]
+                    t1 = timings[anchor[hi]][1]
+                    frac0 = (k - lo) / (hi - lo)
+                    frac1 = (k + 1 - lo) / (hi - lo)
+                    spans.append((t0 + (t1 - t0) * frac0,
+                                  t0 + (t1 - t0) * frac1))
+                    max_gap = max(max_gap, hi - lo)
+            log.info("ALIGNMENT: %d/%d tokens cue-matched (%.0f%%); largest "
+                     "interpolated gap %d words", matched, n_tok,
+                     100.0 * matched / n_tok, max_gap)
     fixed, prev_s = [], 0.0
     for s, e in spans:
         s = max(s, prev_s)
