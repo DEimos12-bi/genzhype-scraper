@@ -2497,9 +2497,24 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
             if pool:
                 # r11 SMART FALLBACK: least-recently-used + a 3-scene
                 # no-repeat window (replaces blind round-robin).
+                # r15: TINY-POOL RELIEF — when the story has too few distinct
+                # photos to honor the window (the selfcheck tripwire case),
+                # borrow a stock b-roll scene for variety BEFORE accepting a
+                # repeat; the repeat remains the true last resort.
                 entry = _lru_pick(si)
-                path, typ, textish = entry["path"], "photo", entry["textish"]
-                src_url = entry.get("url")             # r13: footage upgrade
+                pool_variety = len({e["path"] for e in pool})
+                recent_now = _recent_paths()
+                if (entry["path"] in recent_now and pool_variety <= POOL_NO_REPEAT_WINDOW
+                        and consec_broll < 2):
+                    bp = fetcher.clip_for(need_s)
+                    if bp:
+                        log.info("tiny pool (%d distinct): stock variety "
+                                 "instead of a repeat (scene %d)",
+                                 pool_variety, si + 1)
+                        path, typ = bp, "broll"
+                if path is None:
+                    path, typ, textish = entry["path"], "photo", entry["textish"]
+                    src_url = entry.get("url")         # r13: footage upgrade
             else:
                 path = fetcher.clip_for(need_s)   # last resort: cursor mode
                 if path:
@@ -3365,7 +3380,13 @@ def selfcheck_scenes(scenes, avail_assets, speech_span=0.0, caption_gap=0.0,
       short_scenes      [(i, dur)] scenes shorter than min_shot_s (warn only)
       caption_coverage  fraction of the speech span covered by hook+captions
       coverage_ok       caption_coverage >= min_caption_cov (warn only)"""
-    eff_window = max(0, min(int(window), int(avail_assets) - 1))
+    # r15 fix: the window must relax against the PHOTO variety actually
+    # rotating (receipts/cards inflate avail_assets — the run-56 tripwire
+    # fired on a 3-photo story because assets counted 14).
+    photo_paths = {sc.get("path") for sc in scenes
+                   if sc.get("type") == "photo" and sc.get("path")}
+    variety = len(photo_paths) if photo_paths else int(avail_assets)
+    eff_window = max(0, min(int(window), min(int(avail_assets), variety) - 1))
     repeats = []
     for i, sc in enumerate(scenes):
         p = sc.get("path")
