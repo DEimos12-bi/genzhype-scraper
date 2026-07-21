@@ -308,6 +308,33 @@ sight at both ends; the server side is the seeing pass in visual_sight.php):
      override the filename/aspect is_text_heavy heuristic for pool entries —
      sight beats filename guessing. Absent flags -> old heuristic.
 
+WHAT r17 ADDS (owner round-17: clips are a PLANNED Director decision; the
+evidence chain drops the beige cards and the raw-screenshot ad-grabs):
+  1. PLANNED CLIPS — Director shots may carry "clip": true on a visual_i
+     pinned to a YouTube thumbnail: an explicit order to play the real muted
+     clip of that described moment there. Planned ids are prefetched FIRST
+     (the yt-dlp attempt cap serves the plan before any opportunistic
+     upgrade), a planned scene may run up to 4.5s, and when any planned clip
+     exists the budget rises to 4 footage scenes / 12 borrowed seconds —
+     opportunistic upgrades only fill what upcoming planned scenes won't
+     need. Muting, cover-crop, never-two-consecutive, the b-roll chain rule
+     and VIDEO_REAL_FOOTAGE=0 all stay exactly as r13 shipped them.
+  2. BEIGE CARDS RETIRED — event receipts now arrive as metadata only
+     (url=''; the server renders no event PNG and prunes the old ones). The
+     evidence chain per event: clean article screenshot > the article's real
+     og:image photo (receipt_meta.og_image; rendered as a NORMAL cover-crop
+     face-aware photo scene — it IS the real moment photo) > subject photo.
+     A beige card can never be chosen because none exists; any stale event
+     card from an old feed is dropped before resolution. X post cards and
+     the branded promo card are unchanged.
+  3. SCREENSHOT HARDENING — ad/newsletter/subscribe/sponsor furniture is
+     visibility-hidden before the shot, and the headline block is REQUIRED:
+     no h1 -> NO screenshot for that URL (the raw top-of-page fallback that
+     grabbed ads/page furniture is dead).
+  4. JUDGE — new weirdness criterion (g): a proof/screenshot frame cluttered
+     with website ads, cookie banners, subscribe boxes or unrelated page
+     furniture fails the video.
+
 PROVEN v1 PARTS KEPT VERBATIM: the multi-engine fetch/post (curl_cffi
 browser-TLS first — Hostinger's TLS fingerprint block), base64-in-JSON video
 delivery (WAF blocks multipart), edge-tts synthesis with WordBoundary timings
@@ -523,6 +550,15 @@ FOOTAGE_SECTION = "*00:00:12-00:00:26"  # fetch a 14s window, skipping intros
 FOOTAGE_SUB_OFF_S = 2.0        # show the sub-segment starting 2s into it
 FOOTAGE_FETCH_TIMEOUT = 25     # seconds per yt-dlp attempt
 FOOTAGE_MAX_FETCHES = 6        # run-level attempt cap (bot-walled runners)
+
+# --- r17: PLANNED CLIPS (Director-ordered footage — "clip": true shots).
+# A planned clip is a DECISION, not a lucky upgrade: its video id is
+# prefetched before any opportunistic fetch, it may run up to 4.5s, and when
+# any planned clip exists in the video the whole footage budget rises to
+# 4 scenes / 12 borrowed seconds (opportunistic upgrades fill leftovers only).
+FOOTAGE_PLANNED_SCENE_MAX_S = 4.5
+FOOTAGE_PLANNED_MAX_SCENES = 4
+FOOTAGE_PLANNED_MAX_TOTAL_S = 12.0
 
 # --- v4: house grade (Law 22 — one look over every visual) ---
 GRADE_CONTRAST = 1.06
@@ -930,13 +966,16 @@ def screenshot_articles(targets, page_id):
     """Screenshot REAL article pages (masthead + headline + lead image, as the
     site actually renders) — the drama-genre confidence move: FOUND evidence,
     not made evidence. ONE chromium session for all targets, hard wall-clock
-    budget; every failure is silent (the rendered card stays as fallback).
+    budget. r17: ad/newsletter/subscribe furniture is hidden before shooting
+    and the headline block is REQUIRED — no h1, no screenshot (the raw
+    top-of-page fallback is dead). Every failure is silent; the og-photo /
+    subject chain covers misses downstream.
     targets: {receipt_idx: url} -> returns {receipt_idx: png_path}."""
     out = {}
     try:
         from playwright.sync_api import sync_playwright
     except Exception:
-        log.info("playwright not installed; receipt cards only")
+        log.info("playwright not installed; og-photo/subject chain only")
         return out
     deadline = time.time() + SHOT_TOTAL_BUDGET_S
     try:
@@ -948,7 +987,8 @@ def screenshot_articles(targets, page_id):
             for i, url in targets.items():
                 if time.time() > deadline:
                     log.info("screenshot budget spent; %d article(s) fall "
-                             "back to cards", len(targets) - len(out))
+                             "back to og photos/subject",
+                             len(targets) - len(out))
                     break
                 path = os.path.join(WORKDIR, f"shot-{page_id}-{i}.png")
                 try:
@@ -979,13 +1019,38 @@ def screenshot_articles(targets, page_id):
                         }""")
                     except Exception:
                         pass
-                    # r15 HUMAN CROP (owner: raw full-page shots carried nav/
-                    # ads/whitespace): find the headline and crop tight around
-                    # masthead + h1 + lead image — the screenshot a person
-                    # would take. Any locator failure -> the old top clip.
-                    clip = {"x": 0, "y": 0, "width": 1080, "height": 1350}
+                    # r17 AD-KILL (owner: article shots grabbed ads/page
+                    # furniture): hide ad/sponsor/newsletter/subscribe
+                    # furniture before shooting. Best-effort per selector.
                     try:
-                        h1 = None
+                        page.evaluate("""() => {
+                          const sels = ['iframe', '[id*="ad-" i]',
+                                        '[id^="ad" i]', '[class*="advert" i]',
+                                        '[class*="sponsor" i]',
+                                        '[class*="promo-" i]',
+                                        '[class*="newsletter" i]',
+                                        '[class*="subscribe" i]',
+                                        '[aria-label*="advertisement" i]'];
+                          for (const sel of sels) {
+                            let els = [];
+                            try { els = document.querySelectorAll(sel); }
+                            catch (e) { continue; }
+                            for (const el of els) {
+                              try { el.style.visibility = 'hidden'; }
+                              catch (e) {}
+                            }
+                          }
+                        }""")
+                    except Exception:
+                        pass
+                    # r15 HUMAN CROP, r17 HARDENED: the headline block is now
+                    # REQUIRED. A screenshot happens ONLY tight around
+                    # masthead + h1 + lead image — the shot a person would
+                    # take. NO h1 -> NO screenshot for this URL (the raw
+                    # top-of-page fallback that grabbed ads/nav is DEAD; the
+                    # og-photo/subject chain covers it downstream).
+                    h1 = None
+                    try:
                         for sel in ("article h1", "main h1", "h1"):
                             loc = page.locator(sel).first
                             if loc.count() > 0:
@@ -993,30 +1058,37 @@ def screenshot_articles(targets, page_id):
                                 if bb and bb.get("width", 0) > 200:
                                     h1 = bb
                                     break
-                        if h1:
-                            img_bb = None
-                            for sel in ("article img", "main img", "img"):
-                                for k in range(min(4, page.locator(sel).count())):
-                                    bb = page.locator(sel).nth(k).bounding_box()
-                                    if (bb and bb.get("width", 0) > 400
-                                            and bb["y"] > h1["y"]
-                                            and bb["y"] < h1["y"] + 1200):
-                                        img_bb = bb
-                                        break
-                                if img_bb:
-                                    break
-                            x = max(0.0, h1["x"] - 24)
-                            y = max(0.0, h1["y"] - 90)
-                            if img_bb:
-                                bottom = img_bb["y"] + img_bb["height"] + 40
-                            else:
-                                bottom = h1["y"] + 700
-                            height = max(600.0, min(1350.0, bottom - y))
-                            width = min(1032.0, 1080 - x)
-                            clip = {"x": x, "y": y,
-                                    "width": width, "height": height}
                     except Exception:  # noqa: BLE001
-                        pass
+                        h1 = None
+                    if not h1:
+                        log.info("screenshot: no headline block found; "
+                                 "skipping (no raw-page fallback): %s",
+                                 url[:90])
+                        page.close()
+                        continue
+                    img_bb = None
+                    try:
+                        for sel in ("article img", "main img", "img"):
+                            for k in range(min(4, page.locator(sel).count())):
+                                bb = page.locator(sel).nth(k).bounding_box()
+                                if (bb and bb.get("width", 0) > 400
+                                        and bb["y"] > h1["y"]
+                                        and bb["y"] < h1["y"] + 1200):
+                                    img_bb = bb
+                                    break
+                            if img_bb:
+                                break
+                    except Exception:  # noqa: BLE001
+                        img_bb = None
+                    x = max(0.0, h1["x"] - 24)
+                    y = max(0.0, h1["y"] - 90)
+                    if img_bb:
+                        bottom = img_bb["y"] + img_bb["height"] + 40
+                    else:
+                        bottom = h1["y"] + 700
+                    height = max(600.0, min(1350.0, bottom - y))
+                    width = min(1032.0, 1080 - x)
+                    clip = {"x": x, "y": y, "width": width, "height": height}
                     page.screenshot(path=path, clip=clip)
                     # upscale narrow crops to full card width
                     try:
@@ -1038,8 +1110,8 @@ def screenshot_articles(targets, page_id):
                 try:
                     g = Image.open(path).convert("L").resize((64, 80))
                     if float(np.asarray(g).std()) < 8.0:
-                        log.info("screenshot near-blank; card fallback: %s",
-                                 url[:90])
+                        log.info("screenshot near-blank; og/subject "
+                                 "fallback: %s", url[:90])
                         continue
                 except Exception:
                     continue
@@ -1047,9 +1119,51 @@ def screenshot_articles(targets, page_id):
                 out[i] = path
             browser.close()
     except Exception as exc:  # noqa: BLE001
-        log.info("screenshot engine unavailable (%s); cards only",
-                 str(exc)[:100])
+        log.info("screenshot engine unavailable (%s); article receipts fall "
+                 "back to og photos / subject", str(exc)[:100])
     return out
+
+
+def resolve_event_receipts(meta, receipt_paths, shooter, og_fetch):
+    """r17 evidence chain for kind='event' receipt entries (BEIGE RETIRED —
+    the server ships them as metadata only, url=''). Chain per event index:
+      (a) clean article screenshot (headline-anchored, ads hidden) — textish
+          contain render;
+      (b) else the article's real og:image photo — stored as
+          {"path":.., "photo": True} so the planner renders it as a NORMAL
+          cover-crop face-aware photo scene (it IS the moment's photo);
+      (c) else nothing — the planner's subject-photo fallback covers it.
+    Any stale event CARD that still arrived from an old feed is dropped
+    first: a beige card can never be chosen. Post/promo entries untouched.
+    Pure orchestration (shooter/og_fetch injected) — unit-testable offline.
+    Returns (receipt_paths, n_screenshots, n_og_photos)."""
+    meta = meta if isinstance(meta, list) else []
+    ev_idx = [i for i, m in enumerate(meta[:20])
+              if isinstance(m, dict) and m.get("kind") == "event"]
+    for i in ev_idx:
+        receipt_paths.pop(i, None)         # beige never survives
+    targets = {}
+    for i in ev_idx:
+        su = str(meta[i].get("source_url") or "")
+        if su.startswith("http"):
+            targets[i] = su
+    shots = shooter(targets) if targets else {}
+    shots = shots or {}
+    for i, sp in shots.items():
+        if sp:
+            receipt_paths[i] = sp          # (a) clean screenshot (textish)
+    og_n = 0
+    for i in ev_idx:
+        if i in receipt_paths:
+            continue
+        og = str(meta[i].get("og_image") or "")
+        if not og.startswith("http"):
+            continue
+        p = og_fetch(i, og)
+        if p:
+            receipt_paths[i] = {"path": p, "photo": True}   # (b) real moment photo
+            og_n += 1
+    return receipt_paths, len([s for s in shots.values() if s]), og_n
 
 
 def _download_bytes(url):
@@ -1461,21 +1575,31 @@ def ytimg_video_id(url):
 
 
 def footage_budget_ok(need_s, n_scenes, used_s, consec_broll, prev_footage,
-                      enabled=None):
-    """Pure r13 gate (unit-testable offline): may THIS beat become real
-    footage? Fair-use guardrails: feature flag on; <=3.5s shown per scene;
-    max 3 footage scenes and ~8 borrowed seconds per video; never two
-    footage scenes consecutive; footage counts as b-roll, so it also
-    respects the max-2-videos-in-a-row rule."""
+                      enabled=None, planned=False, has_planned=False,
+                      reserve_n=0, reserve_s=0.0):
+    """Pure r13/r17 gate (unit-testable offline): may THIS beat become real
+    footage? Fair-use guardrails: feature flag on; per-scene cap (3.5s
+    opportunistic, 4.5s for a PLANNED Director clip); scene/second budget
+    (3 scenes / ~8s normally, raised to 4 / 12s when the Director planned
+    clips into this video); never two footage scenes consecutive; footage
+    counts as b-roll, so it also respects the max-2-videos-in-a-row rule.
+    r17 PRIORITY: an opportunistic upgrade must additionally leave room —
+    reserve_n scenes / reserve_s seconds — for every still-upcoming planned
+    clip; planned shots themselves never yield to opportunistic ones."""
     if not (REAL_FOOTAGE if enabled is None else enabled):
         return False
-    if need_s > FOOTAGE_SCENE_MAX_S + 1e-6:
-        return False
-    if n_scenes >= FOOTAGE_MAX_SCENES:
-        return False
-    if used_s + need_s > FOOTAGE_MAX_TOTAL_S + 1e-6:
+    scene_max = FOOTAGE_PLANNED_SCENE_MAX_S if planned else FOOTAGE_SCENE_MAX_S
+    max_n = FOOTAGE_PLANNED_MAX_SCENES if has_planned else FOOTAGE_MAX_SCENES
+    max_s = FOOTAGE_PLANNED_MAX_TOTAL_S if has_planned else FOOTAGE_MAX_TOTAL_S
+    if need_s > scene_max + 1e-6:
         return False
     if prev_footage or consec_broll >= 2:
+        return False
+    if planned:
+        return n_scenes < max_n and used_s + need_s <= max_s + 1e-6
+    if n_scenes + 1 + reserve_n > max_n:
+        return False
+    if used_s + need_s + reserve_s > max_s + 1e-6:
         return False
     return True
 
@@ -2291,10 +2415,15 @@ def build_edl(shotlist, script, timings, total):
                 vi = int(vi)
             except (TypeError, ValueError):
                 vi = None
+            # r17 PLANNED CLIP: the Director's explicit real-footage order.
+            # Server-validated already; belt here — only meaningful with a
+            # pinned visual on a subject shot.
+            clip = bool(s.get("clip")) and vi is not None \
+                and shot_class == "subject"
             shots.append({
                 "w_in": w_in, "w_out": w_out,
                 "shot_class": shot_class, "receipt_i": ri,
-                "person": person, "visual_i": vi,
+                "person": person, "visual_i": vi, "clip": clip,
                 "query": str(s.get("query") or "").strip(),
                 "motion": motion, "sfx": sfx, "music": music,
                 "emph_t": spans[emph][0] if emph is not None else None,
@@ -2385,7 +2514,16 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
     thumbnail (i.ytimg.com/vi/<id>/) — a pinned visual_i OR a pool-served
     still — is upgraded to a short MUTED clip of that exact video when the
     fair-use budget allows (footage_budget_ok); any fetch miss keeps the
-    thumbnail still."""
+    thumbnail still.
+    r17 PLANNED CLIPS: shots the Director marked clip=true are the PLAN —
+    their video ids are prefetched before anything opportunistic, they may
+    run 4.5s, the whole budget rises to 4 scenes / 12s when they exist, and
+    opportunistic upgrades must leave room for every upcoming planned one.
+    r17 RECEIPT CHAIN: a receipts[] value may be {"path":..,"photo":True} —
+    the article's real og:image report photo. It renders as a NORMAL photo
+    scene (cover-crop, face-aware), never the contain/card path; a plain
+    string value stays the textish contain path (screenshot / post / promo).
+    Beige event cards no longer exist anywhere in this chain."""
     receipts = receipts or {}
     person_map = person_map or {}
     visual_map = visual_map or {}
@@ -2393,6 +2531,35 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
     foot_n, foot_s = 0, 0.0        # r13: footage scenes / borrowed seconds
     last_used = {}                 # r11 LRU: pool path -> last scene index
     person_rot = {}                # r11: per-person rotation cursor
+
+    # r17: planned-clip census + PRIORITY PREFETCH — the run-level yt-dlp
+    # attempt cap (FOOTAGE_MAX_FETCHES) is spent on the Director's PLAN
+    # before any opportunistic upgrade can burn it.
+    planned_flags = [bool(sh.get("clip")) and sh.get("visual_i") in visual_map
+                     for sh in edl]
+    has_planned = any(planned_flags)
+    if has_planned and REAL_FOOTAGE:
+        pids = []
+        for pi, sh in enumerate(edl):
+            if planned_flags[pi]:
+                v = ytimg_video_id(visual_map[sh["visual_i"]].get("url"))
+                if v and v not in pids:
+                    pids.append(v)
+        for v in pids:
+            got = fetch_story_footage(v)
+            log.info("PLANNED CLIP prefetch: %s -> %s", v,
+                     "ok" if got else "unavailable (moment photo fallback)")
+
+    def _planned_reserve(after_i):
+        """Scenes/seconds the still-upcoming planned clips are entitled to
+        (an opportunistic upgrade may only take what these won't need)."""
+        n, s = 0, 0.0
+        for j in range(after_i + 1, len(edl)):
+            if planned_flags[j]:
+                n += 1
+                s += min(edl[j]["end"] - edl[j]["start"],
+                         FOOTAGE_PLANNED_SCENE_MAX_S)
+        return n, s
 
     def _recent_paths(k=POOL_NO_REPEAT_WINDOW):
         """Image paths of the last k scenes (any type) — the no-repeat window."""
@@ -2422,9 +2589,12 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
             motion = _MOTION_ALTERNATE.get(motion, "punch_build")
 
         path, typ, textish, src_url = None, None, False, None
+        planned_here = False           # r17: this scene is a PLANNED clip shot
         sfx, emph_t = sh["sfx"], sh["emph_t"]
         if sh["shot_class"] == "receipt":
-            path = receipts.get(sh.get("receipt_i"))
+            rv = receipts.get(sh.get("receipt_i"))
+            r_photo = isinstance(rv, dict)     # r17: og report photo entry
+            path = rv.get("path") if r_photo else rv
             if path and path in _recent_paths():
                 # r12 selfcheck law: the SAME card twice inside the no-repeat
                 # window reads as a frozen frame — subject photo instead.
@@ -2432,13 +2602,20 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                          "fallback", sh.get("receipt_i"),
                          POOL_NO_REPEAT_WINDOW)
                 path = None
+            elif path and r_photo:
+                # r17: the article's real og:image — it IS the moment's
+                # photo, so it renders as a NORMAL photo scene (cover-crop,
+                # face-aware), never the contain/card path.
+                typ, textish = "photo", False
+                log.info("receipt %s -> og report photo (photo scene)",
+                         sh.get("receipt_i"))
             elif path:
                 typ, textish = "receipt", True
                 if sfx == "none":            # v4.5: receipt slam default
                     sfx = "pop"
                     emph_t = sh["start"]     # slam lands AT t_in
             else:
-                log.info("receipt %s missing/undownloaded; subject photo "
+                log.info("receipt %s missing/unresolved; subject photo "
                          "fallback", sh.get("receipt_i"))
         # v6 TASTE: a subject shot that names a person shows THAT person's
         # imagery (r11: cycling their photo LIST — avatar, recent thumbnails —
@@ -2480,8 +2657,10 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
             if entry is None and sh.get("visual_i") is not None \
                     and sh["visual_i"] in visual_map:
                 entry = visual_map[sh["visual_i"]]
-                log.info("visual_i %d -> real story image (%s)",
-                         sh["visual_i"], os.path.basename(entry["path"]))
+                planned_here = planned_flags[si]       # r17: Director's clip order
+                log.info("visual_i %d -> real story image (%s)%s",
+                         sh["visual_i"], os.path.basename(entry["path"]),
+                         " [PLANNED CLIP shot]" if planned_here else "")
             # r12: widened from back-to-back to the FULL no-repeat window —
             # a pinned image inside the window is exactly the "same image
             # again and again" defect the selfcheck now hard-fails on.
@@ -2489,6 +2668,7 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                 log.info("pinned image would repeat within %d scenes; LRU "
                          "pool pick instead", POOL_NO_REPEAT_WINDOW)
                 entry = None
+                planned_here = False       # r17: pin lost -> clip order lost
             if entry is not None:
                 last_used[entry["path"]] = si          # r11: LRU sees pins too
                 path, typ, textish = entry["path"], "photo", entry["textish"]
@@ -2538,16 +2718,22 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                     typ = "broll"
                 else:
                     raise ValueError("no photos and no b-roll for a shot")
-        # --- r13 REAL FOOTAGE upgrade: a photo scene showing a YouTube
-        # thumbnail of one of the story's own videos becomes a short MUTED
-        # clip of that exact video — budget-gated (max 3 scenes, ~8s total,
-        # never consecutive, counts as b-roll), thumbnail kept on any miss.
+        # --- r13/r17 REAL FOOTAGE: a photo scene showing a YouTube thumbnail
+        # of one of the story's own videos becomes a short MUTED clip of that
+        # exact video. r17: shots the Director marked clip=true are PLANNED
+        # CLIPS — first claim on the budget (which rises to 4 scenes / 12s
+        # when they exist; planned scenes may run 4.5s); everything else is
+        # an opportunistic upgrade that must leave room for the plan. Never
+        # consecutive, counts as b-roll, thumbnail kept on any miss.
         footage = False
         vid = ytimg_video_id(src_url) if typ == "photo" else None
         if vid:
             prev_foot = bool(scenes and scenes[-1].get("footage"))
+            res_n, res_s = (0, 0.0) if planned_here else _planned_reserve(si)
             if footage_budget_ok(need_s, foot_n, foot_s, consec_broll,
-                                 prev_foot):
+                                 prev_foot, planned=planned_here,
+                                 has_planned=has_planned,
+                                 reserve_n=res_n, reserve_s=res_s):
                 fpath = fetch_story_footage(vid)
                 if fpath and fpath in _recent_paths():
                     # selfcheck law: no path twice inside the window — the
@@ -2559,10 +2745,19 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                     motion, footage = "punch_build", True
                     foot_n += 1
                     foot_s += need_s
-                    log.info("FOOTAGE upgrade: scene %d -> %s (%.2fs shown, "
-                             "%d/%d scenes, %.1f/%.1fs borrowed)", si + 1,
+                    eff_n = (FOOTAGE_PLANNED_MAX_SCENES if has_planned
+                             else FOOTAGE_MAX_SCENES)
+                    eff_s = (FOOTAGE_PLANNED_MAX_TOTAL_S if has_planned
+                             else FOOTAGE_MAX_TOTAL_S)
+                    log.info("FOOTAGE %s: scene %d -> %s (%.2fs shown, "
+                             "%d/%d scenes, %.1f/%.1fs borrowed)",
+                             "PLANNED CLIP" if planned_here
+                             else "opportunistic upgrade", si + 1,
                              os.path.basename(fpath), need_s, foot_n,
-                             FOOTAGE_MAX_SCENES, foot_s, FOOTAGE_MAX_TOTAL_S)
+                             eff_n, foot_s, eff_s)
+                elif planned_here:
+                    log.info("PLANNED CLIP unavailable for %s (bot-wall/"
+                             "miss); the moment's photo stands", vid)
                 else:
                     log.info("FOOTAGE unavailable for %s; thumbnail "
                              "fallback", vid)
@@ -2672,6 +2867,9 @@ def clip_verify_scenes(scenes, edl, pool):
             checkable.append(
                 sc.get("type") == "photo" and not sc.get("textish")
                 and not sc.get("footage") and not sh.get("person")
+                # r17: og report photos ride receipt shots as photo scenes —
+                # they are pinned EVIDENCE, CLIP must never swap them out.
+                and sh.get("shot_class") != "receipt"
                 and bool((sh.get("phrase") or "").strip()))
         if not any(checkable):
             log.info("CLIP verify: no checkable photo scenes; skipped")
@@ -3675,7 +3873,10 @@ def compose_video(pool, broll_terms, mp3_path, hook, script, word_timings,
         cap_from = first_body if first_body is not None else w_end
         caption_gap = max(0.0, min(cap_from, w_end) - max(hook_end, w0))
     avail_assets = (len(pool)
-                    + len(set((receipts or {}).values()))
+                    # r17: receipt values may be {"path","photo"} dicts (og
+                    # report photos) — count unique underlying paths.
+                    + len({(v.get("path") if isinstance(v, dict) else v)
+                           for v in (receipts or {}).values()})
                     + len({sc["path"] for sc in scenes
                            if sc["type"] == "broll"}))
     chk = selfcheck_scenes(scenes, avail_assets, speech_span, caption_gap,
@@ -3879,6 +4080,7 @@ c. REPETITION: the SAME underlying image or photo appears in 3 or more of the sa
 d. DEAD FRAME: a near-black, blank, solid-color, corrupted or garbage frame.
 e. CONTEXT MISMATCH: an image that obviously does not belong in an internet-drama recap — corporate stock cliches (handshakes, boardrooms, generic office people), random nature/travel filler, or imagery clearly unrelated to the story the hook implies.
 f. CAPTION COLLISION: caption text sitting on top of the text of a screenshot/receipt/news card so that either becomes hard to read.
+g. AD-CLUTTERED PROOF: a proof/screenshot/article frame cluttered with website ads, cookie banners, subscribe/newsletter boxes, or unrelated page furniture (nav menus, related-story grids, comment widgets) instead of the headline/photo/text it is supposed to prove.
 
 SAID-VS-SEEN CHECK (r16 closed loop) — each frame below is paired with the exact narration WORDS being spoken at that moment. For every frame whose words are non-empty, judge: do the visuals BELONG to these exact words? A named person -> that person (or their post/evidence) must be on screen; a described event (the arrest, the courtroom, the party, the post) -> its image or screenshot; generic filler imagery shown during a specific fact = MISMATCH. Frames with empty words (pre-hook, tail padding) are exempt. Only flag CLEAR mismatches — a plausible related visual (the story's cover photo, the person's other photo, a receipt card of that fact) is fine.
 
@@ -4251,10 +4453,13 @@ def make_one(post, font_path):
     # v6: resolve the shotlist's visual_i references (real story images)
     visual_map = build_visual_map(post, page_id, pool, shotlist)
 
-    # v4.5: REAL evidence cards (post.receipts, idx order — receipt_i maps
-    # into this dict). Download failures just leave holes; the planner falls
-    # back to subject photos per missing index. No trim: the cards' dark
-    # paper background must never be shaved by the letterbox detector.
+    # v4.5/r17: REAL evidence (post.receipts, idx order — receipt_i maps into
+    # this dict). r17 BEIGE RETIRED: event entries arrive with url='' (the
+    # server renders no event PNG anymore); only post/promo cards download
+    # here. Events then resolve through resolve_event_receipts: clean article
+    # screenshot > og:image report photo > subject photo (planner fallback).
+    # No trim on card downloads: the cards' dark paper background must never
+    # be shaved by the letterbox detector.
     receipt_paths = {}
     recs = post.get("receipts")
     if isinstance(recs, list) and recs:
@@ -4262,35 +4467,39 @@ def make_one(post, font_path):
         # PROMO card appended LAST — the cap must never cut the promo off).
         for i, u in enumerate(recs[:20]):
             if not (isinstance(u, str) and u.startswith("http")):
-                continue
+                continue                   # r17: event rows carry no PNG
             p = fetch_visual(
                 u, os.path.join(WORKDIR, f"receipt-{page_id}-{i}.png"),
                 trim=False)
             if p:
                 receipt_paths[i] = p
-        log.info("receipts: %d of %d evidence card(s) downloaded",
-                 len(receipt_paths), len(recs))
+        log.info("receipts: %d card(s) downloaded of %d entries (event "
+                 "entries carry no card by design)", len(receipt_paths),
+                 len(recs))
 
-        # v10 ORIGINAL PIXELS (owner round-10, from the competitor study): for
-        # news-sourced receipts, screenshot the REAL article page — masthead,
-        # headline, lead photo, as it looks on the actual site — and show THAT
-        # as the evidence ("found, not made"). The rendered card stays as the
-        # silent fallback for every failure (paywall/bot-wall/timeout/blank).
+        # r17 EVIDENCE CHAIN for events — "found, not made", never beige:
+        # (a) clean article screenshot (screenshot_articles: ads hidden,
+        #     headline REQUIRED, no raw top-of-page fallback);
+        # (b) else the article's real og:image photo (photo scene);
+        # (c) else the planner's subject-photo fallback.
         meta = post.get("receipt_meta")
-        if REAL_SHOTS and isinstance(meta, list):
-            targets = {}
-            for i, m in enumerate(meta[:20]):
-                if (isinstance(m, dict) and m.get("kind") == "event"
-                        and i in receipt_paths):
-                    su = str(m.get("source_url") or "")
-                    if su.startswith("http"):
-                        targets[i] = su
-            if targets:
-                shots = screenshot_articles(targets, page_id)
-                for i, sp in shots.items():
-                    receipt_paths[i] = sp
-                log.info("real-source screenshots: %d of %d article(s); "
-                         "cards cover the rest", len(shots), len(targets))
+        if isinstance(meta, list) and meta:
+            def _shooter(targets):
+                if not REAL_SHOTS:
+                    log.info("VIDEO_REAL_SHOTS=0: skipping article "
+                             "screenshots (og/subject chain only)")
+                    return {}
+                return screenshot_articles(targets, page_id)
+
+            def _og_fetch(i, u):
+                return fetch_visual(
+                    u, os.path.join(WORKDIR, f"receipt-og-{page_id}-{i}.jpg"))
+
+            receipt_paths, shot_n, og_n = resolve_event_receipts(
+                meta, receipt_paths, _shooter, _og_fetch)
+            log.info("event receipts: %d clean screenshot(s), %d og report "
+                     "photo(s); the rest fall back to subject photos",
+                     shot_n, og_n)
 
     mp3 = os.path.join(WORKDIR, f"voice-{page_id}.mp3")
     # r12: expressive segmented narration first; ANY doubt -> the proven
