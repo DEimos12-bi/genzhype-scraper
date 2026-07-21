@@ -428,6 +428,19 @@ GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
 # not spot checks). Still 540px jpegs, still ONE generateContent call.
 JUDGE_FRAMES = int(os.environ.get("VIDEO_JUDGE_FRAMES", "12"))
 
+# --- r16 CLOSED LOOP: said-vs-seen enforcement + re-plan trigger ---
+# When the judge sees >=2 clear frame<->words mismatches, the maker asks the
+# server to NULL the shotlist (the cron re-directs it) instead of re-rendering
+# the same bad plan. Counts per page live in .social/video_replans.txt
+# ("page_id count" lines, committed like video_done.txt); at REPLAN_CAP the
+# video is delivered anyway with a loud log — the loop is never infinite.
+REPLAN_FILE = os.environ.get("VIDEO_REPLAN_FILE", ".social/video_replans.txt")
+REPLAN_CAP = int(os.environ.get("VIDEO_REPLAN_CAP", "3"))
+
+# r16: the judge pairs sampled frames with the EDL shot phrases spoken under
+# them; compose_video parks its final EDL here for make_one to pass along.
+LAST_EDL = None
+
 # --- r12: pre-encode selfcheck (no AI; SELFCHECK log line every run) ---
 SELFCHECK_MIN_SHOT_S = 0.8     # scenes shorter than this are logged (warn only)
 CAPTION_COVERAGE_MIN = 0.80    # captions must cover >=80% of speech (warn only)
@@ -752,7 +765,7 @@ def synthesize(script, out_mp3):
 # Captions sync is sacred: ANY doubt -> None and the caller runs the proven
 # single-pass synthesize().
 # ============================================================================
-def _expressive_plan(script):
+def _expressive_plan(script, hook_rate=EXPR_HOOK_RATE, hook_pitch=EXPR_HOOK_PITCH):
     """Split the script into (text, rate_mult, pitch) segments on sentence
     boundaries: [hook sentence, body, CTA line]. Returns a list of 2-3
     segments, or None when the structure isn't clearly there.
@@ -767,7 +780,7 @@ def _expressive_plan(script):
     hook_end = ends[0]                       # first sentence = the spoken hook
     if not 2 <= hook_end <= 24 or hook_end >= len(tokens) - 6:
         return None
-    segs = [(" ".join(tokens[:hook_end + 1]), EXPR_HOOK_RATE, EXPR_HOOK_PITCH)]
+    segs = [(" ".join(tokens[:hook_end + 1]), hook_rate, hook_pitch)]
     body_start = hook_end + 1
     # CTA = the last sentence, only when it is the GenZHype CTA line.
     cta_start = None
@@ -785,15 +798,19 @@ def _expressive_plan(script):
     return segs if len(segs) >= 2 else None
 
 
-def synthesize_expressive(script, out_mp3):
+def synthesize_expressive(script, out_mp3, grave=False):
     """Segmented synthesis. Returns (word_timings, duration) or None -> the
     caller MUST fall back to synthesize(). Verifications before accepting:
     every segment produced cues; total cue count within EXPR_CUE_TOLERANCE of
     the script token count; offsets strictly monotonic; concatenated file
-    duration ~= sum of the segment durations."""
+    duration ~= sum of the segment durations.
+    r16 GRAVITY: a grave story halves the hook's rate boost (urgency reads as
+    glee on a tragedy) and drops the pitch lift."""
     if not EXPRESSIVE_TTS:
         return None
-    plan = _expressive_plan(script)
+    hook_rate = 1.0 + (EXPR_HOOK_RATE - 1.0) / 2.0 if grave else EXPR_HOOK_RATE
+    hook_pitch = None if grave else EXPR_HOOK_PITCH
+    plan = _expressive_plan(script, hook_rate=hook_rate, hook_pitch=hook_pitch)
     if not plan:
         log.info("expressive TTS: script structure unclear; single-pass")
         return None
@@ -3159,13 +3176,23 @@ def chunk_caption_clips(beats, hook_end, duration, font_path, card_windows=None)
 # ============================================================================
 # Background music (optional, deterministic, non-fatal)
 # ============================================================================
-def pick_bgm(page_id):
+def pick_bgm(page_id, grave=False):
     """Deterministically pick a track from BGM_DIR by page_id hash. The folder
-    must contain ONLY CC0/royalty-free .mp3 files. Missing/empty -> None."""
+    must contain ONLY CC0/royalty-free .mp3 files. Missing/empty -> None.
+    r16 GRAVITY: a grave story never gets a tension/trap bed — it takes the
+    lowest-energy ambient track (filename containing 'ambient' or 'echoes'),
+    else the first file (our kit sorts bgm_1.mp3 = 'Echoes', dark ambient)."""
     try:
         files = sorted(glob.glob(os.path.join(BGM_DIR, "*.mp3")))
         if not files:
             return None
+        if grave:
+            calm = [f for f in files
+                    if "ambient" in os.path.basename(f).lower()
+                    or "echoes" in os.path.basename(f).lower()]
+            track = calm[0] if calm else files[0]
+            log.info("bgm (GRAVE story -> ambient bed): %s", track)
+            return track
         idx = int(hashlib.md5(str(page_id).encode()).hexdigest(), 16) % len(files)
         log.info("bgm: %s (%d candidate(s))", files[idx], len(files))
         return files[idx]
@@ -3571,9 +3598,11 @@ def build_pattern_interrupt(scenes, page_id):
 def compose_video(pool, broll_terms, mp3_path, hook, script, word_timings,
                   duration, font_path, out_path, bgm_path=None,
                   shotlist=None, page_id=0, receipts=None, title="",
-                  person_map=None, visual_map=None):
+                  person_map=None, visual_map=None, gravity="standard"):
     from moviepy import AudioFileClip, CompositeVideoClip, afx, vfx
+    global LAST_EDL
 
+    grave = str(gravity).strip().lower() == "grave"   # r16 GRAVITY register
     total = duration + TAIL_SECONDS
 
     # Beats always computed: the loved word-pop captions ride on them in BOTH
@@ -3585,6 +3614,7 @@ def compose_video(pool, broll_terms, mp3_path, hook, script, word_timings,
     edl = build_edl(shotlist, script, word_timings, total) \
         if shotlist else None
     v4_mode = edl is not None
+    LAST_EDL = edl if v4_mode else None   # r16: the judge pairs frames<->phrases from this
     if v4_mode:
         scenes = plan_scenes_edl(edl, pool, fetcher, receipts=receipts,
                                  title=title, person_map=person_map,
@@ -3597,6 +3627,18 @@ def compose_video(pool, broll_terms, mp3_path, hook, script, word_timings,
         if shotlist:
             log.info("shotlist present but unusable; v3 scene planner")
         scenes = plan_scenes(beats, pool, fetcher, total)
+    # r16 GRAVITY: a grave story is cut like a measured news piece — whoosh
+    # hits (and the whip/zoom transitions they drive) are dropped; riser/
+    # impact survive only if the Director placed them (grave direction already
+    # restricts those to legal-reveal moments).
+    if grave:
+        n_strip = 0
+        for sc in scenes:
+            if sc.get("sfx") == "whoosh":
+                sc["sfx"] = "none"
+                n_strip += 1
+        if n_strip:
+            log.info("GRAVE story: stripped %d whoosh hit(s)", n_strip)
     n_broll = sum(1 for sc in scenes if sc["type"] == "broll")
     n_receipt = sum(1 for sc in scenes if sc["type"] == "receipt")
     log.info("scene plan (%s): %d scene(s) (%d receipt, %d b-roll), pool=%d",
@@ -3692,7 +3734,9 @@ def compose_video(pool, broll_terms, mp3_path, hook, script, word_timings,
     # interrupt overlay. Both sit BELOW vignette/scrim/hook/captions so the
     # caption sync and safe areas are untouched. v4 EDL mode only.
     interrupt_t = None
-    if v4_mode:
+    if v4_mode and grave:
+        log.info("GRAVE story: transitions + pattern interrupt disabled")
+    if v4_mode and not grave:
         if TRANSITIONS_ON:
             layers.extend(build_transitions(scenes, scene_clips))
         pi = build_pattern_interrupt(scenes, page_id)
@@ -3836,19 +3880,26 @@ d. DEAD FRAME: a near-black, blank, solid-color, corrupted or garbage frame.
 e. CONTEXT MISMATCH: an image that obviously does not belong in an internet-drama recap — corporate stock cliches (handshakes, boardrooms, generic office people), random nature/travel filler, or imagery clearly unrelated to the story the hook implies.
 f. CAPTION COLLISION: caption text sitting on top of the text of a screenshot/receipt/news card so that either becomes hard to read.
 
+SAID-VS-SEEN CHECK (r16 closed loop) — each frame below is paired with the exact narration WORDS being spoken at that moment. For every frame whose words are non-empty, judge: do the visuals BELONG to these exact words? A named person -> that person (or their post/evidence) must be on screen; a described event (the arrest, the courtroom, the party, the post) -> its image or screenshot; generic filler imagery shown during a specific fact = MISMATCH. Frames with empty words (pre-hook, tail padding) are exempt. Only flag CLEAR mismatches — a plausible related visual (the story's cover photo, the person's other photo, a receipt card of that fact) is fine.
+
+FRAME WORDS (frame number: the words spoken during that frame):
+{pairs}
+
 Acceptable and NEVER a fail: minor blur, film grain, compression artifacts, darkened or blurred backgrounds, one intentional motion-blur transition frame, the styled captions themselves.
-Judge ONLY the checklist above. Be strict: one weird frame fails the whole video.
+Judge ONLY the checklist above. Be strict: one weird frame fails the whole video; two or more clear said-vs-seen mismatches also fail it.
 
 Respond with ONLY this JSON object, no markdown fences, no extra text:
-{{"pass": true, "weird": [], "issues": [], "scores": {{"readability": 0, "framing": 0, "variety": 0, "edit_variety": 0}}}}
-where pass is true/false (false whenever weird is non-empty); weird is a list of {{"frame": <1-based frame number>, "issue": "<which checklist letter + short description>"}} covering EVERY checklist hit; issues is a list of short overall problem descriptions (empty when passing); each score is an integer 0-10."""
+{{"pass": true, "weird": [], "mismatches": [], "issues": [], "scores": {{"readability": 0, "framing": 0, "variety": 0, "edit_variety": 0}}}}
+where pass is true/false (false whenever weird is non-empty OR mismatches has 2+ entries); weird is a list of {{"frame": <1-based frame number>, "issue": "<which checklist letter + short description>"}} covering EVERY checklist hit; mismatches is a list of {{"frame": <1-based frame number>, "words": "<the paired words>", "what_shown": "<short description of what the frame actually shows>"}} covering every CLEAR said-vs-seen mismatch (empty when none); issues is a list of short overall problem descriptions (empty when passing); each score is an integer 0-10."""
 
 
 def _extract_judge_frames(mp4_path, total_s, n=JUDGE_FRAMES):
     """Grab n evenly-spaced jpeg frames (frame i at (2i+1)/2n of the runtime)
-    downscaled to 540px wide — small payload, still legible for the judge."""
+    downscaled to 540px wide — small payload, still legible for the judge.
+    r16: returns [(path, timestamp_s)] so the caller can pair each frame with
+    the EDL shot phrase spoken at that moment."""
     ff = _ffmpeg_bin()
-    paths = []
+    frames = []
     for i in range(n):
         t = max(0.0, total_s * (2 * i + 1) / (2.0 * n))
         p = os.path.join(WORKDIR, f"judge-{i}.jpg")
@@ -3856,29 +3907,52 @@ def _extract_judge_frames(mp4_path, total_s, n=JUDGE_FRAMES):
                "-frames:v", "1", "-q:v", "4", "-vf", "scale=540:-2", p]
         r = subprocess.run(cmd, capture_output=True, text=True)
         if r.returncode == 0 and os.path.exists(p) and os.path.getsize(p) > 1000:
-            paths.append(p)
+            frames.append((p, t))
         else:
             log.warning("judge frame %d extraction failed", i)
-    return paths
+    return frames
 
 
-def vision_judge(mp4_path, hook, title, total_s):
+def _phrase_at(edl, t):
+    """The EDL shot phrase spoken at time t; '' when no scene contains t
+    (pre-hook lead, tail padding, or v3 mode with no EDL at all)."""
+    if not edl:
+        return ""
+    for sh in edl:
+        try:
+            if float(sh.get("start", 0)) <= t < float(sh.get("end", 0)):
+                return str(sh.get("phrase") or "").strip()
+        except (TypeError, ValueError):
+            continue
+    return ""
+
+
+def vision_judge(mp4_path, hook, title, total_s, edl=None):
     """One gemini-2.5-flash generateContent call (native REST, inline_data
     jpegs, response_mime_type=application/json). Returns the verdict dict or
     None when the judge is unavailable — the caller only blocks delivery on
-    an explicit pass=false."""
+    an explicit pass=false.
+    r16 CLOSED LOOP: each sampled frame is paired with the exact narration
+    words under it (from the EDL) so the judge can enforce said-vs-seen; the
+    verdict gains "mismatches":[{frame,words,what_shown}] and >=2 clear
+    mismatches fail the video even if the weirdness checklist passes."""
     if not GEMINI_API_KEY:
         log.info("GEMINI_API_KEY not set; skipping vision judge")
         return None
     import base64
     try:
-        frames = _extract_judge_frames(mp4_path, total_s)
-        if len(frames) < 2:
+        framepairs = _extract_judge_frames(mp4_path, total_s)
+        if len(framepairs) < 2:
             log.warning("too few judge frames (%d); skipping judge",
-                        len(frames))
+                        len(framepairs))
             return None
+        frames = [p for p, _t in framepairs]
+        pairs_txt = "\n".join(
+            f'frame {i + 1}: "{_phrase_at(edl, t)[:160]}"'
+            for i, (_p, t) in enumerate(framepairs))
         prompt = _JUDGE_PROMPT.format(
-            n=len(frames), hook=(hook or title or "").replace('"', "'")[:200])
+            n=len(frames), hook=(hook or title or "").replace('"', "'")[:200],
+            pairs=pairs_txt)
         parts = [{"text": prompt}]
         for p in frames:
             with open(p, "rb") as fh:
@@ -3905,9 +3979,17 @@ def vision_judge(mp4_path, hook, title, total_s):
         if not isinstance(verdict, dict) or "pass" not in verdict:
             log.warning("judge returned unusable JSON; skipping judge")
             return None
-        log.info("vision judge: pass=%s weird=%s scores=%s issues=%s",
-                 verdict.get("pass"), verdict.get("weird"),
-                 verdict.get("scores"), verdict.get("issues"))
+        # r16: normalize + enforce the mismatch fail rule deterministically —
+        # >=2 clear mismatches fail regardless of what the model set pass to.
+        mm = verdict.get("mismatches")
+        mm = [m for m in mm if isinstance(m, dict)] if isinstance(mm, list) \
+            else []
+        verdict["mismatches"] = mm
+        if len(mm) >= 2 and verdict.get("pass") is True:
+            verdict["pass"] = False
+        log.info("vision judge: pass=%s weird=%s mismatches=%s scores=%s "
+                 "issues=%s", verdict.get("pass"), verdict.get("weird"),
+                 mm, verdict.get("scores"), verdict.get("issues"))
         return verdict
     except Exception as exc:  # noqa: BLE001
         log.warning("vision judge unavailable (%s); delivering unjudged", exc)
@@ -3932,6 +4014,76 @@ def append_done(page_id):
     os.makedirs(os.path.dirname(STATE_FILE) or ".", exist_ok=True)
     with open(STATE_FILE, "a", encoding="utf-8") as f:
         f.write(f"{page_id}\n")
+
+
+# --- r16 CLOSED LOOP: replan bookkeeping ('page_id count' lines) -----------
+def read_replans():
+    """{page_id_str: count} from REPLAN_FILE; malformed lines are skipped and
+    a missing/unreadable file is simply an empty book."""
+    counts = {}
+    try:
+        if os.path.exists(REPLAN_FILE):
+            with open(REPLAN_FILE, "r", encoding="utf-8") as f:
+                for line in f:
+                    parts = line.split()
+                    if (len(parts) == 2 and parts[0].isdigit()
+                            and parts[1].isdigit()):
+                        counts[parts[0]] = int(parts[1])
+    except Exception as exc:  # noqa: BLE001
+        log.warning("replan state unreadable (%s); treating as empty", exc)
+    return counts
+
+
+def replan_count(page_id):
+    return read_replans().get(str(page_id), 0)
+
+
+def bump_replan(page_id):
+    """Increment this page's replan count and rewrite the state file. Returns
+    the new count."""
+    counts = read_replans()
+    counts[str(page_id)] = counts.get(str(page_id), 0) + 1
+    os.makedirs(os.path.dirname(REPLAN_FILE) or ".", exist_ok=True)
+    with open(REPLAN_FILE, "w", encoding="utf-8") as f:
+        for k in sorted(counts, key=int):
+            f.write(f"{k} {counts[k]}\n")
+    return counts[str(page_id)]
+
+
+def request_replan(page_id, reasons):
+    """Ask the server to send this page back to the Director: POST
+    {token, action:'replan', page_id, reasons} to video_receive.php (the
+    server NULLs the pending row's shotlist; the cron re-directs it). A failed
+    request is non-fatal — the count still advances so the cap stays finite
+    and the next run simply re-renders the old plan once more."""
+    body = {"token": INGEST_TOKEN, "action": "replan",
+            "page_id": int(page_id),
+            "reasons": [str(r)[:300] for r in (reasons or [])][:8]}
+    last = None
+    for attempt in (1, 2, 3):
+        try:
+            from curl_cffi import requests as cffi
+            r = cffi.post(RECEIVE_URL, json=body, impersonate="firefox",
+                          timeout=60, headers={"User-Agent": _BROWSER_UA})
+            if r.status_code == 200 and r.json().get("ok"):
+                log.info("replan requested for page %s", page_id)
+                return True
+            last = f"curl_cffi HTTP {r.status_code} {r.text[:200]}"
+        except Exception as e:  # noqa: BLE001
+            last = f"curl_cffi: {e}"
+        try:
+            r = requests.post(RECEIVE_URL, json=body, timeout=60,
+                              headers={"User-Agent": _BROWSER_UA})
+            if r.status_code == 200 and r.json().get("ok"):
+                log.info("replan requested for page %s", page_id)
+                return True
+            last = f"requests HTTP {r.status_code} {r.text[:200]}"
+        except Exception as e:  # noqa: BLE001
+            last = f"requests: {e}"
+        time.sleep(5 * attempt)
+    log.warning("replan request failed for page %s (%s); count still "
+                "advances so the cap stays finite", page_id, last)
+    return False
 
 
 def _get_json(url, params):
@@ -4074,6 +4226,11 @@ def make_one(post, font_path):
     slug = post.get("slug", "")
     hook = (post.get("hook") or "").strip()
     script = (post.get("script") or "").strip()
+    gravity = str(post.get("gravity") or "standard").strip().lower()
+    grave = gravity == "grave"   # r16: tragedy register (calm bgm/sfx/tts)
+    if grave:
+        log.info("page %s is a GRAVE story: ambient bed, no whoosh/"
+                 "transitions, halved hook-rate boost", page_id)
     if not script:
         raise ValueError(f"post {page_id} missing script")
     if not hook:
@@ -4139,7 +4296,7 @@ def make_one(post, font_path):
     # r12: expressive segmented narration first; ANY doubt -> the proven
     # single-pass path (synthesize_expressive verifies its own offsets and
     # returns None rather than risk caption sync).
-    result = synthesize_expressive(script, mp3)
+    result = synthesize_expressive(script, mp3, grave=grave)
     if result is not None:
         timings, duration = result
     else:
@@ -4150,19 +4307,55 @@ def make_one(post, font_path):
 
     out = os.path.join(WORKDIR, f"video-{page_id}.mp4")
     compose_video(pool, broll_terms, mp3, hook, script, timings, duration,
-                  font_path, out, bgm_path=pick_bgm(page_id),
+                  font_path, out, bgm_path=pick_bgm(page_id, grave=grave),
                   shotlist=shotlist, page_id=page_id,
                   receipts=receipt_paths, title=post.get("title", ""),
-                  person_map=person_map, visual_map=visual_map)
+                  person_map=person_map, visual_map=visual_map,
+                  gravity=gravity)
 
     # v3: the vision judge sees the FINISHED (faststart-remuxed) artifact.
+    # r16: it also gets the EDL so every sampled frame carries the words
+    # spoken under it (said-vs-seen enforcement).
     verdict = vision_judge(out, hook, post.get("title", ""),
-                           duration + TAIL_SECONDS)
+                           duration + TAIL_SECONDS, edl=LAST_EDL)
     if verdict is not None and verdict.get("pass") is not True:
-        raise JudgeRejected(
-            f"vision judge rejected page {page_id}: "
-            f"weird={verdict.get('weird')} issues={verdict.get('issues')} "
-            f"scores={verdict.get('scores')}")
+        mism = verdict.get("mismatches") or []
+        weird = verdict.get("weird") or []
+        if len(mism) >= 2:
+            # r16 CLOSED LOOP: a mismatch-class rejection means the PLAN is
+            # wrong, not the render — re-rendering the same shotlist would
+            # fail the same way. Ask the server to re-direct the story
+            # (shotlist=NULL) and exit red; the next run renders the new plan.
+            prev = replan_count(page_id)
+            if prev >= REPLAN_CAP and not weird:
+                log.error(
+                    "REPLAN CAP REACHED for page %s (%d replans already): the "
+                    "judge still sees %d said-vs-seen mismatch(es) but we "
+                    "DELIVER ANYWAY rather than loop forever. mismatches=%s",
+                    page_id, prev, len(mism), mism[:4])
+            else:
+                if prev < REPLAN_CAP:
+                    reasons = [
+                        f"frame {m.get('frame')}: said "
+                        f"'{str(m.get('words') or '')[:120]}' but showed "
+                        f"{str(m.get('what_shown') or '')[:120]}"
+                        for m in mism[:6]]
+                    request_replan(page_id, reasons)
+                    now = bump_replan(page_id)
+                    raise JudgeRejected(
+                        f"said-vs-seen judge rejected page {page_id} "
+                        f"(replan {now}/{REPLAN_CAP} requested): "
+                        f"mismatches={mism[:4]} weird={weird} "
+                        f"issues={verdict.get('issues')}")
+                raise JudgeRejected(
+                    f"vision judge rejected page {page_id} (replan cap "
+                    f"reached but weirdness remains): weird={weird} "
+                    f"mismatches={mism[:4]} issues={verdict.get('issues')}")
+        else:
+            raise JudgeRejected(
+                f"vision judge rejected page {page_id}: "
+                f"weird={weird} issues={verdict.get('issues')} "
+                f"scores={verdict.get('scores')}")
 
     post_video(page_id, slug, out)
     append_done(page_id)
