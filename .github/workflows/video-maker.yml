@@ -163,8 +163,12 @@ jobs:
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          if [ -n "$(git status --porcelain .social/video_done.txt)" ]; then
-            git add .social/video_done.txt
+          # r16: the replan book (.social/video_replans.txt) commits alongside
+          # the done-list; the || true guards keep an absent file from ever
+          # failing this step.
+          if [ -n "$(git status --porcelain .social/video_done.txt .social/video_replans.txt 2>/dev/null || true)" ]; then
+            git add .social/video_done.txt || true
+            git add .social/video_replans.txt || true
             git commit -m "video-maker: update dedup state [skip ci]"
             git push
           else
