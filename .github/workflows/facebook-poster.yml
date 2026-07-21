@@ -13,12 +13,21 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Fetch key from our server vault
+        env:
+          INGEST_TOKEN: ${{ secrets.INGEST_TOKEN }}
+        run: |
+          TK=$(curl -s -X POST -H "Content-Type: application/json" \
+            -d "{\"token\":\"$INGEST_TOKEN\",\"want\":[\"fb\"]}" \
+            https://genzhype.com/api/creds.php \
+            | python3 -c "import sys,json;print(json.load(sys.stdin)['creds']['fb'],end='')")
+          echo "::add-mask::$TK"
+          echo "FB_PAGE_TOKEN=$TK" >> "$GITHUB_ENV"
       - name: Post to Facebook Page
         env:
           SOCIAL_BASE: 'https://genzhype.com'
           INGEST_TOKEN: ${{ secrets.INGEST_TOKEN }}
           FB_PAGE_ID: ${{ secrets.FB_PAGE_ID }}
-          FB_PAGE_TOKEN: ${{ secrets.FB_PAGE_TOKEN }}
         run: python facebook_poster.py
       - name: Save poster state
         run: |
