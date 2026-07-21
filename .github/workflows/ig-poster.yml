@@ -13,12 +13,21 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Fetch key from our server vault
+        env:
+          INGEST_TOKEN: ${{ secrets.INGEST_TOKEN }}
+        run: |
+          TK=$(curl -s -X POST -H "Content-Type: application/json" \
+            -d "{\"token\":\"$INGEST_TOKEN\",\"want\":[\"ig\"]}" \
+            https://genzhype.com/api/creds.php \
+            | python3 -c "import sys,json;print(json.load(sys.stdin)['creds']['ig'],end='')")
+          echo "::add-mask::$TK"
+          echo "IG_ACCESS_TOKEN=$TK" >> "$GITHUB_ENV"
       - name: Post to Instagram
         env:
           SOCIAL_BASE: 'https://genzhype.com'
           INGEST_TOKEN: ${{ secrets.INGEST_TOKEN }}
           IG_USER_ID: ${{ secrets.IG_USER_ID }}
-          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
         run: python ig_poster.py
       - name: Save poster state
         run: |
