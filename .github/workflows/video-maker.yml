@@ -114,6 +114,19 @@ jobs:
         run: |
           python -m pip install "sentence-transformers>=3.0"
 
+      # r18 GRAFT A FORCED ALIGNMENT (optional): whisperx measures the REAL
+      # word timings from the rendered audio (edge-tts's self-reported cues +
+      # r12 concat offsets are what make the narration read LATE). CPU-only
+      # torch (no CUDA bloat); the ~360MB wav2vec2 align model downloads at
+      # first use inside the render step. The driver treats a failed install
+      # OR a failed model download as "keep edge timings", so this step is
+      # non-fatal. Kill switch: env VIDEO_FORCED_ALIGN: "0".
+      - name: Install whisperx forced aligner (optional)
+        continue-on-error: true
+        run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install whisperx
+
       # r13 REAL FOOTAGE (optional): yt-dlp fetches short MUTED sections of
       # the story's own YouTube videos (14s window, <=3.5s shown per scene,
       # max ~8 borrowed seconds per video — the drama-channel fair-use
