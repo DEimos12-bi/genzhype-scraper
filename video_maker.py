@@ -4413,24 +4413,43 @@ Respond with ONLY this JSON object, no markdown fences, no extra text:
 where pass is true/false (false whenever weird is non-empty OR mismatches has 2+ entries); weird is a list of {{"frame": <1-based frame number>, "issue": "<which checklist letter + short description>"}} covering EVERY checklist hit; mismatches is a list of {{"frame": <1-based frame number>, "words": "<the paired words>", "what_shown": "<short description of what the frame actually shows>"}} covering every CLEAR said-vs-seen mismatch (empty when none); issues is a list of short overall problem descriptions (empty when passing); each score is an integer 0-10."""
 
 
-def _extract_judge_frames(mp4_path, total_s, n=JUDGE_FRAMES):
-    """Grab n evenly-spaced jpeg frames (frame i at (2i+1)/2n of the runtime)
-    downscaled to 540px wide — small payload, still legible for the judge.
-    r16: returns [(path, timestamp_s)] so the caller can pair each frame with
-    the EDL shot phrase spoken at that moment."""
+def _scene_midpoints(edl, total_s, cap=None):
+    """r19: one timestamp per EDL scene (its midpoint) — a frame per CUT covers
+    100% of the editing decisions (adjacent raw frames are near-duplicates;
+    the picture only changes at cuts). Falls back to even spacing without EDL."""
+    if edl:
+        ts = [min(total_s - 0.05, max(0.0, (s["start"] + s["end"]) / 2.0))
+              for s in edl if s.get("end", 0) > s.get("start", 0)]
+        if cap and len(ts) > cap:
+            step = len(ts) / float(cap)
+            ts = [ts[int(i * step)] for i in range(cap)]
+        return ts
+    n = cap or JUDGE_FRAMES
+    return [max(0.0, total_s * (2 * i + 1) / (2.0 * n)) for i in range(n)]
+
+
+def _extract_frames_at(mp4_path, times, prefix="judge", width=540):
+    """Extract one 540px jpeg per timestamp; returns [(path, timestamp_s)]."""
     ff = _ffmpeg_bin()
     frames = []
-    for i in range(n):
-        t = max(0.0, total_s * (2 * i + 1) / (2.0 * n))
-        p = os.path.join(WORKDIR, f"judge-{i}.jpg")
+    for i, t in enumerate(times):
+        p = os.path.join(WORKDIR, f"{prefix}-{i}.jpg")
         cmd = [ff, "-y", "-ss", f"{t:.2f}", "-i", mp4_path,
-               "-frames:v", "1", "-q:v", "4", "-vf", "scale=540:-2", p]
+               "-frames:v", "1", "-q:v", "4", "-vf", f"scale={width}:-2", p]
         r = subprocess.run(cmd, capture_output=True, text=True)
         if r.returncode == 0 and os.path.exists(p) and os.path.getsize(p) > 1000:
             frames.append((p, t))
         else:
-            log.warning("judge frame %d extraction failed", i)
+            log.warning("%s frame %d extraction failed", prefix, i)
     return frames
+
+
+def _extract_judge_frames(mp4_path, total_s, n=JUDGE_FRAMES):
+    """r19: the judge now inspects ONE FRAME PER SCENE (every cut judged;
+    capped at 16 to keep the single vision call sane). Pre-EDL/v3 mode keeps
+    the old even spacing. Returns [(path, timestamp_s)]."""
+    times = _scene_midpoints(LAST_EDL, total_s, cap=max(n, 16))
+    return _extract_frames_at(mp4_path, times, prefix="judge")
 
 
 def _phrase_at(edl, t):
@@ -4683,7 +4702,11 @@ def fetch_next(done_ids):
         if data is None:
             raise RuntimeError("no static feed candidate parsed")
         for post in data.get("posts") or []:
-            if str(post.get("page_id")) not in done_set:
+            # r19: force=true = the SERVER requeued this story for a re-render —
+            # the local done-list must not veto it (no more diary editing).
+            if post.get("force") or str(post.get("page_id")) not in done_set:
+                if post.get("force"):
+                    log.info("FORCED re-render job for page %s", post.get("page_id"))
                 log.info("job from static feed (generated %s)", data.get("generated"))
                 return post
         log.info("static feed: all %d jobs already done", len(data.get("posts") or []))
@@ -4694,7 +4717,54 @@ def fetch_next(done_ids):
     return data.get("post")
 
 
-def post_video(page_id, slug, mp4_path):
+def build_filmstrip(mp4_path, total_s, out_path):
+    """r19 THE OWNER'S WINDOW: a 3x4 contact sheet of 12 frames with the words
+    spoken at each moment printed underneath — delivered WITH the video so the
+    operator's AI can literally LOOK at what every render shows vs says.
+    Requires ffmpeg + PIL (runner-only); returns out_path or None."""
+    try:
+        from PIL import Image as PImage, ImageDraw, ImageFont
+        # r19: EVERY scene gets a frame (owner: 12 samples is nothing — the
+        # right coverage is one frame per CUT, so no scene can hide).
+        times = _scene_midpoints(LAST_EDL, total_s, cap=36)
+        frames = _extract_frames_at(mp4_path, times, prefix="strip", width=360)
+        if not frames:
+            return None
+        tw, th, cap_h = 270, 480, 46
+        cols = 4
+        rows = max(1, (len(frames) + cols - 1) // cols)
+        sheet = PImage.new("RGB", (cols * tw, rows * (th + cap_h)), (12, 12, 12))
+        draw = ImageDraw.Draw(sheet)
+        try:
+            font = ImageFont.truetype(resolve_font(), 15)
+        except Exception:  # noqa: BLE001
+            font = ImageFont.load_default()
+        for i, item in enumerate(frames):
+            fp, ts = (item if isinstance(item, tuple) else (item, 0.0))
+            x, y = (i % cols) * tw, (i // cols) * (th + cap_h)
+            try:
+                im = PImage.open(fp).convert("RGB")
+                im.thumbnail((tw, th))
+                sheet.paste(im, (x + (tw - im.width) // 2, y))
+            except Exception:  # noqa: BLE001
+                continue
+            words = ""
+            try:
+                words = _phrase_at(LAST_EDL, ts) if LAST_EDL else ""
+            except Exception:  # noqa: BLE001
+                pass
+            label = f"{ts:.1f}s: {words[:52]}" if words else f"{ts:.1f}s"
+            draw.rectangle([x, y + th, x + tw, y + th + cap_h], fill=(12, 12, 12))
+            draw.text((x + 4, y + th + 4), label, font=font, fill=(240, 240, 240))
+        sheet.save(out_path, "JPEG", quality=82)
+        log.info("filmstrip built: %s", out_path)
+        return out_path
+    except Exception as e:  # noqa: BLE001
+        log.info("filmstrip unavailable (%s)", e)
+        return None
+
+
+def post_video(page_id, slug, mp4_path, sheet_path=None):
     # Deliver as base64-in-JSON, the image-engine's proven daily-working pattern.
     # Hostinger's WAF 403-blocks multipart file uploads from datacenter IPs (run #4)
     # but passes JSON POSTs (scraper + image engine deliver this way every day).
@@ -4703,6 +4773,9 @@ def post_video(page_id, slug, mp4_path):
         b64 = base64.b64encode(fh.read()).decode("ascii")
     body = {"token": INGEST_TOKEN, "page_id": int(page_id),
             "slug": slug or "", "video_b64": b64}
+    if sheet_path and os.path.isfile(sheet_path):
+        with open(sheet_path, "rb") as fh:
+            body["sheet_b64"] = base64.b64encode(fh.read()).decode("ascii")
     log.info("delivering %s (%.1f MB as base64)", os.path.basename(mp4_path),
              len(b64) / 1024 / 1024)
     last = None
@@ -4903,7 +4976,11 @@ def make_one(post, font_path):
                 f"weird={weird} issues={verdict.get('issues')} "
                 f"scores={verdict.get('scores')}")
 
-    post_video(page_id, slug, out)
+    # r19: build + deliver the filmstrip (12 frames + spoken words) so the
+    # operator's AI can SEE what the render shows vs says. Never fatal.
+    sheet = build_filmstrip(out, duration + TAIL_SECONDS,
+                            os.path.join(WORKDIR, f"sheet-{page_id}.jpg"))
+    post_video(page_id, slug, out, sheet_path=sheet)
     append_done(page_id)
 
 
