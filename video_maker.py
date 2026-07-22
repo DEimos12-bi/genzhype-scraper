@@ -1834,7 +1834,8 @@ def build_visual_pool(post, page_id):
                          "sight" if url_flag.get(u) is not None
                          else "heuristic", u[:120])
             entry = {"path": p, "textish": textish, "url": u,
-                     "person": url2name.get(u)}
+                     "person": url2name.get(u),
+                     "designed": _designed(u)}   # r21: cover ban in fallback
             pool.append(entry)
             if entry["person"]:
                 # r11: LIST per person — avatar + recent thumbnails, in feed
@@ -2866,6 +2867,7 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
     scenes, prev_motion, consec_broll = [], None, 0
     foot_n, foot_s = 0, 0.0        # r13: footage scenes / borrowed seconds
     last_used = {}                 # r11 LRU: pool path -> last scene index
+    evidence_scene_uses = {}       # r21: evidence image -> scenes it backs (cap 2)
     person_rot = {}                # r11: per-person rotation cursor
 
     # r17: planned-clip census + PRIORITY PREFETCH — the run-level yt-dlp
@@ -2909,11 +2911,18 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
         alternative exists."""
         if not pool:
             return None
+        # r21 (filmstrip verdict: the romance-pendant COVER polluted a gaming
+        # story 3x via fallback): the designed cover may serve only when NO
+        # real alternative exists at all.
+        base = pool
+        non_cover = [e for e in pool if not e.get("designed")]
+        if len(non_cover) >= 2:
+            base = non_cover
         recent = _recent_paths()
-        cands = [e for e in pool if e["path"] not in recent]
+        cands = [e for e in base if e["path"] not in recent]
         if not cands:
             prev = scenes[-1].get("path") if scenes else None
-            cands = [e for e in pool if e["path"] != prev] or pool
+            cands = [e for e in base if e["path"] != prev] or base
         entry = min(cands, key=lambda e: last_used.get(e["path"], -1))
         last_used[entry["path"]] = si
         return entry
@@ -2931,13 +2940,23 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
             rv = receipts.get(sh.get("receipt_i"))
             r_photo = isinstance(rv, dict)     # r17: og report photo entry
             path = rv.get("path") if r_photo else rv
-            if path and path in _recent_paths():
+            # r21 SCENE-LEVEL EVIDENCE CAP (filmstrip verdict: the same
+            # article screenshot still carried 3 scenes via receipt_i reuse —
+            # the per-index cap has an index-reuse loophole). Any single
+            # evidence image backs at most 2 SCENES, full stop.
+            if path and evidence_scene_uses.get(path, 0) >= 2:
+                log.info("receipt image already in 2 scenes; subject photo "
+                         "for variety")
+                path = None
+            elif path and path in _recent_paths():
                 # r12 selfcheck law: the SAME card twice inside the no-repeat
                 # window reads as a frozen frame — subject photo instead.
                 log.info("receipt %s repeats within %d scenes; subject photo "
                          "fallback", sh.get("receipt_i"),
                          POOL_NO_REPEAT_WINDOW)
                 path = None
+            elif path:
+                evidence_scene_uses[path] = evidence_scene_uses.get(path, 0) + 1
             elif path and r_photo:
                 # r17: the article's real og:image — it IS the moment's
                 # photo, so it renders as a NORMAL photo scene (cover-crop,
