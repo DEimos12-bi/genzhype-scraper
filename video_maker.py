@@ -508,6 +508,17 @@ EXPR_HOOK_PITCH = "+2Hz"       # only passed when edge-tts supports pitch=
 EXPR_CTA_RATE = 0.96           # final CTA line: landing
 EXPR_CUE_TOLERANCE = 0.10      # >10% word-cue mismatch -> single-pass fallback
 
+# --- r18 GRAFT A: FORCED ALIGNMENT (measure the REAL audio, not edge-tts's
+# self-reported WordBoundary cues + r12 concat offsets — the source of the
+# owner's "narration is late" audio-visual drift). whisperx aligns the KNOWN
+# transcript (== the script) against the rendered mp3 on CPU; only if the
+# measurement is provably at least as trustworthy as the edge timings (caption
+# sync is sacred) does it replace them for BOTH captions and the EDL. Any
+# failure (import / model-download / empty / gate) -> keep edge timings.
+FORCED_ALIGN = os.environ.get("VIDEO_FORCED_ALIGN", "1").strip() != "0"
+FORCED_ALIGN_COVERAGE = 0.70   # measured words must difflib-match >=70% of tokens
+FORCED_ALIGN_DUR_TOL = 0.5     # measured total span within ~0.5s of audio length
+
 # --- v5: vision re-rank of stock candidates (Law 24, the Kapwing move) ---
 # Whole step skippable (quota lever): VIDEO_VISION_RERANK=0 -> v4.5 behaviour.
 VISION_RERANK = os.environ.get("VIDEO_VISION_RERANK", "1").strip() != "0"
@@ -945,6 +956,177 @@ def _audio_duration(path):
 
 
 # ============================================================================
+# r18 GRAFT A: FORCED ALIGNMENT
+# The drift the owner sees ("narration is LATE vs what's shown") comes from
+# trusting edge-tts's self-reported WordBoundary cues plus the r12 segment
+# concatenation offsets. Here we MEASURE the actual rendered audio with
+# whisperx and, only when the measurement passes strict sync gates, hand those
+# real timings to map_tokens_to_spans / build_edl AND the captions. Torch runs
+# CPU-only (the runner has no GPU): device='cpu', compute_type='int8'.
+# ============================================================================
+def _flatten_whisperx(result):
+    """Flatten a whisperx.align() result into synthesize()'s exact shape
+    [(word, start_s, end_s), ...]. Words whisperx could not time-anchor (it
+    leaves start/end None) are skipped — the downstream difflib aligner
+    interpolates those gaps. Never raises."""
+    words = []
+    if not isinstance(result, dict):
+        return words
+
+    def _harvest(items):
+        for w in items or []:
+            if not isinstance(w, dict):
+                continue
+            tok, s, e = w.get("word"), w.get("start"), w.get("end")
+            if not tok or s is None or e is None:
+                continue
+            try:
+                words.append((str(tok).strip(), float(s), float(e)))
+            except (TypeError, ValueError):
+                continue
+
+    for seg in result.get("segments") or []:
+        if isinstance(seg, dict):
+            _harvest(seg.get("words"))
+    if not words:                      # some whisperx versions flatten here
+        _harvest(result.get("word_segments"))
+    return words
+
+
+def _whisperx_align_only(whisperx, audio, dur, script_text, device):
+    """ALIGN-ONLY path: we already KNOW the transcript (== the script), so we
+    hand whisperx a single segment spanning the whole clip and only the
+    ~360MB wav2vec2 align model downloads — NOT the full ASR model."""
+    align_model, metadata = whisperx.load_align_model(
+        language_code="en", device=device)
+    segments = [{"start": 0.0, "end": float(dur), "text": script_text}]
+    result = whisperx.align(segments, align_model, metadata, audio, device,
+                            return_char_alignments=False)
+    return _flatten_whisperx(result)
+
+
+def _whisperx_transcribe_align(whisperx, audio, script_text, device):
+    """Heavier fallback when align-only proves unreliable in the installed
+    whisperx version: transcribe with the small 'base' model (int8) then align
+    the produced segments. Downloads the ASR model too (~140MB base)."""
+    model = whisperx.load_model("base", device, compute_type="int8",
+                                language="en")
+    tr = model.transcribe(audio, batch_size=8)
+    align_model, metadata = whisperx.load_align_model(
+        language_code="en", device=device)
+    result = whisperx.align(tr.get("segments") or [], align_model, metadata,
+                            audio, device, return_char_alignments=False)
+    return _flatten_whisperx(result)
+
+
+def forced_align(mp3_path, script_text):
+    """Measure real word timings from the rendered audio. Returns a list in
+    synthesize()'s shape [(word, start_s, end_s), ...] measured from the audio,
+    or None on ANY failure so the caller keeps the edge timings unchanged.
+    Align-only first (light: align model only); transcribe+align fallback if
+    align-only yields nothing / errors. CPU-only, int8. Never raises."""
+    if not FORCED_ALIGN:
+        return None
+    try:
+        import whisperx
+    except Exception as exc:  # noqa: BLE001 — model/lib absent -> graceful
+        log.info("FORCED-ALIGN unavailable; edge timings (whisperx import: %s)",
+                 str(exc)[:80])
+        return None
+    try:
+        import torch  # noqa: F401 — whisperx needs it; presence check only
+    except Exception as exc:  # noqa: BLE001
+        log.info("FORCED-ALIGN unavailable; edge timings (torch import: %s)",
+                 str(exc)[:80])
+        return None
+    device = "cpu"
+    try:
+        audio = whisperx.load_audio(mp3_path)
+    except Exception as exc:  # noqa: BLE001
+        log.info("FORCED-ALIGN unavailable; edge timings (load_audio: %s)",
+                 str(exc)[:80])
+        return None
+    try:
+        dur = float(len(audio)) / 16000.0     # whisperx resamples to 16 kHz
+    except Exception:  # noqa: BLE001
+        dur = 0.0
+    if dur <= 0:
+        log.info("FORCED-ALIGN unavailable; edge timings (empty audio)")
+        return None
+    # (1) ALIGN-ONLY from the known transcript.
+    try:
+        words = _whisperx_align_only(whisperx, audio, dur, script_text, device)
+        if words:
+            return words
+        log.info("FORCED-ALIGN: align-only yielded no words; "
+                 "transcribe+align fallback")
+    except Exception as exc:  # noqa: BLE001
+        log.info("FORCED-ALIGN: align-only failed (%s); transcribe+align "
+                 "fallback", str(exc)[:80])
+    # (2) transcribe(base)+align fallback.
+    try:
+        words = _whisperx_transcribe_align(whisperx, audio, script_text, device)
+        return words or None
+    except Exception as exc:  # noqa: BLE001
+        log.info("FORCED-ALIGN unavailable; edge timings "
+                 "(transcribe+align: %s)", str(exc)[:100])
+        return None
+
+
+def _forced_align_coverage(measured, script):
+    """How many script tokens the measured words cover, via the SAME r15
+    difflib/_norm_word matcher map_tokens_to_spans uses. Returns
+    (matched_count, n_tokens)."""
+    import difflib
+    tokens = [w for w in script.split() if w.strip()]
+    if not tokens or not measured:
+        return 0, len(tokens)
+    tok_n = [_norm_word(w) for w in tokens]
+    meas_n = [_norm_word(w[0]) for w in measured]
+    sm = difflib.SequenceMatcher(a=tok_n, b=meas_n, autojunk=False)
+    matched = sum(blk.size for blk in sm.get_matching_blocks())
+    return matched, len(tokens)
+
+
+def accept_forced_timings(measured, script, duration,
+                          coverage_min=FORCED_ALIGN_COVERAGE,
+                          dur_tol=FORCED_ALIGN_DUR_TOL):
+    """CAPTION SYNC IS SACRED (r15 discipline): only replace edge timings when
+    the measured ones are provably at least as trustworthy. Gates, ALL required:
+      1. non-empty;
+      2. starts monotonic non-decreasing, every end >= its start;
+      3. difflib coverage >= coverage_min of the script tokens (unmatched are
+         interpolated downstream by map_tokens_to_spans);
+      4. total measured span within ~dur_tol of the real audio duration.
+    Any fail -> False -> caller keeps edge timings. Never ships worse sync."""
+    if not measured:
+        return False
+    prev_s = None                                   # gate 2: monotonic / sane
+    for item in measured:
+        try:
+            _w, s, e = item
+            s, e = float(s), float(e)
+        except (TypeError, ValueError):
+            return False
+        if e + 1e-6 < s:
+            return False
+        if prev_s is not None and s + 1e-3 < prev_s:
+            return False
+        prev_s = s
+    matched, n_tok = _forced_align_coverage(measured, script)   # gate 3
+    if n_tok == 0 or matched < coverage_min * n_tok:
+        log.info("FORCED-ALIGN rejected: coverage %d/%d (<%.0f%%); edge timings",
+                 matched, n_tok, 100.0 * coverage_min)
+        return False
+    span_end = float(measured[-1][2])                # gate 4: span vs audio
+    if duration > 0 and abs(span_end - duration) > dur_tol:
+        log.info("FORCED-ALIGN rejected: span %.2fs vs audio %.2fs "
+                 "(>%.2fs); edge timings", span_end, duration, dur_tol)
+        return False
+    return True
+
+
+# ============================================================================
 # Fonts
 # ============================================================================
 def resolve_font():
@@ -978,6 +1160,60 @@ def resolve_font():
 REAL_SHOTS = os.environ.get("VIDEO_REAL_SHOTS", "1") != "0"
 SHOT_TOTAL_BUDGET_S = 45.0     # wall-clock across ALL screenshots per video
 
+# r18 GRAFT B: compact ad/tracker host blocklist — substrings matched against
+# the request URL host. Network-level ABORT keeps ads/trackers/analytics from
+# ever painting, so the element screenshot captures the article, not furniture.
+# The article's OWN domain is never in here, so its fonts/images/scripts load
+# normally. Best-effort; never fatal.
+_AD_HOST_SUBSTRINGS = (
+    "doubleclick", "googlesyndication", "google-analytics", "googletagmanager",
+    "googletagservices", "googleadservices", "adservice", "adsystem",
+    "amazon-adsystem", "adnxs", "taboola", "outbrain", "criteo",
+    "scorecardresearch", "moatads", "pubmatic", "rubiconproject",
+    "casalemedia", "adsafeprotected", "quantserve", "quantcount",
+    "sharethrough", "teads", "connatix", "openx", "adform", "smartadserver",
+    "yieldmo", "indexww", "3lift", "bidswitch", "adroll", "bluekai",
+    "demdex", "krxd", "chartbeat", "parsely", "sail-horizon", "hotjar",
+    "mixpanel", "segment.io", "branch.io", "onesignal", "permutive",
+    "amplitude", "mparticle", "nr-data", "newrelic", "ampproject",
+    "zergnet", "mgid", "revcontent", "disqus", "adsrvr", "adtech",
+    "advertising", "banner",
+)
+
+
+def _is_ad_host(url):
+    """True when the URL's host contains a blocklisted ad/tracker substring."""
+    try:
+        host = (urllib.parse.urlparse(url).hostname or "").lower()
+    except Exception:  # noqa: BLE001
+        return False
+    return any(sub in host for sub in _AD_HOST_SUBSTRINGS)
+
+
+def _block_ads(route):
+    """Playwright route handler: abort ad/tracker requests, let the rest pass.
+    Never raises — on any doubt the request is allowed to continue."""
+    try:
+        if _is_ad_host(route.request.url):
+            route.abort()
+            return
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        route.continue_()
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def _shot_is_blank(path):
+    """r17 near-blank/bot-wall test reused for the element-screenshot branch:
+    a near-uniform frame (std < 8) is unusable. Unreadable == unusable."""
+    try:
+        g = Image.open(path).convert("L").resize((64, 80))
+        return float(np.asarray(g).std()) < 8.0
+    except Exception:  # noqa: BLE001
+        return True
+
 
 def screenshot_articles(targets, page_id):
     """Screenshot REAL article pages (masthead + headline + lead image, as the
@@ -1010,6 +1246,12 @@ def screenshot_articles(targets, page_id):
                 path = os.path.join(WORKDIR, f"shot-{page_id}-{i}.png")
                 try:
                     page = ctx.new_page()
+                    # r18 GRAFT B: network ad-block — abort ad/tracker requests
+                    # BEFORE navigation so no ad/analytics furniture ever paints.
+                    try:
+                        page.route("**/*", _block_ads)
+                    except Exception:  # noqa: BLE001 — best-effort
+                        pass
                     page.goto(url, wait_until="domcontentloaded", timeout=15000)
                     page.wait_for_timeout(1500)
                     # best-effort cookie-banner dismissal
@@ -1060,65 +1302,124 @@ def screenshot_articles(targets, page_id):
                         }""")
                     except Exception:
                         pass
-                    # r15 HUMAN CROP, r17 HARDENED: the headline block is now
-                    # REQUIRED. A screenshot happens ONLY tight around
+                    # r18 GRAFT B DOM ISOLATION: screenshot the MAIN ARTICLE
+                    # NODE itself (element-level), not a fixed viewport clip.
+                    # Fallback chain: element -> r15 headline crop -> None
+                    # (NEVER a raw full-page top clip; NEVER beige).
+                    shot_done = False
+                    try:
+                        art_loc, art_name = None, None
+                        for sel in ("article", "main article",
+                                    '[itemprop="articleBody"]', "main",
+                                    ".article-content, .post-content, "
+                                    ".entry-content"):
+                            try:
+                                loc = page.locator(sel).first
+                                if loc.count() > 0:
+                                    bb = loc.bounding_box()
+                                    if (bb and bb.get("height", 0) > 300
+                                            and bb.get("width", 0) > 200):
+                                        art_loc, art_name = loc, sel
+                                        break
+                            except Exception:  # noqa: BLE001
+                                continue
+                        if art_loc is not None:
+                            try:
+                                art_loc.scroll_into_view_if_needed(timeout=1500)
+                            except Exception:  # noqa: BLE001
+                                pass
+                            art_loc.screenshot(path=path, timeout=8000)
+                            im = Image.open(path).convert("RGB")
+                            # cap absurdly tall article nodes to the top card
+                            # region (headline + lead + first paragraphs)
+                            if im.height > im.width * 3:
+                                im = im.crop((0, 0, im.width, im.width * 3))
+                            # normalize to 1080 wide: downscale wide, pad narrow
+                            if im.width > 1080:
+                                r = 1080.0 / im.width
+                                im = im.resize((1080, max(1, int(im.height * r))),
+                                               Image.Resampling.LANCZOS)
+                            elif im.width < 1080:
+                                pad = Image.new("RGB", (1080, im.height),
+                                                (255, 255, 255))
+                                pad.paste(im, ((1080 - im.width) // 2, 0))
+                                im = pad
+                            im.save(path)
+                            im.close()
+                            if not _shot_is_blank(path):
+                                shot_done = True
+                                log.info("article-node screenshot (%s): %s",
+                                         art_name, url[:90])
+                            else:
+                                log.info("article-node screenshot near-blank; "
+                                         "headline-crop fallback: %s", url[:80])
+                    except Exception as exc:  # noqa: BLE001 -> headline crop
+                        log.info("article-node screenshot failed (%s); "
+                                 "headline-crop fallback: %s",
+                                 str(exc)[:60], url[:80])
+                        shot_done = False
+                    # r15 HUMAN CROP, r17 HARDENED (fallback): the headline block
+                    # is REQUIRED. A screenshot happens ONLY tight around
                     # masthead + h1 + lead image — the shot a person would
                     # take. NO h1 -> NO screenshot for this URL (the raw
                     # top-of-page fallback that grabbed ads/nav is DEAD; the
                     # og-photo/subject chain covers it downstream).
-                    h1 = None
-                    try:
-                        for sel in ("article h1", "main h1", "h1"):
-                            loc = page.locator(sel).first
-                            if loc.count() > 0:
-                                bb = loc.bounding_box()
-                                if bb and bb.get("width", 0) > 200:
-                                    h1 = bb
-                                    break
-                    except Exception:  # noqa: BLE001
+                    if not shot_done:
                         h1 = None
-                    if not h1:
-                        log.info("screenshot: no headline block found; "
-                                 "skipping (no raw-page fallback): %s",
-                                 url[:90])
-                        page.close()
-                        continue
-                    img_bb = None
-                    try:
-                        for sel in ("article img", "main img", "img"):
-                            for k in range(min(4, page.locator(sel).count())):
-                                bb = page.locator(sel).nth(k).bounding_box()
-                                if (bb and bb.get("width", 0) > 400
-                                        and bb["y"] > h1["y"]
-                                        and bb["y"] < h1["y"] + 1200):
-                                    img_bb = bb
-                                    break
-                            if img_bb:
-                                break
-                    except Exception:  # noqa: BLE001
+                        try:
+                            for sel in ("article h1", "main h1", "h1"):
+                                loc = page.locator(sel).first
+                                if loc.count() > 0:
+                                    bb = loc.bounding_box()
+                                    if bb and bb.get("width", 0) > 200:
+                                        h1 = bb
+                                        break
+                        except Exception:  # noqa: BLE001
+                            h1 = None
+                        if not h1:
+                            log.info("screenshot: no headline block found; "
+                                     "skipping (no raw-page fallback): %s",
+                                     url[:90])
+                            page.close()
+                            continue
                         img_bb = None
-                    x = max(0.0, h1["x"] - 24)
-                    y = max(0.0, h1["y"] - 90)
-                    if img_bb:
-                        bottom = img_bb["y"] + img_bb["height"] + 40
+                        try:
+                            for sel in ("article img", "main img", "img"):
+                                for k in range(min(4, page.locator(sel).count())):
+                                    bb = page.locator(sel).nth(k).bounding_box()
+                                    if (bb and bb.get("width", 0) > 400
+                                            and bb["y"] > h1["y"]
+                                            and bb["y"] < h1["y"] + 1200):
+                                        img_bb = bb
+                                        break
+                                if img_bb:
+                                    break
+                        except Exception:  # noqa: BLE001
+                            img_bb = None
+                        x = max(0.0, h1["x"] - 24)
+                        y = max(0.0, h1["y"] - 90)
+                        if img_bb:
+                            bottom = img_bb["y"] + img_bb["height"] + 40
+                        else:
+                            bottom = h1["y"] + 700
+                        height = max(600.0, min(1350.0, bottom - y))
+                        width = min(1032.0, 1080 - x)
+                        clip = {"x": x, "y": y, "width": width, "height": height}
+                        page.screenshot(path=path, clip=clip)
+                        # upscale narrow crops to full card width
+                        try:
+                            im = Image.open(path)
+                            if im.width < 1080:
+                                r = 1080.0 / im.width
+                                im = im.resize((1080, int(im.height * r)),
+                                               Image.Resampling.LANCZOS)
+                                im.save(path)
+                            im.close()
+                        except Exception:  # noqa: BLE001
+                            pass
+                        page.close()
                     else:
-                        bottom = h1["y"] + 700
-                    height = max(600.0, min(1350.0, bottom - y))
-                    width = min(1032.0, 1080 - x)
-                    clip = {"x": x, "y": y, "width": width, "height": height}
-                    page.screenshot(path=path, clip=clip)
-                    # upscale narrow crops to full card width
-                    try:
-                        im = Image.open(path)
-                        if im.width < 1080:
-                            r = 1080.0 / im.width
-                            im = im.resize((1080, int(im.height * r)),
-                                           Image.Resampling.LANCZOS)
-                            im.save(path)
-                        im.close()
-                    except Exception:  # noqa: BLE001
-                        pass
-                    page.close()
+                        page.close()
                 except Exception as exc:  # noqa: BLE001
                     log.info("screenshot failed (%s): %s",
                              str(exc)[:80], url[:90])
@@ -4530,6 +4831,25 @@ def make_one(post, font_path):
             log.info("expressive TTS unavailable for page %s; single-pass "
                      "synthesis", page_id)
         timings, duration = synthesize(script, mp3)
+
+    # r18 GRAFT A FORCED ALIGNMENT: measure the REAL audio and, only when the
+    # measurement passes the sacred sync gates, replace the edge-tts timings for
+    # BOTH captions (split_beats) and the EDL (build_edl -> map_tokens_to_spans).
+    # ANY failure -> keep edge timings exactly as today.
+    if FORCED_ALIGN:
+        try:
+            measured = forced_align(mp3, script)
+        except Exception as exc:  # noqa: BLE001 — never fatal
+            measured = None
+            log.info("FORCED-ALIGN unavailable; edge timings (%s)",
+                     str(exc)[:80])
+        if measured and accept_forced_timings(measured, script, duration):
+            timings = measured
+            duration = max(duration, measured[-1][2])
+            log.info("FORCED-ALIGN: %d words measured (replaced edge timings)",
+                     len(measured))
+        else:
+            log.info("FORCED-ALIGN unavailable; edge timings")
 
     out = os.path.join(WORKDIR, f"video-{page_id}.mp4")
     compose_video(pool, broll_terms, mp3, hook, script, timings, duration,
