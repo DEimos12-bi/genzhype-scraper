@@ -362,6 +362,23 @@ import urllib.parse
 import numpy as np
 import requests
 
+# r18 FORCE IPv4 (run #79 post-mortem): genzhype.com now publishes AAAA (IPv6)
+# records, and GitHub runners frequently have NO IPv6 route — Python's requests/
+# urllib then dial the IPv6 address and die with [Errno 101] Network is
+# unreachable after multi-minute hangs. Filter IPv6 out of ALL Python name
+# resolution. (curl_cffi is unaffected AND safe: libcurl races v4/v6 itself and
+# falls back to IPv4 fast.) Kill switch: VIDEO_FORCE_IPV4=0.
+import socket as _socket
+if os.environ.get("VIDEO_FORCE_IPV4", "1") != "0":
+    _orig_getaddrinfo = _socket.getaddrinfo
+
+    def _v4_getaddrinfo(host, port, family=0, *args, **kwargs):
+        res = _orig_getaddrinfo(host, port, family, *args, **kwargs)
+        v4 = [r for r in res if r[0] == _socket.AF_INET]
+        return v4 or res
+    _socket.getaddrinfo = _v4_getaddrinfo
+
+
 # Sanitize a stale IMAGEIO_FFMPEG_EXE BEFORE any moviepy import: moviepy/imageio read
 # it blindly, and a wrong path (run #1: hardcoded /usr/bin/ffmpeg) crashes AudioFileClip.
 # Unset -> imageio-ffmpeg resolves its own bundled binary; our remux uses _ffmpeg_bin().
