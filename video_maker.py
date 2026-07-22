@@ -1330,10 +1330,14 @@ def screenshot_articles(targets, page_id):
                                 pass
                             art_loc.screenshot(path=path, timeout=8000)
                             im = Image.open(path).convert("RGB")
-                            # cap absurdly tall article nodes to the top card
-                            # region (headline + lead + first paragraphs)
-                            if im.height > im.width * 3:
-                                im = im.crop((0, 0, im.width, im.width * 3))
+                            # r20 (seen with my own eyes on the filmstrip): a
+                            # w*3-tall screenshot contain-fits into a TINY
+                            # unreadable sliver. Evidence must be READABLE:
+                            # crop to the headline block — max 1.25x width
+                            # (~4:5), which fills the card frame legibly.
+                            if im.height > im.width * 1.25:
+                                im = im.crop((0, 0, im.width,
+                                              int(im.width * 1.25)))
                             # normalize to 1080 wide: downscale wide, pad narrow
                             if im.width > 1080:
                                 r = 1080.0 / im.width
@@ -1467,21 +1471,35 @@ def resolve_event_receipts(meta, receipt_paths, shooter, og_fetch):
             targets[i] = su
     shots = shooter(targets) if targets else {}
     shots = shots or {}
+    # r20 VARIETY LAW (filmstrip verdict: ONE article screenshot appeared in
+    # 6 of 15 scenes — a single-source story floods the video with the same
+    # image). The SAME evidence image may back at most 2 receipt indexes;
+    # further indexes fall through to the og photo / subject chain instead.
+    use_count = {}
     for i, sp in shots.items():
-        if sp:
-            receipt_paths[i] = sp          # (a) clean screenshot (textish)
+        if not sp:
+            continue
+        key = sp if isinstance(sp, str) else str(sp)
+        if use_count.get(key, 0) >= 2:
+            continue                       # variety over repetition
+        use_count[key] = use_count.get(key, 0) + 1
+        receipt_paths[i] = sp              # (a) clean screenshot (textish)
     og_n = 0
+    og_used = {}
     for i in ev_idx:
         if i in receipt_paths:
             continue
         og = str(meta[i].get("og_image") or "")
         if not og.startswith("http"):
             continue
+        if og_used.get(og, 0) >= 2:
+            continue                       # same photo also capped at 2
         p = og_fetch(i, og)
         if p:
+            og_used[og] = og_used.get(og, 0) + 1
             receipt_paths[i] = {"path": p, "photo": True}   # (b) real moment photo
             og_n += 1
-    return receipt_paths, len([s for s in shots.values() if s]), og_n
+    return receipt_paths, len(set(k for k in use_count)), og_n
 
 
 def _download_bytes(url):
@@ -2992,7 +3010,17 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                 path, typ, textish = entry["path"], "photo", entry["textish"]
                 src_url = entry.get("url")             # r13: footage upgrade
         if path is None and sh["shot_class"] == "broll":
-            if consec_broll >= 2:
+            # r20 FACT GATE (filmstrip verdict: storm clouds over "on Jun 26",
+            # ink-in-water over the backlash fact): generic stock may NEVER
+            # play over a phrase carrying a specific fact — a digit, a date,
+            # a month. Those words deserve evidence or a real face.
+            _ph = sh.get("phrase", "") or ""
+            if re.search(r"\d|january|february|march|april|may\b|june|july|"
+                         r"august|september|october|november|december",
+                         _ph, re.I):
+                log.info("FACT GATE: stock denied over fact phrase (%s...); "
+                         "subject photo instead", _ph[:40])
+            elif consec_broll >= 2:
                 log.info("broll consecutive cap hit; subject photo instead")
             else:
                 # v5: pass the exact narration phrase + story title so the
@@ -4394,7 +4422,7 @@ The video's hook/title is: "{hook}"
 WEIRDNESS CHECKLIST — FAIL the video if ANY sampled frame shows ANY of:
 a. CUT/UNREADABLE TEXT: on-screen text (hook, captions, or text inside an image/screenshot) cut off mid-word or mid-letter, cropped by the frame edge, or zoomed/mangled into unreadable fragments. WHITELISTED and fine: the big styled 1-3 word ALL-CAPS captions.
 b. SLICED FACE: a human face cut by the frame edge (eyes or forehead sliced, face half outside the frame).
-c. REPETITION: the SAME underlying image or photo appears in 3 or more of the sampled frames (ignore the changing captions; judge the background visual).
+c. REPETITION: the SAME underlying image, screenshot or document appears in 3 or more of the sampled frames - THIS INCLUDES evidence screenshots and article captures; evidence repeated 3+ times is a FAIL, never acceptable (ignore the changing captions; judge the background visual). c2. UNREADABLE EVIDENCE: a screenshot/document rendered so small it floats as a narrow unreadable strip in a dark frame - if you cannot read its headline at this resolution, the viewer cannot either: FAIL.
 d. DEAD FRAME: a near-black, blank, solid-color, corrupted or garbage frame.
 e. CONTEXT MISMATCH: an image that obviously does not belong in an internet-drama recap — corporate stock cliches (handshakes, boardrooms, generic office people), random nature/travel filler, or imagery clearly unrelated to the story the hook implies.
 f. CAPTION COLLISION: caption text sitting on top of the text of a screenshot/receipt/news card so that either becomes hard to read.
@@ -4724,9 +4752,16 @@ def build_filmstrip(mp4_path, total_s, out_path):
     Requires ffmpeg + PIL (runner-only); returns out_path or None."""
     try:
         from PIL import Image as PImage, ImageDraw, ImageFont
-        # r19: EVERY scene gets a frame (owner: 12 samples is nothing — the
-        # right coverage is one frame per CUT, so no scene can hide).
-        times = _scene_midpoints(LAST_EDL, total_s, cap=36)
+        # r20 DENSE VISION (owner: "make the frames enough to see the FULL
+        # video"): one frame every 0.8s across the whole runtime — motion,
+        # transitions and caption pops become visible as frame-to-frame
+        # change. (Sound remains the owner's ear.) Cap 120 frames.
+        step = 0.8
+        times = []
+        t = 0.4
+        while t < total_s and len(times) < 120:
+            times.append(t)
+            t += step
         frames = _extract_frames_at(mp4_path, times, prefix="strip", width=360)
         if not frames:
             return None
