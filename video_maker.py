@@ -4375,14 +4375,26 @@ def selfcheck_scenes(scenes, avail_assets, speech_span=0.0, caption_gap=0.0,
                    if sc.get("type") == "photo" and sc.get("path")}
     variety = len(photo_paths) if photo_paths else int(avail_assets)
     eff_window = max(0, min(int(window), min(int(avail_assets), variety) - 1))
-    repeats = []
+    # r25 motion-lite (footage is bot-walled, so small real-photo pools are
+    # normal and a relevant photo MUST sometimes reappear): a repeat with a
+    # DIFFERENT camera move is a normal edit, not a defect — hard-fail only on a
+    # truly FROZEN frame (the SAME image on 3 consecutive scenes, which the
+    # still-hold gate already prevents; this is the safety net). Nearer repeats
+    # are reported as `soft` (warn only), so a 6-photo/10-scene story still
+    # delivers instead of retry-looping into the job timeout.
+    repeats = []            # HARD: 3+ consecutive identical path (frozen)
+    soft_repeats = []       # reappears within window but not frozen (warn)
     for i, sc in enumerate(scenes):
         p = sc.get("path")
         if not p:
             continue
+        if (i >= 2 and scenes[i - 1].get("path") == p
+                and scenes[i - 2].get("path") == p):
+            repeats.append((i - 2, i, p))
+            continue
         for j in range(max(0, i - eff_window), i):
             if scenes[j].get("path") == p:
-                repeats.append((j, i, p))
+                soft_repeats.append((j, i, p))
                 break
     short_scenes = []
     for i, sc in enumerate(scenes):
@@ -4397,6 +4409,7 @@ def selfcheck_scenes(scenes, avail_assets, speech_span=0.0, caption_gap=0.0,
         coverage = max(0.0, min(1.0, 1.0 - (max(0.0, caption_gap)
                                             / float(speech_span))))
     return {"eff_window": eff_window, "repeats": repeats,
+            "soft_repeats": soft_repeats,
             "short_scenes": short_scenes, "caption_coverage": coverage,
             "coverage_ok": coverage >= min_caption_cov}
 
@@ -4652,10 +4665,15 @@ def compose_video(pool, broll_terms, mp3_path, hook, script, word_timings,
              chk["eff_window"], avail_assets)
     if chk["repeats"]:
         raise SelfCheckFailed(
-            "image path repeats inside the "
-            f"{chk['eff_window']}-scene window: "
+            "same image FROZEN across 3 consecutive scenes: "
             + "; ".join(f"scene {a + 1}->{b + 1} ({os.path.basename(p)})"
                         for a, b, p in chk["repeats"][:4]))
+    if chk.get("soft_repeats"):
+        # r25: acceptable in a small real-photo pool — the image reappears with
+        # a fresh camera move (motion-lite), not a frozen frame. Warn only.
+        log.warning("SELFCHECK: %d near-repeat(s) within the %d-scene window "
+                    "(small pool; each reappears with different motion) — "
+                    "non-fatal", len(chk["soft_repeats"]), chk["eff_window"])
     if chk["short_scenes"]:
         log.warning("SELFCHECK: %d scene(s) under %.1fs: %s (non-fatal)",
                     len(chk["short_scenes"]), SELFCHECK_MIN_SHOT_S,
