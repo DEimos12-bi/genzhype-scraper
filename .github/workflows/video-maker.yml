@@ -62,6 +62,12 @@ jobs:
       VIDEO_BATCH: ${{ github.event.inputs.batch || '1' }}
       VIDEO_WORKDIR: build
       VIDEO_STATE_FILE: .social/video_done.txt
+      # r25: YouTube bot-walls video downloads from CI IPs (all clients fail
+      # even with valid cookies). Skip the doomed yt-dlp spawns (fast renders)
+      # while keeping cookie/footage MODE on so the mismatched-stock kill stays
+      # active and the video rides motion-strong real stills. Set to "1" only
+      # if a residential proxy later makes YouTube downloads actually work.
+      VIDEO_FOOTAGE_FETCH: "0"
       # Point the driver at the vendored Turbo tree so it reuses voice.py.
       MPT_HOME: ${{ github.workspace }}/videorepos/mpt
       # v3 OPTIONAL keys — unset secrets expand to "" and the driver treats

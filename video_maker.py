@@ -446,8 +446,12 @@ MAX_SCENES = int(os.environ.get("VIDEO_MAX_SCENES", "8"))
 MIN_SCENE_S = 1.4              # beats shorter than this merge into a neighbour
 MAX_BEAT_S = 8.0               # sentences longer than this get split
 TARGET_BEAT_S = 5.5            # target sub-beat length when splitting long ones
-SCENE_ZOOM = 0.10              # zoom-in/out amount per scene
-PAN_SCALE = 1.18               # oversize factor that creates room for pans
+SCENE_ZOOM = 0.16              # r25 motion-lite: stronger, clearly-visible push
+                               # (footage is bot-walled on free cloud, so the
+                               # LIFE has to come from real camera movement on
+                               # the real stills — was 0.10, too timid = frozen)
+PAN_SCALE = 1.24               # oversize factor that creates room for pans
+                               # (r25: more travel so pans actually read)
 XFADE = float(os.environ.get("VIDEO_XFADE", "0.15"))   # 0 -> hard cuts
 
 # --- v2: captions ---
@@ -492,7 +496,11 @@ BROLL_DARKEN = 0.78                 # MultiplyColor factor: captions stay readab
 
 # --- v3: text-heavy image guard (posters/cards/receipts NEVER crop-zoomed) ---
 TEXTISH_NAME_HINTS = ("social-", "card")
-TEXTISH_DRIFT = 0.02                # gentle drift only, fraction of W; NO zoom
+TEXTISH_DRIFT = 0.045               # r25 motion-lite: cards (screenshots, X
+                                    # posts) were nearly frozen at 0.02 — the
+                                    # owner paused on exactly these. More drift.
+CARD_ZOOM = 0.07                    # r25: gentle push-in on cards so they are
+                                    # ALIVE, not static — still fully readable
 TEXTISH_FLAT_FRAC = 0.55            # top-4 quantized colors must cover >= this
 
 # --- v3: Gemini vision judge (the "brain that can see") ---
@@ -567,9 +575,10 @@ CLIP_MAX_ENCODES = 40          # image encodings per video (pool encoded once)
 # --- v4: EDL execution (V4-EDITOR-SPEC.md Laws 3/4/6/7/9) ---
 VISUAL_LEAD_S = float(os.environ.get("VIDEO_VISUAL_LEAD_S", "0.30"))  # Law 9
 MIN_SHOT_S = 0.35              # degenerate shots absorb into the previous one
-PUNCH_HIT_SCALE = 1.12         # Law 6: snap-zoom target (subtle band)
+PUNCH_HIT_SCALE = 1.17         # Law 6: snap-zoom target (r25: punchier)
 PUNCH_HIT_FRAMES = 3           # snap duration in frames (~0.1s at 30fps)
-PUNCH_BUILD_SCALE = 1.10       # eased 1.0->1.10 across the shot
+PUNCH_BUILD_SCALE = 1.17       # eased 1.0->1.17 across the shot (r25: was 1.10,
+                               # too gentle — motion-lite needs visible push)
 EDGE_FADE_S = 0.15             # tiny fade on video START/END only (hard cuts inside)
 
 # --- v4: sound engine (Laws 12-19) ---
@@ -2105,6 +2114,16 @@ def fetch_story_footage(video_id, window=0):
     key = (video_id, window)
     if key in _FOOTAGE_CACHE:
         return _FOOTAGE_CACHE[key]
+    # r25: YouTube hard bot-walls video DOWNLOADS from cloud/CI IPs (verified:
+    # every player_client returns "Sign in to confirm you're not a bot", even
+    # with valid cookies). So actually spawning yt-dlp just burns ~1-2 min per
+    # render for guaranteed failure. VIDEO_FOOTAGE_FETCH=0 skips the spawn (fail
+    # fast) while KEEPING ck_mode on — so the footage-first stock-kill + budgets
+    # still apply and the video rides motion-strong real stills. Flip back to 1
+    # the day a residential proxy (or unblocked source) makes downloads work.
+    if os.environ.get("VIDEO_FOOTAGE_FETCH", "1") == "0":
+        _FOOTAGE_CACHE[key] = None
+        return None
     path = None
     try:
         import shutil
@@ -3817,10 +3836,22 @@ def contain_scene_clip(image_path, start, end, xfade=None, card=False):
 
     base = ImageClip(grade_frame(np.array(canvas))).with_duration(dur)
 
-    def _pos(t, d=dur, px=float(drift)):
-        return (-px * (t / d), 0)
+    # r25 motion-lite: cards were nearly frozen (2% drift, no zoom) — the owner
+    # paused on exactly these and saw dead frames. Give them a gentle push-in
+    # (still fully readable — the whole card stays in frame, just grows) plus a
+    # slow horizontal drift. Centered while zooming so no bars/edges show.
+    cw, ch = float(canvas_w), float(H)
 
-    clip = CompositeVideoClip([base.with_position(_pos)],
+    def _cscale(t, d=dur):
+        return 1.0 + CARD_ZOOM * (t / d)
+
+    def _pos(t, d=dur, cw=cw, ch=ch, px=float(drift)):
+        s = 1.0 + CARD_ZOOM * (t / d)
+        x = (W - cw * s) / 2.0 + px * (0.5 - t / d)   # center + slow drift
+        y = (H - ch * s) / 2.0
+        return (x, y)
+
+    clip = CompositeVideoClip([base.resized(_cscale).with_position(_pos)],
                               size=(W, H)).with_duration(dur)
     clip = clip.with_start(start)
     if xfade > 0 and start > 0:
