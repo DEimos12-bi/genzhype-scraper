@@ -1,0 +1,140 @@
+name: platform-check
+
+# DIAGNOSTIC: which platforms can we actually pull video from on a GitHub runner,
+# and with WHICH method? Tests YouTube (WARP+cookies), Twitch, TikTok, X-video,
+# Kick — each with its proper technique (WARP for IP walls, curl_cffi
+# --impersonate for TLS-fingerprint walls, cookies where login is required).
+# Discovers a FRESH url per platform where possible so stale links don't lie.
+# Writes the verdict to .social/platform-check-result.txt. Trigger: push
+# .social/platform-check, or run manually.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".social/platform-check"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: platform-check
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      YT_COOKIES: ${{ secrets.YT_COOKIES }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run platform check (never aborts; full log)
+        shell: bash
+        run: |
+          set +e
+          mkdir -p build .social
+          R=".social/platform-check-result.txt"
+          : > "$R"
+          log(){ echo "$@" | tee -a "$R"; }
+
+          log "platform-check @ $(date -u +%FT%TZ)"
+
+          # ---- tooling: yt-dlp WITH curl_cffi (impersonation) + ffmpeg ----
+          python -m pip install -U "yt-dlp[default,curl-cffi]" >/dev/null 2>&1
+          sudo apt-get update -qq >/dev/null 2>&1
+          sudo apt-get install -y -qq ffmpeg wireguard-tools >/dev/null 2>&1
+          sudo apt-get install -y -qq resolvconf >/dev/null 2>&1
+          log "yt-dlp: $(yt-dlp --version)"
+          log "impersonate targets: $(yt-dlp --list-impersonate-targets 2>/dev/null | grep -ciE 'chrome|safari|edge') available"
+          log "ffmpeg: $(command -v ffmpeg || echo MISSING)"
+
+          # ---- Cloudflare WARP (only YouTube needs it) ----
+          WGCF_VER=2.2.22
+          curl -sL -o /tmp/wgcf "https://github.com/ViRb3/wgcf/releases/download/v${WGCF_VER}/wgcf_${WGCF_VER}_linux_amd64" && chmod +x /tmp/wgcf && sudo mv /tmp/wgcf /usr/local/bin/wgcf
+          sudo modprobe wireguard 2>/dev/null
+          wgcf register --accept-tos >/dev/null 2>&1
+          wgcf generate >/dev/null 2>&1
+          sudo mkdir -p /etc/wireguard
+          sudo cp wgcf-profile.conf /etc/wireguard/warp.conf 2>/dev/null
+          sudo sed -i '/^DNS/d' /etc/wireguard/warp.conf 2>/dev/null
+          sudo wg-quick up warp >/dev/null 2>&1 && log "WARP: up" || log "WARP: FAILED"
+
+          [ -n "$YT_COOKIES" ] && printf '%s' "$YT_COOKIES" > build/yt_cookies.txt
+          log "youtube cookies: $([ -s build/yt_cookies.txt ] && echo yes || echo no)"
+
+          # ---- helper: try to download a short bit, report bytes or error ----
+          # args: LABEL  URL  EXTRA_YTDLP_FLAGS
+          try_dl(){
+            local LABEL="$1" URL="$2"; shift 2
+            [ -z "$URL" ] && { log "[$LABEL] no test URL found"; return; }
+            rm -f build/t.* 2>/dev/null
+            local OUT EX F
+            OUT=$(yt-dlp "$@" --no-playlist --no-warnings \
+                  -f "b[height<=720]/b" \
+                  -o "build/t.%(ext)s" \
+                  --max-filesize 40M \
+                  "$URL" 2>&1)
+            EX=$?
+            F=$(ls build/t.* 2>/dev/null | head -1)
+            if [ -n "$F" ]; then
+              log "[$LABEL] ✅ SUCCESS -> $(wc -c < "$F") bytes  ($URL)"
+            else
+              log "[$LABEL] ❌ $(echo "$OUT" | grep -iE 'error|bot|sign in|forbidden|403|login|unavailable|impersonat|private' | head -1 | cut -c1-100)"
+            fi
+          }
+          # helper: discover a fresh single url from a channel/user page
+          discover(){ yt-dlp --flat-playlist -I 1 --print "%(url)s" "$@" 2>/dev/null | head -1; }
+
+          log ""
+          log "==== YOUTUBE (WARP + cookies) ===="
+          try_dl "youtube" "https://www.youtube.com/watch?v=2z8sHRNhuHc" \
+            --cookies build/yt_cookies.txt --download-sections "*00:00:10-00:00:16"
+
+          log ""
+          log "==== KICK (curl_cffi impersonate, no cookies) ===="
+          try_dl "kick-clip" "https://kick.com/adinross/clips/clip_01JSZJAW4QA6VC2M9XDMM7EE88" \
+            --impersonate chrome
+
+          log ""
+          log "==== TWITCH (impersonate; discover a fresh KaiCenat clip) ===="
+          TW=$(discover --impersonate chrome "https://www.twitch.tv/kaicenat/clips")
+          [ -z "$TW" ] && TW=$(discover --impersonate chrome "https://www.twitch.tv/xqc/clips")
+          try_dl "twitch-clip" "$TW" --impersonate chrome
+
+          log ""
+          log "==== TIKTOK (impersonate; discover a fresh video) ===="
+          TT=$(discover --impersonate chrome "https://www.tiktok.com/@dexerto")
+          [ -z "$TT" ] && TT=$(discover --impersonate chrome "https://www.tiktok.com/@nojumper")
+          try_dl "tiktok" "$TT" --impersonate chrome
+
+          log ""
+          log "==== X / TWITTER VIDEO (try without cookies first) ===="
+          # a well-known account's media tab -> newest video tweet
+          XV=$(discover --impersonate chrome "https://x.com/Dexerto/media")
+          try_dl "x-video (no cookies)" "$XV" --impersonate chrome
+
+          log ""
+          log "==== done ===="
+          exit 0
+
+      - name: Commit result
+        if: always()
+        shell: bash
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .social/platform-check-result.txt 2>/dev/null || true
+          git commit -m "platform-check: result [skip ci]" || echo "nothing to commit"
+          for i in 1 2 3 4; do
+            git pull --rebase --autostash origin main && git push && break
+            sleep $((RANDOM % 3 + 2))
+          done
