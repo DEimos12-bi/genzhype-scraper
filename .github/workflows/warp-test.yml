@@ -1,0 +1,110 @@
+name: warp-test
+
+# DIAGNOSTIC: does routing the runner's traffic through FREE Cloudflare WARP
+# defeat YouTube's datacenter bot-wall? (Suno used PAID Bright Data proxies for
+# the same effect; WARP is the free equivalent — YouTube reportedly does NOT
+# blacklist Cloudflare egress IPs.) Sets up WARP via wgcf -> WireGuard, proves
+# the egress IP is now Cloudflare, then tries the EXACT download that failed on
+# a raw runner IP. Commits the verdict to .social/warp-test-result.txt.
+# Trigger: push .social/warp-test, or run manually.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".social/warp-test"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: warp-test
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      YT_COOKIES: ${{ secrets.YT_COOKIES }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install wgcf + wireguard + ffmpeg + yt-dlp
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq wireguard-tools openresolv ffmpeg
+          WGCF_VER=2.2.22
+          curl -sL -o wgcf "https://github.com/ViRb3/wgcf/releases/download/v${WGCF_VER}/wgcf_${WGCF_VER}_linux_amd64"
+          chmod +x wgcf && sudo mv wgcf /usr/local/bin/wgcf
+          python -m pip install -U yt-dlp
+          echo "yt-dlp $(yt-dlp --version); ffmpeg $(command -v ffmpeg)"
+
+      - name: Baseline — raw runner IP (should be bot-walled)
+        run: |
+          echo "raw egress: $(curl -s https://www.cloudflare.com/cdn-cgi/trace/ | grep -E 'ip=|warp=' | tr '\n' ' ')"
+
+      - name: Register + bring up Cloudflare WARP
+        run: |
+          wgcf register --accept-tos || true
+          wgcf generate || true
+          sudo mkdir -p /etc/wireguard
+          sudo cp wgcf-profile.conf /etc/wireguard/warp.conf
+          # drop the DNS= line if resolvconf misbehaves on the runner
+          sudo sed -i '/^DNS/d' /etc/wireguard/warp.conf
+          sudo wg-quick up warp && echo "WARP UP" || echo "WARP FAILED to start"
+
+      - name: Verify egress is now Cloudflare WARP
+        run: |
+          echo "warp egress: $(curl -s https://www.cloudflare.com/cdn-cgi/trace/ | grep -E 'ip=|warp=' | tr '\n' ' ')"
+
+      - name: Test the exact download that failed before
+        run: |
+          mkdir -p build .social
+          [ -n "$YT_COOKIES" ] && printf '%s' "$YT_COOKIES" > build/yt_cookies.txt || true
+          STORY="2z8sHRNhuHc"        # a real story video, bot-walled on raw IP
+          RESULT=".social/warp-test-result.txt"
+          {
+            echo "warp-test @ $(date -u +%FT%TZ)"
+            echo "egress: $(curl -s https://www.cloudflare.com/cdn-cgi/trace/ | grep -E 'ip=|warp=' | tr '\n' ' ')"
+            echo "cookies: $([ -s build/yt_cookies.txt ] && echo yes || echo no)"
+            echo "---- download-sections through WARP ----"
+            for MODE in "warp+cookies" "warp-only"; do
+              rm -f build/w-* 2>/dev/null || true
+              ARGS=""
+              if [ "$MODE" = "warp+cookies" ] && [ -s build/yt_cookies.txt ]; then ARGS="--cookies build/yt_cookies.txt"; fi
+              set +e
+              OUT=$(yt-dlp $ARGS --no-playlist --no-warnings \
+                    -f "bv*[height<=720]/b[height<=720]/b" \
+                    --download-sections "*00:00:10-00:00:20" \
+                    -o "build/w-%(id)s.%(ext)s" \
+                    "https://www.youtube.com/watch?v=$STORY" 2>&1)
+              EX=$?
+              set -e
+              F=$(ls build/w-* 2>/dev/null | head -1)
+              if [ -n "$F" ]; then
+                echo "[$MODE] SUCCESS -> $(wc -c < "$F") bytes  ***FOOTAGE UNLOCKED***"
+              else
+                echo "[$MODE] fail (exit $EX): $(echo "$OUT" | grep -iE 'bot|sign in|unavailable|error|forbidden' | head -1 | cut -c1-100)"
+              fi
+            done
+          } | tee "$RESULT"
+
+      - name: Commit result
+        if: always()
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .social/warp-test-result.txt || true
+          git commit -m "warp-test: result [skip ci]" || echo "no change"
+          for i in 1 2 3 4; do
+            git pull --rebase --autostash origin main && git push && break
+            sleep $((RANDOM % 3 + 2))
+          done
