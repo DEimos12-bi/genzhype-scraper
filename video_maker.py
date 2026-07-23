@@ -1484,7 +1484,19 @@ def screenshot_articles(targets, page_id):
                         else:
                             bottom = h1["y"] + 700
                         height = max(600.0, min(1350.0, bottom - y))
-                        width = min(1032.0, 1080 - x)
+                        # r27 (owner: balleralert's "Get Your Baller Alerts"
+                        # signup box showed BESIDE the headline): crop to the
+                        # ARTICLE COLUMN, not the full page width, so a right-rail
+                        # sidebar/signup/ad never enters the shot. The lead image
+                        # spans the column, so its right edge is the column edge;
+                        # fall back to the headline's own width when there's no
+                        # image. Always keep the left edge at the headline.
+                        if img_bb and img_bb.get("width", 0) > 300:
+                            right = max(h1["x"] + h1.get("width", 0),
+                                        img_bb["x"] + img_bb["width"])
+                        else:
+                            right = h1["x"] + max(h1.get("width", 0), 300)
+                        width = min(1032.0, max(360.0, right + 24 - x))
                         clip = {"x": x, "y": y, "width": width, "height": height}
                         page.screenshot(path=path, clip=clip)
                         # upscale narrow crops to full card width
@@ -3096,6 +3108,11 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
     # r24: cookies flip the whole posture (see module header). Everything is
     # computed ONCE here so the budget math is deterministic per run.
     ck_mode = REAL_FOOTAGE and yt_cookies_file() is not None
+    # r27: motion-lite (footage fetching disabled) — with the demon scraper the
+    # video now has many REAL proofs, so generic Pexels stock (a magnifying
+    # glass, a hand holding a phone) is never needed and reads as filler. Skip
+    # it entirely; real stills/cards/portraits carry every beat.
+    footage_off = os.environ.get("VIDEO_FOOTAGE_FETCH", "1") == "0"
     n_windows = len(FOOTAGE_WINDOWS_CK) if ck_mode else 1
     runtime_s = float(edl[-1]["end"]) if edl else 0.0
     win_uses = {}                  # (vid, window) -> scenes it has served
@@ -3333,13 +3350,12 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
             # play over a phrase carrying a specific fact — a digit, a date,
             # a month. Those words deserve evidence or a real face.
             _ph = sh.get("phrase", "") or ""
-            if ck_mode and story_vids:
-                # r25 (owner: the mismatched desert clip under "Twitch stream"):
-                # in footage-first mode generic stock is OFF for broll beats —
-                # they fall through to a real still and then GAP-FILL turns them
-                # into real story footage. Stock only survives cookie-less runs.
-                log.info("ck_mode: generic stock skipped for broll scene %d "
-                         "(real still + gap-fill footage instead)", si + 1)
+            if (ck_mode and story_vids) or footage_off:
+                # r25/r27: generic stock is OFF — footage-first fills with a real
+                # story clip; motion-lite fills with a real proof/still (the demon
+                # scraper gives plenty). Generic Pexels filler is never used.
+                log.info("generic stock skipped for broll scene %d "
+                         "(real proof/still instead)", si + 1)
             elif re.search(r"\d|january|february|march|april|may\b|june|july|"
                            r"august|september|october|november|december",
                            _ph, re.I):
@@ -3376,7 +3392,8 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                 # footage (GAP-FILL below), NOT generic stock — so this stock
                 # borrow is cookie-less-only now.
                 if (entry["path"] in recent_now and pool_variety <= POOL_NO_REPEAT_WINDOW
-                        and consec_broll < 2 and not (ck_mode and story_vids)):
+                        and consec_broll < 2
+                        and not ((ck_mode and story_vids) or footage_off)):
                     bp = fetcher.clip_for(need_s)
                     if bp:
                         log.info("tiny pool (%d distinct): stock variety "
