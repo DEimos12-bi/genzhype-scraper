@@ -48,7 +48,12 @@ jobs:
 
           log "---- install tools ----"
           sudo apt-get update -qq
-          sudo apt-get install -y -qq wireguard-tools openresolv ffmpeg 2>&1 | tail -1 | tee -a "$R"
+          # install SEPARATELY so one bad package can't sink the others (v1 bug:
+          # bundling openresolv failed the whole apt call -> no wg-quick/ffmpeg)
+          sudo apt-get install -y -qq wireguard-tools 2>&1 | tail -1 | tee -a "$R"
+          sudo apt-get install -y -qq resolvconf 2>&1 | tail -1
+          sudo apt-get install -y -qq ffmpeg 2>&1 | tail -1
+          log "wg-quick: $(command -v wg-quick || echo MISSING)"
           WGCF_VER=2.2.22
           curl -sL -o wgcf "https://github.com/ViRb3/wgcf/releases/download/v${WGCF_VER}/wgcf_${WGCF_VER}_linux_amd64"
           chmod +x wgcf && sudo mv wgcf /usr/local/bin/wgcf
