@@ -1,0 +1,21 @@
+warp-test @ 2026-07-23T21:56:22Z
+raw egress: 
+---- install tools ----
+E: Package 'openresolv' has no installation candidate
+wgcf: Error: unknown flag: --version
+yt-dlp: 2026.07.04; ffmpeg: MISSING
+---- bring up Cloudflare WARP ----
+wireguard module: 3 (1=loaded)
+2026/07/23 21:56:35 =======================================
+2026/07/23 21:56:35 Successfully created Cloudflare Warp account
+2026/07/23 21:56:36 =======================================
+2026/07/23 21:56:36 Successfully generated WireGuard profile: wgcf-profile.conf
+profile written: yes
+sudo: wg-quick: command not found
+warp egress: 
+WARP NOT ACTIVE ❌ (egress still raw)
+cookies: yes
+---- the exact download that was bot-walled before ----
+[warp+cookies] fail: ERROR: [youtube] 2z8sHRNhuHc: Sign in to confirm you’re not a bot. Use --cookies-from-browser or --cookies f
+[warp-only] fail: ERROR: [youtube] 2z8sHRNhuHc: Sign in to confirm you’re not a bot. Use --cookies-from-browser or --cookies f
+---- done ----
