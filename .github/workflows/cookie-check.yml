@@ -36,8 +36,10 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install yt-dlp
-        run: python -m pip install yt-dlp
+      - name: Install yt-dlp + ffmpeg
+        run: |
+          python -m pip install -U yt-dlp
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
 
       - name: Test the cookie
         run: |
@@ -65,28 +67,38 @@ jobs:
                   && echo "AUTH  : $C found" || true
               done
               echo "ffmpeg: $(command -v ffmpeg || echo MISSING)"
-              # Reproduce the maker's EXACT fetch: a --download-sections cut
-              # (needs ffmpeg), format-capped, on a public video AND two real
-              # story videos. This is what actually fails in the render.
-              test_dl () {
-                local VID="$1" LABEL="$2"
+              echo "yt-dlp: $(yt-dlp --version)"
+              # Find a player_client that DEFEATS the datacenter bot-wall on a
+              # real story video (the maker only tries web + android — both
+              # walled). Whichever produces a real file section is the fix.
+              STORY="2z8sHRNhuHc"
+              try_client () {
+                local ARGS="$1" LABEL="$2"
+                rm -f build/c-*.mp4 build/c-*.webm build/c-*.mkv 2>/dev/null
                 set +e
                 OUT=$(yt-dlp --cookies build/yt_cookies.txt --no-playlist \
-                      --no-warnings \
-                      -f "bv*[height<=720][ext=mp4]/b[height<=720]" \
-                      --download-sections "*00:00:10-00:00:26" \
-                      -o "build/t-$VID.%(ext)s" \
-                      "https://www.youtube.com/watch?v=$VID" 2>&1)
-                local EX=$?
-                set -e
-                local GOT=$(ls -la build/t-$VID.* 2>/dev/null | head -1)
-                echo "  [$LABEL $VID] exit=$EX file=${GOT:-none}"
-                [ -n "$GOT" ] || echo "      err: $(echo "$OUT" | grep -iE 'error|unavailable|private|sign in|bot|format' | head -2)"
+                      --no-warnings $ARGS \
+                      -f "bv*[height<=720]/b[height<=720]/b" \
+                      --download-sections "*00:00:10-00:00:20" \
+                      -o "build/c-%(id)s.%(ext)s" \
+                      "https://www.youtube.com/watch?v=$STORY" 2>&1)
+                local EX=$?; set -e
+                local F=$(ls build/c-* 2>/dev/null | head -1)
+                if [ -n "$F" ]; then
+                  echo "  [$LABEL] SUCCESS -> $(basename "$F") $(wc -c < "$F") bytes"
+                else
+                  echo "  [$LABEL] fail: $(echo "$OUT" | grep -iE 'bot|sign in|unavailable|private|error|no video|drm' | head -1 | cut -c1-90)"
+                fi
               }
-              echo "---- download-sections test (maker's real command) ----"
-              test_dl "dQw4w9WgXcQ" "public"
-              test_dl "2z8sHRNhuHc" "story1"
-              test_dl "ACoJ17Pxkfs" "story2"
+              echo "---- player_client bypass test on story $STORY ----"
+              try_client ""                                              "default(web)"
+              try_client "--extractor-args youtube:player_client=android" "android"
+              try_client "--extractor-args youtube:player_client=ios"     "ios"
+              try_client "--extractor-args youtube:player_client=tv"      "tv"
+              try_client "--extractor-args youtube:player_client=mweb"    "mweb"
+              try_client "--extractor-args youtube:player_client=web_safari" "web_safari"
+              try_client "--extractor-args youtube:player_client=web_embedded" "web_embedded"
+              try_client "--extractor-args youtube:player_client=tv_embedded"  "tv_embedded"
             fi
           } | tee "$RESULT"
 
