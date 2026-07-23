@@ -631,10 +631,19 @@ FOOTAGE_WINDOWS_CK = [             # up to 3 DIFFERENT sections per video id
 ]
 FOOTAGE_CK_SCENE_MAX_S = 4.5       # opportunistic per-scene cap w/ cookies
 FOOTAGE_CK_PLANNED_SCENE_MAX_S = 5.0   # planned Director clips w/ cookies
-FOOTAGE_CK_MAX_SCENES = 8          # max footage scenes per video w/ cookies
-FOOTAGE_CK_MAX_TOTAL_S = 30.0      # borrowed-seconds cap w/ cookies ...
-FOOTAGE_CK_MAX_TOTAL_FRAC = 0.60   # ... or 60% of runtime (smaller wins)
-FOOTAGE_CK_MAX_FETCHES = 12        # yt-dlp attempts/run (burner safety)
+# r25 FOOTAGE-FIRST DOMINANCE (owner: "the gaps between clips are dead frozen
+# stills"): raised so real footage carries the majority of a footage-rich
+# story instead of a still every third scene. The GAP-FILL path (below) turns
+# would-be frozen/repeat stills into motion by borrowing any of the story's
+# own video windows, so these ceilings are what let it actually fill the gaps.
+FOOTAGE_CK_MAX_SCENES = 12         # max footage scenes per video w/ cookies
+FOOTAGE_CK_MAX_TOTAL_S = 40.0      # borrowed-seconds cap w/ cookies ...
+FOOTAGE_CK_MAX_TOTAL_FRAC = 0.70   # ... or 70% of runtime (smaller wins)
+FOOTAGE_CK_MAX_FETCHES = 18        # yt-dlp attempts/run (burner safety)
+FOOTAGE_CK_MAX_CONSEC = 4          # r25: footage may run up to 4 scenes before
+                                   # a still accent (real story footage is NOT
+                                   # the generic-stock 2-in-a-row cap; that cap
+                                   # still bounds stock b-roll separately)
 FOOTAGE_FETCH_SLEEP_S = (2.0, 4.0)  # polite sleep between spawns w/ cookies
 
 # --- v4: house grade (Law 22 — one look over every visual) ---
@@ -1991,7 +2000,7 @@ def ytimg_video_id(url):
 def footage_budget_ok(need_s, n_scenes, used_s, consec_broll, prev_footage,
                       enabled=None, planned=False, has_planned=False,
                       reserve_n=0, reserve_s=0.0, cookies=False,
-                      runtime_s=0.0):
+                      runtime_s=0.0, consec_footage=0):
     """Pure r13/r17/r24 gate (unit-testable offline): may THIS beat become
     real footage? WITHOUT cookies (the fair-use, bot-walled posture): 3.5s
     opportunistic / 4.5s planned per scene, 3 scenes / ~8s (4 / 12s when the
@@ -2023,10 +2032,19 @@ def footage_budget_ok(need_s, n_scenes, used_s, consec_broll, prev_footage,
                  else FOOTAGE_MAX_TOTAL_S)
     if need_s > scene_max + 1e-6:
         return False
-    if consec_broll >= 2:
-        return False
-    if prev_footage and not cookies:
-        return False
+    if cookies:
+        # r25: real story footage may run up to FOOTAGE_CK_MAX_CONSEC scenes in
+        # a row before a still accent — it is NOT the generic-stock stream the
+        # 2-in-a-row cap was built to bound. (consec_broll here counts stock +
+        # footage together, so gating footage on it forced a still every 3rd
+        # scene — the exact "too many dead stills" the owner flagged.)
+        if consec_footage >= FOOTAGE_CK_MAX_CONSEC:
+            return False
+    else:
+        if consec_broll >= 2:
+            return False
+        if prev_footage:
+            return False
     if planned:
         return n_scenes < max_n and used_s + need_s <= max_s + 1e-6
     if n_scenes + 1 + reserve_n > max_n:
@@ -3018,6 +3036,7 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
     person_map = person_map or {}
     visual_map = visual_map or {}
     scenes, prev_motion, consec_broll = [], None, 0
+    consec_footage = 0             # r25: footage scenes in a row (own cap)
     foot_n, foot_s = 0, 0.0        # r13: footage scenes / borrowed seconds
     last_used = {}                 # r11 LRU: pool path -> last scene index
     evidence_scene_uses = {}       # r21: evidence image -> scenes it backs (cap 2)
@@ -3032,6 +3051,19 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
     last_foot = (None, None)       # (vid, window) of previous scene if footage
     planned_scene_max = (FOOTAGE_CK_PLANNED_SCENE_MAX_S if ck_mode
                          else FOOTAGE_PLANNED_SCENE_MAX_S)
+
+    # r25 GAP-FILL SOURCE: every distinct story video id reachable from the
+    # pool or the visual map. When a beat would otherwise FREEZE on a still
+    # (3rd consecutive) or repeat one, _gap_footage() borrows a fresh window
+    # from THIS set — footage is no longer limited to a scene whose own visual
+    # happens to be a yt-thumbnail, so the dead gaps between clips become
+    # motion. Empty set (no story videos) => behaves exactly as before.
+    story_vids = []
+    if ck_mode:
+        for _e in list(pool) + list(visual_map.values()):
+            _v = ytimg_video_id(_e.get("url"))
+            if _v and _v not in story_vids:
+                story_vids.append(_v)
 
     # r17: planned-clip census + PRIORITY PREFETCH — the run-level yt-dlp
     # attempt cap (FOOTAGE_MAX_FETCHES) is spent on the Director's PLAN
@@ -3089,6 +3121,55 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
         last_used[entry["path"]] = si
         return entry
 
+    def _gap_footage(si, need_s):
+        """r25 (owner: "the gaps between clips are dead frozen stills"): turn a
+        would-be frozen/repeat still into MOTION by borrowing a fresh window
+        from ANY of the story's own videos (story_vids) — not only the scene's
+        own visual. ck_mode only; honours the footage budget + the run fetch
+        cap; never the same (id, window) as the previous scene; never a clip
+        already inside the no-repeat window. Mutates the footage counters and
+        returns the clip path, or None when no spare moving window exists (the
+        caller then keeps the still). A cheap reuse of an already-cached window
+        costs no fetch; a new window spends one against the run cap."""
+        nonlocal foot_n, foot_s, last_foot
+        if not (ck_mode and story_vids):
+            return None
+        prev_foot = bool(scenes and scenes[-1].get("footage"))
+        res_n, res_s = _planned_reserve(si)
+        if not footage_budget_ok(need_s, foot_n, foot_s, consec_broll,
+                                 prev_foot, planned=False,
+                                 has_planned=has_planned,
+                                 reserve_n=res_n, reserve_s=res_s,
+                                 cookies=True, runtime_s=runtime_s,
+                                 consec_footage=consec_footage):
+            return None
+        # least-borrowed video first, so gap-fill spreads across all the
+        # story's sources instead of hammering one.
+        order = sorted(story_vids, key=lambda v: sum(
+            win_uses.get((v, k), 0) for k in range(n_windows)))
+        for vid in order:
+            tried_failed = {k for k in range(n_windows)
+                            if (vid, k) in _FOOTAGE_CACHE
+                            and _FOOTAGE_CACHE[(vid, k)] is None}
+            win = pick_footage_window(vid, n_windows, win_uses,
+                                      prev_vid=last_foot[0],
+                                      prev_win=last_foot[1],
+                                      failed=tried_failed)
+            if win is None:
+                continue
+            fpath = fetch_story_footage(vid, window=win)
+            if fpath and fpath not in _recent_paths():
+                foot_n += 1
+                foot_s += need_s
+                win_uses[(vid, win)] = win_uses.get((vid, win), 0) + 1
+                last_foot = (vid, win)
+                log.info("GAP-FILL: scene %d would freeze/repeat a still -> "
+                         "footage %s (w%d, %.2fs, %d/%d scenes)", si + 1,
+                         os.path.basename(fpath), win, need_s, foot_n,
+                         FOOTAGE_CK_MAX_SCENES)
+                return fpath
+        return None
+
     for si, sh in enumerate(edl):
         need_s = sh["end"] - sh["start"]
         motion = sh["motion"]
@@ -3097,6 +3178,8 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
 
         path, typ, textish, src_url = None, None, False, None
         planned_here = False           # r17: this scene is a PLANNED clip shot
+        footage = False                # r25: init early — GAP-FILL may set it
+                                       # before the opportunistic upgrade block
         sfx, emph_t = sh["sfx"], sh["emph_t"]
         if sh["shot_class"] == "receipt":
             rv = receipts.get(sh.get("receipt_i"))
@@ -3198,9 +3281,16 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
             # play over a phrase carrying a specific fact — a digit, a date,
             # a month. Those words deserve evidence or a real face.
             _ph = sh.get("phrase", "") or ""
-            if re.search(r"\d|january|february|march|april|may\b|june|july|"
-                         r"august|september|october|november|december",
-                         _ph, re.I):
+            if ck_mode and story_vids:
+                # r25 (owner: the mismatched desert clip under "Twitch stream"):
+                # in footage-first mode generic stock is OFF for broll beats —
+                # they fall through to a real still and then GAP-FILL turns them
+                # into real story footage. Stock only survives cookie-less runs.
+                log.info("ck_mode: generic stock skipped for broll scene %d "
+                         "(real still + gap-fill footage instead)", si + 1)
+            elif re.search(r"\d|january|february|march|april|may\b|june|july|"
+                           r"august|september|october|november|december",
+                           _ph, re.I):
                 log.info("FACT GATE: stock denied over fact phrase (%s...); "
                          "subject photo instead", _ph[:40])
             elif consec_broll >= 2:
@@ -3230,8 +3320,11 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                 entry = _lru_pick(si)
                 pool_variety = len({e["path"] for e in pool})
                 recent_now = _recent_paths()
+                # r25: in footage-first mode the tiny-pool relief is real story
+                # footage (GAP-FILL below), NOT generic stock — so this stock
+                # borrow is cookie-less-only now.
                 if (entry["path"] in recent_now and pool_variety <= POOL_NO_REPEAT_WINDOW
-                        and consec_broll < 2):
+                        and consec_broll < 2 and not (ck_mode and story_vids)):
                     bp = fetcher.clip_for(need_s)
                     if bp:
                         log.info("tiny pool (%d distinct): stock variety "
@@ -3247,23 +3340,37 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                     typ = "broll"
                 else:
                     raise ValueError("no photos and no b-roll for a shot")
-        # --- r24 STILL-HOLD LIMIT (owner: the 5s single-visual opener): the
-        # SAME still may carry at most 2 CONSECUTIVE scenes, pins included.
-        # A 3rd consecutive hold swaps to the LRU pool alternative; failing
-        # that, the footage upgrade below is its last chance to move;
-        # failing THAT it stays — logged loudly either way.
+        # --- r24/r25 STILL-HOLD + GAP-FILL (owner: "the gaps between the clips
+        # are dead frozen stills, the same pic keeps looking with no response").
+        # The SAME still may carry at most 2 CONSECUTIVE scenes (pins included).
+        # A would-be 3rd-consecutive freeze — and, in footage-first mode, ANY
+        # still that repeats within the no-repeat window — is first offered a
+        # DIFFERENT real still; if that alternative would itself freeze/repeat,
+        # GAP-FILL turns the beat into real story footage (motion) borrowed from
+        # any of the story's videos; only when no moving window exists does a
+        # still hold (then with forced motion below, never a dead freeze).
         hold_capped = False
-        if typ == "photo" and not still_hold_ok(
-                [sc.get("path") for sc in scenes[-2:]], path):
-            alt = _lru_pick(si) if pool else None
-            if alt is not None and alt["path"] != path:
-                log.info("STILL-HOLD: %s would carry a 3rd consecutive "
-                         "scene; LRU swap -> %s", os.path.basename(path),
-                         os.path.basename(alt["path"]))
-                path, textish = alt["path"], alt["textish"]
-                src_url = alt.get("url")
-            else:
-                hold_capped = True
+        if typ == "photo":
+            _prev2 = [sc.get("path") for sc in scenes[-2:]]
+            _freeze = not still_hold_ok(_prev2, path)
+            if _freeze or (ck_mode and path in _recent_paths()):
+                alt = _lru_pick(si) if pool else None
+                if (alt is not None and alt["path"] != path
+                        and still_hold_ok(_prev2, alt["path"])
+                        and alt["path"] not in _recent_paths()):
+                    log.info("STILL-HOLD: %s would freeze/repeat; real-still "
+                             "swap -> %s", os.path.basename(path),
+                             os.path.basename(alt["path"]))
+                    path, textish = alt["path"], alt["textish"]
+                    src_url = alt.get("url")
+                    _freeze = not still_hold_ok(_prev2, path)
+                if _freeze:
+                    gf = _gap_footage(si, need_s)
+                    if gf:
+                        path, typ, textish, src_url = gf, "broll", False, None
+                        motion, footage = "punch_build", True
+                    else:
+                        hold_capped = True
         # --- r13/r17 REAL FOOTAGE: a photo scene showing a YouTube thumbnail
         # of one of the story's own videos becomes a short MUTED clip of that
         # exact video. r17: shots the Director marked clip=true are PLANNED
@@ -3275,7 +3382,10 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
         # scene), consecutive footage is allowed, and the window rotation
         # (pick_footage_window) guarantees the same (id, window) file never
         # plays twice in a row.
-        footage = False
+        # r25: `footage` is initialised at the top of the loop — GAP-FILL above
+        # may already have set it; do NOT reset it here (that would drop a
+        # gap-fill clip back to a still). typ is "broll" then, so vid is None
+        # and this opportunistic block is correctly skipped.
         vid = ytimg_video_id(src_url) if typ == "photo" else None
         if vid:
             prev_foot = bool(scenes and scenes[-1].get("footage"))
@@ -3284,7 +3394,8 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                                  prev_foot, planned=planned_here,
                                  has_planned=has_planned,
                                  reserve_n=res_n, reserve_s=res_s,
-                                 cookies=ck_mode, runtime_s=runtime_s):
+                                 cookies=ck_mode, runtime_s=runtime_s,
+                                 consec_footage=consec_footage):
                 tried_failed = {k for k in range(n_windows)
                                 if (vid, k) in _FOOTAGE_CACHE
                                 and _FOOTAGE_CACHE[(vid, k)] is None}
@@ -3336,9 +3447,18 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
         if not footage:
             last_foot = (None, None)   # r24: rotation rule is per-run-in-a-row
             if hold_capped:
-                log.info("STILL-HOLD: no alternative for %s (tiny pool, no "
-                         "footage window); kept a 3rd consecutive scene",
-                         os.path.basename(path))
+                # r25: it MUST hold (one-image pool, no moving window). Never a
+                # dead contain freeze — force a Ken Burns push so even the held
+                # still keeps moving (unless it is a text card that must stay
+                # readable). This is the true last resort, logged loudly.
+                if not textish and motion in (None, "contain"):
+                    motion = "punch_build"
+                log.info("STILL-FROZEN (last resort): no alt + no footage "
+                         "window for %s; held with motion=%s",
+                         os.path.basename(path), motion)
+        # r25: real footage runs on its OWN consecutive counter (see
+        # footage_budget_ok); stock/other b-roll still uses consec_broll.
+        consec_footage = consec_footage + 1 if footage else 0
         consec_broll = consec_broll + 1 if typ == "broll" else 0
 
         emph_rel = None
