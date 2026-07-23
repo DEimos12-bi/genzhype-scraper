@@ -1,21 +1,25 @@
-warp-test @ 2026-07-23T21:56:22Z
+warp-test @ 2026-07-23T21:57:40Z
 raw egress: 
 ---- install tools ----
-E: Package 'openresolv' has no installation candidate
+No VM guests are running outdated hypervisor (qemu) binaries on this host.
+wg-quick: /usr/bin/wg-quick
 wgcf: Error: unknown flag: --version
-yt-dlp: 2026.07.04; ffmpeg: MISSING
+yt-dlp: 2026.07.04; ffmpeg: /usr/bin/ffmpeg
 ---- bring up Cloudflare WARP ----
 wireguard module: 3 (1=loaded)
-2026/07/23 21:56:35 =======================================
-2026/07/23 21:56:35 Successfully created Cloudflare Warp account
-2026/07/23 21:56:36 =======================================
-2026/07/23 21:56:36 Successfully generated WireGuard profile: wgcf-profile.conf
+2026/07/23 21:58:16 =======================================
+2026/07/23 21:58:16 Successfully created Cloudflare Warp account
+2026/07/23 21:58:16 =======================================
+2026/07/23 21:58:16 Successfully generated WireGuard profile: wgcf-profile.conf
 profile written: yes
-sudo: wg-quick: command not found
+[#] ip -4 rule add table main suppress_prefixlength 0
+[#] ip -4 route add 0.0.0.0/0 dev warp table 51820
+[#] sysctl -q net.ipv4.conf.all.src_valid_mark=1
+[#] nft -f /dev/fd/63
 warp egress: 
 WARP NOT ACTIVE ❌ (egress still raw)
 cookies: yes
 ---- the exact download that was bot-walled before ----
-[warp+cookies] fail: ERROR: [youtube] 2z8sHRNhuHc: Sign in to confirm you’re not a bot. Use --cookies-from-browser or --cookies f
-[warp-only] fail: ERROR: [youtube] 2z8sHRNhuHc: Sign in to confirm you’re not a bot. Use --cookies-from-browser or --cookies f
+[warp+cookies] SUCCESS -> 215149 bytes  ***FOOTAGE UNLOCKED***
+[warp-only] fail: [https @ 0x55a121e19bc0] HTTP error 403 Forbidden
 ---- done ----
