@@ -1892,8 +1892,26 @@ def build_visual_pool(post, page_id):
             return bool(fl.get("text_heavy")) or _designed(u)
         return is_text_heavy(local_path, src_url=u) or _designed(u)
 
+    # r25 motion-lite (owner: "clean the off-topic stills off"): when footage
+    # is DISABLED a YouTube thumbnail is NOT a clip source — it is just an
+    # unpredictable video frame. For a musician the "recent video" thumbnails
+    # are MUSIC-VIDEO imagery (a desert set, a money shot, a video vixen) that
+    # lands as an off-topic still over a drama story. Drop every i.ytimg.com
+    # thumbnail from the still pool; real report photos, news/Wikidata portraits
+    # and the article-screenshot cards carry the video. (Footage ON keeps them —
+    # they become real muted clips there.)
+    if os.environ.get("VIDEO_FOOTAGE_FETCH", "1") == "0":
+        _before = len(person_urls) + len(urls)
+        person_urls = [u for u in person_urls if "ytimg.com/vi" not in u]
+        urls = [u for u in urls if "ytimg.com/vi" not in u]
+        _dropped = _before - (len(person_urls) + len(urls))
+        if _dropped:
+            log.info("motion-lite: dropped %d yt-thumbnail(s) from the still "
+                     "pool (footage off) — real photos/portraits/cards only",
+                     _dropped)
+
     ordered, seen = [], set()
-    for u in person_urls + urls[1:] + urls[:1]:
+    for u in (person_urls + urls[1:] + urls[:1] if urls else person_urls):
         if u not in seen:
             seen.add(u)
             ordered.append(u)
@@ -1946,9 +1964,17 @@ def build_visual_map(post, page_id, pool, shotlist):
     if not needed:
         return {}
     by_url = {e.get("url"): e for e in pool}
+    footage_off = os.environ.get("VIDEO_FOOTAGE_FETCH", "1") == "0"
     vmap = {}
     for i in sorted(needed):
         u = urls[i]
+        # r25 motion-lite: a Director pin to a YouTube thumbnail is a clip order
+        # with no clip (footage off) — it would resolve to an off-topic music-
+        # video frame. Skip it so the shot falls back to a real pool photo/card.
+        if footage_off and "ytimg.com/vi" in u:
+            log.info("motion-lite: visual_i %d is a yt-thumbnail (footage off) "
+                     "-> pool fallback", i)
+            continue
         entry = by_url.get(u)
         if entry is None:
             p = fetch_visual(u, os.path.join(WORKDIR, f"visidx-{page_id}-{i}"))
