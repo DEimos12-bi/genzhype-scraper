@@ -233,7 +233,15 @@ jobs:
             git add .social/video_done.txt || true
             git add .social/video_replans.txt || true
             git commit -m "video-maker: update dedup state [skip ci]"
-            git push
+            # r25: the on-demand render trigger means the maintainer may push to
+            # main WHILE a render runs, so main can advance under us -> the plain
+            # push was rejected (non-fast-forward) and turned the whole run red
+            # even though the video delivered fine. Rebase + retry a few times so
+            # this bookkeeping commit never fails the run.
+            for i in 1 2 3 4 5; do
+              git pull --rebase --autostash origin main && git push && break
+              echo "push race (attempt $i); retrying"; sleep $((RANDOM % 4 + 2))
+            done
           else
             echo "no dedup changes to commit"
           fi
