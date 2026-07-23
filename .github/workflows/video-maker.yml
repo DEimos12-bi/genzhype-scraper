@@ -68,6 +68,11 @@ jobs:
       # active and the video rides motion-strong real stills. Set to "1" only
       # if a residential proxy later makes YouTube downloads actually work.
       VIDEO_FOOTAGE_FETCH: "0"
+      # r25: motion-lite lean pipeline — skip the heavy/fragile ML niceties that
+      # were hanging the runner (CLIP verify + whisperx forced-align). edge-tts
+      # timings sync captions fine; there is no footage to CLIP-verify.
+      VIDEO_CLIP_VERIFY: "0"
+      VIDEO_FORCED_ALIGN: "0"
       # Point the driver at the vendored Turbo tree so it reuses voice.py.
       MPT_HOME: ${{ github.workspace }}/videorepos/mpt
       # v3 OPTIONAL keys — unset secrets expand to "" and the driver treats
@@ -136,15 +141,17 @@ jobs:
       # first use inside the render step; the driver tolerates a failed
       # install/download by skipping the check entirely, so this step is
       # non-fatal. Kill switch: env VIDEO_CLIP_VERIFY: "0".
-      - name: Install ML stack - CLIP verifier + whisperx aligner (optional)
-        # r19 FIX: ONE torch install (CPU) shared by BOTH tools. Two separate
-        # steps previously installed two different torch builds over each other
-        # -> native Bus error crash when the CLIP model loaded (run #86).
-        continue-on-error: true
-        run: |
-          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
-          python -m pip install "sentence-transformers>=3.0"
-          python -m pip install whisperx || echo "whisperx unavailable; edge timings"
+      # r25: ML stack (torch + sentence-transformers + whisperx, ~1GB) DISABLED.
+      # It powered CLIP-verify (matches a photo to the words) and whisperx
+      # forced-alignment (precise caption sync) — both quality niceties. In
+      # motion-lite mode there is no footage to CLIP-verify, and edge-tts's own
+      # word timings sync captions fine. Downloading ~1GB of models on the
+      # runner was HANGING the job (runs #105/#106 timed out at 30min). Cutting
+      # it makes renders lean and reliable; VIDEO_CLIP_VERIFY/FORCED_ALIGN=0 in
+      # env keep the driver from even trying to load them. Re-add if footage
+      # ever comes back (e.g. via a residential proxy).
+      - name: ML stack disabled (motion-lite — lean + reliable)
+        run: echo "CLIP + whisperx skipped (VIDEO_CLIP_VERIFY=0, VIDEO_FORCED_ALIGN=0)"
 
       # r18 GRAFT A FORCED ALIGNMENT (optional): whisperx measures the REAL
       # word timings from the rendered audio (edge-tts's self-reported cues +
@@ -203,6 +210,9 @@ jobs:
       # missing browser just means the rendered cards are used instead.
       - name: Install chromium for real-source screenshots (optional)
         continue-on-error: true
+        timeout-minutes: 6          # r25: fail fast if the download hangs (was a
+                                    # silent 30-min hang risk) — screenshots are
+                                    # optional, cards render without them
         run: |
           python -m pip install playwright
           python -m playwright install --with-deps chromium
@@ -219,6 +229,9 @@ jobs:
           fi
 
       - name: Render + post video(s)
+        timeout-minutes: 16         # r25: a render that hasn't posted in 16min
+                                    # is hung — fail the step fast instead of
+                                    # eating the whole 30min job (runs #105/#106)
         run: python video_maker.py
 
       - name: Commit dedup state
