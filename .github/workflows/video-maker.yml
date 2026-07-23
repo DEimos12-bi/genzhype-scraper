@@ -30,6 +30,15 @@ name: video-maker
 on:
   schedule:
     - cron: "17 */6 * * *"      # every 6 hours
+  # On-demand render trigger: a push that touches the sentinel file
+  # .social/render-trigger starts a run. Lets the maintainer kick a test
+  # render straight from the server (git push) without the Actions UI. The
+  # end-of-run dedup commit only touches .social/video_done.txt (+ [skip ci]),
+  # so a run never re-triggers itself.
+  push:
+    branches: [main]
+    paths:
+      - ".social/render-trigger"
   workflow_dispatch:
     inputs:
       batch:
