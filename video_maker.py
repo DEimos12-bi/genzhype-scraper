@@ -466,9 +466,10 @@ CAPTION_CENTER_Y = int(H * 0.62)   # lower-middle band, well inside the safe are
 # on the card's own text. The card anchors top (y=240, below the 220px UI zone)
 # and is capped so its bottom lands <=1350; captions on those scenes drop to the
 # cleared band below it, centered here (band ~1420-1540, above the y1600 bottom UI).
-CARD_TOP_Y       = 240
-CARD_MAX_BOTTOM  = 1350
-CARD_CAPTION_Y   = 1480
+CARD_TOP_Y       = 190     # r25: cards (screenshots/posts) start higher and
+CARD_MAX_BOTTOM  = 1440     # extend lower so a real proof FILLS the phone
+CARD_CAPTION_Y   = 1500     # (owner: "not fitting the phone"); caption band
+                            # sits just below the enlarged card, no overlap
 
 # --- v2: people photos (Wikidata, image_engine.py's proven flow) ---
 # r11: 8 -> 16. The server now floods the feed with real story imagery
@@ -1381,10 +1382,14 @@ def screenshot_articles(targets, page_id):
                     shot_done = False
                     try:
                         art_loc, art_name = None, None
-                        for sel in ("article", "main article",
-                                    '[itemprop="articleBody"]', "main",
-                                    ".article-content, .post-content, "
-                                    ".entry-content"):
+                        # r25 (owner: "I can see the ads in the screenshot, bad
+                        # cutting not fitting the phone"): the whole-article-node
+                        # capture over-grabbed the newsletter / subscribe /
+                        # related-stories furniture that sits just BELOW the lead
+                        # image. Disabled — the tight masthead+headline+lead-image
+                        # crop below is the clean "shot a person takes" and now
+                        # always wins (og/subject covers any article with no h1).
+                        for sel in ():
                             try:
                                 loc = page.locator(sel).first
                                 if loc.count() > 0:
@@ -3848,9 +3853,11 @@ def contain_scene_clip(image_path, start, end, xfade=None, card=False):
 
     w, h = pil.size
     if card:
-        # v9: card scenes anchor toward the top so the caption band below stays
-        # clear — top at CARD_TOP_Y, bottom capped at CARD_MAX_BOTTOM.
-        scale = min((W * 0.80) / w, float(CARD_MAX_BOTTOM - CARD_TOP_Y) / h)
+        # v9/r25: card scenes anchor toward the top so the caption band below
+        # stays clear — top at CARD_TOP_Y, bottom capped at CARD_MAX_BOTTOM.
+        # r25: 0.80 -> 0.94 width so a real proof (screenshot / X post) fills
+        # the phone instead of sitting small and letterboxed.
+        scale = min((W * 0.94) / w, float(CARD_MAX_BOTTOM - CARD_TOP_Y) / h)
     else:
         scale = min((W * 0.94) / w, (H * 0.90) / h)
     fg = pil.resize((max(1, int(w * scale)), max(1, int(h * scale))),
