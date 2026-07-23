@@ -1,11 +1,8 @@
 name: warp-test
 
-# DIAGNOSTIC: does routing the runner's traffic through FREE Cloudflare WARP
-# defeat YouTube's datacenter bot-wall? (Suno used PAID Bright Data proxies for
-# the same effect; WARP is the free equivalent — YouTube reportedly does NOT
-# blacklist Cloudflare egress IPs.) Sets up WARP via wgcf -> WireGuard, proves
-# the egress IP is now Cloudflare, then tries the EXACT download that failed on
-# a raw runner IP. Commits the verdict to .social/warp-test-result.txt.
+# DIAGNOSTIC: does FREE Cloudflare WARP defeat YouTube's datacenter bot-wall on
+# a GitHub runner? Robust version — every command is best-effort and the verdict
+# is ALWAYS written to .social/warp-test-result.txt so we can read WHY it failed.
 # Trigger: push .social/warp-test, or run manually.
 
 on:
@@ -37,73 +34,75 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install wgcf + wireguard + ffmpeg + yt-dlp
+      - name: Run WARP test (never aborts; writes full log)
+        shell: bash
         run: |
+          set +e
+          mkdir -p build .social
+          R=".social/warp-test-result.txt"
+          : > "$R"
+          log(){ echo "$@" | tee -a "$R"; }
+
+          log "warp-test @ $(date -u +%FT%TZ)"
+          log "raw egress: $(curl -s --max-time 15 https://www.cloudflare.com/cdn-cgi/trace/ | grep -E 'ip=|warp=' | tr '\n' ' ')"
+
+          log "---- install tools ----"
           sudo apt-get update -qq
-          sudo apt-get install -y -qq wireguard-tools openresolv ffmpeg
+          sudo apt-get install -y -qq wireguard-tools openresolv ffmpeg 2>&1 | tail -1 | tee -a "$R"
           WGCF_VER=2.2.22
           curl -sL -o wgcf "https://github.com/ViRb3/wgcf/releases/download/v${WGCF_VER}/wgcf_${WGCF_VER}_linux_amd64"
           chmod +x wgcf && sudo mv wgcf /usr/local/bin/wgcf
-          python -m pip install -U yt-dlp
-          echo "yt-dlp $(yt-dlp --version); ffmpeg $(command -v ffmpeg)"
+          log "wgcf: $(wgcf --version 2>&1 | head -1)"
+          python -m pip install -U yt-dlp >/dev/null 2>&1
+          log "yt-dlp: $(yt-dlp --version 2>&1); ffmpeg: $(command -v ffmpeg || echo MISSING)"
 
-      - name: Baseline — raw runner IP (should be bot-walled)
-        run: |
-          echo "raw egress: $(curl -s https://www.cloudflare.com/cdn-cgi/trace/ | grep -E 'ip=|warp=' | tr '\n' ' ')"
-
-      - name: Register + bring up Cloudflare WARP
-        run: |
-          wgcf register --accept-tos || true
-          wgcf generate || true
+          log "---- bring up Cloudflare WARP ----"
+          sudo modprobe wireguard 2>&1 | tee -a "$R"
+          log "wireguard module: $(lsmod | grep -c wireguard) (1=loaded)"
+          wgcf register --accept-tos 2>&1 | tail -2 | tee -a "$R"
+          wgcf generate 2>&1 | tail -2 | tee -a "$R"
+          log "profile written: $([ -f wgcf-profile.conf ] && echo yes || echo NO)"
           sudo mkdir -p /etc/wireguard
-          sudo cp wgcf-profile.conf /etc/wireguard/warp.conf
-          # drop the DNS= line if resolvconf misbehaves on the runner
-          sudo sed -i '/^DNS/d' /etc/wireguard/warp.conf
-          sudo wg-quick up warp && echo "WARP UP" || echo "WARP FAILED to start"
+          sudo cp wgcf-profile.conf /etc/wireguard/warp.conf 2>/dev/null
+          sudo sed -i '/^DNS/d' /etc/wireguard/warp.conf 2>/dev/null
+          sudo wg-quick up warp 2>&1 | tail -4 | tee -a "$R"
+          sleep 3
+          WARP_TRACE=$(curl -s --max-time 15 https://www.cloudflare.com/cdn-cgi/trace/ | grep -E 'ip=|warp=' | tr '\n' ' ')
+          log "warp egress: $WARP_TRACE"
+          echo "$WARP_TRACE" | grep -q "warp=on" && log "WARP ACTIVE ✅" || log "WARP NOT ACTIVE ❌ (egress still raw)"
 
-      - name: Verify egress is now Cloudflare WARP
-        run: |
-          echo "warp egress: $(curl -s https://www.cloudflare.com/cdn-cgi/trace/ | grep -E 'ip=|warp=' | tr '\n' ' ')"
+          [ -n "$YT_COOKIES" ] && printf '%s' "$YT_COOKIES" > build/yt_cookies.txt
+          log "cookies: $([ -s build/yt_cookies.txt ] && echo yes || echo no)"
 
-      - name: Test the exact download that failed before
-        run: |
-          mkdir -p build .social
-          [ -n "$YT_COOKIES" ] && printf '%s' "$YT_COOKIES" > build/yt_cookies.txt || true
-          STORY="2z8sHRNhuHc"        # a real story video, bot-walled on raw IP
-          RESULT=".social/warp-test-result.txt"
-          {
-            echo "warp-test @ $(date -u +%FT%TZ)"
-            echo "egress: $(curl -s https://www.cloudflare.com/cdn-cgi/trace/ | grep -E 'ip=|warp=' | tr '\n' ' ')"
-            echo "cookies: $([ -s build/yt_cookies.txt ] && echo yes || echo no)"
-            echo "---- download-sections through WARP ----"
-            for MODE in "warp+cookies" "warp-only"; do
-              rm -f build/w-* 2>/dev/null || true
-              ARGS=""
-              if [ "$MODE" = "warp+cookies" ] && [ -s build/yt_cookies.txt ]; then ARGS="--cookies build/yt_cookies.txt"; fi
-              set +e
-              OUT=$(yt-dlp $ARGS --no-playlist --no-warnings \
-                    -f "bv*[height<=720]/b[height<=720]/b" \
-                    --download-sections "*00:00:10-00:00:20" \
-                    -o "build/w-%(id)s.%(ext)s" \
-                    "https://www.youtube.com/watch?v=$STORY" 2>&1)
-              EX=$?
-              set -e
-              F=$(ls build/w-* 2>/dev/null | head -1)
-              if [ -n "$F" ]; then
-                echo "[$MODE] SUCCESS -> $(wc -c < "$F") bytes  ***FOOTAGE UNLOCKED***"
-              else
-                echo "[$MODE] fail (exit $EX): $(echo "$OUT" | grep -iE 'bot|sign in|unavailable|error|forbidden' | head -1 | cut -c1-100)"
-              fi
-            done
-          } | tee "$RESULT"
+          log "---- the exact download that was bot-walled before ----"
+          STORY="2z8sHRNhuHc"
+          for MODE in warp+cookies warp-only; do
+            rm -f build/w-* 2>/dev/null
+            ARGS=""
+            if [ "$MODE" = "warp+cookies" ] && [ -s build/yt_cookies.txt ]; then ARGS="--cookies build/yt_cookies.txt"; fi
+            OUT=$(yt-dlp $ARGS --no-playlist --no-warnings \
+                  -f "bv*[height<=720]/b[height<=720]/b" \
+                  --download-sections "*00:00:10-00:00:20" \
+                  -o "build/w-%(id)s.%(ext)s" \
+                  "https://www.youtube.com/watch?v=$STORY" 2>&1)
+            F=$(ls build/w-* 2>/dev/null | head -1)
+            if [ -n "$F" ]; then
+              log "[$MODE] SUCCESS -> $(wc -c < "$F") bytes  ***FOOTAGE UNLOCKED***"
+            else
+              log "[$MODE] fail: $(echo "$OUT" | grep -iE 'bot|sign in|unavailable|error|forbidden|no such|wireguard' | head -1 | cut -c1-110)"
+            fi
+          done
+          log "---- done ----"
+          exit 0
 
       - name: Commit result
         if: always()
+        shell: bash
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add .social/warp-test-result.txt || true
-          git commit -m "warp-test: result [skip ci]" || echo "no change"
+          git add .social/warp-test-result.txt 2>/dev/null || true
+          git commit -m "warp-test: result [skip ci]" || echo "nothing to commit"
           for i in 1 2 3 4; do
             git pull --rebase --autostash origin main && git push && break
             sleep $((RANDOM % 3 + 2))
