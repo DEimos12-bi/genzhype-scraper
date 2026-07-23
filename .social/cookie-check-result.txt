@@ -1,4 +1,4 @@
-cookie-check @ 2026-07-23T14:28:52Z
+cookie-check @ 2026-07-23T14:55:46Z
 SECRET: present — 3457 bytes, 28 lines
 GATE  : maker needs >100 bytes -> PASS
 DOMAIN: youtube.com cookies present
@@ -9,7 +9,12 @@ AUTH  : APISID found
 AUTH  : SAPISID found
 AUTH  : __Secure-1PSID found
 AUTH  : LOGIN_INFO found
----- yt-dlp --simulate (no download) ----
-yt-dlp exit: 0
-OK id=dQw4w9WgXcQ title=Rick Astley - Never Gonna Give You Up (O
-VERDICT: COOKIE WORKS — footage-first should activate.
+ffmpeg: MISSING
+---- download-sections test (maker's real command) ----
+  [public dQw4w9WgXcQ] exit=1 file=none
+      err: [info] dQw4w9WgXcQ: Downloading 1 format(s): 398
+ERROR: You have requested downloading the video partially, but ffmpeg is not installed. Aborting
+  [story1 2z8sHRNhuHc] exit=1 file=none
+      err: ERROR: [youtube] 2z8sHRNhuHc: Sign in to confirm you’re not a bot. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dlp/yt-dlp/wiki/FAQ#how-do-i-pass-cookies-to-yt-dlp  for how to manually pass cookies. Also see  https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies  for tips on effectively exporting YouTube cookies
+  [story2 ACoJ17Pxkfs] exit=1 file=none
+      err: ERROR: [youtube] ACoJ17Pxkfs: Sign in to confirm you’re not a bot. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dlp/yt-dlp/wiki/FAQ#how-do-i-pass-cookies-to-yt-dlp  for how to manually pass cookies. Also see  https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies  for tips on effectively exporting YouTube cookies
