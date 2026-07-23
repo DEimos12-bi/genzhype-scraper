@@ -2235,6 +2235,92 @@ def fetch_story_footage(video_id, window=0):
 
 
 # ============================================================================
+# r28 MULTI-PLATFORM FOOTAGE — the platform-check proved Twitch/TikTok/Kick
+# clips download from a runner with NOTHING but curl_cffi TLS impersonation
+# (--impersonate chrome), no cookies, no WARP; YouTube needs cookies (+WARP at
+# the yml level); X needs cookies. Streamer drama's REAL moments live on
+# Twitch/Kick, reactions on TikTok — so these are prime evidence. This fetches
+# a whole SHORT clip (they are already short) which the scene layer trims+mutes.
+# ============================================================================
+_PLATFORM_CLIP_CACHE = {}
+_STORY_CLIPS = []          # r28: this story's harvested platform clip URLs
+                           # (Twitch/TikTok/Kick/YouTube), consumed as footage.
+
+
+def platform_of(url):
+    """Which platform a clip URL belongs to (or None)."""
+    u = (url or "").lower()
+    if "kick.com" in u:                         return "kick"
+    if "twitch.tv" in u:                        return "twitch"
+    if "tiktok.com" in u:                       return "tiktok"
+    if "youtube.com" in u or "youtu.be" in u:   return "youtube"
+    if "x.com" in u or "twitter.com" in u:      return "x"
+    return None
+
+
+def fetch_platform_clip(url):
+    """r28: download a short clip from ANY supported platform with the RIGHT
+    method (proven by platform-check). Returns a local video path or None.
+    Cached per URL per run; counts toward the run fetch cap; never raises."""
+    global _FOOTAGE_FETCHES
+    if url in _PLATFORM_CLIP_CACHE:
+        return _PLATFORM_CLIP_CACHE[url]
+    plat = platform_of(url)
+    if plat is None:
+        _PLATFORM_CLIP_CACHE[url] = None
+        return None
+    path = None
+    try:
+        import shutil
+        ck = yt_cookies_file()
+        max_fetches = FOOTAGE_CK_MAX_FETCHES if ck else FOOTAGE_MAX_FETCHES
+        if _FOOTAGE_FETCHES >= max_fetches or not shutil.which("yt-dlp"):
+            _PLATFORM_CLIP_CACHE[url] = None
+            return None
+        _FOOTAGE_FETCHES += 1
+        stem = f"clip-{plat}-{hashlib.md5(url.encode()).hexdigest()[:12]}"
+        outtmpl = os.path.join(WORKDIR, f"{stem}.%(ext)s")
+        cmd = ["yt-dlp", "--no-playlist", "--quiet", "--no-warnings",
+               "-f", "b[height<=720]/b", "--max-filesize", "45M",
+               "-o", outtmpl, url]
+        if plat in ("kick", "twitch", "tiktok"):
+            # TLS-fingerprint bypass — the whole trick for these three.
+            cmd[1:1] = ["--impersonate", "chrome"]
+        elif plat == "youtube":
+            if ck:
+                cmd[1:1] = ["--cookies", ck]
+                time.sleep(random.uniform(*FOOTAGE_FETCH_SLEEP_S))
+        elif plat == "x":
+            cmd[1:1] = ["--impersonate", "chrome"]
+            if ck:
+                cmd[1:1] = ["--cookies", ck]
+        try:
+            subprocess.run(cmd, timeout=FOOTAGE_FETCH_TIMEOUT + 15,
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                           check=False)
+        except Exception as exc:  # noqa: BLE001 (timeout included)
+            log.info("CLIP fetch failed (%s: %s)", plat, type(exc).__name__)
+        hits = [p for p in glob.glob(os.path.join(WORKDIR, f"{stem}.*"))
+                if p.rsplit(".", 1)[-1] in ("mp4", "webm", "mkv", "mov")
+                and os.path.getsize(p) > 30000]
+        if hits:
+            path = sorted(hits)[0]
+            from moviepy import VideoFileClip
+            v = VideoFileClip(path)
+            d = float(v.duration or 0)
+            v.close()
+            if d < 1.5:
+                path = None
+        if path:
+            log.info("CLIP %s -> %s (%s)", plat, os.path.basename(path), url[:60])
+    except Exception as exc:  # noqa: BLE001
+        log.info("CLIP fetch error (%s): %s", plat, exc)
+        path = None
+    _PLATFORM_CLIP_CACHE[url] = path
+    return path
+
+
+# ============================================================================
 # v6: FACE-AWARE PHONE FRAMING — haarcascade frontal-face detection (cached),
 # eyeline-anchored cover crop, face-anchored zoom motions. Owner round-6:
 # "framing must respect the phone screen". cv2 missing / no face found ->
@@ -3138,6 +3224,16 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
             if _v and _v not in story_vids:
                 story_vids.append(_v)
 
+    # r28 MULTI-PLATFORM CLIPS: relevant Twitch/TikTok/Kick/YouTube clips the
+    # demon scraper harvested from this story's articles. Twitch/TikTok/Kick
+    # need no cookies (curl_cffi impersonation), so these work whenever footage
+    # fetching is enabled — even without the YouTube cookie/WARP. They are the
+    # MOST relevant footage (embedded by the reporters), so a still scene is
+    # upgraded to the next unused clip before falling back to a plain still.
+    footage_enabled = (REAL_FOOTAGE
+                       and os.environ.get("VIDEO_FOOTAGE_FETCH", "1") != "0")
+    clip_pool = list(_STORY_CLIPS) if footage_enabled else []
+
     # r17: planned-clip census + PRIORITY PREFETCH — the run-level yt-dlp
     # attempt cap (FOOTAGE_MAX_FETCHES) is spent on the Director's PLAN
     # before any opportunistic upgrade can burn it.
@@ -3518,6 +3614,33 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                 else:
                     log.info("FOOTAGE unavailable for %s; thumbnail "
                              "fallback", vid)
+        # r28 MULTI-PLATFORM CLIP FOOTAGE: a still beat becomes a REAL clip from
+        # the story's harvested Twitch/TikTok/Kick/YouTube URLs (article-embedded
+        # = highly relevant). Twitch/TikTok/Kick need no cookies. Priority over a
+        # plain still; obeys the footage budget + the consecutive-footage cap.
+        if (not footage and typ == "photo" and clip_pool
+                and consec_footage < FOOTAGE_CK_MAX_CONSEC):
+            prev_foot = bool(scenes and scenes[-1].get("footage"))
+            res_n, res_s = _planned_reserve(si)
+            if footage_budget_ok(need_s, foot_n, foot_s, consec_broll,
+                                 prev_foot, planned=False,
+                                 has_planned=has_planned,
+                                 reserve_n=res_n, reserve_s=res_s,
+                                 cookies=True, runtime_s=runtime_s,
+                                 consec_footage=consec_footage):
+                cpath = None
+                while clip_pool and cpath is None:
+                    cand = fetch_platform_clip(clip_pool.pop(0))
+                    if cand and cand not in _recent_paths():
+                        cpath = cand
+                if cpath:
+                    path, typ, textish = cpath, "broll", False
+                    motion, footage = "punch_build", True
+                    foot_n += 1
+                    foot_s += need_s
+                    last_foot = (None, None)
+                    log.info("CLIP FOOTAGE: scene %d -> %s", si + 1,
+                             os.path.basename(cpath))
         if not footage:
             last_foot = (None, None)   # r24: rotation rule is per-run-in-a-row
             if hold_capped:
@@ -5357,6 +5480,15 @@ def make_one(post, font_path):
         hook = " ".join(script.split()[:8])
 
     os.makedirs(WORKDIR, exist_ok=True)
+    # r28: this story's harvested platform clips (Twitch/TikTok/Kick/YouTube) —
+    # the scene planner pulls these in as REAL MOVING footage matched to the
+    # story, each fetched with its proper method (fetch_platform_clip).
+    global _STORY_CLIPS
+    _STORY_CLIPS = [c.get("url") for c in (post.get("clips") or [])
+                    if isinstance(c, dict) and platform_of(c.get("url"))]
+    if _STORY_CLIPS:
+        log.info("story clips available: %d (%s)", len(_STORY_CLIPS),
+                 ", ".join(sorted({platform_of(u) for u in _STORY_CLIPS})))
     pool, person_map = build_visual_pool(post, page_id)
     broll_terms = post.get("broll") if isinstance(post.get("broll"), list) \
         else []

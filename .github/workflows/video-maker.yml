@@ -177,10 +177,15 @@ jobs:
       # still on every miss, so this step and the feature are both
       # non-fatal. Kill switch: VIDEO_REAL_FOOTAGE=0.
       # Unpinned on purpose: YouTube breaks old yt-dlp versions constantly.
-      - name: Install yt-dlp for real story footage (optional)
+      - name: Install yt-dlp (+ curl_cffi for Twitch/TikTok/Kick impersonation)
         continue-on-error: true
         run: |
-          python -m pip install yt-dlp
+          # r28: [curl-cffi] is the whole trick for Twitch/TikTok/Kick — it lets
+          # yt-dlp --impersonate chrome present a real-browser TLS fingerprint
+          # and walk past their Cloudflare bot-wall (no cookies, no WARP needed).
+          python -m pip install -U "yt-dlp[default,curl-cffi]"
+          yt-dlp --list-impersonate-targets 2>/dev/null | grep -ciE "chrome|safari" \
+            && echo "impersonation ready" || echo "impersonation NOT available"
 
       # r28 FOOTAGE UNLOCK (proven by warp-test: warp+cookies downloaded a
       # previously bot-walled story video). Route the runner's egress through
