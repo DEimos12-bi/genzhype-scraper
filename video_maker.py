@@ -1283,15 +1283,18 @@ def _shot_is_blank(path):
         return True
 
 
-def screenshot_articles(targets, page_id):
+def screenshot_articles(targets, page_id, topic_kw=None):
     """Screenshot REAL article pages (masthead + headline + lead image, as the
     site actually renders) — the drama-genre confidence move: FOUND evidence,
     not made evidence. ONE chromium session for all targets, hard wall-clock
     budget. r17: ad/newsletter/subscribe furniture is hidden before shooting
     and the headline block is REQUIRED — no h1, no screenshot (the raw
-    top-of-page fallback is dead). Every failure is silent; the og-photo /
-    subject chain covers misses downstream.
+    top-of-page fallback is dead). r28: topic_kw = the story's keywords; the
+    crop locks onto the headline that CONTAINS one (the MAIN article), so a
+    'trending now' module's unrelated headline can't be shot by mistake. Every
+    failure is silent; the og-photo / subject chain covers misses downstream.
     targets: {receipt_idx: url} -> returns {receipt_idx: png_path}."""
+    topic_kw = topic_kw or []
     out = {}
     try:
         from playwright.sync_api import sync_playwright
@@ -1448,13 +1451,36 @@ def screenshot_articles(targets, page_id):
                     if not shot_done:
                         h1 = None
                         try:
-                            for sel in ("article h1", "main h1", "h1"):
-                                loc = page.locator(sel).first
-                                if loc.count() > 0:
-                                    bb = loc.bounding_box()
-                                    if bb and bb.get("width", 0) > 200:
+                            # r28: collect EVERY headline on the page, then lock
+                            # onto the one whose TEXT matches the story topic —
+                            # so a 'trending now/related' module's headline (an
+                            # off-topic Eminem story slipped in this exact way)
+                            # can never be the one we shoot.
+                            cands = []
+                            loc = page.locator("h1")
+                            for k in range(min(10, loc.count())):
+                                el = loc.nth(k)
+                                bb = el.bounding_box()
+                                if not (bb and bb.get("width", 0) > 200):
+                                    continue
+                                try:
+                                    txt = (el.text_content() or "").strip().lower()
+                                except Exception:  # noqa: BLE001
+                                    txt = ""
+                                cands.append((bb, txt))
+                            if topic_kw:
+                                for bb, txt in cands:
+                                    if any(kw in txt for kw in topic_kw):
                                         h1 = bb
                                         break
+                                if h1 is None and cands:
+                                    log.info("screenshot: no ON-TOPIC headline "
+                                             "(%s) on %s; skipping", topic_kw[:3],
+                                             url[:70])
+                                    page.close()
+                                    continue
+                            elif cands:
+                                h1 = cands[0][0]
                         except Exception:  # noqa: BLE001
                             h1 = None
                         if not h1:
@@ -2245,6 +2271,68 @@ def fetch_story_footage(video_id, window=0):
 _PLATFORM_CLIP_CACHE = {}
 _STORY_CLIPS = []          # r28: this story's harvested platform clip URLs
                            # (Twitch/TikTok/Kick/YouTube), consumed as footage.
+_FOOTAGE_REL_CACHE = {}    # r28 smart gate: clip path -> is-it-on-topic
+_FOOTAGE_REL_CALLS = [0]
+FOOTAGE_REL_MAX_CALLS = 8  # cap Gemini relevance checks per render
+
+
+def footage_is_relevant(clip_path, topic):
+    """r28 SMART FOOTAGE GATE (owner: "be smart enough to know what topic we
+    want and what exact clips we're looking for"). Grab a frame from a fetched
+    clip and ask Gemini yes/no: does it relate to THIS story? Rejects a
+    musician's music-video frame on a feud story, an unrelated performance, a
+    wrong clip. No key / over the call cap / any error -> True (never blocks
+    footage on infra problems). Cached per clip."""
+    if not (GEMINI_API_KEY and clip_path and topic):
+        return True
+    if clip_path in _FOOTAGE_REL_CACHE:
+        return _FOOTAGE_REL_CACHE[clip_path]
+    if _FOOTAGE_REL_CALLS[0] >= FOOTAGE_REL_MAX_CALLS:
+        return True
+    ok = True
+    try:
+        import io
+        from moviepy import VideoFileClip
+        v = VideoFileClip(clip_path)
+        t = min(1.0, float(v.duration or 2.0) / 2.0)
+        arr = v.get_frame(t)
+        v.close()
+        im = Image.fromarray(arr.astype("uint8"))
+        im.thumbnail((512, 512))
+        buf = io.BytesIO()
+        im.save(buf, "JPEG", quality=80)
+        _FOOTAGE_REL_CALLS[0] += 1
+        prompt = (
+            "This is a frame from a short video clip that may be used as "
+            f"evidence in a news video about: \"{topic}\". Does this clip "
+            "plausibly relate to THAT story — the people involved, the event, "
+            "an interview or stream about it, the setting? A generic music "
+            "video, an unrelated performance, an ad, or a totally different "
+            'topic is NOT related. Respond ONLY JSON: {"related": true|false}.')
+        body = {"contents": [{"parts": [
+                    {"text": prompt},
+                    {"inline_data": {"mime_type": "image/jpeg",
+                        "data": base64.b64encode(buf.getvalue()).decode("ascii")}}]}],
+                "generationConfig": {"temperature": 0.0,
+                    "response_mime_type": "application/json"}}
+        url = ("https://generativelanguage.googleapis.com/v1beta/models/"
+               f"{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}")
+        r = requests.post(url, json=body, timeout=40)
+        if r.status_code == 200:
+            txt = (r.json()["candidates"][0]["content"]["parts"][0]["text"]
+                   or "").strip()
+            if txt.startswith("```"):
+                txt = txt.strip("`").strip()
+                if txt.lower().startswith("json"):
+                    txt = txt[4:].strip()
+            ok = bool(json.loads(txt).get("related", True))
+            if not ok:
+                log.info("FOOTAGE GATE: off-topic clip rejected (%s)",
+                         os.path.basename(clip_path))
+    except Exception as e:  # noqa: BLE001
+        ok = True
+    _FOOTAGE_REL_CACHE[clip_path] = ok
+    return ok
 
 
 def platform_of(url):
@@ -3584,6 +3672,12 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                     log.info("FOOTAGE %s w%d repeats within %d scenes; "
                              "thumbnail kept", vid, win,
                              POOL_NO_REPEAT_WINDOW)
+                elif fpath and not footage_is_relevant(fpath, title):
+                    # r28 SMART GATE: this yt-thumbnail's clip is off-topic (a
+                    # musician's music video on a feud story) — keep the still.
+                    _FOOTAGE_CACHE[(vid, win)] = None
+                    log.info("FOOTAGE %s w%d off-topic (vision gate); still "
+                             "kept", vid, win)
                 elif fpath:
                     path, typ, textish = fpath, "broll", False
                     motion, footage = "punch_build", True
@@ -5534,12 +5628,29 @@ def make_one(post, font_path):
         # (c) else the planner's subject-photo fallback.
         meta = post.get("receipt_meta")
         if isinstance(meta, list) and meta:
+            # r28 relevance: keywords that a REAL headline about this story must
+            # contain, so the screenshot picks the MAIN article headline — not a
+            # "trending now / related" module's headline (an unrelated Eminem
+            # story slipped in exactly this way on allhiphop).
+            _topic_kw = []
+            for _p in (post.get("people") or []):
+                _nm = (_p.get("name") if isinstance(_p, dict) else str(_p)) or ""
+                for _w in re.split(r"\s+", _nm.lower()):
+                    _w = re.sub(r"[^a-z0-9]", "", _w)
+                    if len(_w) >= 4:
+                        _topic_kw.append(_w)
+            for _w in re.split(r"\s+", str(post.get("title") or "").lower()):
+                _w = re.sub(r"[^a-z0-9]", "", _w)
+                if len(_w) >= 5 and _w not in ("their", "after", "about"):
+                    _topic_kw.append(_w)
+            _topic_kw = list(dict.fromkeys(_topic_kw))
+
             def _shooter(targets):
                 if not REAL_SHOTS:
                     log.info("VIDEO_REAL_SHOTS=0: skipping article "
                              "screenshots (og/subject chain only)")
                     return {}
-                return screenshot_articles(targets, page_id)
+                return screenshot_articles(targets, page_id, topic_kw=_topic_kw)
 
             def _og_fetch(i, u):
                 return fetch_visual(
