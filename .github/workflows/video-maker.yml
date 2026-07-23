@@ -5,7 +5,7 @@ name: video-maker
 # vision judge) per fresh page and POSTs it back to genzhype.com.
 # Same token-gated feed + .social dedup pattern as the other posters.
 #
-# OPTIONAL secrets (every one may be absent — the driver degrades gracefully):
+# OPTIONAL secrets (every one may be absent â€” the driver degrades gracefully):
 #   PEXELS_API_KEY / PIXABAY_API_KEY  -> real b-roll video scenes (free keys
 #                                        from pexels.com/api, pixabay.com/api);
 #                                        missing -> photos-only (v2 behaviour)
@@ -15,6 +15,14 @@ name: video-maker
 #                                        phrase (max ~8 calls/video, cached
 #                                        per query); missing -> judge skipped
 #                                        + first-candidate stock (v4.5)
+#   YT_COOKIES                        -> (r24 FOOTAGE-FIRST) cookies.txt of a
+#                                        logged-in secondary YouTube account;
+#                                        with it yt-dlp survives the bot wall
+#                                        and REAL FOOTAGE carries the video
+#                                        (multi-window sections, budgets flip
+#                                        to 8 scenes / min(30s, 60% runtime));
+#                                        missing -> exact modest r13/r17
+#                                        stills-first behavior
 #
 # QUOTA LEVER: set env VIDEO_VISION_RERANK: "0" below to disable ONLY the
 # stock re-rank (keeps the judge) when the shared Gemini free tier runs hot.
@@ -47,18 +55,22 @@ jobs:
       VIDEO_STATE_FILE: .social/video_done.txt
       # Point the driver at the vendored Turbo tree so it reuses voice.py.
       MPT_HOME: ${{ github.workspace }}/videorepos/mpt
-      # v3 OPTIONAL keys — unset secrets expand to "" and the driver treats
+      # v3 OPTIONAL keys â€” unset secrets expand to "" and the driver treats
       # empty as disabled, so no step ever fails when these are absent.
       PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
       PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      # r24: logged-in YouTube cookies.txt (secondary account). Written to a
+      # FILE by the step below â€” the driver only ever reads the file, and
+      # GitHub masks the secret in any accidental log output anyway.
+      YT_COOKIES: ${{ secrets.YT_COOKIES }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Verify ffmpeg + fonts (preinstalled on ubuntu-latest)
-        # Resolve the runner's REAL ffmpeg path dynamically — hardcoding /usr/bin/ffmpeg
+        # Resolve the runner's REAL ffmpeg path dynamically â€” hardcoding /usr/bin/ffmpeg
         # broke run #1 (current runners ship it elsewhere). moviepy + the faststart
         # remux both honor IMAGEIO_FFMPEG_EXE; if ffmpeg were ever missing entirely,
         # the pip-installed imageio-ffmpeg bundles its own binary as the fallback.
@@ -104,7 +116,7 @@ jobs:
 
       # r14 CLIP VERIFYING EYE (optional, quota-free): sentence-transformers
       # CLIP ViT-B-32 scores each photo scene's image against the words
-      # spoken over it and swaps clear mismatches to a better pool image —
+      # spoken over it and swaps clear mismatches to a better pool image â€”
       # all on the runner CPU, zero API quota. The ~605MB model downloads at
       # first use inside the render step; the driver tolerates a failed
       # install/download by skipping the check entirely, so this step is
@@ -128,17 +140,39 @@ jobs:
       # non-fatal. Kill switch: env VIDEO_FORCED_ALIGN: "0".
 
 
-      # r13 REAL FOOTAGE (optional): yt-dlp fetches short MUTED sections of
-      # the story's own YouTube videos (14s window, <=3.5s shown per scene,
-      # max ~8 borrowed seconds per video — the drama-channel fair-use
-      # posture). YouTube frequently bot-walls cloud runner IPs; the driver
-      # falls back to the thumbnail still on every miss, so this step and
-      # the feature are both non-fatal. Kill switch: VIDEO_REAL_FOOTAGE=0.
+      # r13/r24 REAL FOOTAGE (optional): yt-dlp fetches short MUTED sections
+      # of the story's own YouTube videos. Cookie-less: the modest r13/r17
+      # budgets (<=3.5s shown per scene, max ~8-12 borrowed seconds â€” the
+      # drama-channel fair-use posture) and YouTube frequently bot-walls the
+      # runner IP anyway. WITH the YT_COOKIES file (r24 FOOTAGE-FIRST) the
+      # downloads actually succeed and footage carries the video: up to 3
+      # DIFFERENT windows per id, 8 footage scenes, min(30s, 60% of runtime)
+      # borrowed, throttled to 12 yt-dlp attempts/run with 2-4s sleeps
+      # (burner-account safety). The driver falls back to the thumbnail
+      # still on every miss, so this step and the feature are both
+      # non-fatal. Kill switch: VIDEO_REAL_FOOTAGE=0.
       # Unpinned on purpose: YouTube breaks old yt-dlp versions constantly.
       - name: Install yt-dlp for real story footage (optional)
         continue-on-error: true
         run: |
           python -m pip install yt-dlp
+
+      # r24 FOOTAGE-FIRST: write the logged-in cookies.txt where the driver
+      # looks for it (<VIDEO_WORKDIR>/yt_cookies.txt). printf to a file only
+      # â€” the secret value is NEVER echoed to the log (and GitHub masks it
+      # regardless). Absent/empty secret -> no file -> the driver keeps the
+      # exact cookie-less stills-first behavior. Non-fatal by construction.
+      - name: Write YouTube cookies file (optional)
+        continue-on-error: true
+        run: |
+          mkdir -p "$VIDEO_WORKDIR"
+          if [ -n "$YT_COOKIES" ]; then
+            printf '%s' "$YT_COOKIES" > "$VIDEO_WORKDIR/yt_cookies.txt"
+            chmod 600 "$VIDEO_WORKDIR/yt_cookies.txt"
+            echo "cookies file written ($(wc -c < "$VIDEO_WORKDIR/yt_cookies.txt") bytes)"
+          else
+            echo "YT_COOKIES not set; footage runs cookie-less (stills-first mode)"
+          fi
 
       # OPTIONAL: extra deps so the driver imports and reuses Turbo's REAL
       # app.services.voice (its top-level imports need loguru/toml/openai).
@@ -150,7 +184,7 @@ jobs:
           python -m pip install "loguru==0.7.3" "toml>=0.10" "openai==2.24.0"
 
       # v10 REAL-SOURCE SCREENSHOTS (optional): chromium to screenshot the
-      # actual article pages as evidence ("original pixels"). Non-fatal —
+      # actual article pages as evidence ("original pixels"). Non-fatal â€”
       # missing browser just means the rendered cards are used instead.
       - name: Install chromium for real-source screenshots (optional)
         continue-on-error: true
