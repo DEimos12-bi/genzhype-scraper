@@ -1,4 +1,4 @@
-cookie-check @ 2026-07-23T14:55:46Z
+cookie-check @ 2026-07-23T14:59:45Z
 SECRET: present — 3457 bytes, 28 lines
 GATE  : maker needs >100 bytes -> PASS
 DOMAIN: youtube.com cookies present
@@ -9,12 +9,14 @@ AUTH  : APISID found
 AUTH  : SAPISID found
 AUTH  : __Secure-1PSID found
 AUTH  : LOGIN_INFO found
-ffmpeg: MISSING
----- download-sections test (maker's real command) ----
-  [public dQw4w9WgXcQ] exit=1 file=none
-      err: [info] dQw4w9WgXcQ: Downloading 1 format(s): 398
-ERROR: You have requested downloading the video partially, but ffmpeg is not installed. Aborting
-  [story1 2z8sHRNhuHc] exit=1 file=none
-      err: ERROR: [youtube] 2z8sHRNhuHc: Sign in to confirm you’re not a bot. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dlp/yt-dlp/wiki/FAQ#how-do-i-pass-cookies-to-yt-dlp  for how to manually pass cookies. Also see  https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies  for tips on effectively exporting YouTube cookies
-  [story2 ACoJ17Pxkfs] exit=1 file=none
-      err: ERROR: [youtube] ACoJ17Pxkfs: Sign in to confirm you’re not a bot. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dlp/yt-dlp/wiki/FAQ#how-do-i-pass-cookies-to-yt-dlp  for how to manually pass cookies. Also see  https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies  for tips on effectively exporting YouTube cookies
+ffmpeg: /usr/bin/ffmpeg
+yt-dlp: 2026.07.04
+---- player_client bypass test on story 2z8sHRNhuHc ----
+  [default(web)] fail: ERROR: [youtube] 2z8sHRNhuHc: Sign in to confirm you’re not a bot. Use --cookies-from-br
+  [android] fail: ERROR: [youtube] 2z8sHRNhuHc: Sign in to confirm you’re not a bot. Use --cookies-from-br
+  [ios] fail: ERROR: [youtube] 2z8sHRNhuHc: Sign in to confirm you’re not a bot. Use --cookies-from-br
+  [tv] fail: ERROR: [youtube] 2z8sHRNhuHc: Sign in to confirm you’re not a bot. Use --cookies-from-br
+  [mweb] fail: ERROR: [youtube] 2z8sHRNhuHc: Sign in to confirm you’re not a bot. Use --cookies-from-br
+  [web_safari] fail: ERROR: [youtube] 2z8sHRNhuHc: Sign in to confirm you’re not a bot. Use --cookies-from-br
+  [web_embedded] fail: ERROR: [youtube] 2z8sHRNhuHc: Sign in to confirm you’re not a bot. Use --cookies-from-br
+  [tv_embedded] fail: ERROR: [youtube] 2z8sHRNhuHc: Sign in to confirm you’re not a bot. Use --cookies-from-br
