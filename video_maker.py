@@ -1237,7 +1237,12 @@ def screenshot_articles(targets, page_id):
             ctx = browser.new_context(viewport={"width": 1080, "height": 1500},
                                       user_agent=_BROWSER_UA,
                                       locale="en-US")
-            for i, url in targets.items():
+            url_shot = {}                  # r22: SAME url -> SAME file (path-
+            for i, url in targets.items():  # based scene caps finally bite)
+                if url in url_shot:
+                    if url_shot[url]:
+                        out[i] = url_shot[url]
+                    continue
                 if time.time() > deadline:
                     log.info("screenshot budget spent; %d article(s) fall "
                              "back to og photos/subject",
@@ -1434,11 +1439,14 @@ def screenshot_articles(targets, page_id):
                     if float(np.asarray(g).std()) < 8.0:
                         log.info("screenshot near-blank; og/subject "
                                  "fallback: %s", url[:90])
+                        url_shot[url] = None
                         continue
                 except Exception:
+                    url_shot[url] = None
                     continue
                 log.info("REAL source screenshot: %s", url[:100])
                 out[i] = path
+                url_shot[url] = path
             browser.close()
     except Exception as exc:  # noqa: BLE001
         log.info("screenshot engine unavailable (%s); article receipts fall "
