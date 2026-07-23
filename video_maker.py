@@ -1478,7 +1478,12 @@ def screenshot_articles(targets, page_id):
                         except Exception:  # noqa: BLE001
                             img_bb = None
                         x = max(0.0, h1["x"] - 24)
-                        y = max(0.0, h1["y"] - 90)
+                        # r27 (owner: "dexerto is our COMPETITOR, why are we
+                        # giving them views/brand on our back"): crop from just
+                        # above the HEADLINE, not the masthead — so the publisher
+                        # logo + top nav (the competitor's brand) never show. The
+                        # headline + lead image is the proof; the brand is not.
+                        y = max(0.0, h1["y"] - 16)
                         if img_bb:
                             bottom = img_bb["y"] + img_bb["height"] + 40
                         else:
