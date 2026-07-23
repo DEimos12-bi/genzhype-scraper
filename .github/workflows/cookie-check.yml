@@ -64,21 +64,29 @@ jobs:
                 grep -qiE "[[:space:]]$C[[:space:]]" build/yt_cookies.txt \
                   && echo "AUTH  : $C found" || true
               done
-              echo "---- yt-dlp --simulate (no download) ----"
-              # a stable, always-up public video; capture success/first error
-              set +e
-              OUT=$(yt-dlp --cookies build/yt_cookies.txt --simulate --no-warnings \
-                    --print "OK id=%(id)s title=%(title).40s" \
-                    "https://www.youtube.com/watch?v=dQw4w9WgXcQ" 2>&1)
-              EXIT=$?
-              set -e
-              echo "yt-dlp exit: $EXIT"
-              echo "$OUT" | head -6
-              if [ "$EXIT" -eq 0 ]; then
-                echo "VERDICT: COOKIE WORKS — footage-first should activate."
-              else
-                echo "VERDICT: COOKIE FAILED — expired/invalid; re-export needed."
-              fi
+              echo "ffmpeg: $(command -v ffmpeg || echo MISSING)"
+              # Reproduce the maker's EXACT fetch: a --download-sections cut
+              # (needs ffmpeg), format-capped, on a public video AND two real
+              # story videos. This is what actually fails in the render.
+              test_dl () {
+                local VID="$1" LABEL="$2"
+                set +e
+                OUT=$(yt-dlp --cookies build/yt_cookies.txt --no-playlist \
+                      --no-warnings \
+                      -f "bv*[height<=720][ext=mp4]/b[height<=720]" \
+                      --download-sections "*00:00:10-00:00:26" \
+                      -o "build/t-$VID.%(ext)s" \
+                      "https://www.youtube.com/watch?v=$VID" 2>&1)
+                local EX=$?
+                set -e
+                local GOT=$(ls -la build/t-$VID.* 2>/dev/null | head -1)
+                echo "  [$LABEL $VID] exit=$EX file=${GOT:-none}"
+                [ -n "$GOT" ] || echo "      err: $(echo "$OUT" | grep -iE 'error|unavailable|private|sign in|bot|format' | head -2)"
+              }
+              echo "---- download-sections test (maker's real command) ----"
+              test_dl "dQw4w9WgXcQ" "public"
+              test_dl "2z8sHRNhuHc" "story1"
+              test_dl "ACoJ17Pxkfs" "story2"
             fi
           } | tee "$RESULT"
 
