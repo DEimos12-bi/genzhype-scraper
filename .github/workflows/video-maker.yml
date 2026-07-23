@@ -66,8 +66,11 @@ jobs:
       # even with valid cookies). Skip the doomed yt-dlp spawns (fast renders)
       # while keeping cookie/footage MODE on so the mismatched-stock kill stays
       # active and the video rides motion-strong real stills. Set to "1" only
-      # if a residential proxy later makes YouTube downloads actually work.
-      VIDEO_FOOTAGE_FETCH: "0"
+      # r28: FOOTAGE IS BACK ON — Cloudflare WARP (set up below) + cookies beat
+      # YouTube's bot-wall (proven). yt-dlp fetches real story clips again, so
+      # the r24 footage-first engine goes live. If WARP/cookies ever fail, the
+      # driver degrades to motion-lite stills automatically.
+      VIDEO_FOOTAGE_FETCH: "1"
       # r25: motion-lite lean pipeline — skip the heavy/fragile ML niceties that
       # were hanging the runner (CLIP verify + whisperx forced-align). edge-tts
       # timings sync captions fine; there is no footage to CLIP-verify.
@@ -178,6 +181,30 @@ jobs:
         continue-on-error: true
         run: |
           python -m pip install yt-dlp
+
+      # r28 FOOTAGE UNLOCK (proven by warp-test: warp+cookies downloaded a
+      # previously bot-walled story video). Route the runner's egress through
+      # FREE Cloudflare WARP so YouTube stops bot-walling the datacenter IP.
+      # Combined with the YT_COOKIES secret, yt-dlp footage fetches now succeed.
+      # Non-fatal: if WARP won't come up, footage degrades to the cookie-less
+      # bot-wall (motion-lite stills) — the render never breaks.
+      - name: Route egress through Cloudflare WARP (footage unlock)
+        continue-on-error: true
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq wireguard-tools || true
+          sudo apt-get install -y -qq resolvconf || true
+          WGCF_VER=2.2.22
+          curl -sL -o /tmp/wgcf "https://github.com/ViRb3/wgcf/releases/download/v${WGCF_VER}/wgcf_${WGCF_VER}_linux_amd64" \
+            && chmod +x /tmp/wgcf && sudo mv /tmp/wgcf /usr/local/bin/wgcf
+          sudo modprobe wireguard || true
+          wgcf register --accept-tos || true
+          wgcf generate || true
+          sudo mkdir -p /etc/wireguard
+          sudo cp wgcf-profile.conf /etc/wireguard/warp.conf || true
+          sudo sed -i '/^DNS/d' /etc/wireguard/warp.conf || true
+          sudo wg-quick up warp && echo "WARP up — footage egress via Cloudflare" \
+            || echo "WARP failed to start; footage will bot-wall (stills fallback)"
 
       # r24 FOOTAGE-FIRST: write the logged-in cookies.txt where the driver
       # looks for it (<VIDEO_WORKDIR>/yt_cookies.txt). printf to a file only
