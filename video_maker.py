@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-GenZHype faceless-video maker — v6 "human-editor taste" (person-pinned
+GenZHype faceless-video maker â€” v6 "human-editor taste" (person-pinned
 photos + real event images + face-aware phone framing).
 
 Adapted from the open-source MoneyPrinterTurbo (MPT) engine
@@ -38,42 +38,42 @@ REUSE vs REPLACE (see videorepos/ADAPTATION.md for the full map):
               drive them ourselves.
 
 WHAT v2 ADDS over the single-image Ken-Burns v1:
-  1. MULTI-SCENE CUTS — the voiceover is split into sentence beats using the
+  1. MULTI-SCENE CUTS â€” the voiceover is split into sentence beats using the
      edge-tts word timings (aligned against the script's punctuation, because
      edge-tts cues usually strip it). Each beat becomes a full-frame scene
      with its own visual and its own motion, cycling zoom-in / zoom-out /
      pan-left / pan-right, so the video never sits still. Cuts snap to the
      next beat's first-word start (a short CrossFadeIn softens the cut).
-  2. VISUAL POOL — the feed now sends `post.visuals` (hero photo, tall branded
+  2. VISUAL POOL â€” the feed now sends `post.visuals` (hero photo, tall branded
      card, event YouTube thumbnails + v8: the site's stored per-drama images).
      `post.people` arrives as [{"name","photo"}] (v8): a feed-provided photo
-     (server-resolved via the site's arsenal — entity QIDs, verified creator
+     (server-resolved via the site's arsenal â€” entity QIDs, verified creator
      photos, YouTube channel avatars) is that person's FIRST choice; names
      without one (or plain-string people, the old shape) are resolved via
      Wikidata (wbsearchentities -> P18 -> commons Special:FilePath), the
      proven image_engine.py flow;
      every lookup/download failure is non-fatal. Visuals are assigned
-     round-robin, hero first — with >=2 visuals no scene repeats its
+     round-robin, hero first â€” with >=2 visuals no scene repeats its
      predecessor's image; with exactly 1 the motion still alternates per beat
      (never-static v1 fallback).
-  3. CAPTION POP — captions show 2-3 word chunks; the CURRENTLY SPOKEN word is
+  3. CAPTION POP â€” captions show 2-3 word chunks; the CURRENTLY SPOKEN word is
      rendered slightly larger in the brand accent (#FF6A5C) while its
      neighbours stay white (PIL-rendered RGBA -> ImageClip, baseline-aligned,
      black stroke). Everything lives in the lower-middle band, clear of the
      platform-UI safe areas (top 220px / bottom 320px). The oversized HOOK
      treatment over the first ~2s is kept from v1.
-  4. OPTIONAL BGM — if .social/bgm/*.mp3 exists (drop ONLY CC0/royalty-free
+  4. OPTIONAL BGM â€” if .social/bgm/*.mp3 exists (drop ONLY CC0/royalty-free
      tracks there!) one is picked deterministically per page_id, looped to the
      video length, mixed at ~0.10 under the voice with 0.5s fades. Missing or
      broken folder/files -> silent, non-fatal.
-  5. GUARDS — <=8 scenes (long sentences are split, short ones merged),
+  5. GUARDS â€” <=8 scenes (long sentences are split, short ones merged),
      corrupt/failed visual downloads are dropped from the pool, and everything
      new degrades to the proven v1 behaviour instead of crashing.
 
 WHAT v3 ADDS over v2 (owner verdict on the first render: "an image stuck with
 captions, not a video; voice sounds 2022; text card crop-zoomed into
-unreadable fragments" — the caption sync itself was loved and is untouched):
-  1. REAL B-ROLL — the feed now sends `post.broll` (ordered stock-footage
+unreadable fragments" â€” the caption sync itself was loved and is untouched):
+  1. REAL B-ROLL â€” the feed now sends `post.broll` (ordered stock-footage
      search phrases). Scenes ALTERNATE real photos (hero/people) with REAL
      STOCK VIDEO matched to those terms in order, via a compact port of
      Turbo's app/services/material.py (Pexels portrait search + Pixabay,
@@ -83,19 +83,19 @@ unreadable fragments" — the caption sync itself was loved and is untouched):
      caches, URL dedup, and a hard budget (~120s / ~80MB). NO key, empty
      terms, or any search/download failure -> that beat silently falls back
      to a photo scene (exact v2 behaviour).
-  2. MODERN VOICE — default voice is now en-US-AndrewMultilingualNeural
+  2. MODERN VOICE â€” default voice is now en-US-AndrewMultilingualNeural
      (edge-tts's 2024-gen natural male; Aria was the "sounds 2022" culprit),
      still +5% rate and still overridable via VIDEO_VOICE. The Multilingual
      family emits WordBoundary events like any other edge-tts voice, and the
      SentenceBoundary/even-split fallbacks below remain as safety nets.
-  3. TEXT-HEAVY IMAGE GUARD — before a photo becomes a scene it runs a
+  3. TEXT-HEAVY IMAGE GUARD â€” before a photo becomes a scene it runs a
      conservative poster/card detector (filename hints 'social-'/'card', or
      extreme aspect vs 9:16 AND large flat-color coverage). Text-heavy images
      are NEVER cover-cropped or Ken-Burns-zoomed: they render "contain"
      (whole image visible) over a blurred darkened fill with only a gentle
-     <=2% drift. This is the systemic fix for the crop-zoomed-card defect —
+     <=2% drift. This is the systemic fix for the crop-zoomed-card defect â€”
      receipts/screenshots arriving later hit the same guard.
-  4. GEMINI VISION JUDGE — after the faststart remux, 4 evenly-spaced frames
+  4. GEMINI VISION JUDGE â€” after the faststart remux, 4 evenly-spaced frames
      + the hook go to gemini-2.5-flash (GEMINI_API_KEY, native REST
      generateContent, strict-JSON verdict). Unreadable/cut-off text, badly
      cropped faces, or all-identical frames -> the video is NOT delivered and
@@ -105,8 +105,8 @@ unreadable fragments" — the caption sync itself was loved and is untouched):
 
 WHAT v4 ADDS over v3 (owner verdict on v3: "clips side by side; a shot dragged
 after its word passed; zero sound design = feels dead/beginner". Spec:
-videorepos/V4-EDITOR-SPEC.md — the researched editor law-book):
-  1. EDL EXECUTION (vertical editing, Laws 3/4/9) — the feed now sends
+videorepos/V4-EDITOR-SPEC.md â€” the researched editor law-book):
+  1. EDL EXECUTION (vertical editing, Laws 3/4/9) â€” the feed now sends
      `post.shotlist`: a Director-authored shot list anchored by WORD INDEX
      into `script.split()`. The maker maps token index -> milliseconds using
      the TTS WordBoundary timings (1:1 when counts match, the proven
@@ -114,16 +114,16 @@ videorepos/V4-EDITOR-SPEC.md — the researched editor law-book):
      `word[w_in].start - 300ms` (visual leads audio, Law 9; clamped monotonic,
      first shot at 0) to the next shot's t_in. Every shot dies with its
      phrase. `shot_class: subject` -> next photo from the REAL-photo pool
-     (hero/person/receipt — never stock); `broll` -> Pexels/Pixabay clip for
+     (hero/person/receipt â€” never stock); `broll` -> Pexels/Pixabay clip for
      `shot.query`; a failed b-roll fetch falls back to a subject photo (never
      black, never a crash). Motions: punch_hit (snap 1.0->1.12 in ~3 frames AT
      the emphasis word, then hold), punch_build (ease 1.0->1.10 across the
      shot), zoom_out (1.12->1.0), pan_left/right (v3 pans). Identical motion
      never repeats back-to-back (guarded even though the Director promises).
-     HARD CUTS between shots (Law 7 — the v3 0.15s crossfade is gone inside
+     HARD CUTS between shots (Law 7 â€” the v3 0.15s crossfade is gone inside
      the sequence; a tiny fade remains only on video start/end).
      `shotlist` null/malformed -> the entire v3 beat/alternation path runs.
-  2. SOUND ENGINE (Laws 12-19, the missing half) — pydub mix built BEFORE the
+  2. SOUND ENGINE (Laws 12-19, the missing half) â€” pydub mix built BEFORE the
      video encode: VO normalized to -16 dBFS; music bed picked
      deterministically from .social/bgm (md5 of page_id), looped, at -18dB vs
      VO, 0.5s master fades; per-shot music states (`bed` / `silence` = bed
@@ -135,43 +135,43 @@ videorepos/V4-EDITOR-SPEC.md — the researched editor law-book):
      rotated by shot-index hash; 30ms fades at every music seam (Law 19).
      LOUDNESS: the mixed track is gain-normalized in pydub toward -14 dBFS
      average (approx -14 LUFS) with a -1.5 dBFS peak cap, then attached to
-     the video — chosen over an ffmpeg loudnorm pass because it needs no
+     the video â€” chosen over an ffmpeg loudnorm pass because it needs no
      second encode. Missing folders/files or ANY mix failure -> the v3
      voice+bgm path runs instead (never fatal).
-  3. HOUSE GRADE (Law 22) — one look over every visual so mixed sources feel
+  3. HOUSE GRADE (Law 22) â€” one look over every visual so mixed sources feel
      like one shoot: vectorized numpy grade (teal-lifted shadows +6% blue,
      warmed highlights +4% red, 1.06 contrast, 1.05 saturation) applied ONCE
      per photo array and per-frame on b-roll, plus a cached radial vignette
      (corners to ~0.85) composited as a single static overlay layer.
-  4. JUDGE: one added criterion — consecutive sampled frames must show
+  4. JUDGE: one added criterion â€” consecutive sampled frames must show
      varied, story-relevant visuals (not near-identical).
 
 WHAT v4.5 ADDS over v4 (owner verdict on v4: narration said "MrBeast's
 assistant" while a generic stock clip showed a random assistant dressing an
-actor — every SPECIFIC fact must show its REAL visual. Stock is already
+actor â€” every SPECIFIC fact must show its REAL visual. Stock is already
 demoted server-side; this adds the evidence layer):
-  1. RECEIPT SHOTS — the feed now sends `post.receipts`: PNG "evidence cards"
+  1. RECEIPT SHOTS â€” the feed now sends `post.receipts`: PNG "evidence cards"
      (1080x1350, one per dated event, rendered server-side from the REAL
      event text + source). The Director may emit shot_class 'receipt' with
      `receipt_i` (index into post.receipts). The maker downloads the cards
      and renders a receipt shot through the PROVEN text-heavy CONTAIN path
      (whole card visible over a blurred fill, gentle <=2% drift, NEVER
-     crop/zoom — the systemic fix from v3 applies unchanged). The receipt is
+     crop/zoom â€” the systemic fix from v3 applies unchanged). The receipt is
      on screen exactly while its fact is spoken: the drama-genre trust move.
-  2. RECEIPT SLAM — a receipt shot whose Director sfx is 'none' defaults to a
+  2. RECEIPT SLAM â€” a receipt shot whose Director sfx is 'none' defaults to a
      'pop' at its t_in (V4 spec Law 15: message-pop on every receipt is the
      genre signature). These default pops are budget-exempt: they replace
      visual variety, they don't compete with the 3-5 story-beat SFX.
-  3. A-ROLL ACCOUNTING — receipts count as A-roll: they reset the
+  3. A-ROLL ACCOUNTING â€” receipts count as A-roll: they reset the
      consecutive-b-roll counter (new defensive cap: never >2 stock clips in a
      row even if a malformed shotlist asks for it).
-  4. FALLBACK LADDER — missing receipts array / failed card download ->
+  4. FALLBACK LADDER â€” missing receipts array / failed card download ->
      subject photo (never black, never a crash). No shotlist -> v3 path.
 
 WHAT v5 ADDS over v4.5 (owner round-4 verdict: a BLM-protest stock clip played
-over "fans demanding accountability" on an unrelated story — keyword stock
+over "fans demanding accountability" on an unrelated story â€” keyword stock
 search has NO story understanding):
-  1. VISION RE-RANK OF STOCK (the Kapwing move, V4-EDITOR-SPEC.md Law 24) —
+  1. VISION RE-RANK OF STOCK (the Kapwing move, V4-EDITOR-SPEC.md Law 24) â€”
      for a b-roll shot we no longer download the first keyword hit. The stock
      search now keeps each candidate's PREVIEW IMAGE (Pexels returns a video
      'image' thumbnail; Pixabay per-rendition 'thumbnail'); up to 5 candidate
@@ -185,26 +185,26 @@ search has NO story understanding):
      shared with the site). GEMINI_API_KEY absent or VIDEO_VISION_RERANK=0
      -> exact v4.5 behaviour (first candidate). ALL failures non-fatal ->
      first candidate, or the usual subject-photo fallback.
-  2. REAL-POST CARDS (server-side) — post.receipts now also carries tweet-
+  2. REAL-POST CARDS (server-side) â€” post.receipts now also carries tweet-
      style cards of the REAL posts (text/author/@handle parsed verbatim from
      the stored X embeds). Nothing changes here beyond the receipts cap: the
      cards flow through the same receipt_i -> contain-render path.
 
 WHAT v6 ADDS over v5 (owner round-6 verdict: the Director lacks a human
-editor's taste — a named person spoken must show THAT person's real photo on
+editor's taste â€” a named person spoken must show THAT person's real photo on
 those words; a big event must show its real image; and framing must respect
 the phone screen):
-  1. PERSON -> PHOTO — Director shots may carry "person": "<exact name>".
+  1. PERSON -> PHOTO â€” Director shots may carry "person": "<exact name>".
      The Wikidata person-photo fetch (which already runs) now keeps a
      name -> pool-entry map; a person shot renders THAT person's photo on
      exactly those words. Missing/failed photo -> the hero/subject pool
      round-robin, exactly as before (never a crash).
-  2. visual_i -> REAL EVENT IMAGE — shots may carry "visual_i": n, an index
+  2. visual_i -> REAL EVENT IMAGE â€” shots may carry "visual_i": n, an index
      into the feed's visuals[] (hero cover + event YouTube thumbnails; the
      feed also sends aligned visual_titles[] for logging). The shot then
      shows that REAL story image. Entries already in the pool are reused;
      missing ones are fetched on demand; any failure -> pool fallback.
-  3. FACE-AWARE PHONE FRAMING — opencv-python-headless haarcascade
+  3. FACE-AWARE PHONE FRAMING â€” opencv-python-headless haarcascade
      frontal-face detection on every PHOTO scene (cached per image). The
      cover-crop is chosen so the largest face's eyeline sits ~40% from the
      top of the 1080x1920 frame (upper-third rule), the face stays out of
@@ -214,7 +214,7 @@ the phone screen):
      zoom drift can never push the face out of the safe zone); pans on
      face photos become face-anchored zooms. No face / no cv2 -> the exact
      v5 center-crop behaviour.
-  4. PROMO CARD — post.receipts now ends with the single branded GenZHype
+  4. PROMO CARD â€” post.receipts now ends with the single branded GenZHype
      promo card (kind order server-side: events, posts, promo). It arrives
      as a receipt index like any card and renders through the same CONTAIN
      path; the Director/validator guarantee it only rides the final CTA
@@ -222,51 +222,51 @@ the phone screen):
      promo) is never truncated off the list.
 
 WHAT r11 ADDS (owner round-11 verdict: "more images and persons; more
-intelligent shots — it keeps showing the same image again and again,
+intelligent shots â€” it keeps showing the same image again and again,
 sometimes while talking about something else"; a 17-shot video ran on a
 3-image pool):
-  1. FLOODED POOL — the server now sends up to 24 visuals (per-person recent
+  1. FLOODED POOL â€” the server now sends up to 24 visuals (per-person recent
      channel thumbnails + multiple og:images) and people carry
      "photos": [urls] PLURAL. MAX_POOL raised 8 -> 16 (env-overridable).
-  2. PERSON VARIETY — person_map values are now LISTS of that person's pool
+  2. PERSON VARIETY â€” person_map values are now LISTS of that person's pool
      entries (avatar first, then recent thumbnails); consecutive shots of the
      same person cycle their images instead of freezing on the avatar.
-  3. LRU SMART FALLBACK — unpinned subject shots pick the LEAST-RECENTLY-USED
+  3. LRU SMART FALLBACK â€” unpinned subject shots pick the LEAST-RECENTLY-USED
      pool image outside a 3-scene no-repeat window (replaces blind
      round-robin; the old adjacent-duplicate guard is subsumed).
   Server-side the same round adds the Director laws: every subject shot must
   pin person or visual_i, and a deterministic no-repeat validator (a
   visual_i never twice in any 4 consecutive shots, max 3 uses per video).
 
-WHAT r12 ADDS (owner: "any topic, however complicated — the video looks
+WHAT r12 ADDS (owner: "any topic, however complicated â€” the video looks
 NORMAL the whole runtime, nothing weird ever appears" + close the
 produced-energy gap):
-  1. NORMALITY JUDGE — the Gemini judge now samples 10-12 evenly-spaced
+  1. NORMALITY JUDGE â€” the Gemini judge now samples 10-12 evenly-spaced
      frames (env VIDEO_JUDGE_FRAMES, still 540px, still ONE call) and runs a
      WEIRDNESS CHECKLIST (cut text, sliced face, same image in 3+ frames,
      dead/blank frames, context-mismatched stock, caption-on-card collisions).
      Verdict JSON gains "weird": [{frame, issue}]. Pass/fail semantics and
      the JudgeRejected flow are unchanged; no key -> skipped (non-fatal).
   2. PRE-ENCODE SELFCHECK (no AI, runs before the encode): (a) no scene
-     reuses an image path within a 3-scene window — the r11 guard is now
+     reuses an image path within a 3-scene window â€” the r11 guard is now
      enforced across pinned person/visual_i shots, receipts AND b-roll
      (plan_scenes_edl holes closed), and a violation HARD-FAILS the run
      (SelfCheckFailed -> no delivery, retry next run; window relaxes when
      the total asset count is smaller than the window); (b) scene durations
      < 0.8s and (c) caption coverage < 80% of speech are logged as warnings
      only. One SELFCHECK log line carries all results.
-  3. BEAT-CHANGE TRANSITIONS — shots the Director marked sfx='whoosh'
+  3. BEAT-CHANGE TRANSITIONS â€” shots the Director marked sfx='whoosh'
      (story-beat changes) get a fast produced transition instead of a bare
      hard cut: a 3-frame horizontal whip-blur slide and a fast cross-zoom
-     punch (pure numpy/PIL, no new deps — the xfade-easing idea ported, not
+     punch (pure numpy/PIL, no new deps â€” the xfade-easing idea ported, not
      its ffmpeg code), rotating variants, max 3 per video. Everywhere else
      stays hard cuts. Any failure -> the hard cut we already had.
-  4. PATTERN INTERRUPT (dormant until curated) — if .social/hooks/ holds
+  4. PATTERN INTERRUPT (dormant until curated) â€” if .social/hooks/ holds
      LICENSED mp4 clips (see ADAPTATION.md), ONE 0.7-1.2s cover-cropped
      interrupt clip is spliced as an overlay at the Director's riser-shot
      start (the mid-video re-hook trap) with an impact SFX, rotated per
      page_id. Empty/missing folder -> feature off. EDL timing untouched.
-  5. EXPRESSIVE NARRATION — the script is synthesized in up to 3 edge-tts
+  5. EXPRESSIVE NARRATION â€” the script is synthesized in up to 3 edge-tts
      segments (hook sentence rate +12% & pitch +2Hz; body at base rate;
      GenZHype CTA line rate -4%), concatenated sample-accurately with pydub;
      word-timing offsets are shifted by each segment's REAL audio length and
@@ -274,7 +274,7 @@ produced-energy gap):
      failure -> the proven single-pass synthesize() (captions sync is
      sacred). Kill switch: VIDEO_EXPRESSIVE_TTS=0.
 
-WHAT r13 ADDS (owner-approved REAL FOOTAGE — the standard drama-channel
+WHAT r13 ADDS (owner-approved REAL FOOTAGE â€” the standard drama-channel
 fair-use posture: short MUTED excerpts of the actual videos being discussed,
 transformed under our commentary/cards/captions):
   1. Story visuals that are YouTube thumbnails (i.ytimg.com/vi/<id>/...) can
@@ -288,11 +288,11 @@ transformed under our commentary/cards/captions):
      max ~8 borrowed seconds total, never two footage scenes consecutive,
      footage counts as b-roll for the max-2-in-a-row rule, always muted.
   3. NEVER FATAL: yt-dlp missing, YouTube bot-walling the runner IP, a
-     short/broken file — every miss falls back to the thumbnail still (the
+     short/broken file â€” every miss falls back to the thumbnail still (the
      exact pre-r13 behaviour) with a loud FOOTAGE log line either way.
      Kill switch: VIDEO_REAL_FOOTAGE=0.
 
-WHAT r14 ADDS (owner: "the director doesn't really SEE what's going on" —
+WHAT r14 ADDS (owner: "the director doesn't really SEE what's going on" â€”
 sight at both ends; the server side is the seeing pass in visual_sight.php):
   1. CLIP VERIFYING EYE (render-time, quota-free): sentence-transformers
      CLIP ViT-B-32 runs on the runner CPU after plan_scenes_edl resolved the
@@ -305,38 +305,67 @@ sight at both ends; the server side is the seeing pass in visual_sight.php):
      Model/install missing -> silently skipped. Kill: VIDEO_CLIP_VERIFY=0.
   2. SIGHT FLAGS: the feed's visual_flags[] (aligned with visuals[]; from
      the server's Gemini seeing pass, which actually LOOKED at each image)
-     override the filename/aspect is_text_heavy heuristic for pool entries —
+     override the filename/aspect is_text_heavy heuristic for pool entries â€”
      sight beats filename guessing. Absent flags -> old heuristic.
 
 WHAT r17 ADDS (owner round-17: clips are a PLANNED Director decision; the
 evidence chain drops the beige cards and the raw-screenshot ad-grabs):
-  1. PLANNED CLIPS — Director shots may carry "clip": true on a visual_i
+  1. PLANNED CLIPS â€” Director shots may carry "clip": true on a visual_i
      pinned to a YouTube thumbnail: an explicit order to play the real muted
      clip of that described moment there. Planned ids are prefetched FIRST
      (the yt-dlp attempt cap serves the plan before any opportunistic
      upgrade), a planned scene may run up to 4.5s, and when any planned clip
-     exists the budget rises to 4 footage scenes / 12 borrowed seconds —
+     exists the budget rises to 4 footage scenes / 12 borrowed seconds â€”
      opportunistic upgrades only fill what upcoming planned scenes won't
      need. Muting, cover-crop, never-two-consecutive, the b-roll chain rule
      and VIDEO_REAL_FOOTAGE=0 all stay exactly as r13 shipped them.
-  2. BEIGE CARDS RETIRED — event receipts now arrive as metadata only
+  2. BEIGE CARDS RETIRED â€” event receipts now arrive as metadata only
      (url=''; the server renders no event PNG and prunes the old ones). The
      evidence chain per event: clean article screenshot > the article's real
      og:image photo (receipt_meta.og_image; rendered as a NORMAL cover-crop
-     face-aware photo scene — it IS the real moment photo) > subject photo.
+     face-aware photo scene â€” it IS the real moment photo) > subject photo.
      A beige card can never be chosen because none exists; any stale event
      card from an old feed is dropped before resolution. X post cards and
      the branded promo card are unchanged.
-  3. SCREENSHOT HARDENING — ad/newsletter/subscribe/sponsor furniture is
+  3. SCREENSHOT HARDENING â€” ad/newsletter/subscribe/sponsor furniture is
      visibility-hidden before the shot, and the headline block is REQUIRED:
      no h1 -> NO screenshot for that URL (the raw top-of-page fallback that
      grabbed ads/page furniture is dead).
-  4. JUDGE — new weirdness criterion (g): a proof/screenshot frame cluttered
+  4. JUDGE â€” new weirdness criterion (g): a proof/screenshot frame cluttered
      with website ads, cookie banners, subscribe boxes or unrelated page
      furniture fails the video.
 
+WHAT r24 ADDS (owner round-24: FOOTAGE-FIRST â€” after 23 rounds the videos
+still read as slideshows, because YouTube bot-walls anonymous cloud
+downloads and the r13/r17 footage engine almost never actually fired):
+  1. COOKIES UNLOCK â€” the workflow writes the YT_COOKIES secret (cookies.txt
+     of a logged-in secondary account) to <WORKDIR>/yt_cookies.txt; when the
+     file exists and is >100 bytes, every yt-dlp call runs with --cookies
+     and reliably succeeds. Logged once as "footage: cookies active".
+     Cookies absent = the EXACT pre-r24 behavior; VIDEO_REAL_FOOTAGE=0
+     still kills the whole feature either way.
+  2. MULTI-WINDOW FETCH (cookies only) â€” each story video id serves up to 3
+     DIFFERENT 16s sections (early/middle/late; each window its own cached
+     attempt/file foot-<id>-w<k>.mp4; a video shorter than a window just
+     fails that window), so ONE story video yields up to 3 distinct moving
+     scenes instead of 1.
+  3. BUDGETS FLIP (cookies only) â€” planned Director clips up to 5.0s,
+     opportunistic scenes up to 4.5s, max 8 footage scenes per video, total
+     borrowed capped at min(30s, 60% of runtime). Consecutive footage
+     scenes are now ALLOWED, but never the same (id, window) file twice in
+     a row (window/id rotation); footage still counts as b-roll for the
+     max-2-in-a-row rule (so stills remain the accents) and every footage
+     file still respects the 3-scene no-repeat window.
+  4. STILL-HOLD LIMIT (always on, cookies or not) â€” the SAME still image may
+     carry at most 2 CONSECUTIVE scenes (pins included): a 3rd consecutive
+     hold swaps to the LRU pool alternative, else tries a footage window,
+     else stays with a loud log. This kills the "5s single-visual opener".
+  5. ACCOUNT SAFETY â€” yt-dlp attempts capped per run (12 with cookies, 6
+     without) with a 2-4s sleep between spawns when cookies are active.
+     Muting, cover-crop, grade, judge and selfcheck are untouched.
+
 PROVEN v1 PARTS KEPT VERBATIM: the multi-engine fetch/post (curl_cffi
-browser-TLS first — Hostinger's TLS fingerprint block), base64-in-JSON video
+browser-TLS first â€” Hostinger's TLS fingerprint block), base64-in-JSON video
 delivery (WAF blocks multipart), edge-tts synthesis with WordBoundary timings
 and 403 retries, the ffmpeg resolution chain (_ffmpeg_bin), the dedup state
 file and the faststart remux. Also kept whole from v3: visual pool +
@@ -352,6 +381,7 @@ import json
 import logging
 import math
 import os
+import random
 import re
 import subprocess
 import sys
@@ -363,7 +393,7 @@ import numpy as np
 import requests
 
 # r18 FORCE IPv4 (run #79 post-mortem): genzhype.com now publishes AAAA (IPv6)
-# records, and GitHub runners frequently have NO IPv6 route — Python's requests/
+# records, and GitHub runners frequently have NO IPv6 route â€” Python's requests/
 # urllib then dial the IPv6 address and die with [Errno 101] Network is
 # unreachable after multi-minute hangs. Filter IPv6 out of ALL Python name
 # resolution. (curl_cffi is unaffected AND safe: libcurl races v4/v6 itself and
@@ -421,7 +451,7 @@ PAN_SCALE = 1.18               # oversize factor that creates room for pans
 XFADE = float(os.environ.get("VIDEO_XFADE", "0.15"))   # 0 -> hard cuts
 
 # --- v2: captions ---
-ACCENT = "#FF6A5C"             # GenZHype brand accent — the spoken word pops in it
+ACCENT = "#FF6A5C"             # GenZHype brand accent â€” the spoken word pops in it
 CHUNK_FONT = int(os.environ.get("VIDEO_CHUNK_FONT", "88"))
 HOT_SCALE = 1.18               # spoken word renders this much larger
 CHUNK_MAX_WORDS = 3
@@ -477,7 +507,7 @@ JUDGE_FRAMES = int(os.environ.get("VIDEO_JUDGE_FRAMES", "12"))
 # server to NULL the shotlist (the cron re-directs it) instead of re-rendering
 # the same bad plan. Counts per page live in .social/video_replans.txt
 # ("page_id count" lines, committed like video_done.txt); at REPLAN_CAP the
-# video is delivered anyway with a loud log — the loop is never infinite.
+# video is delivered anyway with a loud log â€” the loop is never infinite.
 REPLAN_FILE = os.environ.get("VIDEO_REPLAN_FILE", ".social/video_replans.txt")
 REPLAN_CAP = int(os.environ.get("VIDEO_REPLAN_CAP", "3"))
 
@@ -496,7 +526,7 @@ TRANSITION_WHIP_FRAMES = 3     # horizontal whip-blur slide length (frames)
 TRANSITION_ZOOM_FRAMES = 6     # cross-zoom punch length (frames)
 
 # --- r12: pattern-interrupt clip pool (dormant while the folder is empty).
-# LICENSED clips only — curation rules documented in videorepos/ADAPTATION.md.
+# LICENSED clips only â€” curation rules documented in videorepos/ADAPTATION.md.
 HOOKS_DIR = os.environ.get("VIDEO_HOOKS_DIR", ".social/hooks")
 INTERRUPT_MIN_S = 0.7
 INTERRUPT_MAX_S = 1.2
@@ -509,7 +539,7 @@ EXPR_CTA_RATE = 0.96           # final CTA line: landing
 EXPR_CUE_TOLERANCE = 0.10      # >10% word-cue mismatch -> single-pass fallback
 
 # --- r18 GRAFT A: FORCED ALIGNMENT (measure the REAL audio, not edge-tts's
-# self-reported WordBoundary cues + r12 concat offsets — the source of the
+# self-reported WordBoundary cues + r12 concat offsets â€” the source of the
 # owner's "narration is late" audio-visual drift). whisperx aligns the KNOWN
 # transcript (== the script) against the rendered mp3 on CPU; only if the
 # measurement is provably at least as trustworthy as the edge timings (caption
@@ -579,7 +609,7 @@ FOOTAGE_SUB_OFF_S = 2.0        # show the sub-segment starting 2s into it
 FOOTAGE_FETCH_TIMEOUT = 25     # seconds per yt-dlp attempt
 FOOTAGE_MAX_FETCHES = 6        # run-level attempt cap (bot-walled runners)
 
-# --- r17: PLANNED CLIPS (Director-ordered footage — "clip": true shots).
+# --- r17: PLANNED CLIPS (Director-ordered footage â€” "clip": true shots).
 # A planned clip is a DECISION, not a lucky upgrade: its video id is
 # prefetched before any opportunistic fetch, it may run up to 4.5s, and when
 # any planned clip exists in the video the whole footage budget rises to
@@ -588,7 +618,26 @@ FOOTAGE_PLANNED_SCENE_MAX_S = 4.5
 FOOTAGE_PLANNED_MAX_SCENES = 4
 FOOTAGE_PLANNED_MAX_TOTAL_S = 12.0
 
-# --- v4: house grade (Law 22 — one look over every visual) ---
+# --- r24: FOOTAGE-FIRST (the cookies unlock). The workflow writes the
+# YT_COOKIES secret (a logged-in secondary account's cookies.txt) to
+# <WORKDIR>/yt_cookies.txt; with it yt-dlp survives YouTube's cloud-IP bot
+# wall, so REAL FOOTAGE can finally carry the video and stills become the
+# accents. EVERYTHING below applies ONLY when that file exists (>100 bytes);
+# cookie-less runs keep the exact r13/r17 budgets above.
+FOOTAGE_WINDOWS_CK = [             # up to 3 DIFFERENT sections per video id
+    "*00:00:10-00:00:26",          # early (post-intro)
+    "*00:00:40-00:00:56",          # middle
+    "*00:01:20-00:01:36",          # late (too-short video -> window fails)
+]
+FOOTAGE_CK_SCENE_MAX_S = 4.5       # opportunistic per-scene cap w/ cookies
+FOOTAGE_CK_PLANNED_SCENE_MAX_S = 5.0   # planned Director clips w/ cookies
+FOOTAGE_CK_MAX_SCENES = 8          # max footage scenes per video w/ cookies
+FOOTAGE_CK_MAX_TOTAL_S = 30.0      # borrowed-seconds cap w/ cookies ...
+FOOTAGE_CK_MAX_TOTAL_FRAC = 0.60   # ... or 60% of runtime (smaller wins)
+FOOTAGE_CK_MAX_FETCHES = 12        # yt-dlp attempts/run (burner safety)
+FOOTAGE_FETCH_SLEEP_S = (2.0, 4.0)  # polite sleep between spawns w/ cookies
+
+# --- v4: house grade (Law 22 â€” one look over every visual) ---
 GRADE_CONTRAST = 1.06
 GRADE_SATURATION = 1.05
 GRADE_TEAL_SHADOWS = 0.06      # +6% blue lift in darks
@@ -615,7 +664,7 @@ ANTON_URL = (
 # Hostinger's bot protection TLS-fingerprint-blocks datacenter Python intermittently
 # (the scraper-v7 lesson; it 403'd run #3 from the GH runner while the same URL was 200
 # from elsewhere). Cure = the proven multi-engine pattern: browser-TLS via curl_cffi
-# first, then requests — with retries and a browser UA.
+# first, then requests â€” with retries and a browser UA.
 _BROWSER_UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:130.0) "
                "Gecko/20100101 Firefox/130.0")
 
@@ -624,7 +673,7 @@ _BROWSER_UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:130.0) "
 # TTS  (reuse Turbo voice.py when available; faithful in-file fallback otherwise)
 # ============================================================================
 def _convert_rate_to_percent(rate):
-    """Port of voice.convert_rate_to_percent — edge-tts wants '+8%' / '-20%'."""
+    """Port of voice.convert_rate_to_percent â€” edge-tts wants '+8%' / '-20%'."""
     try:
         rate = float(rate)
     except (TypeError, ValueError):
@@ -823,7 +872,7 @@ def synthesize(script, out_mp3):
 
 
 # ============================================================================
-# r12: EXPRESSIVE NARRATION — up to 3 edge-tts segments (hook faster+brighter,
+# r12: EXPRESSIVE NARRATION â€” up to 3 edge-tts segments (hook faster+brighter,
 # body at base rate, CTA slower) concatenated with pydub; every word timing is
 # offset by the PREVIOUS segments' real audio length (frame-count accurate).
 # Captions sync is sacred: ANY doubt -> None and the caller runs the proven
@@ -834,7 +883,7 @@ def _expressive_plan(script, hook_rate=EXPR_HOOK_RATE, hook_pitch=EXPR_HOOK_PITC
     boundaries: [hook sentence, body, CTA line]. Returns a list of 2-3
     segments, or None when the structure isn't clearly there.
     NOTE: the Director's mid re-hook stretch (+8%) is deliberately NOT split
-    out — it would need 4-5 segments; the spec caps us at 3."""
+    out â€” it would need 4-5 segments; the spec caps us at 3."""
     tokens = [w for w in script.split() if w.strip()]
     if len(tokens) < 12:
         return None
@@ -967,7 +1016,7 @@ def _audio_duration(path):
 def _flatten_whisperx(result):
     """Flatten a whisperx.align() result into synthesize()'s exact shape
     [(word, start_s, end_s), ...]. Words whisperx could not time-anchor (it
-    leaves start/end None) are skipped — the downstream difflib aligner
+    leaves start/end None) are skipped â€” the downstream difflib aligner
     interpolates those gaps. Never raises."""
     words = []
     if not isinstance(result, dict):
@@ -996,7 +1045,7 @@ def _flatten_whisperx(result):
 def _whisperx_align_only(whisperx, audio, dur, script_text, device):
     """ALIGN-ONLY path: we already KNOW the transcript (== the script), so we
     hand whisperx a single segment spanning the whole clip and only the
-    ~360MB wav2vec2 align model downloads — NOT the full ASR model."""
+    ~360MB wav2vec2 align model downloads â€” NOT the full ASR model."""
     align_model, metadata = whisperx.load_align_model(
         language_code="en", device=device)
     segments = [{"start": 0.0, "end": float(dur), "text": script_text}]
@@ -1029,12 +1078,12 @@ def forced_align(mp3_path, script_text):
         return None
     try:
         import whisperx
-    except Exception as exc:  # noqa: BLE001 — model/lib absent -> graceful
+    except Exception as exc:  # noqa: BLE001 â€” model/lib absent -> graceful
         log.info("FORCED-ALIGN unavailable; edge timings (whisperx import: %s)",
                  str(exc)[:80])
         return None
     try:
-        import torch  # noqa: F401 — whisperx needs it; presence check only
+        import torch  # noqa: F401 â€” whisperx needs it; presence check only
     except Exception as exc:  # noqa: BLE001
         log.info("FORCED-ALIGN unavailable; edge timings (torch import: %s)",
                  str(exc)[:80])
@@ -1160,7 +1209,7 @@ def resolve_font():
 REAL_SHOTS = os.environ.get("VIDEO_REAL_SHOTS", "1") != "0"
 SHOT_TOTAL_BUDGET_S = 45.0     # wall-clock across ALL screenshots per video
 
-# r18 GRAFT B: compact ad/tracker host blocklist — substrings matched against
+# r18 GRAFT B: compact ad/tracker host blocklist â€” substrings matched against
 # the request URL host. Network-level ABORT keeps ads/trackers/analytics from
 # ever painting, so the element screenshot captures the article, not furniture.
 # The article's OWN domain is never in here, so its fonts/images/scripts load
@@ -1192,7 +1241,7 @@ def _is_ad_host(url):
 
 def _block_ads(route):
     """Playwright route handler: abort ad/tracker requests, let the rest pass.
-    Never raises — on any doubt the request is allowed to continue."""
+    Never raises â€” on any doubt the request is allowed to continue."""
     try:
         if _is_ad_host(route.request.url):
             route.abort()
@@ -1217,10 +1266,10 @@ def _shot_is_blank(path):
 
 def screenshot_articles(targets, page_id):
     """Screenshot REAL article pages (masthead + headline + lead image, as the
-    site actually renders) — the drama-genre confidence move: FOUND evidence,
+    site actually renders) â€” the drama-genre confidence move: FOUND evidence,
     not made evidence. ONE chromium session for all targets, hard wall-clock
     budget. r17: ad/newsletter/subscribe furniture is hidden before shooting
-    and the headline block is REQUIRED — no h1, no screenshot (the raw
+    and the headline block is REQUIRED â€” no h1, no screenshot (the raw
     top-of-page fallback is dead). Every failure is silent; the og-photo /
     subject chain covers misses downstream.
     targets: {receipt_idx: url} -> returns {receipt_idx: png_path}."""
@@ -1251,11 +1300,11 @@ def screenshot_articles(targets, page_id):
                 path = os.path.join(WORKDIR, f"shot-{page_id}-{i}.png")
                 try:
                     page = ctx.new_page()
-                    # r18 GRAFT B: network ad-block — abort ad/tracker requests
+                    # r18 GRAFT B: network ad-block â€” abort ad/tracker requests
                     # BEFORE navigation so no ad/analytics furniture ever paints.
                     try:
                         page.route("**/*", _block_ads)
-                    except Exception:  # noqa: BLE001 — best-effort
+                    except Exception:  # noqa: BLE001 â€” best-effort
                         pass
                     page.goto(url, wait_until="domcontentloaded", timeout=15000)
                     page.wait_for_timeout(1500)
@@ -1338,7 +1387,7 @@ def screenshot_articles(targets, page_id):
                             # r20 (seen with my own eyes on the filmstrip): a
                             # w*3-tall screenshot contain-fits into a TINY
                             # unreadable sliver. Evidence must be READABLE:
-                            # crop to the headline block — max 1.25x width
+                            # crop to the headline block â€” max 1.25x width
                             # (~4:5), which fills the card frame legibly.
                             if im.height > im.width * 1.25:
                                 im = im.crop((0, 0, im.width,
@@ -1369,7 +1418,7 @@ def screenshot_articles(targets, page_id):
                         shot_done = False
                     # r15 HUMAN CROP, r17 HARDENED (fallback): the headline block
                     # is REQUIRED. A screenshot happens ONLY tight around
-                    # masthead + h1 + lead image — the shot a person would
+                    # masthead + h1 + lead image â€” the shot a person would
                     # take. NO h1 -> NO screenshot for this URL (the raw
                     # top-of-page fallback that grabbed ads/nav is DEAD; the
                     # og-photo/subject chain covers it downstream).
@@ -1455,17 +1504,17 @@ def screenshot_articles(targets, page_id):
 
 
 def resolve_event_receipts(meta, receipt_paths, shooter, og_fetch):
-    """r17 evidence chain for kind='event' receipt entries (BEIGE RETIRED —
+    """r17 evidence chain for kind='event' receipt entries (BEIGE RETIRED â€”
     the server ships them as metadata only, url=''). Chain per event index:
-      (a) clean article screenshot (headline-anchored, ads hidden) — textish
+      (a) clean article screenshot (headline-anchored, ads hidden) â€” textish
           contain render;
-      (b) else the article's real og:image photo — stored as
+      (b) else the article's real og:image photo â€” stored as
           {"path":.., "photo": True} so the planner renders it as a NORMAL
           cover-crop face-aware photo scene (it IS the moment's photo);
-      (c) else nothing — the planner's subject-photo fallback covers it.
+      (c) else nothing â€” the planner's subject-photo fallback covers it.
     Any stale event CARD that still arrived from an old feed is dropped
     first: a beige card can never be chosen. Post/promo entries untouched.
-    Pure orchestration (shooter/og_fetch injected) — unit-testable offline.
+    Pure orchestration (shooter/og_fetch injected) â€” unit-testable offline.
     Returns (receipt_paths, n_screenshots, n_og_photos)."""
     meta = meta if isinstance(meta, list) else []
     ev_idx = [i for i, m in enumerate(meta[:20])
@@ -1480,7 +1529,7 @@ def resolve_event_receipts(meta, receipt_paths, shooter, og_fetch):
     shots = shooter(targets) if targets else {}
     shots = shots or {}
     # r20 VARIETY LAW (filmstrip verdict: ONE article screenshot appeared in
-    # 6 of 15 scenes — a single-source story floods the video with the same
+    # 6 of 15 scenes â€” a single-source story floods the video with the same
     # image). The SAME evidence image may back at most 2 receipt indexes;
     # further indexes fall through to the og photo / subject chain instead.
     use_count = {}
@@ -1511,7 +1560,7 @@ def resolve_event_receipts(meta, receipt_paths, shooter, og_fetch):
 
 
 def _download_bytes(url):
-    """Multi-engine download (curl_cffi browser-TLS first — the proven pattern).
+    """Multi-engine download (curl_cffi browser-TLS first â€” the proven pattern).
     Returns bytes or None; NEVER raises."""
     last = None
     for attempt in range(1, 3):
@@ -1616,7 +1665,7 @@ def _public_json(url, timeout=20):
 
 
 # Occupation words that signal a famous NAMESAKE in another field (the
-# "Ben Schneider the folk musician" defamation bug) — from image_engine.py.
+# "Ben Schneider the folk musician" defamation bug) â€” from image_engine.py.
 _NAMESAKE_WORDS = ("musician", "singer", "songwriter", "guitarist", "drummer",
                    "band", "composer", "footballer", "football player",
                    "basketball", "baseball", "cricketer", "politician",
@@ -1628,7 +1677,7 @@ _CREATORISH_WORDS = ("youtuber", "streamer", "internet", "influencer",
 
 
 def wikidata_person_photo_url(name, context=""):
-    """Resolve a person name to a real photo URL via Wikidata — the PROVEN
+    """Resolve a person name to a real photo URL via Wikidata â€” the PROVEN
     image_engine.py flow: wbsearchentities -> entity -> wbgetclaims P18 ->
     commons Special:FilePath. Returns a URL or None; STRICTLY non-fatal."""
     try:
@@ -1708,7 +1757,7 @@ def is_text_heavy(path, src_url=""):
     """v3 guard: conservative text-heavy/poster detector. True only when the
     source filename carries a hint ('social-'/'card') OR the image is BOTH
     extreme-aspect vs the 9:16 frame AND dominated by flat color. Text-heavy
-    images are rendered 'contain' (never cover-cropped / Ken-Burns-zoomed) —
+    images are rendered 'contain' (never cover-cropped / Ken-Burns-zoomed) â€”
     the systemic fix for the crop-zoomed-unreadable-card defect."""
     name = (os.path.basename(urllib.parse.urlparse(src_url or "").path)
             + " " + os.path.basename(path)).lower()
@@ -1756,7 +1805,7 @@ def build_visual_pool(post, page_id):
         urls = [post["image"]]
 
     # People -> real photos (more real faces = more scenes). Never fatal.
-    # v8: the feed may send people as [{"name":..., "photo": url|None}] — the
+    # v8: the feed may send people as [{"name":..., "photo": url|None}] â€” the
     # server resolved the face through the SITE's full arsenal (stored entity
     # QIDs, verified Wikidata creator photos, YouTube channel avatars). A
     # feed-provided photo is the FIRST choice for that person; Wikidata here
@@ -1800,9 +1849,9 @@ def build_visual_pool(post, page_id):
                 url2name.setdefault(u, name)
 
     # v9 (owner round-9): the story COVER is a DESIGNED COMPOSITE from the site's
-    # image engine (VS split, AI-art half, text) — a poster, not footage. Crop-
+    # image engine (VS split, AI-art half, text) â€” a poster, not footage. Crop-
     # zooming it rendered garbage. So: real faces first, then real event images,
-    # and the cover joins only as LAST RESORT — and always contain-rendered.
+    # and the cover joins only as LAST RESORT â€” and always contain-rendered.
     titles = post.get("visual_titles") or []
     url_title = {}
     for _i, _u in enumerate(urls):
@@ -1846,7 +1895,7 @@ def build_visual_pool(post, page_id):
                      "designed": _designed(u)}   # r21: cover ban in fallback
             pool.append(entry)
             if entry["person"]:
-                # r11: LIST per person — avatar + recent thumbnails, in feed
+                # r11: LIST per person â€” avatar + recent thumbnails, in feed
                 # order, so consecutive shots of one person can cycle them.
                 person_map.setdefault(entry["person"].lower(), []).append(entry)
     log.info("visual pool: %d usable of %d candidates (%d from people, "
@@ -1901,15 +1950,35 @@ def build_visual_map(post, page_id, pool, shotlist):
 
 
 # ============================================================================
-# r13: REAL FOOTAGE — upgrade YouTube-thumbnail stills to short MUTED clips
+# r13: REAL FOOTAGE â€” upgrade YouTube-thumbnail stills to short MUTED clips
 # of the actual story videos (yt-dlp section download; drama-channel fair-use
 # posture: tiny excerpts, muted, transformed under commentary/captions).
 # STRICTLY non-fatal: any miss keeps the thumbnail still.
 # ============================================================================
 _YTIMG_RE = re.compile(
     r"https?://i\.ytimg\.com/vi(?:_webp)?/([A-Za-z0-9_-]{6,20})/")
-_FOOTAGE_CACHE = {}            # video_id -> local path or None (per run)
+_FOOTAGE_CACHE = {}            # (video_id, window) -> local path or None
 _FOOTAGE_FETCHES = 0           # run-level yt-dlp attempt counter
+_YT_COOKIES_LOGGED = [False]   # r24: "footage: cookies active" logged once
+
+
+def yt_cookies_file():
+    """r24: path of a usable logged-in cookies.txt, or None. The workflow
+    writes secrets.YT_COOKIES to <WORKDIR>/yt_cookies.txt before the render;
+    with it yt-dlp survives YouTube's cloud-IP bot wall and the footage
+    budgets flip to footage-first. Only a real file >100 bytes counts (an
+    empty/garbage write must NOT flip the budgets). Never raises."""
+    p = os.environ.get("YT_COOKIES_FILE",
+                       os.path.join(WORKDIR, "yt_cookies.txt"))
+    try:
+        if p and os.path.isfile(p) and os.path.getsize(p) > 100:
+            if not _YT_COOKIES_LOGGED[0]:
+                log.info("footage: cookies active")
+                _YT_COOKIES_LOGGED[0] = True
+            return p
+    except OSError:
+        pass
+    return None
 
 
 def ytimg_video_id(url):
@@ -1921,24 +1990,42 @@ def ytimg_video_id(url):
 
 def footage_budget_ok(need_s, n_scenes, used_s, consec_broll, prev_footage,
                       enabled=None, planned=False, has_planned=False,
-                      reserve_n=0, reserve_s=0.0):
-    """Pure r13/r17 gate (unit-testable offline): may THIS beat become real
-    footage? Fair-use guardrails: feature flag on; per-scene cap (3.5s
-    opportunistic, 4.5s for a PLANNED Director clip); scene/second budget
-    (3 scenes / ~8s normally, raised to 4 / 12s when the Director planned
-    clips into this video); never two footage scenes consecutive; footage
-    counts as b-roll, so it also respects the max-2-videos-in-a-row rule.
-    r17 PRIORITY: an opportunistic upgrade must additionally leave room —
-    reserve_n scenes / reserve_s seconds — for every still-upcoming planned
-    clip; planned shots themselves never yield to opportunistic ones."""
+                      reserve_n=0, reserve_s=0.0, cookies=False,
+                      runtime_s=0.0):
+    """Pure r13/r17/r24 gate (unit-testable offline): may THIS beat become
+    real footage? WITHOUT cookies (the fair-use, bot-walled posture): 3.5s
+    opportunistic / 4.5s planned per scene, 3 scenes / ~8s (4 / 12s when the
+    Director planned clips), never two footage scenes consecutive. WITH
+    cookies (r24 footage-first): 4.5s opportunistic / 5.0s planned, up to 8
+    scenes, total borrowed capped at min(30s, 60% of runtime), and
+    consecutive footage IS allowed â€” window rotation (never the same
+    (id, window) twice in a row) guards variety instead. Both modes: footage
+    counts as b-roll, so the max-2-videos-in-a-row rule still forces a still
+    accent after two moving scenes. r17 PRIORITY: an opportunistic upgrade
+    must additionally leave room â€” reserve_n scenes / reserve_s seconds â€”
+    for every still-upcoming planned clip; planned shots themselves never
+    yield to opportunistic ones."""
     if not (REAL_FOOTAGE if enabled is None else enabled):
         return False
-    scene_max = FOOTAGE_PLANNED_SCENE_MAX_S if planned else FOOTAGE_SCENE_MAX_S
-    max_n = FOOTAGE_PLANNED_MAX_SCENES if has_planned else FOOTAGE_MAX_SCENES
-    max_s = FOOTAGE_PLANNED_MAX_TOTAL_S if has_planned else FOOTAGE_MAX_TOTAL_S
+    if cookies:
+        scene_max = (FOOTAGE_CK_PLANNED_SCENE_MAX_S if planned
+                     else FOOTAGE_CK_SCENE_MAX_S)
+        max_n = FOOTAGE_CK_MAX_SCENES
+        max_s = FOOTAGE_CK_MAX_TOTAL_S
+        if runtime_s and runtime_s > 0:
+            max_s = min(max_s, FOOTAGE_CK_MAX_TOTAL_FRAC * runtime_s)
+    else:
+        scene_max = (FOOTAGE_PLANNED_SCENE_MAX_S if planned
+                     else FOOTAGE_SCENE_MAX_S)
+        max_n = (FOOTAGE_PLANNED_MAX_SCENES if has_planned
+                 else FOOTAGE_MAX_SCENES)
+        max_s = (FOOTAGE_PLANNED_MAX_TOTAL_S if has_planned
+                 else FOOTAGE_MAX_TOTAL_S)
     if need_s > scene_max + 1e-6:
         return False
-    if prev_footage or consec_broll >= 2:
+    if consec_broll >= 2:
+        return False
+    if prev_footage and not cookies:
         return False
     if planned:
         return n_scenes < max_n and used_s + need_s <= max_s + 1e-6
@@ -1949,45 +2036,94 @@ def footage_budget_ok(need_s, n_scenes, used_s, consec_broll, prev_footage,
     return True
 
 
-def fetch_story_footage(video_id):
+def pick_footage_window(vid, n_windows, use_counts, prev_vid=None,
+                        prev_win=None, failed=()):
+    """r24 pure chooser (unit-testable offline): which section window should
+    the next footage scene of `vid` download/play? Least-used windows first,
+    so one id yields DIFFERENT moving sections across its scenes; windows
+    already known-failed this run are skipped; and the same (id, window)
+    file NEVER plays twice in a row â€” when the previous footage scene was
+    this same vid, its window is banned outright. Ties prefer a window index
+    different from the previous footage scene's (variety even across ids),
+    then the lower index. Returns a window index, or None when no spare
+    window exists (caller keeps the still)."""
+    cands = [k for k in range(int(n_windows)) if k not in set(failed)]
+    if prev_vid == vid and prev_win is not None:
+        cands = [k for k in cands if k != prev_win]
+    if not cands:
+        return None
+    return min(cands, key=lambda k: (use_counts.get((vid, k), 0),
+                                     1 if k == prev_win else 0, k))
+
+
+def still_hold_ok(prev_paths, path):
+    """r24 pure gate (unit-testable offline): may `path` carry this scene as
+    a STILL? False only when the SAME image already carried BOTH previous
+    scenes â€” a 3rd consecutive hold is exactly the frozen "5s single-visual
+    opener" the owner keeps flagging. prev_paths = the last (up to 2) scene
+    paths, oldest first."""
+    return not (path is not None and len(prev_paths) >= 2
+                and prev_paths[-1] == path and prev_paths[-2] == path)
+
+
+def fetch_story_footage(video_id, window=0):
     """Download a short section of the story's own YouTube video via yt-dlp.
-    Returns a local video path or None. Cached per id per run (misses too,
-    so a bot-walled id is never retried within a run). Cloud runner IPs are
-    frequently bot-walled by YouTube — expect partial success; the caller
-    ALWAYS has the thumbnail still as fallback. Never raises."""
+    Returns a local video path or None. Cached per (id, window) per run
+    (misses too, so a bot-walled/too-short window is never retried within a
+    run). r24 MULTI-WINDOW: with a cookies file each id serves up to
+    len(FOOTAGE_WINDOWS_CK) DIFFERENT sections (window k -> its own attempt
+    and file foot-<id>-w<k>.mp4), so one story video yields several distinct
+    moving scenes; cookie-less runs keep the single r13 window and filename.
+    Burner-account safety: attempts capped per run (12 with cookies / 6
+    without) and a 2-4s sleep before every yt-dlp spawn when cookies are
+    active. The caller ALWAYS has the thumbnail still as fallback. Never
+    raises."""
     global _FOOTAGE_FETCHES
-    if video_id in _FOOTAGE_CACHE:
-        return _FOOTAGE_CACHE[video_id]
+    ck = yt_cookies_file()
+    windows = FOOTAGE_WINDOWS_CK if ck else [FOOTAGE_SECTION]
+    window = max(0, min(int(window or 0), len(windows) - 1))  # clamp
+    stem = f"foot-{video_id}-w{window}" if ck else f"foot-{video_id}"
+    key = (video_id, window)
+    if key in _FOOTAGE_CACHE:
+        return _FOOTAGE_CACHE[key]
     path = None
     try:
         import shutil
-        if _FOOTAGE_FETCHES >= FOOTAGE_MAX_FETCHES:
+        max_fetches = FOOTAGE_CK_MAX_FETCHES if ck else FOOTAGE_MAX_FETCHES
+        if _FOOTAGE_FETCHES >= max_fetches:
             log.info("FOOTAGE fetch cap (%d) reached; thumbnail stills from "
-                     "here", FOOTAGE_MAX_FETCHES)
+                     "here", max_fetches)
         elif not shutil.which("yt-dlp"):
             log.info("FOOTAGE: yt-dlp not on PATH; thumbnail stills only")
         else:
             _FOOTAGE_FETCHES += 1
-            outtmpl = os.path.join(WORKDIR, f"foot-{video_id}.%(ext)s")
+            outtmpl = os.path.join(WORKDIR, f"{stem}.%(ext)s")
             base = ["yt-dlp", "--no-playlist", "--quiet", "--no-warnings",
                     "-f", "bv*[height<=720][ext=mp4]/b[height<=720]",
-                    "--download-sections", FOOTAGE_SECTION,
+                    "--download-sections", windows[window],
                     "-o", outtmpl,
                     f"https://www.youtube.com/watch?v={video_id}"]
+            if ck:
+                # r24: the logged-in cookies are the whole unlock
+                base[1:1] = ["--cookies", ck]
             # Attempt 2 = android player_client (the usual cure when the
             # web client gets the "confirm you're not a bot" wall).
             retry = base[:1] + ["--extractor-args",
                                 "youtube:player_client=android"] + base[1:]
             for cmd in (base, retry):
+                if ck:
+                    # r24 burner safety: never hammer YouTube from the
+                    # logged-in account â€” a human-ish pause between spawns.
+                    time.sleep(random.uniform(*FOOTAGE_FETCH_SLEEP_S))
                 try:
                     subprocess.run(cmd, timeout=FOOTAGE_FETCH_TIMEOUT,
                                    stdout=subprocess.DEVNULL,
                                    stderr=subprocess.DEVNULL, check=False)
                 except Exception as exc:  # noqa: BLE001 (timeout included)
-                    log.info("FOOTAGE fetch attempt failed for %s (%s)",
-                             video_id, type(exc).__name__)
+                    log.info("FOOTAGE fetch attempt failed for %s w%d (%s)",
+                             video_id, window, type(exc).__name__)
                 hits = [p for p in glob.glob(
-                    os.path.join(WORKDIR, f"foot-{video_id}.*"))
+                    os.path.join(WORKDIR, f"{stem}.*"))
                     if p.rsplit(".", 1)[-1] in ("mp4", "webm", "mkv", "mov")
                     and os.path.getsize(p) > 30000]
                 if hits:
@@ -2001,19 +2137,19 @@ def fetch_story_footage(video_id):
             d = float(v.duration or 0)
             v.close()
             if d < FOOTAGE_SUB_OFF_S + 1.0:
-                log.info("FOOTAGE %s too short (%.1fs); thumbnail fallback",
-                         video_id, d)
+                log.info("FOOTAGE %s w%d too short (%.1fs); thumbnail "
+                         "fallback", video_id, window, d)
                 path = None
     except Exception as exc:  # noqa: BLE001
-        log.info("FOOTAGE %s unusable (%s); thumbnail fallback",
-                 video_id, exc)
+        log.info("FOOTAGE %s w%d unusable (%s); thumbnail fallback",
+                 video_id, window, exc)
         path = None
-    _FOOTAGE_CACHE[video_id] = path
+    _FOOTAGE_CACHE[key] = path
     return path
 
 
 # ============================================================================
-# v6: FACE-AWARE PHONE FRAMING — haarcascade frontal-face detection (cached),
+# v6: FACE-AWARE PHONE FRAMING â€” haarcascade frontal-face detection (cached),
 # eyeline-anchored cover crop, face-anchored zoom motions. Owner round-6:
 # "framing must respect the phone screen". cv2 missing / no face found ->
 # the exact v5 center-crop behaviour. STRICTLY non-fatal everywhere.
@@ -2086,7 +2222,7 @@ def cover_fit_face(pil_img, tw, th, box):
     top = eye - EYELINE_FRAC * th           # eyeline at the upper-third mark
     # face bottom above the caption band; face top below the top UI zone.
     # When the face is taller than the whole safe band (extreme close-up)
-    # the TOP rule wins — a sliced forehead is the judge-failing crop.
+    # the TOP rule wins â€” a sliced forehead is the judge-failing crop.
     top = max(top, (fy + fh) - FACE_BOTTOM_MAX)
     top = min(top, fy - FACE_TOP_MIN)
     top = max(0.0, min(top, nh - th))
@@ -2096,7 +2232,7 @@ def cover_fit_face(pil_img, tw, th, box):
 
 
 # ============================================================================
-# v3: real B-ROLL — compact port of Turbo app/services/material.py
+# v3: real B-ROLL â€” compact port of Turbo app/services/material.py
 # (search Pexels portrait + Pixabay, pick best rendition, download, probe with
 # VideoFileClip, dedup URLs, hard time/byte budget). ALL failures degrade to
 # photo scenes; a missing key simply disables the whole feature.
@@ -2155,7 +2291,7 @@ def search_broll_pexels(term):
             items.append({"url": best[1], "duration": dur,
                           "provider": "pexels",
                           # v5: preview frame for the vision re-rank (Pexels
-                          # serves a real still of the video — no download)
+                          # serves a real still of the video â€” no download)
                           "image": str(v.get("image") or "")})
     return items
 
@@ -2221,7 +2357,7 @@ class BrollFetcher:
         self.bytes = 0
         self.budget_dead = False
         # v5 vision re-rank state: verdicts cached PER QUERY (shots sharing a
-        # query share one Gemini call — the quota batching the spec demands).
+        # query share one Gemini call â€” the quota batching the spec demands).
         # verdict = {"best": url|None, "reject": set(urls), "veto": bool}
         # veto=True -> Gemini said NO candidate is acceptable for this query.
         self.rerank = {}
@@ -2316,7 +2452,7 @@ class BrollFetcher:
 
     # ------------------------------------------------------------------
     # v5: vision re-rank (Law 24 / the Kapwing move). Keyword search has no
-    # story understanding — the round-4 failure was a BLM-protest clip under
+    # story understanding â€” the round-4 failure was a BLM-protest clip under
     # "fans demanding accountability" on an unrelated story. Gemini LOOKS at
     # the candidate preview frames against the narration phrase and picks /
     # vetoes. Every failure path returns None = v4.5 first-candidate order.
@@ -2352,7 +2488,7 @@ class BrollFetcher:
             blob = self._fetch_thumb(item.get("image"))
             if blob:
                 thumbs.append((i, blob))
-        if len(thumbs) < 2:              # nothing to compare — not worth a call
+        if len(thumbs) < 2:              # nothing to compare â€” not worth a call
             return None
         self.vision_calls += 1
         prompt = (
@@ -2424,7 +2560,7 @@ class BrollFetcher:
         the run's search/download caches, URL dedup and budgets.
         v5: candidates are vision re-ranked against the shot's exact
         narration phrase before anything is downloaded (see _vision_rerank);
-        a veto returns None (subject photo — never a wrong story clip)."""
+        a veto returns None (subject photo â€” never a wrong story clip)."""
         query = str(query or "").strip()
         if not query or not self.have_keys or not self._budget_ok():
             return None
@@ -2469,14 +2605,14 @@ class BrollFetcher:
 # Sentence beats (scene boundaries snapped to word timings)
 # ============================================================================
 _ABBREV = {"mr", "mrs", "ms", "dr", "st", "vs", "jr", "sr", "no", "etc", "approx"}
-_TRIM = "\"'“”‘’()[]"
+_TRIM = "\"'â€œâ€â€˜â€™()[]"
 
 
 def _is_sentence_end(word):
     w = (word or "").strip().strip(_TRIM)
-    if not w or w[-1] not in ".!?…":
+    if not w or w[-1] not in ".!?â€¦":
         return False
-    core = w.rstrip(".!?…").strip(_TRIM).lower()
+    core = w.rstrip(".!?â€¦").strip(_TRIM).lower()
     if core in _ABBREV:
         return False
     if "." in core:                     # "U.S." / "e.g." style abbreviations
@@ -2550,7 +2686,7 @@ def split_beats(script, timings):
 
 
 # ============================================================================
-# v4: HOUSE GRADE (Law 22) — one consistent look over photos AND b-roll so
+# v4: HOUSE GRADE (Law 22) â€” one consistent look over photos AND b-roll so
 # mixed sources feel like one shoot. Cheap vectorized numpy only: applied ONCE
 # per photo array (zero per-frame cost) and per-frame on b-roll video. The
 # vignette is a single cached static overlay layer (radial darken to ~0.85 at
@@ -2585,7 +2721,7 @@ _VIGNETTE_RGBA = None
 
 def make_vignette(duration):
     """Static full-duration overlay: transparent center, black corners at
-    alpha ~(1-0.85)*255 — visually a radial multiply to ~0.85. Mask cached."""
+    alpha ~(1-0.85)*255 â€” visually a radial multiply to ~0.85. Mask cached."""
     from moviepy import ImageClip
 
     global _VIGNETTE_RGBA
@@ -2601,7 +2737,7 @@ def make_vignette(duration):
 
 
 # ============================================================================
-# v4: EDL EXECUTION — the Director's word-indexed shot list becomes an
+# v4: EDL EXECUTION â€” the Director's word-indexed shot list becomes an
 # absolute-time edit decision list (vertical editing: every shot glued to its
 # words). Null/malformed shotlist -> None -> the whole v3 path runs.
 # ============================================================================
@@ -2622,10 +2758,10 @@ def _norm_word(w):
 
 
 def map_tokens_to_spans(script, timings):
-    """Per-whitespace-token (start_s, end_s) from the TTS word timings — the
+    """Per-whitespace-token (start_s, end_s) from the TTS word timings â€” the
     word-index -> ms bridge the Director schema is anchored on. 1:1 when the
     token count matches the cue count. r15: on mismatch, REAL fuzzy alignment
-    (difflib on normalized word lists) instead of proportional guessing — the
+    (difflib on normalized word lists) instead of proportional guessing â€” the
     proportional path accumulated drift, so mid/late-video shots landed AFTER
     their words (the owner's 'image comes after they stopped talking about
     it'). Matched tokens take their cue's exact times; unmatched tokens
@@ -2698,7 +2834,7 @@ def build_edl(shotlist, script, timings, total):
     """Director shot list -> absolute-time EDL. Each shot runs from
     word[w_in].start - 300ms (Law 9 visual lead; clamped monotonic; first
     shot at 0) to the NEXT shot's t_in (hard-cut boundary = cut ON the word,
-    early, never late — Laws 3/4); the last shot rides to `total`.
+    early, never late â€” Laws 3/4); the last shot rides to `total`.
     Degenerate (<0.35s) shots are absorbed into their predecessor.
     Returns a list of shot dicts, or None when the shotlist is unusable."""
     try:
@@ -2761,7 +2897,7 @@ def build_edl(shotlist, script, timings, total):
             except (TypeError, ValueError):
                 vi = None
             # r17 PLANNED CLIP: the Director's explicit real-footage order.
-            # Server-validated already; belt here — only meaningful with a
+            # Server-validated already; belt here â€” only meaningful with a
             # pinned visual on a subject shot.
             clip = bool(s.get("clip")) and vi is not None \
                 and shot_class == "subject"
@@ -2772,7 +2908,7 @@ def build_edl(shotlist, script, timings, total):
                 "query": str(s.get("query") or "").strip(),
                 "motion": motion, "sfx": sfx, "music": music,
                 "emph_t": spans[emph][0] if emph is not None else None,
-                # v5: the exact spoken phrase under this shot — the vision
+                # v5: the exact spoken phrase under this shot â€” the vision
                 # re-rank judges stock candidates against THESE words.
                 "phrase": " ".join(tokens[w_in:w_out + 1]),
             })
@@ -2840,14 +2976,14 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                     person_map=None, visual_map=None):
     """v4/v4.5 planner: the Director decided WHAT; this resolves each shot to
     a concrete asset. receipt -> the downloaded evidence card, rendered via
-    the text-heavy CONTAIN path (whole card readable, no crop/zoom) — the v6
+    the text-heavy CONTAIN path (whole card readable, no crop/zoom) â€” the v6
     branded promo card arrives as the last receipt index and takes this same
     path; a default 'pop' at t_in when the Director left sfx 'none' (the
-    receipt slam — budget-exempt genre signature); subject -> (v6) the named
+    receipt slam â€” budget-exempt genre signature); subject -> (v6) the named
     PERSON's real imagery when the shot carries "person" (r11: cycling that
     person's photo LIST for variety), else the shot's visual_i REAL story
     image, else (r11) the LEAST-RECENTLY-USED pool photo outside a 3-scene
-    no-repeat window — blind round-robin is gone (owner round-11: "it keeps
+    no-repeat window â€” blind round-robin is gone (owner round-11: "it keeps
     showing the same image again and again"); broll -> stock clip for the
     shot's query.
     Receipts and photos count as A-ROLL and reset the consecutive-b-roll
@@ -2856,19 +2992,28 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
     broll -> photo); never black. Identical motion never repeats
     back-to-back.
     r13 REAL FOOTAGE: a resolved photo whose source URL is a YouTube
-    thumbnail (i.ytimg.com/vi/<id>/) — a pinned visual_i OR a pool-served
-    still — is upgraded to a short MUTED clip of that exact video when the
+    thumbnail (i.ytimg.com/vi/<id>/) â€” a pinned visual_i OR a pool-served
+    still â€” is upgraded to a short MUTED clip of that exact video when the
     fair-use budget allows (footage_budget_ok); any fetch miss keeps the
     thumbnail still.
-    r17 PLANNED CLIPS: shots the Director marked clip=true are the PLAN —
+    r17 PLANNED CLIPS: shots the Director marked clip=true are the PLAN â€”
     their video ids are prefetched before anything opportunistic, they may
     run 4.5s, the whole budget rises to 4 scenes / 12s when they exist, and
     opportunistic upgrades must leave room for every upcoming planned one.
-    r17 RECEIPT CHAIN: a receipts[] value may be {"path":..,"photo":True} —
+    r17 RECEIPT CHAIN: a receipts[] value may be {"path":..,"photo":True} â€”
     the article's real og:image report photo. It renders as a NORMAL photo
     scene (cover-crop, face-aware), never the contain/card path; a plain
     string value stays the textish contain path (screenshot / post / promo).
-    Beige event cards no longer exist anywhere in this chain."""
+    Beige event cards no longer exist anywhere in this chain.
+    r24 FOOTAGE-FIRST: when the cookies file exists, yt-dlp actually works
+    from cloud IPs, so footage carries the video: budgets flip to 8 scenes /
+    min(30s, 60% of runtime), each id serves up to 3 DIFFERENT windows,
+    consecutive footage scenes are allowed (never the same (id, window)
+    twice in a row; window/id rotation), and opportunistic upgrades also
+    fill pool-fallback yt-thumbnail stills whenever a spare window exists.
+    r24 STILL-HOLD LIMIT (always on): the SAME still never carries a 3rd
+    consecutive scene â€” LRU alternative, else a footage window, else kept
+    with a loud log."""
     receipts = receipts or {}
     person_map = person_map or {}
     visual_map = visual_map or {}
@@ -2878,7 +3023,17 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
     evidence_scene_uses = {}       # r21: evidence image -> scenes it backs (cap 2)
     person_rot = {}                # r11: per-person rotation cursor
 
-    # r17: planned-clip census + PRIORITY PREFETCH — the run-level yt-dlp
+    # r24: cookies flip the whole posture (see module header). Everything is
+    # computed ONCE here so the budget math is deterministic per run.
+    ck_mode = REAL_FOOTAGE and yt_cookies_file() is not None
+    n_windows = len(FOOTAGE_WINDOWS_CK) if ck_mode else 1
+    runtime_s = float(edl[-1]["end"]) if edl else 0.0
+    win_uses = {}                  # (vid, window) -> scenes it has served
+    last_foot = (None, None)       # (vid, window) of previous scene if footage
+    planned_scene_max = (FOOTAGE_CK_PLANNED_SCENE_MAX_S if ck_mode
+                         else FOOTAGE_PLANNED_SCENE_MAX_S)
+
+    # r17: planned-clip census + PRIORITY PREFETCH â€” the run-level yt-dlp
     # attempt cap (FOOTAGE_MAX_FETCHES) is spent on the Director's PLAN
     # before any opportunistic upgrade can burn it.
     planned_flags = [bool(sh.get("clip")) and sh.get("visual_i") in visual_map
@@ -2903,12 +3058,11 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
         for j in range(after_i + 1, len(edl)):
             if planned_flags[j]:
                 n += 1
-                s += min(edl[j]["end"] - edl[j]["start"],
-                         FOOTAGE_PLANNED_SCENE_MAX_S)
+                s += min(edl[j]["end"] - edl[j]["start"], planned_scene_max)
         return n, s
 
     def _recent_paths(k=POOL_NO_REPEAT_WINDOW):
-        """Image paths of the last k scenes (any type) — the no-repeat window."""
+        """Image paths of the last k scenes (any type) â€” the no-repeat window."""
         return {sc.get("path") for sc in scenes[-k:]}
 
     def _lru_pick(si):
@@ -2949,7 +3103,7 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
             r_photo = isinstance(rv, dict)     # r17: og report photo entry
             path = rv.get("path") if r_photo else rv
             # r21 SCENE-LEVEL EVIDENCE CAP (filmstrip verdict: the same
-            # article screenshot still carried 3 scenes via receipt_i reuse —
+            # article screenshot still carried 3 scenes via receipt_i reuse â€”
             # the per-index cap has an index-reuse loophole). Any single
             # evidence image backs at most 2 SCENES, full stop.
             if path and evidence_scene_uses.get(path, 0) >= 2:
@@ -2958,7 +3112,7 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                 path = None
             elif path and path in _recent_paths():
                 # r12 selfcheck law: the SAME card twice inside the no-repeat
-                # window reads as a frozen frame — subject photo instead.
+                # window reads as a frozen frame â€” subject photo instead.
                 log.info("receipt %s repeats within %d scenes; subject photo "
                          "fallback", sh.get("receipt_i"),
                          POOL_NO_REPEAT_WINDOW)
@@ -2968,7 +3122,7 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                 # swallowed the receipt-typing below -> type=None crash, run #92)
                 evidence_scene_uses[path] = evidence_scene_uses.get(path, 0) + 1
             if path and r_photo:
-                # r17: the article's real og:image — it IS the moment's
+                # r17: the article's real og:image â€” it IS the moment's
                 # photo, so it renders as a NORMAL photo scene (cover-crop,
                 # face-aware), never the contain/card path.
                 typ, textish = "photo", False
@@ -2983,11 +3137,11 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                 log.info("receipt %s missing/unresolved; subject photo "
                          "fallback", sh.get("receipt_i"))
         # v6 TASTE: a subject shot that names a person shows THAT person's
-        # imagery (r11: cycling their photo LIST — avatar, recent thumbnails —
+        # imagery (r11: cycling their photo LIST â€” avatar, recent thumbnails â€”
         # so consecutive shots of one person don't freeze on a single image);
         # a shot pinned to a real story image (visual_i) shows it.
         # Adjacent-duplicate guard: the SAME image on two consecutive scenes
-        # reads as a frozen frame (a judge-fail) — the second one falls back
+        # reads as a frozen frame (a judge-fail) â€” the second one falls back
         # to the LRU pool pick instead.
         if path is None and sh["shot_class"] == "subject":
             entry = None
@@ -3007,7 +3161,7 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                         break
                 if entry is None:                      # all recent (tiny list)
                     # r12: repeating inside the window is the one hard-fail
-                    # weirdness — LRU pool pick instead of freezing on them.
+                    # weirdness â€” LRU pool pick instead of freezing on them.
                     log.info("person '%s': all %d photo(s) inside the "
                              "no-repeat window; LRU pool pick instead",
                              sh["person"], len(p_entries))
@@ -3026,7 +3180,7 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                 log.info("visual_i %d -> real story image (%s)%s",
                          sh["visual_i"], os.path.basename(entry["path"]),
                          " [PLANNED CLIP shot]" if planned_here else "")
-            # r12: widened from back-to-back to the FULL no-repeat window —
+            # r12: widened from back-to-back to the FULL no-repeat window â€”
             # a pinned image inside the window is exactly the "same image
             # again and again" defect the selfcheck now hard-fails on.
             if entry is not None and entry["path"] in _recent_paths():
@@ -3041,7 +3195,7 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
         if path is None and sh["shot_class"] == "broll":
             # r20 FACT GATE (filmstrip verdict: storm clouds over "on Jun 26",
             # ink-in-water over the backlash fact): generic stock may NEVER
-            # play over a phrase carrying a specific fact — a digit, a date,
+            # play over a phrase carrying a specific fact â€” a digit, a date,
             # a month. Those words deserve evidence or a real face.
             _ph = sh.get("phrase", "") or ""
             if re.search(r"\d|january|february|march|april|may\b|june|july|"
@@ -3069,7 +3223,7 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
             if pool:
                 # r11 SMART FALLBACK: least-recently-used + a 3-scene
                 # no-repeat window (replaces blind round-robin).
-                # r15: TINY-POOL RELIEF — when the story has too few distinct
+                # r15: TINY-POOL RELIEF â€” when the story has too few distinct
                 # photos to honor the window (the selfcheck tripwire case),
                 # borrow a stock b-roll scene for variety BEFORE accepting a
                 # repeat; the repeat remains the true last resort.
@@ -3093,13 +3247,34 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                     typ = "broll"
                 else:
                     raise ValueError("no photos and no b-roll for a shot")
+        # --- r24 STILL-HOLD LIMIT (owner: the 5s single-visual opener): the
+        # SAME still may carry at most 2 CONSECUTIVE scenes, pins included.
+        # A 3rd consecutive hold swaps to the LRU pool alternative; failing
+        # that, the footage upgrade below is its last chance to move;
+        # failing THAT it stays â€” logged loudly either way.
+        hold_capped = False
+        if typ == "photo" and not still_hold_ok(
+                [sc.get("path") for sc in scenes[-2:]], path):
+            alt = _lru_pick(si) if pool else None
+            if alt is not None and alt["path"] != path:
+                log.info("STILL-HOLD: %s would carry a 3rd consecutive "
+                         "scene; LRU swap -> %s", os.path.basename(path),
+                         os.path.basename(alt["path"]))
+                path, textish = alt["path"], alt["textish"]
+                src_url = alt.get("url")
+            else:
+                hold_capped = True
         # --- r13/r17 REAL FOOTAGE: a photo scene showing a YouTube thumbnail
         # of one of the story's own videos becomes a short MUTED clip of that
         # exact video. r17: shots the Director marked clip=true are PLANNED
-        # CLIPS — first claim on the budget (which rises to 4 scenes / 12s
+        # CLIPS â€” first claim on the budget (which rises to 4 scenes / 12s
         # when they exist; planned scenes may run 4.5s); everything else is
-        # an opportunistic upgrade that must leave room for the plan. Never
-        # consecutive, counts as b-roll, thumbnail kept on any miss.
+        # an opportunistic upgrade that must leave room for the plan. Counts
+        # as b-roll, thumbnail kept on any miss. r24: with cookies the
+        # budgets flip (8 scenes / min(30s, 60% of runtime); 4.5s/5.0s per
+        # scene), consecutive footage is allowed, and the window rotation
+        # (pick_footage_window) guarantees the same (id, window) file never
+        # plays twice in a row.
         footage = False
         vid = ytimg_video_id(src_url) if typ == "photo" else None
         if vid:
@@ -3108,27 +3283,49 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
             if footage_budget_ok(need_s, foot_n, foot_s, consec_broll,
                                  prev_foot, planned=planned_here,
                                  has_planned=has_planned,
-                                 reserve_n=res_n, reserve_s=res_s):
-                fpath = fetch_story_footage(vid)
-                if fpath and fpath in _recent_paths():
-                    # selfcheck law: no path twice inside the window — the
-                    # same video id served twice keeps its thumbnail still.
-                    log.info("FOOTAGE %s repeats within %d scenes; "
-                             "thumbnail kept", vid, POOL_NO_REPEAT_WINDOW)
+                                 reserve_n=res_n, reserve_s=res_s,
+                                 cookies=ck_mode, runtime_s=runtime_s):
+                tried_failed = {k for k in range(n_windows)
+                                if (vid, k) in _FOOTAGE_CACHE
+                                and _FOOTAGE_CACHE[(vid, k)] is None}
+                win = pick_footage_window(vid, n_windows, win_uses,
+                                          prev_vid=last_foot[0],
+                                          prev_win=last_foot[1],
+                                          failed=tried_failed)
+                fpath = (fetch_story_footage(vid, window=win)
+                         if win is not None else None)
+                if win is None:
+                    log.info("FOOTAGE %s: no spare window for a consecutive "
+                             "scene; still kept", vid)
+                elif fpath and fpath in _recent_paths():
+                    # selfcheck law: no path twice inside the window â€” the
+                    # same window file served twice keeps its thumbnail.
+                    log.info("FOOTAGE %s w%d repeats within %d scenes; "
+                             "thumbnail kept", vid, win,
+                             POOL_NO_REPEAT_WINDOW)
                 elif fpath:
                     path, typ, textish = fpath, "broll", False
                     motion, footage = "punch_build", True
                     foot_n += 1
                     foot_s += need_s
-                    eff_n = (FOOTAGE_PLANNED_MAX_SCENES if has_planned
-                             else FOOTAGE_MAX_SCENES)
-                    eff_s = (FOOTAGE_PLANNED_MAX_TOTAL_S if has_planned
-                             else FOOTAGE_MAX_TOTAL_S)
-                    log.info("FOOTAGE %s: scene %d -> %s (%.2fs shown, "
+                    win_uses[(vid, win)] = win_uses.get((vid, win), 0) + 1
+                    last_foot = (vid, win)
+                    if ck_mode:
+                        eff_n = FOOTAGE_CK_MAX_SCENES
+                        eff_s = FOOTAGE_CK_MAX_TOTAL_S
+                        if runtime_s > 0:
+                            eff_s = min(eff_s, FOOTAGE_CK_MAX_TOTAL_FRAC
+                                        * runtime_s)
+                    else:
+                        eff_n = (FOOTAGE_PLANNED_MAX_SCENES if has_planned
+                                 else FOOTAGE_MAX_SCENES)
+                        eff_s = (FOOTAGE_PLANNED_MAX_TOTAL_S if has_planned
+                                 else FOOTAGE_MAX_TOTAL_S)
+                    log.info("FOOTAGE %s: scene %d -> %s (w%d, %.2fs shown, "
                              "%d/%d scenes, %.1f/%.1fs borrowed)",
                              "PLANNED CLIP" if planned_here
                              else "opportunistic upgrade", si + 1,
-                             os.path.basename(fpath), need_s, foot_n,
+                             os.path.basename(fpath), win, need_s, foot_n,
                              eff_n, foot_s, eff_s)
                 elif planned_here:
                     log.info("PLANNED CLIP unavailable for %s (bot-wall/"
@@ -3136,6 +3333,12 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                 else:
                     log.info("FOOTAGE unavailable for %s; thumbnail "
                              "fallback", vid)
+        if not footage:
+            last_foot = (None, None)   # r24: rotation rule is per-run-in-a-row
+            if hold_capped:
+                log.info("STILL-HOLD: no alternative for %s (tiny pool, no "
+                         "footage window); kept a 3rd consecutive scene",
+                         os.path.basename(path))
         consec_broll = consec_broll + 1 if typ == "broll" else 0
 
         emph_rel = None
@@ -3154,11 +3357,11 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
 
 
 # ============================================================================
-# r14: CLIP VERIFYING EYE — quota-free render-time check that each photo
+# r14: CLIP VERIFYING EYE â€” quota-free render-time check that each photo
 # scene's image actually matches the words spoken over it (the runner-side
 # half of "build sight at both ends"; the server half is visual_sight.php).
 # sentence-transformers CLIP ViT-B-32 on the runner CPU (~0.2-0.5s/image,
-# see videorepos/DIRECTOR-UPGRADE-RESEARCH.md §3.6). NEVER fatal: missing
+# see videorepos/DIRECTOR-UPGRADE-RESEARCH.md Â§3.6). NEVER fatal: missing
 # install, failed model download, any exception -> scenes unchanged.
 # ============================================================================
 _CLIP_MODEL = None             # None = untried, False = unavailable
@@ -3192,8 +3395,8 @@ def clip_swap_decisions(paths, checkable, pool_paths, score_fn,
     verification; pool_paths: candidate replacement paths (non-textish pool
     entries with embeddings); score_fn(i, path) -> cosine of that image vs
     scene i's narration phrase, or None when unknown.
-    A scene swaps only when its own score < min_score AND some candidate —
-    not the same image, not within the no-repeat window on either side —
+    A scene swaps only when its own score < min_score AND some candidate â€”
+    not the same image, not within the no-repeat window on either side â€”
     scores >= score + margin; the best such candidate wins. Swaps apply
     sequentially so later windows see earlier swaps.
     Returns [(scene_i, old_path, new_path, old_score, new_score), ...]."""
@@ -3242,7 +3445,7 @@ def clip_verify_scenes(scenes, edl, pool):
             checkable.append(
                 sc.get("type") == "photo" and not sc.get("textish")
                 and not sc.get("footage") and not sh.get("person")
-                # r17: og report photos ride receipt shots as photo scenes —
+                # r17: og report photos ride receipt shots as photo scenes â€”
                 # they are pinned EVIDENCE, CLIP must never swap them out.
                 and sh.get("shot_class") != "receipt"
                 and bool((sh.get("phrase") or "").strip()))
@@ -3252,7 +3455,7 @@ def clip_verify_scenes(scenes, edl, pool):
         model = _clip_model()
         if model is None:
             return
-        # Encode set: checked scene images first, then pool candidates —
+        # Encode set: checked scene images first, then pool candidates â€”
         # capped so one video never costs more than ~CLIP_MAX_ENCODES.
         cand_pool = [e["path"] for e in pool if not e.get("textish")]
         img_order = []
@@ -3306,7 +3509,7 @@ def clip_verify_scenes(scenes, edl, pool):
 # Composition: scenes, scrim, hook, chunk captions
 # ============================================================================
 def cover_fit(pil_img, tw, th):
-    """Scale to COVER (tw, th) and center-crop — fills the frame, no bars."""
+    """Scale to COVER (tw, th) and center-crop â€” fills the frame, no bars."""
     pil_img = pil_img.convert("RGB")
     w, h = pil_img.size
     scale = max(tw / w, th / h)
@@ -3343,7 +3546,7 @@ def scene_clip(image_path, start, end, motion, emph_rel=None, xfade=None,
     default keeps the v3 crossfade.
     v6 `face`: an (x, y, w, h) face box in source pixels. The crop is then
     eyeline-framed (cover_fit_face) and every zoom is ANCHORED on the face
-    point — the image scales around the eyeline, so motion drift can never
+    point â€” the image scales around the eyeline, so motion drift can never
     push the face out of the phone-safe zone. Pans on face photos become
     face-anchored zooms (a pan is exactly the motion that walks a face off
     frame). face=None -> the exact pre-v6 behaviour."""
@@ -3427,7 +3630,7 @@ def scene_clip(image_path, start, end, motion, emph_rel=None, xfade=None,
 
 def contain_scene_clip(image_path, start, end, xfade=None, card=False):
     """v3 text-heavy renderer: the WHOLE image fits inside the frame
-    ('contain') over a blurred darkened fill of itself — no cover-crop, no
+    ('contain') over a blurred darkened fill of itself â€” no cover-crop, no
     Ken-Burns zoom, only a gentle <=2% horizontal drift so the scene is not
     dead-static. This is what posters/cards/receipts/screenshots get.
     v4: house grade baked into the composed canvas; xfade=0 -> hard cut."""
@@ -3447,7 +3650,7 @@ def contain_scene_clip(image_path, start, end, xfade=None, card=False):
     w, h = pil.size
     if card:
         # v9: card scenes anchor toward the top so the caption band below stays
-        # clear — top at CARD_TOP_Y, bottom capped at CARD_MAX_BOTTOM.
+        # clear â€” top at CARD_TOP_Y, bottom capped at CARD_MAX_BOTTOM.
         scale = min((W * 0.80) / w, float(CARD_MAX_BOTTOM - CARD_TOP_Y) / h)
     else:
         scale = min((W * 0.94) / w, (H * 0.90) / h)
@@ -3476,17 +3679,17 @@ def contain_scene_clip(image_path, start, end, xfade=None, card=False):
 
 def broll_scene_clip(video_path, start, end, motion=None, emph_rel=None,
                      xfade=None, t_off=None):
-    """One full-frame B-ROLL scene — trim to the beat length, cover-crop to
+    """One full-frame B-ROLL scene â€” trim to the beat length, cover-crop to
     1080x1920 (MoviePy 2.x .subclipped/.resized/.cropped), darken slightly so
     the captions pop over busy footage. v4: the house grade runs per-frame
     (vectorized numpy via image_transform) and EDL zoom motions (punch_hit /
-    punch_build / zoom_out) are applied on top of the cover-crop — pans on
+    punch_build / zoom_out) are applied on top of the cover-crop â€” pans on
     video sources map to punch_build. xfade=0 -> hard cut.
     r13: t_off (real-footage scenes) trims the sub-segment starting that
     many seconds into the source instead of the default slate-skip; audio is
-    ALWAYS stripped (.without_audio) — footage is muted by construction.
+    ALWAYS stripped (.without_audio) â€” footage is muted by construction.
     Returns (clip, source): the VideoFileClip must stay OPEN until after
-    write_videofile — the caller closes it."""
+    write_videofile â€” the caller closes it."""
     from moviepy import CompositeVideoClip, VideoFileClip, vfx
 
     if xfade is None:
@@ -3544,7 +3747,7 @@ def broll_scene_clip(video_path, start, end, motion=None, emph_rel=None,
 def plan_scenes(beats, pool, fetcher, total):
     """v3 scene planner. Scene N starts exactly at beat N's first-word start
     and runs to the next beat's start (+XFADE overlap), so cuts land with the
-    voice — unchanged from v2. NEW: scenes ALTERNATE real photos (hero first,
+    voice â€” unchanged from v2. NEW: scenes ALTERNATE real photos (hero first,
     round-robin over the photo pool) with B-ROLL video matched to the feed's
     `broll` terms in order. A beat only becomes b-roll when the fetcher
     actually delivers a long-enough validated clip; otherwise it falls back
@@ -3752,7 +3955,7 @@ def chunk_caption_clips(beats, hook_end, duration, font_path, card_windows=None)
 def pick_bgm(page_id, grave=False):
     """Deterministically pick a track from BGM_DIR by page_id hash. The folder
     must contain ONLY CC0/royalty-free .mp3 files. Missing/empty -> None.
-    r16 GRAVITY: a grave story never gets a tension/trap bed — it takes the
+    r16 GRAVITY: a grave story never gets a tension/trap bed â€” it takes the
     lowest-energy ambient track (filename containing 'ambient' or 'echoes'),
     else the first file (our kit sorts bgm_1.mp3 = 'Echoes', dark ambient)."""
     try:
@@ -3775,7 +3978,7 @@ def pick_bgm(page_id, grave=False):
 
 
 # ============================================================================
-# v4: SOUND ENGINE (Laws 12-19) — pydub mix built BEFORE the video encode.
+# v4: SOUND ENGINE (Laws 12-19) â€” pydub mix built BEFORE the video encode.
 # Assets: BGM_DIR/*.mp3 beds + SFX_DIR/{whoosh,riser,impact,pop}_*.mp3.
 # Missing folders/files -> that layer silently skipped; ANY failure -> None
 # and the caller runs the v3 voice+bgm path instead. NEVER fatal.
@@ -3784,7 +3987,7 @@ def pick_bgm(page_id, grave=False):
 # gain-normalized with pydub toward -14 dBFS average (approx -14 LUFS; dBFS
 # is an RMS proxy, close enough for speech-led shorts) and capped so the
 # sample peak stays <= -1.5 dBFS. This runs on the audio BEFORE it is
-# attached to the video, so no second video encode is needed — an ffmpeg
+# attached to the video, so no second video encode is needed â€” an ffmpeg
 # `loudnorm` filter at the remux step would have forced re-encoding the
 # audio inside an existing mux (or a 2nd pass); this is the simpler,
 # equally effective route at our scale.
@@ -3893,7 +4096,7 @@ def build_sound_mix(mp3_path, scenes, total, page_id, out_wav,
             log.info("sound: no music bed (folder empty/undecodable)")
 
         # ---- SFX placement (Law 15; budget respected upstream by the
-        #      Director — we place exactly what the shotlist asked for) ----
+        #      Director â€” we place exactly what the shotlist asked for) ----
         kits = {c: _sfx_files(c) for c in ("whoosh", "riser", "impact",
                                            "pop")}
         placed = 0
@@ -3959,7 +4162,7 @@ def build_sound_mix(mp3_path, scenes, total, page_id, out_wav,
 
 
 # ============================================================================
-# r12: PRE-ENCODE SELFCHECK — cheap, deterministic, no AI. Runs on the planned
+# r12: PRE-ENCODE SELFCHECK â€” cheap, deterministic, no AI. Runs on the planned
 # scene list BEFORE any frame is rendered. Only the image-repeat assertion is
 # fatal (SelfCheckFailed -> no delivery, no done-mark, retried next run);
 # short scenes and thin caption coverage are logged warnings.
@@ -3973,7 +4176,7 @@ def selfcheck_scenes(scenes, avail_assets, speech_span=0.0, caption_gap=0.0,
                      window=3, min_shot_s=0.8, min_caption_cov=0.8):
     """Inspect a planned scene list. Returns a result dict:
       eff_window        the applied no-repeat window (relaxed when the total
-                        distinct asset count is smaller than window+1 — you
+                        distinct asset count is smaller than window+1 â€” you
                         cannot demand 4-way variety from 2 images)
       repeats           [(earlier_i, later_i, path)] image-path reuses inside
                         eff_window (the HARD-fail set)
@@ -3981,7 +4184,7 @@ def selfcheck_scenes(scenes, avail_assets, speech_span=0.0, caption_gap=0.0,
       caption_coverage  fraction of the speech span covered by hook+captions
       coverage_ok       caption_coverage >= min_caption_cov (warn only)"""
     # r15 fix: the window must relax against the PHOTO variety actually
-    # rotating (receipts/cards inflate avail_assets — the run-56 tripwire
+    # rotating (receipts/cards inflate avail_assets â€” the run-56 tripwire
     # fired on a 3-photo story because assets counted 14).
     photo_paths = {sc.get("path") for sc in scenes
                    if sc.get("type") == "photo" and sc.get("path")}
@@ -4014,7 +4217,7 @@ def selfcheck_scenes(scenes, avail_assets, speech_span=0.0, caption_gap=0.0,
 
 
 # ============================================================================
-# r12: PRODUCED TRANSITIONS — at story-beat changes ONLY (shots the Director
+# r12: PRODUCED TRANSITIONS â€” at story-beat changes ONLY (shots the Director
 # marked sfx='whoosh'), the hard cut is dressed with a short overlay built
 # from the outgoing shot's last frame and the incoming shot's first frame:
 #   whip  = 3-frame horizontal whip-blur slide (the whip-pan idea)
@@ -4117,8 +4320,8 @@ def build_transitions(scenes, scene_clips):
 
 
 # ============================================================================
-# r12: PATTERN INTERRUPT — the transitionalhooks.com technique, legal version
-# (LICENSED clips we curated into .social/hooks/ — see ADAPTATION.md). ONE
+# r12: PATTERN INTERRUPT â€” the transitionalhooks.com technique, legal version
+# (LICENSED clips we curated into .social/hooks/ â€” see ADAPTATION.md). ONE
 # 0.7-1.2s cover-cropped splice at the Director's riser-shot start (the
 # mid-video re-hook trap), impact SFX, per-page rotation. Folder empty or
 # missing -> dormant. EDL/caption timing untouched (pure overlay).
@@ -4200,7 +4403,7 @@ def compose_video(pool, broll_terms, mp3_path, hook, script, word_timings,
         if shotlist:
             log.info("shotlist present but unusable; v3 scene planner")
         scenes = plan_scenes(beats, pool, fetcher, total)
-    # r16 GRAVITY: a grave story is cut like a measured news piece — whoosh
+    # r16 GRAVITY: a grave story is cut like a measured news piece â€” whoosh
     # hits (and the whip/zoom transitions they drive) are dropped; riser/
     # impact survive only if the Director placed them (grave direction already
     # restricts those to legal-reveal moments).
@@ -4236,7 +4439,7 @@ def compose_video(pool, broll_terms, mp3_path, hook, script, word_timings,
     # --- r12 PRE-ENCODE SELFCHECK (cheap, no AI; runs before any rendering).
     # Coverage model: the hook card covers [0, hook_end]; the word-pop chunk
     # states cover [first body word, end] gap-free (each state holds until
-    # the next chunk starts) — so the only possible caption hole is between
+    # the next chunk starts) â€” so the only possible caption hole is between
     # hook_end and the first body word.
     body_starts = [wt[1] for beat in beats for wt in beat
                    if wt[1] >= hook_end - 1e-3]
@@ -4249,7 +4452,7 @@ def compose_video(pool, broll_terms, mp3_path, hook, script, word_timings,
         caption_gap = max(0.0, min(cap_from, w_end) - max(hook_end, w0))
     avail_assets = (len(pool)
                     # r17: receipt values may be {"path","photo"} dicts (og
-                    # report photos) — count unique underlying paths.
+                    # report photos) â€” count unique underlying paths.
                     + len({(v.get("path") if isinstance(v, dict) else v)
                            for v in (receipts or {}).values()})
                     + len({sc["path"] for sc in scenes
@@ -4435,7 +4638,7 @@ def _faststart_remux(src, dst):
 
 
 # ============================================================================
-# v3: Gemini vision judge — "the brain that can see" the finished video.
+# v3: Gemini vision judge â€” "the brain that can see" the finished video.
 # Unavailability (no key / API down / bad JSON) is NON-fatal: skip + deliver.
 # A NEGATIVE VERDICT is fatal for this page's run: no delivery, no done-mark,
 # so the next cron retries with a freshly-varied render.
@@ -4444,20 +4647,20 @@ class JudgeRejected(RuntimeError):
     """The vision judge failed the video: do NOT deliver, do NOT mark done."""
 
 
-_JUDGE_PROMPT = """You are the NORMALITY JUDGE for 9:16 vertical short-form social videos. Your one job: guarantee the video looks NORMAL for its entire runtime — nothing weird may ever appear, no matter the topic.
+_JUDGE_PROMPT = """You are the NORMALITY JUDGE for 9:16 vertical short-form social videos. Your one job: guarantee the video looks NORMAL for its entire runtime â€” nothing weird may ever appear, no matter the topic.
 You are given {n} evenly spaced frames from ONE rendered video, in playback order (frame 1 = earliest).
 The video's hook/title is: "{hook}"
 
-WEIRDNESS CHECKLIST — FAIL the video if ANY sampled frame shows ANY of:
+WEIRDNESS CHECKLIST â€” FAIL the video if ANY sampled frame shows ANY of:
 a. CUT/UNREADABLE TEXT: on-screen text (hook, captions, or text inside an image/screenshot) cut off mid-word or mid-letter, cropped by the frame edge, or zoomed/mangled into unreadable fragments. WHITELISTED and fine: the big styled 1-3 word ALL-CAPS captions.
 b. SLICED FACE: a human face cut by the frame edge (eyes or forehead sliced, face half outside the frame).
 c. REPETITION: the SAME underlying image, screenshot or document appears in 3 or more of the sampled frames - THIS INCLUDES evidence screenshots and article captures; evidence repeated 3+ times is a FAIL, never acceptable (ignore the changing captions; judge the background visual). c2. UNREADABLE EVIDENCE: a screenshot/document rendered so small it floats as a narrow unreadable strip in a dark frame - if you cannot read its headline at this resolution, the viewer cannot either: FAIL.
 d. DEAD FRAME: a near-black, blank, solid-color, corrupted or garbage frame.
-e. CONTEXT MISMATCH: an image that obviously does not belong in an internet-drama recap — corporate stock cliches (handshakes, boardrooms, generic office people), random nature/travel filler, or imagery clearly unrelated to the story the hook implies.
+e. CONTEXT MISMATCH: an image that obviously does not belong in an internet-drama recap â€” corporate stock cliches (handshakes, boardrooms, generic office people), random nature/travel filler, or imagery clearly unrelated to the story the hook implies.
 f. CAPTION COLLISION: caption text sitting on top of the text of a screenshot/receipt/news card so that either becomes hard to read.
 g. AD-CLUTTERED PROOF: a proof/screenshot/article frame cluttered with website ads, cookie banners, subscribe/newsletter boxes, or unrelated page furniture (nav menus, related-story grids, comment widgets) instead of the headline/photo/text it is supposed to prove.
 
-SAID-VS-SEEN CHECK (r16 closed loop) — each frame below is paired with the exact narration WORDS being spoken at that moment. For every frame whose words are non-empty, judge: do the visuals BELONG to these exact words? A named person -> that person (or their post/evidence) must be on screen; a described event (the arrest, the courtroom, the party, the post) -> its image or screenshot; generic filler imagery shown during a specific fact = MISMATCH. Frames with empty words (pre-hook, tail padding) are exempt. Only flag CLEAR mismatches — a plausible related visual (the story's cover photo, the person's other photo, a receipt card of that fact) is fine.
+SAID-VS-SEEN CHECK (r16 closed loop) â€” each frame below is paired with the exact narration WORDS being spoken at that moment. For every frame whose words are non-empty, judge: do the visuals BELONG to these exact words? A named person -> that person (or their post/evidence) must be on screen; a described event (the arrest, the courtroom, the party, the post) -> its image or screenshot; generic filler imagery shown during a specific fact = MISMATCH. Frames with empty words (pre-hook, tail padding) are exempt. Only flag CLEAR mismatches â€” a plausible related visual (the story's cover photo, the person's other photo, a receipt card of that fact) is fine.
 
 FRAME WORDS (frame number: the words spoken during that frame):
 {pairs}
@@ -4471,7 +4674,7 @@ where pass is true/false (false whenever weird is non-empty OR mismatches has 2+
 
 
 def _scene_midpoints(edl, total_s, cap=None):
-    """r19: one timestamp per EDL scene (its midpoint) — a frame per CUT covers
+    """r19: one timestamp per EDL scene (its midpoint) â€” a frame per CUT covers
     100% of the editing decisions (adjacent raw frames are near-duplicates;
     the picture only changes at cuts). Falls back to even spacing without EDL."""
     if edl:
@@ -4526,7 +4729,7 @@ def _phrase_at(edl, t):
 def vision_judge(mp4_path, hook, title, total_s, edl=None):
     """One gemini-2.5-flash generateContent call (native REST, inline_data
     jpegs, response_mime_type=application/json). Returns the verdict dict or
-    None when the judge is unavailable — the caller only blocks delivery on
+    None when the judge is unavailable â€” the caller only blocks delivery on
     an explicit pass=false.
     r16 CLOSED LOOP: each sampled frame is paired with the exact narration
     words under it (from the EDL) so the judge can enforce said-vs-seen; the
@@ -4575,7 +4778,7 @@ def vision_judge(mp4_path, hook, title, total_s, edl=None):
         if not isinstance(verdict, dict) or "pass" not in verdict:
             log.warning("judge returned unusable JSON; skipping judge")
             return None
-        # r16: normalize + enforce the mismatch fail rule deterministically —
+        # r16: normalize + enforce the mismatch fail rule deterministically â€”
         # >=2 clear mismatches fail regardless of what the model set pass to.
         mm = verdict.get("mismatches")
         mm = [m for m in mm if isinstance(m, dict)] if isinstance(mm, list) \
@@ -4650,7 +4853,7 @@ def request_replan(page_id, reasons):
     """Ask the server to send this page back to the Director: POST
     {token, action:'replan', page_id, reasons} to video_receive.php (the
     server NULLs the pending row's shotlist; the cron re-directs it). A failed
-    request is non-fatal — the count still advances so the cap stays finite
+    request is non-fatal â€” the count still advances so the cap stays finite
     and the next run simply re-renders the old plan once more."""
     body = {"token": INGEST_TOKEN, "action": "replan",
             "page_id": int(page_id),
@@ -4683,7 +4886,7 @@ def request_replan(page_id, reasons):
 
 
 def _get_json(url, params):
-    """Fetch the job JSON. PRIMARY = JSON POST via curl_cffi — the exact channel that
+    """Fetch the job JSON. PRIMARY = JSON POST via curl_cffi â€” the exact channel that
     delivers the finished video every day, so it passes Hostinger's WAF where GETs
     intermittently 403 (proven: same IP, same server, POSTs never blocked). Falls
     back to GET with rotating browser fingerprints. Never gives up quietly."""
@@ -4695,7 +4898,7 @@ def _get_json(url, params):
     last = None
     for attempt in range(1, 7):
         prof = profiles[(attempt - 1) % len(profiles)]
-        # engine 0 (PRIMARY): JSON POST — the daily-working delivery channel
+        # engine 0 (PRIMARY): JSON POST â€” the daily-working delivery channel
         try:
             from curl_cffi import requests as cffi
             r = cffi.post(url, json=params, impersonate=prof, timeout=45, headers=hdrs)
@@ -4727,7 +4930,7 @@ def _get_json(url, params):
 
 
 def fetch_next(done_ids):
-    """PRIMARY: the static /media/ job feed — a plain JSON asset, indistinguishable
+    """PRIMARY: the static /media/ job feed â€” a plain JSON asset, indistinguishable
     from the media files the WAF lets this runner download every day (the /api/
     endpoint URL itself is what accumulates 403 blocks, GET or POST alike). The
     done-filter runs client-side. Fallback: the old PHP endpoint."""
@@ -4753,13 +4956,13 @@ def fetch_next(done_ids):
                 feed = feed[marker + 7:]
             try:
                 data = json.loads(feed.decode("utf-8", "replace"))
-                break                      # this candidate parsed — use it
+                break                      # this candidate parsed â€” use it
             except Exception:              # stripped/re-encoded/partial -> next
                 continue
         if data is None:
             raise RuntimeError("no static feed candidate parsed")
         for post in data.get("posts") or []:
-            # r19: force=true = the SERVER requeued this story for a re-render —
+            # r19: force=true = the SERVER requeued this story for a re-render â€”
             # the local done-list must not veto it (no more diary editing).
             if post.get("force") or str(post.get("page_id")) not in done_set:
                 if post.get("force"):
@@ -4776,13 +4979,13 @@ def fetch_next(done_ids):
 
 def build_filmstrip(mp4_path, total_s, out_path):
     """r19 THE OWNER'S WINDOW: a 3x4 contact sheet of 12 frames with the words
-    spoken at each moment printed underneath — delivered WITH the video so the
+    spoken at each moment printed underneath â€” delivered WITH the video so the
     operator's AI can literally LOOK at what every render shows vs says.
     Requires ffmpeg + PIL (runner-only); returns out_path or None."""
     try:
         from PIL import Image as PImage, ImageDraw, ImageFont
         # r20 DENSE VISION (owner: "make the frames enough to see the FULL
-        # video"): one frame every 0.8s across the whole runtime — motion,
+        # video"): one frame every 0.8s across the whole runtime â€” motion,
         # transitions and caption pops become visible as frame-to-frame
         # change. (Sound remains the owner's ear.) Cap 120 frames.
         step = 0.8
@@ -4908,7 +5111,7 @@ def make_one(post, font_path):
     # v6: resolve the shotlist's visual_i references (real story images)
     visual_map = build_visual_map(post, page_id, pool, shotlist)
 
-    # v4.5/r17: REAL evidence (post.receipts, idx order — receipt_i maps into
+    # v4.5/r17: REAL evidence (post.receipts, idx order â€” receipt_i maps into
     # this dict). r17 BEIGE RETIRED: event entries arrive with url='' (the
     # server renders no event PNG anymore); only post/promo cards download
     # here. Events then resolve through resolve_event_receipts: clean article
@@ -4919,7 +5122,7 @@ def make_one(post, font_path):
     recs = post.get("receipts")
     if isinstance(recs, list) and recs:
         # v6: cap raised 16 -> 20 (up to 10 events + 6 posts + the branded
-        # PROMO card appended LAST — the cap must never cut the promo off).
+        # PROMO card appended LAST â€” the cap must never cut the promo off).
         for i, u in enumerate(recs[:20]):
             if not (isinstance(u, str) and u.startswith("http")):
                 continue                   # r17: event rows carry no PNG
@@ -4932,7 +5135,7 @@ def make_one(post, font_path):
                  "entries carry no card by design)", len(receipt_paths),
                  len(recs))
 
-        # r17 EVIDENCE CHAIN for events — "found, not made", never beige:
+        # r17 EVIDENCE CHAIN for events â€” "found, not made", never beige:
         # (a) clean article screenshot (screenshot_articles: ads hidden,
         #     headline REQUIRED, no raw top-of-page fallback);
         # (b) else the article's real og:image photo (photo scene);
@@ -4976,7 +5179,7 @@ def make_one(post, font_path):
     if FORCED_ALIGN:
         try:
             measured = forced_align(mp3, script)
-        except Exception as exc:  # noqa: BLE001 — never fatal
+        except Exception as exc:  # noqa: BLE001 â€” never fatal
             measured = None
             log.info("FORCED-ALIGN unavailable; edge timings (%s)",
                      str(exc)[:80])
@@ -5006,7 +5209,7 @@ def make_one(post, font_path):
         weird = verdict.get("weird") or []
         if len(mism) >= 2:
             # r16 CLOSED LOOP: a mismatch-class rejection means the PLAN is
-            # wrong, not the render — re-rendering the same shotlist would
+            # wrong, not the render â€” re-rendering the same shotlist would
             # fail the same way. Ask the server to re-direct the story
             # (shotlist=NULL) and exit red; the next run renders the new plan.
             prev = replan_count(page_id)
@@ -5073,7 +5276,7 @@ def main():
         except Exception as exc:  # noqa: BLE001
             log.error("failed to make video for %s: %s", post.get("page_id"), exc)
             traceback.print_exc()
-            # Do NOT mark done on failure — it will be retried next run.
+            # Do NOT mark done on failure â€” it will be retried next run.
             return 1
     log.info("done. made %d video(s)", made)
     return 0
