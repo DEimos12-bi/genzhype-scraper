@@ -1,0 +1,23 @@
+platform-check @ 2026-07-23T22:31:50Z
+yt-dlp: 2026.07.04
+impersonate targets: 32 available
+ffmpeg: /usr/bin/ffmpeg
+WARP: up
+youtube cookies: yes
+
+==== YOUTUBE (WARP + cookies) ====
+[youtube] ❌ [https @ 0x55d33f9f1bc0] HTTP error 403 Forbidden
+
+==== KICK (curl_cffi impersonate, no cookies) ====
+[kick-clip] ✅ SUCCESS -> 30548745 bytes  (https://kick.com/adinross/clips/clip_01JSZJAW4QA6VC2M9XDMM7EE88)
+
+==== TWITCH (impersonate; discover a fresh KaiCenat clip) ====
+[twitch-clip] ✅ SUCCESS -> 2558536 bytes  (https://www.twitch.tv/kaicenat/clip/FlirtyThirstyMangoPanicBasket-8LTC44dpCH_FkLmS)
+
+==== TIKTOK (impersonate; discover a fresh video) ====
+[tiktok] ✅ SUCCESS -> 10209848 bytes  (https://www.tiktok.com/@dexerto/video/7665708360745897238)
+
+==== X / TWITTER VIDEO (try without cookies first) ====
+[x-video (no cookies)] no test URL found
+
+==== done ====
