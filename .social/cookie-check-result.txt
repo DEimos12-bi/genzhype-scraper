@@ -1,0 +1,15 @@
+cookie-check @ 2026-07-23T14:28:52Z
+SECRET: present — 3457 bytes, 28 lines
+GATE  : maker needs >100 bytes -> PASS
+DOMAIN: youtube.com cookies present
+AUTH  : SID found
+AUTH  : HSID found
+AUTH  : SSID found
+AUTH  : APISID found
+AUTH  : SAPISID found
+AUTH  : __Secure-1PSID found
+AUTH  : LOGIN_INFO found
+---- yt-dlp --simulate (no download) ----
+yt-dlp exit: 0
+OK id=dQw4w9WgXcQ title=Rick Astley - Never Gonna Give You Up (O
+VERDICT: COOKIE WORKS — footage-first should activate.
