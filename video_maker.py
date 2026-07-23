@@ -1969,6 +1969,7 @@ _YTIMG_RE = re.compile(
 _FOOTAGE_CACHE = {}            # (video_id, window) -> local path or None
 _FOOTAGE_FETCHES = 0           # run-level yt-dlp attempt counter
 _YT_COOKIES_LOGGED = [False]   # r24: "footage: cookies active" logged once
+_RENDER_REPORT = {}            # r25: what the planner did (posted back w/ video)
 
 
 def yt_cookies_file():
@@ -3180,6 +3181,7 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
         planned_here = False           # r17: this scene is a PLANNED clip shot
         footage = False                # r25: init early — GAP-FILL may set it
                                        # before the opportunistic upgrade block
+        gapfill = False                # r25: this scene came from GAP-FILL
         sfx, emph_t = sh["sfx"], sh["emph_t"]
         if sh["shot_class"] == "receipt":
             rv = receipts.get(sh.get("receipt_i"))
@@ -3368,7 +3370,7 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                     gf = _gap_footage(si, need_s)
                     if gf:
                         path, typ, textish, src_url = gf, "broll", False, None
-                        motion, footage = "punch_build", True
+                        motion, footage, gapfill = "punch_build", True, True
                     else:
                         hold_capped = True
         # --- r13/r17 REAL FOOTAGE: a photo scene showing a YouTube thumbnail
@@ -3469,10 +3471,42 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
             "path": path, "motion": "contain" if textish else motion,
             "textish": textish, "emph_rel": emph_rel,
             "sfx": sfx, "music": sh["music"], "emph_t": emph_t,
-            "footage": footage,
+            "footage": footage, "gapfill": gapfill, "frozen": hold_capped,
             "src_off": FOOTAGE_SUB_OFF_S if footage else None,
         })
         prev_motion = motion
+
+    # r25 RENDER REPORT (owner: "your watch and still no progress" — stop
+    # guessing from filmstrips): a compact record of what the planner actually
+    # did, posted back with the video so decisions are visible without GitHub
+    # Actions log access. ck_mode off here is the single biggest tell (footage
+    # -first dormant); frozen>0 means a still still had to hold.
+    _ck_path = yt_cookies_file()
+    n_foot = sum(1 for s in scenes if s.get("footage"))
+    n_gap = sum(1 for s in scenes if s.get("gapfill"))
+    n_frozen = sum(1 for s in scenes if s.get("frozen"))
+    n_card = sum(1 for s in scenes if s.get("textish"))
+    n_still = sum(1 for s in scenes
+                  if s.get("type") == "photo" and not s.get("footage"))
+    _RENDER_REPORT.clear()
+    _RENDER_REPORT.update({
+        "ck_mode": bool(ck_mode),
+        "cookie_bytes": (os.path.getsize(_ck_path) if _ck_path else 0),
+        "story_vids": len(story_vids),
+        "scenes": len(scenes),
+        "runtime_s": round(runtime_s, 1),
+        "footage_scenes": n_foot,
+        "gap_fill_scenes": n_gap,
+        "opportunistic_footage": max(0, n_foot - n_gap),
+        "still_photo_scenes": n_still,
+        "card_scenes": n_card,
+        "frozen_stills": n_frozen,
+        "footage_fetches": _FOOTAGE_FETCHES,
+        "seq": "".join(("F" if s.get("gapfill") else
+                        "f" if s.get("footage") else
+                        "c" if s.get("textish") else "s") for s in scenes),
+    })
+    log.info("RENDER REPORT: %s", json.dumps(_RENDER_REPORT))
     return scenes
 
 
@@ -5160,6 +5194,8 @@ def post_video(page_id, slug, mp4_path, sheet_path=None):
         b64 = base64.b64encode(fh.read()).decode("ascii")
     body = {"token": INGEST_TOKEN, "page_id": int(page_id),
             "slug": slug or "", "video_b64": b64}
+    if _RENDER_REPORT:                     # r25: planner decisions for diagnosis
+        body["report"] = dict(_RENDER_REPORT)
     if sheet_path and os.path.isfile(sheet_path):
         with open(sheet_path, "rb") as fh:
             body["sheet_b64"] = base64.b64encode(fh.read()).decode("ascii")
