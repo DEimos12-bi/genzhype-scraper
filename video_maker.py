@@ -2955,9 +2955,11 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                          "fallback", sh.get("receipt_i"),
                          POOL_NO_REPEAT_WINDOW)
                 path = None
-            elif path:
+            if path:
+                # r21 fix: count WITHOUT consuming the branch (the elif version
+                # swallowed the receipt-typing below -> type=None crash, run #92)
                 evidence_scene_uses[path] = evidence_scene_uses.get(path, 0) + 1
-            elif path and r_photo:
+            if path and r_photo:
                 # r17: the article's real og:image — it IS the moment's
                 # photo, so it renders as a NORMAL photo scene (cover-crop,
                 # face-aware), never the contain/card path.
