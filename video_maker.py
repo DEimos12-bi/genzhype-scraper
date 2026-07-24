@@ -506,7 +506,7 @@ TEXTISH_FLAT_FRAC = 0.55            # top-4 quantized colors must cover >= this
 
 # --- v3: Gemini vision judge (the "brain that can see") ---
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "").strip()
-GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-flash-latest")  # r28: 2.5-flash free quota is exhausted (429); -latest has budget
 # r12: 4 -> 12 sampled frames (the normality floor needs runtime coverage,
 # not spot checks). Still 540px jpegs, still ONE generateContent call.
 JUDGE_FRAMES = int(os.environ.get("VIDEO_JUDGE_FRAMES", "12"))
@@ -3725,7 +3725,11 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                 cpath = None
                 while clip_pool and cpath is None:
                     cand = fetch_platform_clip(clip_pool.pop(0))
-                    if cand and cand not in _recent_paths():
+                    # r28 SMART GATE here too: an article-embedded clip can still
+                    # be a music video (the reporter used it as b-roll). Vision-
+                    # check it against the topic; off-topic -> try the next clip.
+                    if (cand and cand not in _recent_paths()
+                            and footage_is_relevant(cand, title)):
                         cpath = cand
                 if cpath:
                     path, typ, textish = cpath, "broll", False
