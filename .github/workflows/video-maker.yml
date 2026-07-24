@@ -261,7 +261,7 @@ jobs:
           fi
 
       - name: Render + post video(s)
-        timeout-minutes: 16         # r25: a render that hasn't posted in 16min
+        timeout-minutes: 24         # r28: footage renders are heavier; r25: a render that hasn't posted in 16min
                                     # is hung — fail the step fast instead of
                                     # eating the whole 30min job (runs #105/#106)
         run: python video_maker.py

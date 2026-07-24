@@ -649,7 +649,7 @@ FOOTAGE_CK_PLANNED_SCENE_MAX_S = 5.0   # planned Director clips w/ cookies
 FOOTAGE_CK_MAX_SCENES = 12         # max footage scenes per video w/ cookies
 FOOTAGE_CK_MAX_TOTAL_S = 40.0      # borrowed-seconds cap w/ cookies ...
 FOOTAGE_CK_MAX_TOTAL_FRAC = 0.70   # ... or 70% of runtime (smaller wins)
-FOOTAGE_CK_MAX_FETCHES = 18        # yt-dlp attempts/run (burner safety)
+FOOTAGE_CK_MAX_FETCHES = 8         # yt-dlp attempts/run (burner safety)
 FOOTAGE_CK_MAX_CONSEC = 4          # r25: footage may run up to 4 scenes before
                                    # a still accent (real story footage is NOT
                                    # the generic-stock 2-in-a-row cap; that cap
@@ -2273,7 +2273,7 @@ _STORY_CLIPS = []          # r28: this story's harvested platform clip URLs
                            # (Twitch/TikTok/Kick/YouTube), consumed as footage.
 _FOOTAGE_REL_CACHE = {}    # r28 smart gate: clip path -> is-it-on-topic
 _FOOTAGE_REL_CALLS = [0]
-FOOTAGE_REL_MAX_CALLS = 8  # cap Gemini relevance checks per render
+FOOTAGE_REL_MAX_CALLS = 5  # cap Gemini relevance checks per render (speed)
 
 
 def footage_is_relevant(clip_path, topic):
