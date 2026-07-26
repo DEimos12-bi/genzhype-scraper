@@ -1307,6 +1307,14 @@ def resolve_font():
 # ============================================================================
 REAL_SHOTS = os.environ.get("VIDEO_REAL_SHOTS", "1") != "0"
 SHOT_TOTAL_BUDGET_S = 45.0     # wall-clock across ALL screenshots per video
+# r30: shoot at a REAL desktop width. At 1080 many news layouts overflow their
+# min-width container, so a headline line can physically extend past x=1080 —
+# the r29 "full 1080 band" then cut it mid-word anyway (judge failed exactly
+# that, twice, WITH the full-width fix in). 1440 renders the desktop layout as
+# designed; the crop below then takes the article COLUMN out of it.
+SHOT_VIEW_W = 1440
+SHOT_VIEW_H = 1800
+SHOT_PAD    = 28               # breathing room around the measured text/photo
 
 # r18 GRAFT B: compact ad/tracker host blocklist — substrings matched against
 # the request URL host. Network-level ABORT keeps ads/trackers/analytics from
@@ -1385,9 +1393,9 @@ def screenshot_articles(targets, page_id, topic_kw=None):
     try:
         with sync_playwright() as pw:
             browser = pw.chromium.launch(headless=True)
-            ctx = browser.new_context(viewport={"width": 1080, "height": 1500},
-                                      user_agent=_BROWSER_UA,
-                                      locale="en-US")
+            ctx = browser.new_context(
+                viewport={"width": SHOT_VIEW_W, "height": SHOT_VIEW_H},
+                user_agent=_BROWSER_UA, locale="en-US")
             url_shot = {}                  # r22: SAME url -> SAME file (path-
             for i, url in targets.items():  # based scene caps finally bite)
                 if url in url_shot:
@@ -1559,7 +1567,15 @@ def screenshot_articles(targets, page_id, topic_kw=None):
                     # top-of-page fallback that grabbed ads/nav is DEAD; the
                     # og-photo/subject chain covers it downstream).
                     if not shot_done:
-                        h1 = None
+                        h1, h1_el = None, None
+                        # r30: measure everything from the TOP of the document so
+                        # element boxes (viewport-relative) and the text rects
+                        # below (document coords) live in the same space — a
+                        # cookie-banner click may have scrolled the page.
+                        try:
+                            page.evaluate("() => window.scrollTo(0, 0)")
+                        except Exception:  # noqa: BLE001
+                            pass
                         try:
                             # r28: collect EVERY headline on the page, then lock
                             # onto the one whose TEXT matches the story topic —
@@ -1577,11 +1593,11 @@ def screenshot_articles(targets, page_id, topic_kw=None):
                                     txt = (el.text_content() or "").strip().lower()
                                 except Exception:  # noqa: BLE001
                                     txt = ""
-                                cands.append((bb, txt))
+                                cands.append((bb, txt, el))
                             if topic_kw:
-                                for bb, txt in cands:
+                                for bb, txt, el in cands:
                                     if any(kw in txt for kw in topic_kw):
-                                        h1 = bb
+                                        h1, h1_el = bb, el
                                         break
                                 if h1 is None and cands:
                                     log.info("screenshot: no ON-TOPIC headline "
@@ -1590,9 +1606,9 @@ def screenshot_articles(targets, page_id, topic_kw=None):
                                     page.close()
                                     continue
                             elif cands:
-                                h1 = cands[0][0]
+                                h1, h1_el = cands[0][0], cands[0][2]
                         except Exception:  # noqa: BLE001
-                            h1 = None
+                            h1, h1_el = None, None
                         if not h1:
                             log.info("screenshot: no headline block found; "
                                      "skipping (no raw-page fallback): %s",
@@ -1613,43 +1629,86 @@ def screenshot_articles(targets, page_id, topic_kw=None):
                                     break
                         except Exception:  # noqa: BLE001
                             img_bb = None
-                        x = max(0.0, h1["x"] - 24)
+                        # r30 TEXT-RECT CROP — fixes BOTH r29 judge failures at
+                        # once ("headline cut mid-word" AND "sidebar/ad clutter").
+                        # An h1's ELEMENT box is not where its TEXT is: a block
+                        # h1 can measure narrower than its rendered lines (r29's
+                        # mid-word cut) and r29's answer — shoot the whole
+                        # viewport — simply re-admitted the right-rail furniture
+                        # r27 had cropped out (the very next run failed on it).
+                        # Measure the REAL line boxes with a Range over the h1's
+                        # contents: their union is, to the pixel, every glyph of
+                        # the headline. Crop to that union + the lead image +
+                        # padding — a crop that contains every glyph cannot
+                        # bisect a word, and it is still a COLUMN crop, so the
+                        # sidebar stays out. Both failure modes closed together.
+                        tb = None
+                        if h1_el is not None:
+                            try:
+                                tb = h1_el.evaluate("""node => {
+                                  const r = document.createRange();
+                                  r.selectNodeContents(node);
+                                  const rs = Array.from(r.getClientRects())
+                                      .filter(b => b.width > 1 && b.height > 1);
+                                  const box = node.getBoundingClientRect();
+                                  const all = rs.length ? rs : [box];
+                                  const sx = window.scrollX, sy = window.scrollY;
+                                  const de = document.documentElement;
+                                  return {
+                                    left:   Math.min(...all.map(b => b.left))   + sx,
+                                    right:  Math.max(...all.map(b => b.right))  + sx,
+                                    top:    Math.min(...all.map(b => b.top))    + sy,
+                                    docw: Math.max(de.scrollWidth, de.clientWidth),
+                                    doch: Math.max(de.scrollHeight, de.clientHeight)
+                                  };
+                                }""")
+                            except Exception:  # noqa: BLE001
+                                tb = None
+                        tb = tb or {}
+                        doc_w = float(tb.get("docw") or SHOT_VIEW_W)
+                        doc_h = float(tb.get("doch") or SHOT_VIEW_H)
+                        t_left = float(tb.get("left", h1["x"]))
+                        t_right = float(tb.get("right", h1["x"] + h1["width"]))
+                        t_top = float(tb.get("top", h1["y"]))
+                        # r27 (owner: balleralert's "Get Your Baller Alerts"
+                        # signup box showed BESIDE the headline): the column, not
+                        # the page width. The lead image spans the column, so its
+                        # edges widen the crop only as far as the column goes.
+                        left = min(t_left, img_bb["x"]) if img_bb else t_left
+                        right = (max(t_right, img_bb["x"] + img_bb["width"])
+                                 if img_bb else t_right)
+                        x = max(0.0, left - SHOT_PAD)
+                        right = min(right + SHOT_PAD, doc_w, float(SHOT_VIEW_W))
+                        width = max(560.0, right - x)
                         # r27 (owner: "dexerto is our COMPETITOR, why are we
                         # giving them views/brand on our back"): crop from just
                         # above the HEADLINE, not the masthead — so the publisher
                         # logo + top nav (the competitor's brand) never show. The
                         # headline + lead image is the proof; the brand is not.
-                        y = max(0.0, h1["y"] - 16)
+                        y = max(0.0, t_top - 16)
                         if img_bb:
                             bottom = img_bb["y"] + img_bb["height"] + 40
                         else:
-                            bottom = h1["y"] + 700
-                        height = max(600.0, min(1350.0, bottom - y))
-                        # r27 (owner: balleralert's "Get Your Baller Alerts"
-                        # signup box showed BESIDE the headline): crop to the
-                        # ARTICLE COLUMN, not the full page width, so a right-rail
-                        # sidebar/signup/ad never enters the shot. The lead image
-                        # spans the column, so its right edge is the column edge;
-                        # fall back to the headline's own width when there's no
-                        # image. Always keep the left edge at the headline.
-                        # r29 (owner: "bad cutting"; judge: headline cut mid-word
-                        # at the right edge, TWICE): a sub-width column crop through
-                        # a headline WILL bisect a word whenever h1's measured box is
-                        # narrower than its rendered text. Ads/sidebars are already
-                        # display:none'd and the vision backstop catches stray
-                        # furniture, so shoot the FULL 1080 viewport width — a
-                        # full-width band physically cannot cut a horizontal line
-                        # of text mid-word at the right edge.
-                        x = 0.0
-                        width = 1080.0
+                            bottom = t_top + 700
+                        # r20 legibility: a tall narrow band contain-fits into an
+                        # unreadable sliver (judge criterion c2) — hold the proof
+                        # near 4:5 relative to its own width.
+                        height = max(600.0, min(1350.0, width * 1.25, bottom - y))
+                        height = min(height, max(1.0, doc_h - y))
                         clip = {"x": x, "y": y, "width": width, "height": height}
-                        page.screenshot(path=path, clip=clip)
-                        # upscale narrow crops to full card width
+                        # A clip that runs past the viewport bottom (hero image
+                        # above the headline) needs full_page — but full_page on
+                        # an infinite-scroll site captures the whole document, so
+                        # only pay for it when the crop actually needs it.
+                        page.screenshot(path=path, clip=clip,
+                                        full_page=(y + height > SHOT_VIEW_H - 4))
+                        # normalize the column crop to card width (1440-wide
+                        # layouts shoot WIDER than 1080 now, so downscale too)
                         try:
                             im = Image.open(path)
-                            if im.width < 1080:
+                            if im.width != 1080:
                                 r = 1080.0 / im.width
-                                im = im.resize((1080, int(im.height * r)),
+                                im = im.resize((1080, max(1, int(im.height * r))),
                                                Image.Resampling.LANCZOS)
                                 im.save(path)
                             im.close()
@@ -4280,14 +4339,22 @@ def contain_scene_clip(image_path, start, end, xfade=None, card=False):
     bg = ImageEnhance.Brightness(bg).enhance(0.45)
 
     w, h = pil.size
+    # r30 CONTAINMENT LAW: the r25 push-in scales the canvas by (1 + CARD_ZOOM)
+    # while the drift walks it left, so a card sized at 0.94*W at t=0 is
+    # 0.94*W*1.07 = 1086px wide by the end — WIDER than the 1080 frame. Every
+    # card scene therefore lost up to ~27px off its left edge in its final
+    # third (cut text = judge criterion a, an automatic hard fail). Size the
+    # card so the push-in ENDS at 0.94*W instead of starting there: it now
+    # grows from 88% to 94% and never leaves the frame at any t.
+    fit_w = (W * 0.94) / (1.0 + CARD_ZOOM)
     if card:
         # v9/r25: card scenes anchor toward the top so the caption band below
         # stays clear — top at CARD_TOP_Y, bottom capped at CARD_MAX_BOTTOM.
         # r25: 0.80 -> 0.94 width so a real proof (screenshot / X post) fills
         # the phone instead of sitting small and letterboxed.
-        scale = min((W * 0.94) / w, float(CARD_MAX_BOTTOM - CARD_TOP_Y) / h)
+        scale = min(fit_w / w, float(CARD_MAX_BOTTOM - CARD_TOP_Y) / h)
     else:
-        scale = min((W * 0.94) / w, (H * 0.90) / h)
+        scale = min(fit_w / w, (H * 0.90) / h)
     fg = pil.resize((max(1, int(w * scale)), max(1, int(h * scale))),
                     Image.Resampling.LANCZOS)
     canvas = bg.copy()
