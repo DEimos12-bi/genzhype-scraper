@@ -2299,6 +2299,30 @@ def sight_flags_by_url(post):
     return out
 
 
+def image_dhash(path, size=8):
+    """r36: 64-bit difference hash. Run #155's pool held the SAME photo under
+    two different URLs (identical YuNet face boxes proved it), so the per-path
+    variety cap 'spread' scenes across two copies of one image and the judge
+    counted 8 frames of the same face. Content identity, not URL identity."""
+    try:
+        g = Image.open(path).convert("L").resize((size + 1, size),
+                                                 Image.Resampling.LANCZOS)
+        px = list(g.getdata())
+        g.close()
+        bits = 0
+        for row in range(size):
+            for col in range(size):
+                bits = (bits << 1) | (px[row * (size + 1) + col]
+                                      > px[row * (size + 1) + col + 1])
+        return bits
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def dhash_distance(a, b):
+    return bin(a ^ b).count("1") if a is not None and b is not None else 64
+
+
 _STILL_REL_CACHE = {}
 _STILL_REL_CALLS = [0]
 STILL_REL_MAX_CALLS = int(os.environ.get("VIDEO_STILL_REL_MAX", "8"))
@@ -2452,22 +2476,6 @@ def build_visual_pool(post, page_id):
                 person_urls.append(u)
                 url2name.setdefault(u, name)
 
-    # r33 THIN-POOL RESCUE: with one or two usable images the planner has no
-    # choice but to hold the same frame for scene after scene (El Risitas ran
-    # ~20s on a single photo). Top up from Openverse — real, modifiable-licence
-    # photos of the actual subject — BEFORE planning, so variety is possible at
-    # all rather than enforced against an empty cupboard.
-    if len(urls) + len(person_urls) < VISUAL_POOL_MIN:
-        q = ""
-        for entry in (post.get("people") or [])[:1]:
-            q = str(entry.get("name") if isinstance(entry, dict) else entry or "")
-        if not q:
-            q = " ".join(str(post.get("title") or "").split()[:4])
-        extra = openverse_photos(q, want=VISUAL_POOL_MIN)
-        for u in extra:
-            if u not in urls:
-                urls.append(u)
-
     # v9 (owner round-9): the story COVER is a DESIGNED COMPOSITE from the site's
     # image engine (VS split, AI-art half, text) — a poster, not footage. Crop-
     # zooming it rendered garbage. So: real faces first, then real event images,
@@ -2541,12 +2549,55 @@ def build_visual_pool(post, page_id):
                     p, f"{post.get('title', '')}"):
                 log.info("STILL GATE: off-topic stock dropped: %s", u[:100])
                 continue
+            # r36 CONTENT DEDUP: same pixels under a second URL do not enter
+            # the pool twice (distance <= 6 of 64 bits = same image, resized
+            # or recompressed).
+            entry["dhash"] = image_dhash(p)
+            dup = next((e for e in pool
+                        if dhash_distance(entry["dhash"], e.get("dhash")) <= 6),
+                       None)
+            if dup is not None:
+                log.info("POOL DEDUP: %s is the same image as %s; skipped",
+                         u[:80], (dup.get("url") or "")[:60])
+                if entry["person"] and not dup.get("person"):
+                    dup["person"] = entry["person"]
+                    person_map.setdefault(entry["person"].lower(),
+                                          []).append(dup)
+                continue
             pool.append(entry)
             if entry["person"]:
                 # r11: LIST per person — avatar + recent thumbnails, in feed
                 # order, so consecutive shots of one person can cycle them.
                 person_map.setdefault(entry["person"].lower(), []).append(entry)
-    log.info("visual pool: %d usable of %d candidates (%d from people, "
+    # r36 THIN-POOL RESCUE, now measured on the DISTINCT pool after dedup —
+    # run #155 skipped the r33 pre-check because 5 raw URLs looked healthy,
+    # but only ~3 were distinct images. Top up from Openverse (real,
+    # modifiable-licence photos of the subject) through the SAME gates
+    # (textish, dedup) as every other candidate.
+    if len(pool) < VISUAL_POOL_MIN:
+        q = ""
+        for entry in (post.get("people") or [])[:1]:
+            q = str(entry.get("name") if isinstance(entry, dict) else entry or "")
+        if not q:
+            q = " ".join(str(post.get("title") or "").split()[:3])
+        for j, u in enumerate(openverse_photos(q, want=VISUAL_POOL_MIN + 2)):
+            if len(pool) >= VISUAL_POOL_MIN + 1:
+                break
+            if u in seen:
+                continue
+            p = fetch_visual(u, os.path.join(WORKDIR, f"vis-{page_id}-ov{j}"))
+            if not p:
+                continue
+            entry = {"path": p, "textish": _textish(p, u), "url": u,
+                     "person": None, "designed": False,
+                     "dhash": image_dhash(p)}
+            if any(dhash_distance(entry["dhash"], e.get("dhash")) <= 6
+                   for e in pool):
+                continue
+            pool.append(entry)
+            log.info("openverse top-up joined the pool: %s", u[:90])
+
+    log.info("visual pool: %d distinct of %d candidates (%d from people, "
              "%d name(s) mapped: %s)", len(pool), len(ordered),
              len(person_urls), len(person_map),
              {k: len(v) for k, v in person_map.items()})
@@ -3048,19 +3099,40 @@ def archive_org_clips(terms, want=3):
     Returns playable https URLs (the story-clip pool takes it from there)."""
     if not (ARCHIVE_ENABLED and terms):
         return []
-    q = " OR ".join('title:("%s")' % str(t).replace('"', "") for t in terms[:3])
-    out = []
-    try:
-        r = requests.get(
-            "https://archive.org/advancedsearch.php",
-            params={"q": "(%s) AND mediatype:(movies)" % q,
-                    "fl[]": ["identifier", "title"], "rows": ARCHIVE_MAX_ITEMS,
-                    "output": "json"},
-            headers={"User-Agent": _BROWSER_UA}, timeout=25)
-        docs = (r.json().get("response") or {}).get("docs") or []
-    except Exception as exc:  # noqa: BLE001
-        log.info("archive.org search failed (%s)", str(exc)[:80])
+    # r36 (run #155's log: NOT ONE archive line — the search matched nothing
+    # and said nothing). The title arrived as the exact phrase "El Risitas
+    # Passing", which no archive item's title contains, while a search for the
+    # subject alone finds 3 items. Build VARIANTS per term (full, first two
+    # words) and try title: first, then full-text, stopping at the first hit —
+    # and LOG a miss, per the no-silent-caps rule.
+    variants, seenv = [], set()
+    for t in terms[:4]:
+        words = str(t).replace('"', "").split()
+        for v in (" ".join(words), " ".join(words[:2])):
+            if len(v) >= 4 and v.lower() not in seenv:
+                seenv.add(v.lower())
+                variants.append(v)
+    docs = []
+    for field in ("title", None):
+        q = " OR ".join(('%s:("%s")' % (field, v)) if field else ('("%s")' % v)
+                        for v in variants)
+        try:
+            r = requests.get(
+                "https://archive.org/advancedsearch.php",
+                params={"q": "(%s) AND mediatype:(movies)" % q,
+                        "fl[]": ["identifier", "title"],
+                        "rows": ARCHIVE_MAX_ITEMS, "output": "json"},
+                headers={"User-Agent": _BROWSER_UA}, timeout=25)
+            docs = (r.json().get("response") or {}).get("docs") or []
+        except Exception as exc:  # noqa: BLE001
+            log.info("archive.org search failed (%s)", str(exc)[:80])
+            docs = []
+        if docs:
+            break
+    if not docs:
+        log.info("archive.org: 0 items for %s", variants[:4])
         return []
+    out = []
     for d in docs:
         if len(out) >= want:
             break
