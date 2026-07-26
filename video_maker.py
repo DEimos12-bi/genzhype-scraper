@@ -6758,6 +6758,13 @@ def main():
             post = fetch_next(done)
         except Exception as exc:  # noqa: BLE001
             log.error("fetch_next failed: %s", exc)
+            try:                              # r34: say so out loud (see below)
+                _hb_post({"token": INGEST_TOKEN, "action": "heartbeat",
+                          "page_id": 0, "stage": "CRASH", "elapsed": 0,
+                          "note": "fetch_next: %s: %s"
+                                  % (type(exc).__name__, str(exc)[:200])})
+            except Exception:  # noqa: BLE001
+                pass
             return 1
         if not post:
             log.info("no more posts to process")
@@ -6770,6 +6777,25 @@ def main():
         except Exception as exc:  # noqa: BLE001
             log.error("failed to make video for %s: %s", post.get("page_id"), exc)
             traceback.print_exc()
+            # r34 CRASH REPORT: a driver death is invisible from outside — the
+            # heartbeat thread dies with the process, so the log just STOPS and
+            # the traceback sits in Actions logs that need repo admin to read.
+            # Two renders were diagnosed by staring at silence. POST the
+            # exception and the deepest frame in OUR file to the heartbeat log.
+            try:
+                tb = traceback.extract_tb(sys.exc_info()[2])
+                mine = [f for f in tb if "video_maker" in (f.filename or "")]
+                where = mine[-1] if mine else (tb[-1] if tb else None)
+                note = "%s: %s" % (type(exc).__name__, str(exc)[:220])
+                if where:
+                    note += " @ %s:%s in %s()" % (
+                        os.path.basename(where.filename), where.lineno,
+                        where.name)
+                _hb_post({"token": INGEST_TOKEN, "action": "heartbeat",
+                          "page_id": int(post.get("page_id") or 0),
+                          "stage": "CRASH", "elapsed": 0, "note": note})
+            except Exception:  # noqa: BLE001
+                pass
             # Do NOT mark done on failure — it will be retried next run.
             return 1
     log.info("done. made %d video(s)", made)
