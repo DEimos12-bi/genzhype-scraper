@@ -716,6 +716,11 @@ _STAGE_STALL_CAP = {
     "filmstrip": 120, "post": 330, "receipts": 150, "visuals": 180,
 }
 _STAGE_STALL_DEFAULT = 240
+# r35: one POST a minute, not four. Today's volume (heartbeats every 15s across
+# a dozen runs + 40MB uploads + diag images) is what got the runner's IP
+# blackholed by Hostinger's WAF mid-session — the render still ran, but nothing
+# it produced could reach the server.
+HEARTBEAT_EVERY_S = float(os.environ.get("VIDEO_HEARTBEAT_S", "60"))
 
 
 def _set_stage(name, pid=None):
@@ -791,7 +796,7 @@ def _heartbeat_loop(start_ts):
             log.error("WATCHDOG: stage '%s' stalled past its cap — force-exit",
                       _STAGE)
             os._exit(7)          # nothing posted yet; safe to die + retry
-        time.sleep(15)          # r29: ease POST volume on Hostinger (was 7s)
+        time.sleep(HEARTBEAT_EVERY_S)   # r35: 60s default — POST volume today got the runner blackholed by the WAF
 
 
 def _start_heartbeat():

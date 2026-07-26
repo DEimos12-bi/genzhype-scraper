@@ -364,6 +364,36 @@ jobs:
               print("log ship failed:", e)
           PY
 
+      # r35 WAF-PROOF DROP. Run #154 rendered a complete video and binned it:
+      # Hostinger blackholed POSTs from the runner (the egress probe burned its
+      # full 25s --max-time with no reply), so delivery, heartbeats and even the
+      # log shipper all failed. The runner can always reach GITHUB though, so on
+      # a failed render the artifacts go to a force-pushed orphan branch and the
+      # server side pulls them. Only on failure — a 44MB drop per run is not
+      # something to do when delivery worked.
+      - name: Drop artifacts to video-drop branch (delivery fallback)
+        if: failure()
+        continue-on-error: true
+        run: |
+          mkdir -p /tmp/drop
+          cp -f "$VIDEO_WORKDIR"/video-*.mp4      /tmp/drop/ 2>/dev/null || true
+          cp -f "$VIDEO_WORKDIR"/sheet-*.jpg      /tmp/drop/ 2>/dev/null || true
+          cp -f "$VIDEO_WORKDIR"/reject-*.jpg     /tmp/drop/ 2>/dev/null || true
+          cp -f "$VIDEO_WORKDIR"/shot-*.png       /tmp/drop/ 2>/dev/null || true
+          cp -f "$VIDEO_WORKDIR"/render.log       /tmp/drop/ 2>/dev/null || true
+          ls -la /tmp/drop || true
+          [ -n "$(ls -A /tmp/drop 2>/dev/null)" ] || { echo "nothing to drop"; exit 0; }
+          cd /tmp/drop
+          git init -q
+          git checkout -q -b video-drop
+          git add -A
+          git -c user.name=video-maker -c user.email=bot@genzhype \
+              commit -qm "drop from run ${GITHUB_RUN_NUMBER} ($(date -u +%FT%TZ))"
+          git push -f "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" video-drop
+          echo "dropped $(ls | tr '\n' ' ')to branch video-drop"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Commit dedup state
         if: always()
         run: |
