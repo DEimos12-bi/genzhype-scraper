@@ -5831,35 +5831,49 @@ def make_one(post, font_path):
             })
         except Exception:
             pass
-        # r29 RELIABILITY VALVE — a rejected page must NEVER freeze the factory.
-        # It sits first in the queue, so an un-abandonable page blocks every
-        # story behind it (page 13, then 470, stalled the line for 2.5 days).
-        # After REPLAN_CAP attempts we ABANDON it: mark it done so the queue
-        # advances to stories that DO have enough distinct, on-topic visuals.
-        # Repetition / irrelevant-stock (the common weird cause) is a data-
-        # poverty problem — re-planning the same tiny image pool can't fix it.
-        prev = replan_count(page_id)
-        if prev >= REPLAN_CAP:
-            log.error(
-                "ABANDON page %s after %d attempts — judge still fails "
-                "(weird=%s mism=%s); marking done so the queue advances. "
-                "This story lacks enough distinct on-topic visuals.",
-                page_id, prev, weird[:3], mism[:3])
-            append_done(page_id)
-            return                       # green run; next run renders the next page
-        now = bump_replan(page_id)
-        if len(mism) >= 2:
-            # said-vs-seen: the PLAN may be improvable — re-direct (shotlist=NULL)
-            # so the next attempt tries a different visual assignment.
-            reasons = [
-                f"frame {m.get('frame')}: said "
-                f"'{str(m.get('words') or '')[:120]}' but showed "
-                f"{str(m.get('what_shown') or '')[:120]}"
-                for m in mism[:6]]
-            request_replan(page_id, reasons)
-        raise JudgeRejected(
-            f"vision judge rejected page {page_id} (attempt {now}/{REPLAN_CAP}): "
-            f"weird={weird[:3]} mism={mism[:3]} issues={verdict.get('issues')}")
+        # r29 SOFT-DELIVER — a strong video must SHIP rather than freeze the line
+        # over one minor cosmetic frame. Ship when there are NO said-vs-seen
+        # mismatches, at most ONE weird frame, that frame is a NON-critical type
+        # (f = caption collision, g = ad-cluttered proof), and the judge's own
+        # scores are good. The junk the owner rejects — a cut text, b sliced
+        # face, c repetition, d dead frame, e context-mismatch / irrelevant
+        # stock — is CRITICAL and never soft-passes.
+        letters = {str((w or {}).get("issue", "")).strip()[:1].lower()
+                   for w in weird}
+        scores = verdict.get("scores") or {}
+        soft = (not mism and len(weird) <= 1 and letters <= {"f", "g"}
+                and int(scores.get("readability", 0) or 0) >= 6
+                and int(scores.get("variety", 0) or 0) >= 5)
+        if soft:
+            log.warning(
+                "SOFT-DELIVER page %s despite a minor judge note (%s, scores=%s)"
+                " — shipping a strong video beats freezing the line.",
+                page_id, weird[:1], scores)
+        else:
+            # HARD rejection. RELIABILITY VALVE: a rejected page must NEVER freeze
+            # the factory — it sits first in the queue and blocks every story
+            # behind it (page 13, then 470, stalled the line for 2.5 days). After
+            # REPLAN_CAP attempts ABANDON it (mark done -> queue advances).
+            prev = replan_count(page_id)
+            if prev >= REPLAN_CAP:
+                log.error(
+                    "ABANDON page %s after %d attempts — judge still fails "
+                    "(weird=%s mism=%s); marking done so the queue advances.",
+                    page_id, prev, weird[:3], mism[:3])
+                append_done(page_id)
+                return                   # green run; next run renders the next page
+            now = bump_replan(page_id)
+            if len(mism) >= 2:
+                # said-vs-seen: re-direct the plan for the next attempt.
+                reasons = [
+                    f"frame {m.get('frame')}: said "
+                    f"'{str(m.get('words') or '')[:120]}' but showed "
+                    f"{str(m.get('what_shown') or '')[:120]}"
+                    for m in mism[:6]]
+                request_replan(page_id, reasons)
+            raise JudgeRejected(
+                f"vision judge rejected page {page_id} (attempt {now}/{REPLAN_CAP}): "
+                f"weird={weird[:3]} mism={mism[:3]} issues={verdict.get('issues')}")
 
     # r19: build + deliver the filmstrip (12 frames + spoken words) so the
     # operator's AI can SEE what the render shows vs says. Never fatal.
