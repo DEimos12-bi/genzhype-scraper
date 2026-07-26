@@ -2069,7 +2069,30 @@ def resolve_event_receipts(meta, receipt_paths, shooter, og_fetch):
     return receipt_paths, len(set(k for k in use_count)), og_n
 
 
+# r37 GITHUB BUS. Run #156 proved the runner<->Hostinger HTTP path is an IP
+# lottery: bitninja blackholes some runner IPs at TCP connect (the feed GET
+# timed out 3x45s; the previous run's POSTs landed fine). GitHub is the one
+# host BOTH sides always reach, so the server publishes the job feed + its
+# visuals to a `video-feed` branch (checked out by the workflow into
+# VIDEO_FEED_DIR) and failed deliveries ride the `video-drop` branch home.
+# HTTP stays as the fast path when the IP happens to be clean.
+FEED_DIR = os.environ.get("VIDEO_FEED_DIR", "")
+
+
+def _feed_local_visual(url):
+    """A visual pre-staged on the video-feed branch: visuals/<sha1(url)>."""
+    if not (FEED_DIR and url):
+        return None
+    p = os.path.join(FEED_DIR, "visuals",
+                     hashlib.sha1(url.encode("utf-8")).hexdigest())
+    return p if os.path.isfile(p) and os.path.getsize(p) > 2000 else None
+
+
 def _download_bytes(url):
+    lp = _feed_local_visual(url)     # r37: repo-staged copy beats the network
+    if lp:
+        with open(lp, "rb") as f:
+            return f.read()
     """Multi-engine download (curl_cffi browser-TLS first — the proven pattern).
     Returns bytes or None; NEVER raises."""
     last = None
@@ -6430,7 +6453,20 @@ def fetch_next(done_ids):
     done_set = {str(d) for d in done_ids}
     try:
         data = None
-        for su in static_urls:
+        # r37: the repo-staged feed (video-feed branch) FIRST — it needs no
+        # network at all, so a blackholed runner IP cannot strand the job.
+        feed_file = os.path.join(FEED_DIR, "feed.json") if FEED_DIR else ""
+        if feed_file and os.path.isfile(feed_file):
+            try:
+                with open(feed_file, "rb") as f:
+                    data = json.loads(f.read().decode("utf-8", "replace"))
+                log.info("job feed from repo branch (generated %s)",
+                         data.get("generated"))
+            except Exception as exc:  # noqa: BLE001
+                log.info("repo feed unreadable (%s); HTTP feed next",
+                         str(exc)[:60])
+                data = None
+        for su in static_urls if data is None else []:
             feed = _download_bytes(su)
             if not feed:
                 continue
@@ -6560,7 +6596,26 @@ def post_video(page_id, slug, mp4_path, sheet_path=None):
             last = f"requests: {e}"
         log.warning("post attempt %d/4 failed (%s); retrying", attempt, last)
         time.sleep(10 * attempt)
-    raise RuntimeError(f"receive failed after retries: {last}")
+    # r37: a finished, judge-passed video must NEVER be discarded because this
+    # runner drew a blackholed IP (run #154 rendered 18 minutes and binned it).
+    # Leave the artifact + a meta sidecar in the workdir; the always-on drop
+    # step pushes them to the video-drop branch and the server ingests from
+    # there. The run stays green and the page is marked done.
+    try:
+        meta = {"page_id": int(page_id), "slug": slug or "",
+                "mp4": os.path.basename(mp4_path),
+                "sheet": os.path.basename(sheet_path)
+                         if sheet_path and os.path.isfile(sheet_path) else None,
+                "report": dict(_RENDER_REPORT) if _RENDER_REPORT else None,
+                "reason": str(last)[:300]}
+        mp = os.path.join(WORKDIR, f"drop-meta-{page_id}.json")
+        with open(mp, "w", encoding="utf-8") as f:
+            json.dump(meta, f)
+        log.warning("HTTP delivery failed; artifact staged for the video-drop "
+                    "branch (%s)", os.path.basename(mp))
+        return
+    except Exception:  # noqa: BLE001 — staging failed too: keep the old fatal
+        raise RuntimeError(f"receive failed after retries: {last}")
 
 
 # ============================================================================

@@ -288,6 +288,21 @@ jobs:
       #             media.githubusercontent LFS host is the real one.
       #   Readability.js = Mozilla's Reader Mode engine, used to decide which
       #             part of a page is the article (see _CROP_JS).
+      # r37 GITHUB BUS (inbound): the server publishes feed.json + the story's
+      # visuals to the video-feed branch; a runner whose IP bitninja has
+      # blackholed still gets the job. Branch absent -> HTTP feed as before.
+      - name: Checkout job feed from video-feed branch (optional)
+        continue-on-error: true
+        run: |
+          if git fetch --depth 1 origin video-feed 2>/dev/null; then
+            rm -rf feeddir && mkdir feeddir
+            git --work-tree=feeddir checkout FETCH_HEAD -- . 2>/dev/null || true
+            ls -la feeddir/ || true
+            echo "VIDEO_FEED_DIR=$GITHUB_WORKSPACE/feeddir" >> "$GITHUB_ENV"
+          else
+            echo "no video-feed branch; HTTP feed only"
+          fi
+
       - name: Vendor YuNet + Readability (optional)
         continue-on-error: true
         run: |
@@ -372,10 +387,21 @@ jobs:
       # server side pulls them. Only on failure — a 44MB drop per run is not
       # something to do when delivery worked.
       - name: Drop artifacts to video-drop branch (delivery fallback)
-        if: failure()
+        # r37: if: always() — post_video now stages drop-meta-*.json instead of
+        # failing the run when HTTP delivery dies, so the drop must fire on
+        # green runs too. Nothing staged -> the step exits in a second.
+        if: always()
         continue-on-error: true
         run: |
+          # drop when: the run FAILED (diagnosis needs log + frames) or a
+          # drop-meta exists (HTTP delivery failed on an otherwise green run).
+          FAILED="${{ job.status == 'failure' }}"
+          HAVE_META=0; ls "$VIDEO_WORKDIR"/drop-meta-*.json >/dev/null 2>&1 && HAVE_META=1
+          if [ "$FAILED" != "true" ] && [ "$HAVE_META" != "1" ]; then
+            echo "delivery worked and run is green; nothing to drop"; exit 0
+          fi
           mkdir -p /tmp/drop
+          cp -f "$VIDEO_WORKDIR"/drop-meta-*.json /tmp/drop/ 2>/dev/null || true
           cp -f "$VIDEO_WORKDIR"/video-*.mp4      /tmp/drop/ 2>/dev/null || true
           cp -f "$VIDEO_WORKDIR"/sheet-*.jpg      /tmp/drop/ 2>/dev/null || true
           cp -f "$VIDEO_WORKDIR"/reject-*.jpg     /tmp/drop/ 2>/dev/null || true
