@@ -2322,6 +2322,26 @@ def sight_flags_by_url(post):
     return out
 
 
+def image_quality(path):
+    """r40 (owner watched the r39 opener: an over-zoomed blurry orange face —
+    the worst possible first 1.2 seconds). (megapixels, sharpness) so the
+    planner can rank visuals: sharpness = std of an edge-filtered 256px thumb.
+    Cheap, no ML, never raises."""
+    try:
+        from PIL import ImageFilter
+        im = Image.open(path).convert("L")
+        w, h = im.size
+        t = im.copy()
+        t.thumbnail((256, 256))
+        edges = t.filter(ImageFilter.FIND_EDGES)
+        sharp = float(np.asarray(edges).std())
+        im.close()
+        t.close()
+        return (w * h / 1e6, sharp)
+    except Exception:  # noqa: BLE001
+        return (0.0, 0.0)
+
+
 def image_dhash(path, size=8):
     """r36: 64-bit difference hash. Run #155's pool held the SAME photo under
     two different URLs (identical YuNet face boxes proved it), so the per-path
@@ -2565,16 +2585,37 @@ def build_visual_pool(post, page_id):
             entry = {"path": p, "textish": textish, "url": u,
                      "person": url2name.get(u),
                      "designed": _designed(u)}   # r21: cover ban in fallback
+            # r40: rank-able quality + does the image contain a human face at
+            # all (an object-stock plate — keyboard, phone, logo — does not,
+            # and gets capped to ONE scene by the variety pass).
+            entry["quality"] = image_quality(p)
+            try:
+                entry["has_face"] = detect_face_box(p) is not None
+            except Exception:  # noqa: BLE001
+                entry["has_face"] = True         # never punish on infra doubt
             # r33 (owner: "the twitch img idk what it does doing right there"):
             # a generic stock plate — a Twitch-logo keyboard — carried real
             # scenes of a story about a person. Ask whether the picture has
             # anything to do with THIS story; drop it if not. Person photos and
             # text cards are exempt (a portrait is the subject by definition,
             # a card is read, not depicted).
-            if not (entry["person"] or textish) and not still_is_relevant(
-                    p, f"{post.get('title', '')}"):
-                log.info("STILL GATE: off-topic stock dropped: %s", u[:100])
-                continue
+            # r40 (owner: the Twitch-keyboard plate came BACK): site-fed stock
+            # now faces the same NAME-AWARE question as the Openverse extras —
+            # a story that mentions Twitch does not make a stock keyboard
+            # relevant. Strict (fail-closed) only once 2 entries are already
+            # in, so an infra failure can never empty the whole pool.
+            if not (entry["person"] or textish):
+                _names = ", ".join(sorted(person_map)) or \
+                    ", ".join(url2name.values())
+                _t = str(post.get("title", ""))
+                _topic = (_t + (" — the story is about %s; a generic stock "
+                                "photo of an object, device, keyboard, phone "
+                                "or logo is NOT relevant even if its brand is "
+                                "mentioned in the story" % _names
+                                if _names else ""))
+                if not still_is_relevant(p, _topic, strict=len(pool) >= 2):
+                    log.info("STILL GATE: off-topic stock dropped: %s", u[:100])
+                    continue
             # r36 CONTENT DEDUP: same pixels under a second URL do not enter
             # the pool twice (distance <= 6 of 64 bits = same image, resized
             # or recompressed).
@@ -2635,6 +2676,11 @@ def build_visual_pool(post, page_id):
                 log.info("openverse candidate rejected (identity/relevance): "
                          "%s", u[:90])
                 continue
+            entry["quality"] = image_quality(p)
+            try:
+                entry["has_face"] = detect_face_box(p) is not None
+            except Exception:  # noqa: BLE001
+                entry["has_face"] = True
             pool.append(entry)
             log.info("openverse top-up joined the pool: %s", u[:90])
 
@@ -2814,7 +2860,8 @@ def pick_footage_window(vid, n_windows, use_counts, prev_vid=None,
                                      1 if k == prev_win else 0, k))
 
 
-def enforce_visual_variety(scenes, alt_paths, max_share=None):
+def enforce_visual_variety(scenes, alt_paths, max_share=None,
+                           single_cap_paths=None):
     """r33 (owner: "litteraly the same imgs keeps repeating"). still_hold_ok
     only stops a THIRD CONSECUTIVE hold — it says nothing about the same photo
     carrying 15 of 18 scenes non-consecutively, which is exactly what shipped:
@@ -2835,9 +2882,17 @@ def enforce_visual_variety(scenes, alt_paths, max_share=None):
     counts = {}
     for i in idxs:
         counts[scenes[i]["path"]] = counts.get(scenes[i]["path"], 0) + 1
+    # r40: object-stock plates (no face, not a text card — the Twitch keyboard)
+    # get ONE scene ever; they are seasoning, not a co-star. Their per-path cap
+    # is 1 regardless of the share cap.
+    singles = set(single_cap_paths or ())
+
+    def _cap_of(path):
+        return 1 if path in singles else cap
+
     for i in idxs:
         p = scenes[i]["path"]
-        if counts.get(p, 0) <= cap:
+        if counts.get(p, 0) <= _cap_of(p):
             continue
         # the least-used alternative that is not this path and not adjacent
         neighbours = {scenes[j]["path"] for j in (i - 1, i + 1)
@@ -2846,7 +2901,7 @@ def enforce_visual_variety(scenes, alt_paths, max_share=None):
         if not cands:
             continue
         alt = min(cands, key=lambda a: counts.get(a, 0))
-        if counts.get(alt, 0) + 1 > cap:
+        if counts.get(alt, 0) + 1 > _cap_of(alt):
             continue                      # swapping would just move the problem
         counts[p] -= 1
         counts[alt] = counts.get(alt, 0) + 1
@@ -4439,6 +4494,15 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
         if not cands:
             prev = scenes[-1].get("path") if scenes else None
             cands = [e for e in base if e["path"] != prev] or base
+        if not scenes:
+            # r40 OPENER LAW (r39 opened on an over-zoomed blurry face): the
+            # first thing on screen is the BEST image we have — a real face,
+            # then the sharpest/biggest — never whatever LRU happens to serve.
+            best = [e for e in cands if not e.get("textish")] or cands
+            faced = [e for e in best if e.get("has_face")] or best
+            entry = max(faced, key=lambda e: e.get("quality") or (0.0, 0.0))
+            last_used[entry["path"]] = si
+            return entry
         entry = min(cands, key=lambda e: last_used.get(e["path"], -1))
         last_used[entry["path"]] = si
         return entry
@@ -5073,6 +5137,11 @@ def scene_clip(image_path, start, end, motion, emph_rel=None, xfade=None,
     pil = Image.open(image_path)
     src_w, src_h = pil.size
     portrait = src_h > src_w
+    # r40: a sub-720px source is already upscaled ~1.5x+ to fill the phone; a
+    # punch zoom on top of that is what produced the blurry orange opener.
+    # Low-res sources keep gentle motion only.
+    if src_w < 720 and motion in ("punch_hit", "punch_build", "zoom_out"):
+        motion = "in"
 
     if motion in ("panl", "panr") and not portrait:
         bw = int(W * PAN_SCALE)
@@ -6014,7 +6083,10 @@ def compose_video(pool, broll_terms, mp3_path, hook, script, word_timings,
     # single still may carry more than VISUAL_MAX_SHARE of the still scenes.
     try:
         _alts = [e["path"] for e in pool if e.get("path")]
-        enforce_visual_variety(scenes, _alts)
+        _singles = {e["path"] for e in pool
+                    if e.get("path") and not e.get("textish")
+                    and not e.get("person") and e.get("has_face") is False}
+        enforce_visual_variety(scenes, _alts, single_cap_paths=_singles)
         _share = {}
         for _sc in scenes:
             if _sc.get("path") and _sc.get("type") != "broll":

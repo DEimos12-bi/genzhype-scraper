@@ -77,6 +77,19 @@ print("%-42s %s" % ("already-varied plan left alone",
                     "PASS" if unchanged else "FAIL (churned a good plan)"))
 ok &= unchanged
 
+# 5 (r40). object-stock capped at ONE scene: the Twitch keyboard carried 5
+# scenes of the r39 render; with single_cap_paths it may keep exactly 1.
+scenes = [{"path": "twitch-kb.jpg", "type": "photo"} for _ in range(5)]
+scenes += [{"path": "face1.jpg", "type": "photo"},
+           {"path": "face2.jpg", "type": "photo"},
+           {"path": "card.png", "type": "receipt"}]
+enforce(scenes, ["face1.jpg", "face2.jpg", "face3.jpg", "card.png",
+                 "twitch-kb.jpg"], single_cap_paths={"twitch-kb.jpg"})
+kb = sum(1 for s in scenes if s["path"] == "twitch-kb.jpg")
+print("%-42s keyboard now carries %d scene(s)          %s"
+      % ("object-stock single-scene cap", kb, "PASS" if kb <= 1 else "FAIL"))
+ok &= kb <= 1
+
 # 4. broll scenes are footage, not stills — never re-pointed
 scenes = [{"path": "clip.mp4", "type": "broll"} for _ in range(6)]
 scenes += [{"path": "p.jpg", "type": "photo"}]
