@@ -70,7 +70,14 @@ jobs:
       # YouTube's bot-wall (proven). yt-dlp fetches real story clips again, so
       # the r24 footage-first engine goes live. If WARP/cookies ever fail, the
       # driver degrades to motion-lite stills automatically.
-      VIDEO_FOOTAGE_FETCH: "0"   # r29: footage-first timed out EVERY render (4 fails/2 days); revert to proven ~7min motion-lite + rich receipts. Fast Twitch/TikTok/Kick can return later, slow YouTube stays off
+      # r31 (owner: "where the clips"): footage is BACK ON, but only for the
+      # platforms the platform-check actually proved from CI — Kick, Twitch and
+      # TikTok all downloaded fine there; YouTube 403'd even with WARP +
+      # cookies. Spawning yt-dlp at YouTube is what ate the render clock and
+      # timed out 4 renders in 2 days, so that one source stays off (flip
+      # VIDEO_YT_FETCH to "1" the day a residential proxy exists).
+      VIDEO_FOOTAGE_FETCH: "1"
+      VIDEO_YT_FETCH: "0"
       # r25: motion-lite lean pipeline — skip the heavy/fragile ML niceties that
       # were hanging the runner (CLIP verify + whisperx forced-align). edge-tts
       # timings sync captions fine; there is no footage to CLIP-verify.

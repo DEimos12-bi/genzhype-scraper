@@ -1409,6 +1409,20 @@ _CROP_JS = """(node) => {
   let R = Math.min(docw, Math.max(col.r, img ? img.r : col.r) + pad);
   let T = Math.max(0, hl.t - 18);
   let B = img ? img.bo + 14 : hl.bo + 380;
+  // r31 FILL THE PHONE. A wide-and-short crop contain-fits into a thin strip
+  // with a huge dead blur below it (that is what the delivered r30c video
+  // looked like). Reach for ~4:5 by carrying on down the column — but stop
+  // short of the next IMAGE/embed, because that is where promos and ad
+  // posters live. Body text between is real proof and reads fine.
+  const target = T + (R - L) * 1.25;
+  if (B < target) {
+    let limit = target;
+    for (const im of root.querySelectorAll('img, iframe, video')) {
+      const b = box(im);
+      if (b.t >= B + 4 && b.t < limit) limit = b.t - 8;
+    }
+    B = Math.max(B, Math.min(target, limit));
+  }
   B = Math.min(B, T + (R - L) * 1.25);   // legibility: keep it near 4:5
 
   // 4. snap the horizontal edges off anything they cut through
@@ -2527,6 +2541,16 @@ def fetch_story_footage(video_id, window=0):
     if os.environ.get("VIDEO_FOOTAGE_FETCH", "1") == "0":
         _FOOTAGE_CACHE[key] = None
         return None
+    # r31: THIS path is YouTube, the one source the platform-check proved is
+    # walled from CI (403 even with WARP + cookies) while Kick/Twitch/TikTok
+    # all downloaded fine. Spawning yt-dlp here only burns the render clock —
+    # which is what timed out four renders and got footage switched off
+    # wholesale. Skip it by default; Kick/Twitch/TikTok still fetch.
+    if os.environ.get("VIDEO_YT_FETCH", "0") == "0":
+        log.info("FOOTAGE: youtube fetch disabled (CI is bot-walled); "
+                 "thumbnail still + platform clips carry this scene")
+        _FOOTAGE_CACHE[key] = None
+        return None
     path = None
     try:
         import shutil
@@ -2769,6 +2793,9 @@ def fetch_platform_clip(url):
             # TLS-fingerprint bypass — the whole trick for these three.
             cmd[1:1] = ["--impersonate", "chrome"]
         elif plat == "youtube":
+            if os.environ.get("VIDEO_YT_FETCH", "0") == "0":
+                _PLATFORM_CLIP_CACHE[url] = None    # r31: walled from CI
+                return None
             if ck:
                 cmd[1:1] = ["--cookies", ck]
                 time.sleep(random.uniform(*FOOTAGE_FETCH_SLEEP_S))
@@ -2810,6 +2837,7 @@ def fetch_platform_clip(url):
 # ============================================================================
 _FACE_CACHE = {}
 _FACE_CASCADE = None
+_PROFILE_CASCADE = None
 
 
 def _face_cascade():
@@ -2819,6 +2847,19 @@ def _face_cascade():
         _FACE_CASCADE = cv2.CascadeClassifier(
             cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
     return _FACE_CASCADE
+
+
+def _profile_cascade():
+    """r31: the frontal cascade misses a turned head, a tilted head, shades or
+    a hat brim — exactly how our subjects are photographed. Every miss fell
+    through to a CENTER crop, which is what beheaded Soulja Boy at 0.4s and
+    sliced Kai Cenat's forehead off for three straight scenes."""
+    global _PROFILE_CASCADE
+    if _PROFILE_CASCADE is None:
+        import cv2
+        _PROFILE_CASCADE = cv2.CascadeClassifier(
+            cv2.data.haarcascades + "haarcascade_profileface.xml")
+    return _PROFILE_CASCADE
 
 
 def detect_face_box(path):
@@ -2843,6 +2884,22 @@ def detect_face_box(path):
             gray = cv2.equalizeHist(gray)
             faces = _face_cascade().detectMultiScale(
                 gray, scaleFactor=1.1, minNeighbors=5, minSize=(36, 36))
+            if not len(faces):
+                # r31: turned head / shades / hat -> try the profile cascade,
+                # then the mirrored frame (it only detects one side).
+                try:
+                    faces = _profile_cascade().detectMultiScale(
+                        gray, scaleFactor=1.1, minNeighbors=4, minSize=(36, 36))
+                    if not len(faces):
+                        flipped = cv2.flip(gray, 1)
+                        got = _profile_cascade().detectMultiScale(
+                            flipped, scaleFactor=1.1, minNeighbors=4,
+                            minSize=(36, 36))
+                        gw = gray.shape[1]
+                        faces = [(gw - int(x) - int(fw), y, fw, fh)
+                                 for (x, y, fw, fh) in got]
+                except Exception:  # noqa: BLE001
+                    faces = []
             if len(faces):
                 x, y, fw, fh = max(faces, key=lambda f: int(f[2]) * int(f[3]))
                 box = (x / scale, y / scale, fw / scale, fh / scale)
@@ -2853,6 +2910,24 @@ def detect_face_box(path):
         log.warning("face detection unavailable (%s); center framing", exc)
     _FACE_CACHE[path] = box
     return box
+
+
+def cover_fit_headroom(pil_img, tw, th, bias=0.14):
+    """r31: cover-crop biased toward the TOP of the source, not dead center.
+    When no face is detected the center crop of a standing person is their
+    torso — the head sits above the crop window. That is what beheaded the
+    0.4s hook frame. Heads live in the upper part of a photo, so keep the
+    upper part: the crop window starts 14% into the vertical slack instead
+    of 50%."""
+    pil_img = pil_img.convert("RGB")
+    w, h = pil_img.size
+    scale = max(tw / float(w), th / float(h))
+    nw = max(tw, int(round(w * scale)))
+    nh = max(th, int(round(h * scale)))
+    img = pil_img.resize((nw, nh), Image.Resampling.LANCZOS)
+    top = max(0.0, min((nh - th) * bias, float(nh - th)))
+    left = max(0.0, (nw - tw) / 2.0)
+    return img.crop((int(left), int(top), int(left) + tw, int(top) + th))
 
 
 def cover_fit_face(pil_img, tw, th, box):
@@ -4405,7 +4480,8 @@ def scene_clip(image_path, start, end, motion, emph_rel=None, xfade=None,
 
     if motion in ("panl", "panr") and not portrait:
         bw = int(W * PAN_SCALE)
-        base = ImageClip(grade_frame(np.array(cover_fit(pil, bw, H)))
+        base = ImageClip(grade_frame(np.array(
+            cover_fit_headroom(pil, bw, H)))     # r31: keep heads in the pan
                          ).with_duration(dur)
         travel = float(bw - W)
         x0, x1 = (0.0, -travel) if motion == "panl" else (-travel, 0.0)
@@ -4434,7 +4510,11 @@ def scene_clip(image_path, start, end, motion, emph_rel=None, xfade=None,
                 log.warning("face framing failed (%s); center crop", exc)
                 fitted, face_pt = cover_fit(pil, W, H), None
         else:
-            fitted = cover_fit(pil, W, H)
+            # r31: no face detected -> headroom crop, and anchor the push-in on
+            # the upper third anyway. A center-anchored zoom walks whatever is
+            # up there (the head we failed to detect) further off the top.
+            fitted = cover_fit_headroom(pil, W, H)
+            face_pt = (W / 2.0, H * 0.30)
         base = ImageClip(grade_frame(np.array(fitted))).with_duration(dur)
         if motion in ("punch_hit", "punch_build", "zoom_out"):
             _scale = motion_scale_fn(motion, dur, emph_rel)
@@ -4508,7 +4588,15 @@ def contain_scene_clip(image_path, start, end, xfade=None, card=False):
     fg = pil.resize((max(1, int(w * scale)), max(1, int(h * scale))),
                     Image.Resampling.LANCZOS)
     canvas = bg.copy()
-    fg_y = CARD_TOP_Y if card else (H - fg.height) // 2
+    if card:
+        # r31: pinning a SHORT card to CARD_TOP_Y leaves the rest of the phone
+        # as dead blur (the delivered r30c cards floated in a black void).
+        # Centre it in the card band instead; a full-height card is unchanged
+        # because there is no slack to centre in.
+        band = float(CARD_MAX_BOTTOM - CARD_TOP_Y)
+        fg_y = int(CARD_TOP_Y + max(0.0, (band - fg.height) / 2.0))
+    else:
+        fg_y = (H - fg.height) // 2
     canvas.paste(fg, ((canvas_w - fg.width) // 2, fg_y))
     pil.close()
 
