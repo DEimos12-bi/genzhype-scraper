@@ -374,8 +374,9 @@ text-heavy guard, BrollFetcher budgets, captions, hook, Gemini judge.
 Runtime target: GitHub Actions ubuntu-latest (ffmpeg + fonts preinstalled).
 """
 
-import glob
-import hashlib
+import base64          # r30: screenshot_is_clean/footage_is_relevant used this
+import glob             # WITHOUT importing it -> NameError -> both vision gates
+import hashlib          # failed open on EVERY call. See the r30 note below.
 import html
 import json
 import logging
@@ -738,6 +739,35 @@ def _hb_post(body):
                       headers={"User-Agent": _BROWSER_UA})
     except Exception:
         pass
+
+
+def _post_diag(page_id, name, img_path):
+    """r30 EYES ON THE REJECT: ship an image the delivery path never carries —
+    the filmstrip of a REJECTED render and the raw article screenshots that fed
+    it. Three fix rounds were spent reasoning about frames nobody could look at;
+    the judge's prose alone is not evidence. Lands in media/diag/. Non-fatal."""
+    try:
+        if not img_path or not os.path.isfile(img_path):
+            return
+        if os.path.getsize(img_path) > 6 * 1024 * 1024:
+            return
+        with open(img_path, "rb") as fh:
+            b64 = base64.b64encode(fh.read()).decode("ascii")
+        body = {"token": INGEST_TOKEN, "action": "diag",
+                "page_id": int(page_id), "name": str(name)[:60],
+                "img_b64": b64}
+        # delivery-grade timeout (an image is not an 8s heartbeat) on the same
+        # browser-TLS path everything else uses to get past the WAF.
+        try:
+            from curl_cffi import requests as cffi
+            r = cffi.post(RECEIVE_URL, json=body, impersonate="firefox",
+                          timeout=120, headers={"User-Agent": _BROWSER_UA})
+        except Exception:  # noqa: BLE001
+            r = requests.post(RECEIVE_URL, json=body, timeout=120,
+                              headers={"User-Agent": _BROWSER_UA})
+        log.info("DIAG %s -> HTTP %s", name, getattr(r, "status_code", "?"))
+    except Exception as exc:  # noqa: BLE001
+        log.info("DIAG %s failed: %s", name, str(exc)[:90])
 
 
 def _heartbeat_loop(start_ts):
@@ -5981,6 +6011,21 @@ def make_one(post, font_path):
     if verdict is not None and verdict.get("pass") is not True:
         mism = verdict.get("mismatches") or []
         weird = verdict.get("weird") or []
+        # r30 EYES ON THE REJECT: ship the filmstrip of the REJECTED render plus
+        # the raw article screenshots that fed it, so the exact frame the judge
+        # describes can be LOOKED at instead of reasoned about. Non-fatal, and
+        # it runs before the replan/abandon branches so it always lands.
+        try:
+            _post_diag(page_id, "reject-sheet",
+                       build_filmstrip(out, duration + TAIL_SECONDS,
+                                       os.path.join(WORKDIR,
+                                                    f"reject-{page_id}.jpg")))
+            for sp in sorted(glob.glob(os.path.join(WORKDIR,
+                                                    f"shot-{page_id}-*.png")))[:6]:
+                _post_diag(page_id,
+                           os.path.splitext(os.path.basename(sp))[0], sp)
+        except Exception:  # noqa: BLE001
+            pass
         # r29: surface WHY the judge rejected (Actions logs need repo admin to
         # read) so a rejection is diagnosable from the server heartbeat log.
         try:
