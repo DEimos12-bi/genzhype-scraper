@@ -755,7 +755,7 @@ def _heartbeat_loop(start_ts):
             log.error("WATCHDOG: stage '%s' stalled past its cap — force-exit",
                       _STAGE)
             os._exit(7)          # nothing posted yet; safe to die + retry
-        time.sleep(7)
+        time.sleep(15)          # r29: ease POST volume on Hostinger (was 7s)
 
 
 def _start_heartbeat():
