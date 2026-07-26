@@ -1448,20 +1448,41 @@ def screenshot_articles(targets, page_id, topic_kw=None):
                     # furniture before shooting. Best-effort per selector.
                     try:
                         page.evaluate("""() => {
-                          const sels = ['iframe', '[id*="ad-" i]',
-                                        '[id^="ad" i]', '[class*="advert" i]',
-                                        '[class*="sponsor" i]',
-                                        '[class*="promo-" i]',
-                                        '[class*="newsletter" i]',
-                                        '[class*="subscribe" i]',
-                                        '[aria-label*="advertisement" i]'];
+                          // r29: REMOVE (display:none, not just hide) ad + COMMERCE
+                          // furniture so the lead-image picker can't grab a merch /
+                          // shop / "buy our t-shirt" box (that exact box shipped in
+                          // one frame). Broadened well past 'ad/sponsor' to the
+                          // shop/store/merch/product/deal/affiliate + recirc widgets
+                          // that carry their own big images. display:none also drops
+                          // them from layout so nothing is measured or shot.
+                          const sels = ['iframe',
+                            '[id*="ad-" i]', '[id^="ad" i]', '[id*="-ad" i]',
+                            '[class*="advert" i]', '[class*="-ad-" i]',
+                            '[class*="sponsor" i]', '[class*="promo" i]',
+                            '[class*="newsletter" i]', '[class*="subscribe" i]',
+                            '[class*="merch" i]', '[class*="shop" i]',
+                            '[class*="store" i]', '[class*="product" i]',
+                            '[class*="commerce" i]', '[class*="affiliate" i]',
+                            '[class*="deal" i]', '[class*="buy-" i]',
+                            '[class*="related" i]', '[class*="recirc" i]',
+                            '[class*="trending" i]', '[class*="outbrain" i]',
+                            '[class*="taboola" i]', '[class*="widget" i]',
+                            '[aria-label*="advertisement" i]',
+                            'aside',
+                            'a[href*="shop" i]', 'a[href*="/store" i]',
+                            'a[href*="merch" i]', 'a[href*="amazon" i]',
+                            'a[href*="amzn" i]', 'a[href*="teespring" i]'];
                           for (const sel of sels) {
                             let els = [];
                             try { els = document.querySelectorAll(sel); }
                             catch (e) { continue; }
                             for (const el of els) {
-                              try { el.style.visibility = 'hidden'; }
-                              catch (e) {}
+                              try {
+                                // never nuke the whole page/article shell
+                                const r = el.getBoundingClientRect();
+                                if (r.width > 1000 && r.height > 2000) continue;
+                                el.style.display = 'none';
+                              } catch (e) {}
                             }
                           }
                         }""")
@@ -1646,6 +1667,12 @@ def screenshot_articles(targets, page_id, topic_kw=None):
                         url_shot[url] = None
                         continue
                 except Exception:
+                    url_shot[url] = None
+                    continue
+                # r29 AD BACKSTOP: vision-verify the shot is clean of ad / merch /
+                # furniture; unclean -> drop it so the og:image (guaranteed clean
+                # article photo) covers this proof instead of shipping the ad.
+                if not screenshot_is_clean(path):
                     url_shot[url] = None
                     continue
                 log.info("REAL source screenshot: %s", url[:100])
@@ -2422,6 +2449,71 @@ def footage_is_relevant(clip_path, topic):
         ok = True
     _FOOTAGE_REL_CACHE[clip_path] = ok
     return ok
+
+
+_SHOT_CLEAN_CACHE = {}
+_SHOT_CLEAN_CALLS = [0]
+SHOT_CLEAN_MAX_CALLS = int(os.environ.get("VIDEO_SHOT_CLEAN_MAX", "6"))
+
+
+def screenshot_is_clean(png_path):
+    """r29 AD BACKSTOP (owner: 'fix the screenshots — no ads in a frame').
+    Selector-based ad-hiding can't cover every layout, so AFTER a shot is taken
+    ask Gemini: is this a CLEAN article proof (masthead/headline/photo/body
+    text), or is a meaningful part of the frame an ad / merch / shop / 'buy our
+    t-shirt' box, a cookie/newsletter/subscribe banner, or unrelated page
+    furniture? Unclean -> reject the shot so the og:image / subject-photo chain
+    supplies a guaranteed-clean fallback. No key / over cap / any error -> True
+    (never blocks a shot on infra problems). Cached per path; capped per render."""
+    if not GEMINI_API_KEY or not png_path:
+        return True
+    if png_path in _SHOT_CLEAN_CACHE:
+        return _SHOT_CLEAN_CACHE[png_path]
+    if _SHOT_CLEAN_CALLS[0] >= SHOT_CLEAN_MAX_CALLS:
+        return True
+    clean = True
+    try:
+        import io
+        im = Image.open(png_path).convert("RGB")
+        im.thumbnail((512, 640))
+        buf = io.BytesIO()
+        im.save(buf, "JPEG", quality=82)
+        im.close()
+        _SHOT_CLEAN_CALLS[0] += 1
+        prompt = (
+            "This image is a screenshot of a news/article page shown as on-screen "
+            "PROOF in a short video. Is it CLEAN — showing the article's headline "
+            "and/or main photo and/or body text and nothing intrusive? Answer "
+            "clean=false if a MEANINGFUL part of the frame is taken up by any of: "
+            "an advertisement, a merch / shop / store / 'buy our t-shirt' or "
+            "product box, a cookie / newsletter / subscribe banner, or unrelated "
+            "page furniture (nav menus, related-story grids, comment widgets). "
+            "A small logo or a thin byline is fine. "
+            'Respond ONLY JSON: {"clean": true|false}.')
+        body = {"contents": [{"parts": [
+                    {"text": prompt},
+                    {"inline_data": {"mime_type": "image/jpeg",
+                        "data": base64.b64encode(buf.getvalue()).decode("ascii")}}]}],
+                "generationConfig": {"temperature": 0.0,
+                    "response_mime_type": "application/json"}}
+        url = ("https://generativelanguage.googleapis.com/v1beta/models/"
+               f"{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}")
+        r = requests.post(url, json=body, timeout=40)
+        if r.status_code == 200:
+            txt = (r.json()["candidates"][0]["content"]["parts"][0]["text"]
+                   or "").strip()
+            if txt.startswith("```"):
+                txt = txt.strip("`").strip()
+                if txt.lower().startswith("json"):
+                    txt = txt[4:].strip()
+            clean = bool(json.loads(txt).get("clean", True))
+            if not clean:
+                log.info("SHOT AD-GATE: ad/merch-cluttered screenshot rejected "
+                         "(%s)", os.path.basename(png_path))
+    except Exception:  # noqa: BLE001
+        clean = True
+    _SHOT_CLEAN_CACHE[png_path] = clean
+    return clean
 
 
 def platform_of(url):
