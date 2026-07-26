@@ -703,7 +703,9 @@ _HB_STARTED = False
 # timeout — and the last heartbeat names the stalled stage. compose (the
 # moviepy encode) gets the most room; it can't be timed out from inside.
 _STAGE_STALL_CAP = {
-    "compose": 420, "tts": 180, "screenshots": 150, "judge": 180,
+    # compose (the moviepy still-motion encode) is the heavy stage; give it room
+    # to actually FINISH a slow-but-working render rather than killing it early.
+    "compose": 900, "tts": 180, "screenshots": 150, "judge": 180,
     "filmstrip": 120, "post": 330, "receipts": 150, "visuals": 180,
 }
 _STAGE_STALL_DEFAULT = 240
@@ -718,20 +720,37 @@ def _set_stage(name, pid=None):
     log.info("STAGE: %s", name)
 
 
+def _hb_post(body):
+    """POST a heartbeat through the SAME browser-TLS path delivery uses:
+    Hostinger's WAF TLS-fingerprint-blocks plain requests/curl, so a plain
+    requests.post is silently dropped (that's why r29's first heartbeats never
+    landed). curl_cffi impersonate=firefox is the working path; plain requests
+    is only a fallback for envs without curl_cffi."""
+    try:
+        from curl_cffi import requests as cffi
+        cffi.post(RECEIVE_URL, json=body, impersonate="firefox",
+                  timeout=8, headers={"User-Agent": _BROWSER_UA})
+        return
+    except Exception:
+        pass
+    try:
+        requests.post(RECEIVE_URL, json=body, timeout=8,
+                      headers={"User-Agent": _BROWSER_UA})
+    except Exception:
+        pass
+
+
 def _heartbeat_loop(start_ts):
     while True:
         stalled = (_STAGE not in ("boot", "done") and _STAGE_SINCE and
                    (time.time() - _STAGE_SINCE) >
                    _STAGE_STALL_CAP.get(_STAGE, _STAGE_STALL_DEFAULT))
-        try:
-            requests.post(RECEIVE_URL, json={
-                "token": INGEST_TOKEN, "action": "heartbeat",
-                "page_id": _STAGE_PID,
-                "stage": ("STALLED:" + _STAGE) if stalled else _STAGE,
-                "elapsed": round(time.time() - start_ts, 1),
-            }, timeout=8, headers={"User-Agent": _BROWSER_UA})
-        except Exception:
-            pass
+        _hb_post({
+            "token": INGEST_TOKEN, "action": "heartbeat",
+            "page_id": _STAGE_PID,
+            "stage": ("STALLED:" + _STAGE) if stalled else _STAGE,
+            "elapsed": round(time.time() - start_ts, 1),
+        })
         if stalled:
             log.error("WATCHDOG: stage '%s' stalled past its cap — force-exit",
                       _STAGE)
@@ -5135,7 +5154,7 @@ def compose_video(pool, broll_terms, mp3_path, hook, script, word_timings,
         codec="libx264",
         audio_codec="aac",
         audio_bitrate="192k",
-        preset="medium",
+        preset=os.environ.get("VIDEO_PRESET", "medium"),
         threads=int(os.environ.get("VIDEO_THREADS", "2")),
         ffmpeg_params=["-pix_fmt", "yuv420p"],
         temp_audiofile=os.path.join(WORKDIR, "temp-audio.m4a"),

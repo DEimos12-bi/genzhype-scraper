@@ -76,6 +76,14 @@ jobs:
       # timings sync captions fine; there is no footage to CLIP-verify.
       VIDEO_CLIP_VERIFY: "0"
       VIDEO_FORCED_ALIGN: "0"
+      # r29: footage-OFF makes EVERY scene a per-frame-resized motion still, so
+      # the moviepy encode is far heavier than a footage render (real clips play
+      # natively). That is what stalled compose for ~2.5 days. Cut the encode
+      # cost: ultrafast x264 preset (size is fine for <60s social), 24fps (20%
+      # fewer per-frame resizes), and 4 encode threads.
+      VIDEO_PRESET: "ultrafast"
+      VIDEO_FPS: "24"
+      VIDEO_THREADS: "4"
       # Point the driver at the vendored Turbo tree so it reuses voice.py.
       MPT_HOME: ${{ github.workspace }}/videorepos/mpt
       # v3 OPTIONAL keys — unset secrets expand to "" and the driver treats
@@ -275,9 +283,9 @@ jobs:
           echo "egress HTTP=$code body=$(cat /tmp/eg.txt 2>/dev/null)"
 
       - name: Render + post video(s)
-        timeout-minutes: 12         # r29: motion-lite renders in ~7min; the in-process
-                                    # stage watchdog force-exits a stall at ~6min, so 12
-                                    # is a hard backstop. (was 24 — hangs wasted 24min each)
+        timeout-minutes: 18         # r29: give the still-motion encode room to FINISH;
+                                    # the in-process compose watchdog (900s) is the real
+                                    # guard. This is just the hard backstop.
         run: python video_maker.py
 
       - name: Commit dedup state
