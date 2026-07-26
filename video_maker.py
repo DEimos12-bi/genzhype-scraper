@@ -1637,7 +1637,13 @@ def screenshot_articles(targets, page_id, topic_kw=None):
                                         img_bb["x"] + img_bb["width"])
                         else:
                             right = h1["x"] + max(h1.get("width", 0), 300)
-                        width = min(1032.0, max(360.0, right + 24 - x))
+                        # r29 (owner: headline "cut off mid-word at the right
+                        # edge"): the r29 display:none ad-strip WIDENED the article
+                        # column, so the old 1032 cap sliced the last word off wide
+                        # headlines. Include the FULL headline/lead-image width and
+                        # clamp only to the 1080 viewport edge — never mid-word.
+                        right = min(1080.0, right + 24)
+                        width = max(360.0, right - x)
                         clip = {"x": x, "y": y, "width": width, "height": height}
                         page.screenshot(path=path, clip=clip)
                         # upscale narrow crops to full card width
