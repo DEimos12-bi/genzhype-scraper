@@ -271,6 +271,33 @@ jobs:
           python -m pip install playwright
           python -m playwright install --with-deps chromium
 
+      # r32 VENDORED OSS (both optional — the driver degrades to its own
+      # heuristics if either is missing):
+      #   YuNet   = OpenCV's CNN face detector (opencv/opencv_zoo). Replaces the
+      #             haar cascade that missed every turned head and left the
+      #             crop centred on a torso. NOTE: the raw.githubusercontent
+      #             URL serves a 131-byte git-lfs POINTER, not the model — the
+      #             media.githubusercontent LFS host is the real one.
+      #   Readability.js = Mozilla's Reader Mode engine, used to decide which
+      #             part of a page is the article (see _CROP_JS).
+      - name: Vendor YuNet + Readability (optional)
+        continue-on-error: true
+        run: |
+          mkdir -p models vendor
+          curl -sSL --max-time 60 -o models/face_detection_yunet_2023mar.onnx \
+            "https://media.githubusercontent.com/media/opencv/opencv_zoo/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx" || true
+          curl -sSL --max-time 60 -o vendor/Readability.js \
+            "https://unpkg.com/@mozilla/readability@0.6.0/Readability.js" || true
+          # a git-lfs pointer or a 404 page is worse than no file: the driver
+          # would load it and throw. Drop anything implausibly small.
+          for f in models/face_detection_yunet_2023mar.onnx vendor/Readability.js; do
+            if [ ! -s "$f" ] || [ "$(stat -c%s "$f")" -lt 20000 ]; then
+              echo "discarding $f ($(stat -c%s "$f" 2>/dev/null || echo 0) bytes)"; rm -f "$f"
+            else
+              echo "vendored $f ($(stat -c%s "$f") bytes)"
+            fi
+          done
+
       # The driver imports Turbo's app.services.voice from MPT_HOME when present.
       # It ALSO has a self-contained edge-tts fallback, so this step is optional:
       # if videorepos/mpt is not vendored in the repo, the run still succeeds.

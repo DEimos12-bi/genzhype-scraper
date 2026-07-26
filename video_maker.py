@@ -1360,7 +1360,46 @@ SHOT_PAD    = 28               # breathing room around the measured text/photo
 #      promo/ad poster further down is not the lead image.
 #   3. SNAP EDGES TO GAPS. Anything text-bearing that straddles the top or
 #      bottom edge pulls that edge off it, so no edge ever lands mid-line.
-_CROP_JS = """(node) => {
+# r32 (owner: "look for what's built and implement it here, better than
+# building it"): stop hand-rolling article detection. Mozilla's Readability —
+# the Firefox Reader Mode engine, the arc90 lineage every extractor descends
+# from — already decides what on a page IS the article. Injected as an init
+# script (CDP injection is not subject to the page's CSP, unlike add_script_tag)
+# and run with `serializer: el => el`, which is the documented way to get a DOM
+# element back instead of an HTML string. It parses a CLONE, so every live
+# element is stamped with data-gzid first and the article's nodes are mapped
+# back through those stamps — that bridge is what makes its verdict usable as
+# live geometry. The union of those live boxes IS the column. Falls back to the
+# r30c ancestor heuristic when Readability is absent or declines the page.
+READABILITY_JS = os.environ.get("VIDEO_READABILITY_JS", "vendor/Readability.js")
+_READABILITY_COL_JS = """() => {
+  try {
+    if (typeof Readability !== 'function') return null;
+    const nodes = document.querySelectorAll('*');
+    for (let i = 0; i < nodes.length; i++) nodes[i].setAttribute('data-gzid', String(i));
+    const clone = document.cloneNode(true);
+    const art = new Readability(clone, {serializer: (el) => el,
+                                        keepClasses: true,
+                                        charThreshold: 200}).parse();
+    if (!art || !art.content || !art.content.querySelectorAll) return null;
+    const marked = art.content.querySelectorAll('[data-gzid]');
+    const sx = window.scrollX;
+    let L = Infinity, R = -Infinity, n = 0;
+    for (const m of marked) {
+      const live = document.querySelector('[data-gzid="' + m.getAttribute('data-gzid') + '"]');
+      if (!live) continue;
+      const b = live.getBoundingClientRect();
+      if (b.width < 220 || b.height < 12) continue;
+      const txt = (live.textContent || '').trim();
+      if (txt.length < 40 && live.tagName !== 'IMG') continue;
+      L = Math.min(L, b.left + sx); R = Math.max(R, b.right + sx); n++;
+    }
+    if (!n || !isFinite(L) || R - L < 260) return null;
+    return {l: L, r: R, n: n, title: String(art.title || '').slice(0, 120)};
+  } catch (e) { return null; }
+}"""
+
+_CROP_JS = """(node, rcol) => {
   const sx = window.scrollX, sy = window.scrollY;
   const de = document.documentElement;
   const docw = Math.max(de.scrollWidth, de.clientWidth);
@@ -1391,6 +1430,13 @@ _CROP_JS = """(node) => {
       if (w >= 380) break;
     }
     if (el === document.body) break;
+  }
+  // r32: Readability's own verdict on what the article is beats the ancestor
+  // guess — its node set is the body text, so the union of those live boxes is
+  // the column. Union with the headline glyphs in case the headline is a
+  // full-bleed hero wider than the body column.
+  if (rcol && rcol.r > rcol.l) {
+    col = {l: Math.min(rcol.l, hl.l), r: Math.max(rcol.r, hl.r)};
   }
 
   // 3. the LEAD image: big, below the headline, and CLOSE below it
@@ -1538,6 +1584,19 @@ def screenshot_articles(targets, page_id, topic_kw=None):
             ctx = browser.new_context(
                 viewport={"width": SHOT_VIEW_W, "height": SHOT_VIEW_H},
                 user_agent=_BROWSER_UA, locale="en-US")
+            # r32: Readability as an init script — injected through CDP before
+            # any page script, so a strict Content-Security-Policy (most news
+            # sites) cannot block it the way it would block add_script_tag.
+            if os.path.isfile(READABILITY_JS):
+                try:
+                    ctx.add_init_script(path=READABILITY_JS)
+                    log.info("Readability injected from %s", READABILITY_JS)
+                except Exception as exc:  # noqa: BLE001
+                    log.info("Readability inject failed (%s); ancestor "
+                             "heuristic only", str(exc)[:80])
+            else:
+                log.info("Readability.js absent (%s); ancestor heuristic only",
+                         READABILITY_JS)
             url_shot = {}                  # r22: SAME url -> SAME file (path-
             for i, url in targets.items():  # based scene caps finally bite)
                 if url in url_shot:
@@ -1763,8 +1822,17 @@ def screenshot_articles(targets, page_id, topic_kw=None):
                         # fallback for a page where that returns nothing.
                         crop = None
                         if h1_el is not None:
+                            rcol = None
+                            try:                    # r32: Readability's column
+                                rcol = page.evaluate(_READABILITY_COL_JS)
+                                if rcol:
+                                    log.info("Readability column %.0f..%.0f "
+                                             "(%d nodes) on %s", rcol["l"],
+                                             rcol["r"], rcol["n"], url[:55])
+                            except Exception:  # noqa: BLE001
+                                rcol = None
                             try:
-                                crop = h1_el.evaluate(_CROP_JS)
+                                crop = h1_el.evaluate(_CROP_JS, rcol)
                             except Exception:  # noqa: BLE001
                                 crop = None
                         img_bb = None
@@ -2838,6 +2906,9 @@ def fetch_platform_clip(url):
 _FACE_CACHE = {}
 _FACE_CASCADE = None
 _PROFILE_CASCADE = None
+_YUNET = None
+YUNET_MODEL = os.environ.get("VIDEO_YUNET_MODEL",
+                             "models/face_detection_yunet_2023mar.onnx")
 
 
 def _face_cascade():
@@ -2847,6 +2918,21 @@ def _face_cascade():
         _FACE_CASCADE = cv2.CascadeClassifier(
             cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
     return _FACE_CASCADE
+
+
+def _yunet():
+    """r32: YuNet (cv2.FaceDetectorYN) — OpenCV's own CNN face detector, the
+    documented modern replacement for the haar cascade. Built into the opencv
+    we already install; the model is a 232KB ONNX from opencv/opencv_zoo. It is
+    specifically strong on the side/occluded faces that beheaded our subjects
+    (OpenCV's own comparison: 10 faces found vs the cascade's 7). Cascades stay
+    as the fallback when the model file is missing."""
+    global _YUNET
+    if _YUNET is None:
+        import cv2
+        _YUNET = cv2.FaceDetectorYN.create(
+            YUNET_MODEL, "", (320, 320), 0.6, 0.3, 5000)
+    return _YUNET
 
 
 def _profile_cascade():
@@ -2880,10 +2966,23 @@ def detect_face_box(path):
                 scale = FACE_DETECT_MAX_SIDE / float(max(w, h))
                 img = cv2.resize(img, (max(1, int(w * scale)),
                                        max(1, int(h * scale))))
+            faces = []
+            if os.path.isfile(YUNET_MODEL):
+                try:                       # r32: YuNet first — it sees profiles
+                    det = _yunet()
+                    det.setInputSize((img.shape[1], img.shape[0]))
+                    _, found = det.detect(img)
+                    if found is not None and len(found):
+                        faces = [(f[0], f[1], f[2], f[3]) for f in found]
+                except Exception as exc:  # noqa: BLE001 -> cascade fallback
+                    log.info("YuNet unavailable (%s); cascade fallback",
+                             str(exc)[:70])
+                    faces = []
             gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
             gray = cv2.equalizeHist(gray)
-            faces = _face_cascade().detectMultiScale(
-                gray, scaleFactor=1.1, minNeighbors=5, minSize=(36, 36))
+            if not len(faces):
+                faces = _face_cascade().detectMultiScale(
+                    gray, scaleFactor=1.1, minNeighbors=5, minSize=(36, 36))
             if not len(faces):
                 # r31: turned head / shades / hat -> try the profile cascade,
                 # then the mirrored frame (it only detects one side).
