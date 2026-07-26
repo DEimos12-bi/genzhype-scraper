@@ -1322,6 +1322,15 @@ def screenshot_articles(targets, page_id, topic_kw=None):
                 path = os.path.join(WORKDIR, f"shot-{page_id}-{i}.png")
                 try:
                     page = ctx.new_page()
+                    # r29: hard-cap EVERY locator/action to 3.5s. The r28
+                    # topic-aware headline scan (bounding_box + text_content on
+                    # up to 10 h1s per page) inherited Playwright's 30s default,
+                    # so a slow/detached element could stall a page for minutes
+                    # and blow the render past its timeout. This bounds it.
+                    try:
+                        page.set_default_timeout(3500)
+                    except Exception:  # noqa: BLE001
+                        pass
                     # r18 GRAFT B: network ad-block — abort ad/tracker requests
                     # BEFORE navigation so no ad/analytics furniture ever paints.
                     try:
