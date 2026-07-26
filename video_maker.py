@@ -689,6 +689,67 @@ _BROWSER_UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:130.0) "
 
 
 # ============================================================================
+# r29 STAGE HEARTBEAT — a daemon thread POSTs the current render stage to the
+# server every few seconds. When a render hangs, the LAST heartbeat line in
+# media/heartbeat.log names the exact stalled stage (Actions logs need repo
+# admin to read, so we can't inspect them). Fully non-fatal; never blocks.
+# ============================================================================
+_STAGE = "boot"
+_STAGE_PID = 0
+_STAGE_SINCE = 0.0
+_HB_STARTED = False
+# Per-stage stall ceilings (seconds). If a stage sits longer than its cap the
+# watchdog force-exits so a hang dies fast instead of burning the whole step
+# timeout — and the last heartbeat names the stalled stage. compose (the
+# moviepy encode) gets the most room; it can't be timed out from inside.
+_STAGE_STALL_CAP = {
+    "compose": 420, "tts": 180, "screenshots": 150, "judge": 180,
+    "filmstrip": 120, "post": 330, "receipts": 150, "visuals": 180,
+}
+_STAGE_STALL_DEFAULT = 240
+
+
+def _set_stage(name, pid=None):
+    global _STAGE, _STAGE_PID, _STAGE_SINCE
+    _STAGE = str(name)
+    _STAGE_SINCE = time.time()
+    if pid is not None:
+        _STAGE_PID = int(pid)
+    log.info("STAGE: %s", name)
+
+
+def _heartbeat_loop(start_ts):
+    while True:
+        stalled = (_STAGE not in ("boot", "done") and _STAGE_SINCE and
+                   (time.time() - _STAGE_SINCE) >
+                   _STAGE_STALL_CAP.get(_STAGE, _STAGE_STALL_DEFAULT))
+        try:
+            requests.post(RECEIVE_URL, json={
+                "token": INGEST_TOKEN, "action": "heartbeat",
+                "page_id": _STAGE_PID,
+                "stage": ("STALLED:" + _STAGE) if stalled else _STAGE,
+                "elapsed": round(time.time() - start_ts, 1),
+            }, timeout=8, headers={"User-Agent": _BROWSER_UA})
+        except Exception:
+            pass
+        if stalled:
+            log.error("WATCHDOG: stage '%s' stalled past its cap — force-exit",
+                      _STAGE)
+            os._exit(7)          # nothing posted yet; safe to die + retry
+        time.sleep(7)
+
+
+def _start_heartbeat():
+    global _HB_STARTED
+    if _HB_STARTED or not INGEST_TOKEN:
+        return
+    _HB_STARTED = True
+    import threading
+    threading.Thread(target=_heartbeat_loop, args=(time.time(),),
+                     daemon=True).start()
+
+
+# ============================================================================
 # TTS  (reuse Turbo voice.py when available; faithful in-file fallback otherwise)
 # ============================================================================
 def _convert_rate_to_percent(rate):
@@ -5118,7 +5179,12 @@ def _faststart_remux(src, dst):
     """Guarantee a web-streamable MP4: relocate the moov atom to the front."""
     cmd = [_ffmpeg_bin(), "-y", "-i", src, "-c", "copy",
            "-movflags", "+faststart", dst]
-    r = subprocess.run(cmd, capture_output=True, text=True)
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
+    except subprocess.TimeoutExpired:
+        log.warning("faststart remux timed out; using raw output")
+        os.replace(src, dst)
+        return
     if r.returncode != 0 or not os.path.exists(dst):
         log.warning("faststart remux failed (%s); falling back to raw output",
                     (r.stderr or "").strip()[:300])
@@ -5184,7 +5250,11 @@ def _extract_frames_at(mp4_path, times, prefix="judge", width=540):
         p = os.path.join(WORKDIR, f"{prefix}-{i}.jpg")
         cmd = [ff, "-y", "-ss", f"{t:.2f}", "-i", mp4_path,
                "-frames:v", "1", "-q:v", "4", "-vf", f"scale={width}:-2", p]
-        r = subprocess.run(cmd, capture_output=True, text=True)
+        try:
+            r = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+        except subprocess.TimeoutExpired:
+            log.warning("%s frame %d extraction timed out", prefix, i)
+            continue
         if r.returncode == 0 and os.path.exists(p) and os.path.getsize(p) > 1000:
             frames.append((p, t))
         else:
@@ -5587,6 +5657,7 @@ def make_one(post, font_path):
         hook = " ".join(script.split()[:8])
 
     os.makedirs(WORKDIR, exist_ok=True)
+    _set_stage("visuals", pid=page_id)
     # r28: this story's harvested platform clips (Twitch/TikTok/Kick/YouTube) —
     # the scene planner pulls these in as REAL MOVING footage matched to the
     # story, each fetched with its proper method (fetch_platform_clip).
@@ -5617,6 +5688,7 @@ def make_one(post, font_path):
     # screenshot > og:image report photo > subject photo (planner fallback).
     # No trim on card downloads: the cards' dark paper background must never
     # be shaved by the letterbox detector.
+    _set_stage("receipts")
     receipt_paths = {}
     recs = post.get("receipts")
     if isinstance(recs, list) and recs:
@@ -5669,12 +5741,14 @@ def make_one(post, font_path):
                 return fetch_visual(
                     u, os.path.join(WORKDIR, f"receipt-og-{page_id}-{i}.jpg"))
 
+            _set_stage("screenshots")
             receipt_paths, shot_n, og_n = resolve_event_receipts(
                 meta, receipt_paths, _shooter, _og_fetch)
             log.info("event receipts: %d clean screenshot(s), %d og report "
                      "photo(s); the rest fall back to subject photos",
                      shot_n, og_n)
 
+    _set_stage("tts")
     mp3 = os.path.join(WORKDIR, f"voice-{page_id}.mp3")
     # r12: expressive segmented narration first; ANY doubt -> the proven
     # single-pass path (synthesize_expressive verifies its own offsets and
@@ -5707,6 +5781,7 @@ def make_one(post, font_path):
         else:
             log.info("FORCED-ALIGN unavailable; edge timings")
 
+    _set_stage("compose")
     out = os.path.join(WORKDIR, f"video-{page_id}.mp4")
     compose_video(pool, broll_terms, mp3, hook, script, timings, duration,
                   font_path, out, bgm_path=pick_bgm(page_id, grave=grave),
@@ -5718,6 +5793,7 @@ def make_one(post, font_path):
     # v3: the vision judge sees the FINISHED (faststart-remuxed) artifact.
     # r16: it also gets the EDL so every sampled frame carries the words
     # spoken under it (said-vs-seen enforcement).
+    _set_stage("judge")
     verdict = vision_judge(out, hook, post.get("title", ""),
                            duration + TAIL_SECONDS, edl=LAST_EDL)
     if verdict is not None and verdict.get("pass") is not True:
@@ -5761,10 +5837,13 @@ def make_one(post, font_path):
 
     # r19: build + deliver the filmstrip (12 frames + spoken words) so the
     # operator's AI can SEE what the render shows vs says. Never fatal.
+    _set_stage("filmstrip")
     sheet = build_filmstrip(out, duration + TAIL_SECONDS,
                             os.path.join(WORKDIR, f"sheet-{page_id}.jpg"))
+    _set_stage("post")
     post_video(page_id, slug, out, sheet_path=sheet)
     append_done(page_id)
+    _set_stage("done")
 
 
 def main():
@@ -5772,6 +5851,7 @@ def main():
         log.error("INGEST_TOKEN not set")
         return 2
 
+    _start_heartbeat()          # r29: server-side stage tracing for hang diagnosis
     font_path = resolve_font()
     made = 0
     for _ in range(VIDEO_BATCH):

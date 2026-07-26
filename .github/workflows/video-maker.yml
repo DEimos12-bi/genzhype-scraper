@@ -263,9 +263,9 @@ jobs:
           fi
 
       - name: Render + post video(s)
-        timeout-minutes: 24         # r28: footage renders are heavier; r25: a render that hasn't posted in 16min
-                                    # is hung — fail the step fast instead of
-                                    # eating the whole 30min job (runs #105/#106)
+        timeout-minutes: 12         # r29: motion-lite renders in ~7min; the in-process
+                                    # stage watchdog force-exits a stall at ~6min, so 12
+                                    # is a hard backstop. (was 24 — hangs wasted 24min each)
         run: python video_maker.py
 
       - name: Commit dedup state
