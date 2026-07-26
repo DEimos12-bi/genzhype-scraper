@@ -333,7 +333,36 @@ jobs:
         timeout-minutes: 18         # r29: give the still-motion encode room to FINISH;
                                     # the in-process compose watchdog (900s) is the real
                                     # guard. This is just the hard backstop.
-        run: python video_maker.py
+        run: |
+          set -o pipefail
+          mkdir -p "$VIDEO_WORKDIR"     # tee must not fail the render itself
+          python video_maker.py 2>&1 | tee "$VIDEO_WORKDIR/render.log"
+
+      # r34 SHIP THE LOG. There is no GitHub token on the Hostinger box, so
+      # Actions logs are unreadable from where the debugging actually happens —
+      # a driver crash showed up only as the heartbeat going quiet, twice.
+      # if: always() so a FAILED render is exactly the one that reports.
+      - name: Ship render log to the server
+        if: always()
+        continue-on-error: true
+        run: |
+          LOG="$VIDEO_WORKDIR/render.log"
+          [ -s "$LOG" ] || { echo "no render log"; exit 0; }
+          tail -c 120000 "$LOG" | base64 -w0 > /tmp/log.b64
+          python - <<'PY'
+          import json, os, urllib.request
+          body = json.dumps({"token": os.environ["INGEST_TOKEN"], "action": "diag",
+                             "page_id": 0, "name": "render-log",
+                             "text_b64": open("/tmp/log.b64").read()}).encode()
+          req = urllib.request.Request(
+              "https://genzhype.com/api/video_receive.php", data=body,
+              headers={"Content-Type": "application/json",
+                       "User-Agent": "Mozilla/5.0"})
+          try:
+              print("log shipped:", urllib.request.urlopen(req, timeout=60).read()[:200])
+          except Exception as e:
+              print("log ship failed:", e)
+          PY
 
       - name: Commit dedup state
         if: always()
