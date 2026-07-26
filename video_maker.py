@@ -1346,6 +1346,104 @@ SHOT_VIEW_W = 1440
 SHOT_VIEW_H = 1800
 SHOT_PAD    = 28               # breathing room around the measured text/photo
 
+# r30c CROP GEOMETRY, measured in the page instead of guessed from one box.
+# The diag frames (media/diag/) showed the crop slicing through whatever
+# happened to sit on each edge: a headline cut at "...The Most Ag", a "Save for
+# late[r]" button halved on the right, a breadcrumb halved at the top, a
+# newsletter bar and an "HBCU AWARE FEST" ad poster swept in at the bottom.
+# Three rules kill the whole class:
+#   1. HORIZONTAL = THE COLUMN. The narrowest ancestor that still contains the
+#      headline is the article column. A box is never narrower than the text it
+#      lays out, so cropping to it CANNOT bisect a word — and the right rail,
+#      being outside it, cannot get in.
+#   2. The lead image must sit just BELOW the headline (<=520px). An in-content
+#      promo/ad poster further down is not the lead image.
+#   3. SNAP EDGES TO GAPS. Anything text-bearing that straddles the top or
+#      bottom edge pulls that edge off it, so no edge ever lands mid-line.
+_CROP_JS = """(node) => {
+  const sx = window.scrollX, sy = window.scrollY;
+  const de = document.documentElement;
+  const docw = Math.max(de.scrollWidth, de.clientWidth);
+  const doch = Math.max(de.scrollHeight, de.clientHeight);
+  const abs = (b) => ({l: b.left + sx, t: b.top + sy,
+                       r: b.right + sx, bo: b.bottom + sy});
+  const box = (el) => abs(el.getBoundingClientRect());
+
+  // 1. the headline's REAL glyph box: line boxes, not the element box
+  const rg = document.createRange();
+  rg.selectNodeContents(node);
+  const trs = Array.from(rg.getClientRects()).filter(b => b.width > 1 && b.height > 1);
+  const src = trs.length ? trs : [node.getBoundingClientRect()];
+  const hl = {
+    l: Math.min(...src.map(b => b.left)) + sx,
+    r: Math.max(...src.map(b => b.right)) + sx,
+    t: Math.min(...src.map(b => b.top)) + sy,
+    bo: Math.max(...src.map(b => b.bottom)) + sy
+  };
+
+  // 2. the COLUMN — nearest ancestor that fully contains the headline
+  let col = {l: hl.l, r: hl.r};
+  let root = node.parentElement || document.body;
+  for (let el = node.parentElement; el; el = el.parentElement) {
+    const b = box(el), w = b.r - b.l;
+    if (w >= (hl.r - hl.l) - 2 && w >= 320) {
+      col = {l: b.l, r: b.r}; root = el;
+      if (w >= 380) break;
+    }
+    if (el === document.body) break;
+  }
+
+  // 3. the LEAD image: big, below the headline, and CLOSE below it
+  let img = null;
+  const imgs = Array.from(root.querySelectorAll('img')).slice(0, 40);
+  for (const im of imgs) {
+    const b = box(im), w = b.r - b.l, h = b.bo - b.t;
+    if (w < 260 || h < 140) continue;
+    if (b.t < hl.bo - 8) continue;
+    if (b.t > hl.bo + 520) continue;
+    img = b; break;
+  }
+
+  const pad = 24;
+  let L = Math.max(0, Math.min(col.l, img ? img.l : col.l) - pad);
+  let R = Math.min(docw, Math.max(col.r, img ? img.r : col.r) + pad);
+  let T = Math.max(0, hl.t - 18);
+  let B = img ? img.bo + 14 : hl.bo + 380;
+  B = Math.min(B, T + (R - L) * 1.25);   // legibility: keep it near 4:5
+
+  // 4. snap the horizontal edges off anything they cut through
+  const els = Array.from(root.querySelectorAll('*')).slice(0, 1500);
+  const cutters = [];
+  for (const el of els) {
+    let text = false;
+    for (const c of el.childNodes) {
+      if (c.nodeType === 3 && c.textContent.trim().length > 1) { text = true; break; }
+    }
+    if (!text && el.tagName !== 'IMG') continue;
+    const b = box(el);
+    if (b.bo - b.t < 6 || b.r - b.l < 6) continue;
+    if (b.r <= L || b.l >= R) continue;          // not in the band at all
+    cutters.push(b);
+  }
+  for (let pass = 0; pass < 3; pass++) {
+    let moved = false;
+    for (const b of cutters) {
+      // starts above the edge and runs past it -> the edge is mid-element
+      if (b.t < B && b.bo > B) { B = b.t - 6; moved = true; }
+      if (b.t < T && b.bo > T) {
+        const nt = Math.min(b.bo + 6, hl.t - 4);
+        if (nt > T) { T = nt; moved = true; }
+      }
+    }
+    if (!moved) break;
+  }
+
+  const w = R - L, h = B - T;
+  if (w < 420 || h < 320) return null;           // unusable -> python fallback
+  return {x: L, y: T, w: w, h: h, docw: docw, doch: doch,
+          img: !!img, colw: col.r - col.l};
+}"""
+
 # r18 GRAFT B: compact ad/tracker host blocklist — substrings matched against
 # the request URL host. Network-level ABORT keeps ads/trackers/analytics from
 # ever painting, so the element screenshot captures the article, not furniture.
@@ -1645,20 +1743,31 @@ def screenshot_articles(targets, page_id, topic_kw=None):
                                      url[:90])
                             page.close()
                             continue
+                        # r30c: the whole crop is measured in the page by
+                        # _CROP_JS (column + lead image + edges snapped off any
+                        # text they cut). The pre-r30c math below is the
+                        # fallback for a page where that returns nothing.
+                        crop = None
+                        if h1_el is not None:
+                            try:
+                                crop = h1_el.evaluate(_CROP_JS)
+                            except Exception:  # noqa: BLE001
+                                crop = None
                         img_bb = None
-                        try:
-                            for sel in ("article img", "main img", "img"):
-                                for k in range(min(4, page.locator(sel).count())):
-                                    bb = page.locator(sel).nth(k).bounding_box()
-                                    if (bb and bb.get("width", 0) > 400
-                                            and bb["y"] > h1["y"]
-                                            and bb["y"] < h1["y"] + 1200):
-                                        img_bb = bb
+                        if not crop:
+                            try:
+                                for sel in ("article img", "main img", "img"):
+                                    for k in range(min(4, page.locator(sel).count())):
+                                        bb = page.locator(sel).nth(k).bounding_box()
+                                        if (bb and bb.get("width", 0) > 400
+                                                and bb["y"] > h1["y"]
+                                                and bb["y"] < h1["y"] + 1200):
+                                            img_bb = bb
+                                            break
+                                    if img_bb:
                                         break
-                                if img_bb:
-                                    break
-                        except Exception:  # noqa: BLE001
-                            img_bb = None
+                            except Exception:  # noqa: BLE001
+                                img_bb = None
                         # r30 TEXT-RECT CROP — fixes BOTH r29 judge failures at
                         # once ("headline cut mid-word" AND "sidebar/ad clutter").
                         # An h1's ELEMENT box is not where its TEXT is: a block
@@ -1673,7 +1782,7 @@ def screenshot_articles(targets, page_id, topic_kw=None):
                         # bisect a word, and it is still a COLUMN crop, so the
                         # sidebar stays out. Both failure modes closed together.
                         tb = None
-                        if h1_el is not None:
+                        if (not crop) and h1_el is not None:
                             try:
                                 tb = h1_el.evaluate("""node => {
                                   const r = document.createRange();
@@ -1725,6 +1834,17 @@ def screenshot_articles(targets, page_id, topic_kw=None):
                         # near 4:5 relative to its own width.
                         height = max(600.0, min(1350.0, width * 1.25, bottom - y))
                         height = min(height, max(1.0, doc_h - y))
+                        if crop:                       # r30c measured geometry
+                            x = float(crop["x"])
+                            y = float(crop["y"])
+                            width = min(float(crop["w"]), float(SHOT_VIEW_W) - x)
+                            height = min(float(crop["h"]),
+                                         max(1.0, float(crop["doch"]) - y))
+                            doc_h = float(crop["doch"])
+                            log.info("crop r30c: %.0fx%.0f at %.0f,%.0f "
+                                     "(col %.0f, lead-img %s) %s",
+                                     width, height, x, y, crop.get("colw", 0),
+                                     crop.get("img"), url[:60])
                         clip = {"x": x, "y": y, "width": width, "height": height}
                         # A clip that runs past the viewport bottom (hero image
                         # above the headline) needs full_page — but full_page on
