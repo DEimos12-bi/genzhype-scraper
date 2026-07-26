@@ -262,6 +262,18 @@ jobs:
             echo "Turbo tree not vendored; driver uses its in-file edge-tts fallback"
           fi
 
+      # r29 DIAGNOSTIC: prove the runner (a datacenter IP) can actually POST to
+      # the receive endpoint. If media/heartbeat.log gets 'runner_egress_test',
+      # egress is fine; if not, Hostinger's WAF is silently dropping runner POSTs
+      # — which would also explain why finished videos never deliver.
+      - name: Egress probe (runner -> receive endpoint)
+        run: |
+          code=$(curl -sS -o /tmp/eg.txt -w "%{http_code}" --max-time 25 -X POST \
+            "https://genzhype.com/api/video_receive.php" \
+            -H "Content-Type: application/json" \
+            --data "{\"token\":\"${INGEST_TOKEN}\",\"action\":\"heartbeat\",\"page_id\":0,\"stage\":\"runner_egress_test\",\"elapsed\":0}") || true
+          echo "egress HTTP=$code body=$(cat /tmp/eg.txt 2>/dev/null)"
+
       - name: Render + post video(s)
         timeout-minutes: 12         # r29: motion-lite renders in ~7min; the in-process
                                     # stage watchdog force-exits a stall at ~6min, so 12
