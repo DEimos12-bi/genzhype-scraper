@@ -2351,19 +2351,22 @@ _STILL_REL_CALLS = [0]
 STILL_REL_MAX_CALLS = int(os.environ.get("VIDEO_STILL_REL_MAX", "8"))
 
 
-def still_is_relevant(path, topic):
+def still_is_relevant(path, topic, strict=False):
     """r33: does this photo have anything to do with THIS story? A generic
     stock plate (the Twitch-logo keyboard that carried real scenes of a story
     about a person) is worse than one fewer scene — the viewer reads it as
     filler and loses the thread. Mirrors footage_is_relevant: no key, over the
-    call cap, or any error -> True, so infra trouble never empties the pool."""
+    call cap, or any error -> True, so infra trouble never empties the pool.
+    r38 strict=True flips that default: for UNVERIFIED candidates (Openverse
+    keyword matches) an unanswerable identity question must keep the image OUT
+    — wrong-person imagery is worse than a thin pool."""
     if not (GEMINI_API_KEY and path and topic):
-        return True
+        return not strict
     if path in _STILL_REL_CACHE:
         return _STILL_REL_CACHE[path]
     if _STILL_REL_CALLS[0] >= STILL_REL_MAX_CALLS:
-        return True
-    ok = True
+        return not strict
+    ok = not strict
     try:
         import io
         im = Image.open(path).convert("RGB")
@@ -2396,9 +2399,9 @@ def still_is_relevant(path, topic):
                 txt = txt.strip("`").strip()
                 if txt.lower().startswith("json"):
                     txt = txt[4:].strip()
-            ok = bool(json.loads(txt).get("relevant", True))
+            ok = bool(json.loads(txt).get("relevant", not strict))
     except Exception:  # noqa: BLE001
-        ok = True
+        ok = not strict
     _STILL_REL_CACHE[path] = ok
     return ok
 
@@ -2616,6 +2619,21 @@ def build_visual_pool(post, page_id):
                      "dhash": image_dhash(p)}
             if any(dhash_distance(entry["dhash"], e.get("dhash")) <= 6
                    for e in pool):
+                continue
+            # r38 IDENTITY GATE (the r37 filmstrip carried two unidentified men
+            # in suits for 10 seconds — a keyword match is NOT the person, and
+            # wrong-person imagery on a death story is the defamation bug the
+            # image engine exists to prevent). An Openverse candidate must
+            # positively show the story's subject; on any doubt it stays out —
+            # for UNVERIFIED extras, fail CLOSED, unlike the feed's own
+            # site-verified visuals.
+            ident_topic = ("%s — the picture must clearly show %s themselves"
+                           % (post.get("title", ""), q)) if q else \
+                          str(post.get("title", ""))
+            if not entry["textish"] and not still_is_relevant(p, ident_topic,
+                                                              strict=True):
+                log.info("openverse candidate rejected (identity/relevance): "
+                         "%s", u[:90])
                 continue
             pool.append(entry)
             log.info("openverse top-up joined the pool: %s", u[:90])
@@ -3001,7 +3019,11 @@ def footage_is_relevant(clip_path, topic):
             "plausibly relate to THAT story — the people involved, the event, "
             "an interview or stream about it, the setting? A generic music "
             "video, an unrelated performance, an ad, or a totally different "
-            'topic is NOT related. Respond ONLY JSON: {"related": true|false}.')
+            "topic is NOT related. Also answer related=false when the frame "
+            "carries BURNED-IN meme captions, jokes or subtitles about some "
+            "OTHER subject (a caption like 'Actual Nazi' on a meme edit) — "
+            "that text ships inside our video and hijacks the story. "
+            'Respond ONLY JSON: {"related": true|false}.')
         body = {"contents": [{"parts": [
                     {"text": prompt},
                     {"inline_data": {"mime_type": "image/jpeg",
@@ -3155,6 +3177,13 @@ def archive_org_clips(terms, want=3):
     if not docs:
         log.info("archive.org: 0 items for %s", variants[:4])
         return []
+    # r38: TITLE-MATCHED items first. Run #157 opened the video on a meme
+    # compilation whose burned-in caption read "Actual Nazi" — an item matched
+    # only by full-text. An item whose TITLE names the subject is the subject's
+    # own footage; everything else is remix material and goes to the back.
+    vlow = [v.lower() for v in variants]
+    docs.sort(key=lambda d: 0 if any(v in str(d.get("title") or "").lower()
+                                     for v in vlow) else 1)
     out = []
     for d in docs:
         if len(out) >= want:
