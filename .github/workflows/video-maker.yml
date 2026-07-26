@@ -178,6 +178,7 @@ jobs:
       # non-fatal. Kill switch: VIDEO_REAL_FOOTAGE=0.
       # Unpinned on purpose: YouTube breaks old yt-dlp versions constantly.
       - name: Install yt-dlp (+ curl_cffi for Twitch/TikTok/Kick impersonation)
+        if: env.VIDEO_FOOTAGE_FETCH == '1'   # r29: skip when footage off (fast motion-lite)
         continue-on-error: true
         run: |
           # r28: [curl-cffi] is the whole trick for Twitch/TikTok/Kick — it lets
@@ -194,6 +195,7 @@ jobs:
       # Non-fatal: if WARP won't come up, footage degrades to the cookie-less
       # bot-wall (motion-lite stills) — the render never breaks.
       - name: Route egress through Cloudflare WARP (footage unlock)
+        if: env.VIDEO_FOOTAGE_FETCH == '1'   # r29: skip when footage off (saves ~3min)
         continue-on-error: true
         run: |
           sudo apt-get update -qq
