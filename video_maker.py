@@ -5818,6 +5818,19 @@ def make_one(post, font_path):
     if verdict is not None and verdict.get("pass") is not True:
         mism = verdict.get("mismatches") or []
         weird = verdict.get("weird") or []
+        # r29: surface WHY the judge rejected (Actions logs need repo admin to
+        # read) so a rejection is diagnosable from the server heartbeat log.
+        try:
+            _hb_post({
+                "token": INGEST_TOKEN, "action": "heartbeat",
+                "page_id": _STAGE_PID, "stage": "JUDGE_FAIL", "elapsed": 0,
+                "note": json.dumps({"weird": weird[:6], "mismatches": mism[:4],
+                                    "issues": (verdict.get("issues") or [])[:4],
+                                    "scores": verdict.get("scores")},
+                                   ensure_ascii=False)[:780],
+            })
+        except Exception:
+            pass
         if len(mism) >= 2:
             # r16 CLOSED LOOP: a mismatch-class rejection means the PLAN is
             # wrong, not the render — re-rendering the same shotlist would
