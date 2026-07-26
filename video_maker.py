@@ -5831,41 +5831,35 @@ def make_one(post, font_path):
             })
         except Exception:
             pass
+        # r29 RELIABILITY VALVE — a rejected page must NEVER freeze the factory.
+        # It sits first in the queue, so an un-abandonable page blocks every
+        # story behind it (page 13, then 470, stalled the line for 2.5 days).
+        # After REPLAN_CAP attempts we ABANDON it: mark it done so the queue
+        # advances to stories that DO have enough distinct, on-topic visuals.
+        # Repetition / irrelevant-stock (the common weird cause) is a data-
+        # poverty problem — re-planning the same tiny image pool can't fix it.
+        prev = replan_count(page_id)
+        if prev >= REPLAN_CAP:
+            log.error(
+                "ABANDON page %s after %d attempts — judge still fails "
+                "(weird=%s mism=%s); marking done so the queue advances. "
+                "This story lacks enough distinct on-topic visuals.",
+                page_id, prev, weird[:3], mism[:3])
+            append_done(page_id)
+            return                       # green run; next run renders the next page
+        now = bump_replan(page_id)
         if len(mism) >= 2:
-            # r16 CLOSED LOOP: a mismatch-class rejection means the PLAN is
-            # wrong, not the render — re-rendering the same shotlist would
-            # fail the same way. Ask the server to re-direct the story
-            # (shotlist=NULL) and exit red; the next run renders the new plan.
-            prev = replan_count(page_id)
-            if prev >= REPLAN_CAP and not weird:
-                log.error(
-                    "REPLAN CAP REACHED for page %s (%d replans already): the "
-                    "judge still sees %d said-vs-seen mismatch(es) but we "
-                    "DELIVER ANYWAY rather than loop forever. mismatches=%s",
-                    page_id, prev, len(mism), mism[:4])
-            else:
-                if prev < REPLAN_CAP:
-                    reasons = [
-                        f"frame {m.get('frame')}: said "
-                        f"'{str(m.get('words') or '')[:120]}' but showed "
-                        f"{str(m.get('what_shown') or '')[:120]}"
-                        for m in mism[:6]]
-                    request_replan(page_id, reasons)
-                    now = bump_replan(page_id)
-                    raise JudgeRejected(
-                        f"said-vs-seen judge rejected page {page_id} "
-                        f"(replan {now}/{REPLAN_CAP} requested): "
-                        f"mismatches={mism[:4]} weird={weird} "
-                        f"issues={verdict.get('issues')}")
-                raise JudgeRejected(
-                    f"vision judge rejected page {page_id} (replan cap "
-                    f"reached but weirdness remains): weird={weird} "
-                    f"mismatches={mism[:4]} issues={verdict.get('issues')}")
-        else:
-            raise JudgeRejected(
-                f"vision judge rejected page {page_id}: "
-                f"weird={weird} issues={verdict.get('issues')} "
-                f"scores={verdict.get('scores')}")
+            # said-vs-seen: the PLAN may be improvable — re-direct (shotlist=NULL)
+            # so the next attempt tries a different visual assignment.
+            reasons = [
+                f"frame {m.get('frame')}: said "
+                f"'{str(m.get('words') or '')[:120]}' but showed "
+                f"{str(m.get('what_shown') or '')[:120]}"
+                for m in mism[:6]]
+            request_replan(page_id, reasons)
+        raise JudgeRejected(
+            f"vision judge rejected page {page_id} (attempt {now}/{REPLAN_CAP}): "
+            f"weird={weird[:3]} mism={mism[:3]} issues={verdict.get('issues')}")
 
     # r19: build + deliver the filmstrip (12 frames + spoken words) so the
     # operator's AI can SEE what the render shows vs says. Never fatal.

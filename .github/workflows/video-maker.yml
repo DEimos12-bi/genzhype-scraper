@@ -84,6 +84,11 @@ jobs:
       VIDEO_PRESET: "ultrafast"
       VIDEO_FPS: "24"
       VIDEO_THREADS: "4"
+      # r29: abandon a page after 1 retry if the judge keeps failing it, so a
+      # visually-poor story (repetition / irrelevant stock the judge rightly
+      # rejects) can never freeze the queue behind it. Good stories pass on
+      # attempt 1 and are unaffected.
+      VIDEO_REPLAN_CAP: "1"
       # Point the driver at the vendored Turbo tree so it reuses voice.py.
       MPT_HOME: ${{ github.workspace }}/videorepos/mpt
       # v3 OPTIONAL keys — unset secrets expand to "" and the driver treats
