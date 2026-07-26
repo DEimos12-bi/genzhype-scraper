@@ -526,6 +526,12 @@ REPLAN_CAP = int(os.environ.get("VIDEO_REPLAN_CAP", "3"))
 LAST_EDL = None
 
 # --- r12: pre-encode selfcheck (no AI; SELFCHECK log line every run) ---
+# r33 VARIETY LAW: no single still may carry more than this share of the still
+# scenes, and a story must reach VISUAL_POOL_MIN distinct visuals before
+# planning (Openverse tops up a thin pool). Both exist because one photo ran
+# under ~60% of the El Risitas video while the judge's repetition rule slept.
+VISUAL_MAX_SHARE = float(os.environ.get("VIDEO_MAX_VISUAL_SHARE", "0.34"))
+VISUAL_POOL_MIN = int(os.environ.get("VIDEO_POOL_MIN", "4"))
 SELFCHECK_MIN_SHOT_S = 0.8     # scenes shorter than this are logged (warn only)
 CAPTION_COVERAGE_MIN = 0.80    # captions must cover >=80% of speech (warn only)
 
@@ -1439,6 +1445,28 @@ _CROP_JS = """(node, rcol) => {
     col = {l: Math.min(rcol.l, hl.l), r: Math.max(rcol.r, hl.r)};
   }
 
+  // r33 WIKIPEDIA: its "article" is a wall of body text that contain-fits into
+  // an unreadable grey block (that is what shipped at 6.8-8.4s of the El
+  // Risitas video). The INFOBOX is the legible proof — portrait, name, dates,
+  // a few facts — so on wikipedia the crop is the infobox plus the title.
+  const _host = (typeof location !== 'undefined' && location.hostname) || '';
+  if (_host.indexOf('wikipedia.org') >= 0) {
+    const ib = document.querySelector && document.querySelector('table.infobox, .infobox');
+    if (ib) {
+      const b = box(ib);
+      if (b.r - b.l > 180 && b.bo - b.t > 180) {
+        const pad2 = 18;
+        return {x: Math.max(0, Math.min(b.l, hl.l) - pad2),
+                y: Math.max(0, hl.t - pad2),
+                w: Math.min(docw, Math.max(b.r, hl.r) + pad2) -
+                   Math.max(0, Math.min(b.l, hl.l) - pad2),
+                h: Math.min(b.bo + pad2, doch) - Math.max(0, hl.t - pad2),
+                docw: docw, doch: doch, img: true, colw: b.r - b.l,
+                wiki: true};
+      }
+    }
+  }
+
   // 3. the LEAD image: big, below the headline, and CLOSE below it
   let img = null;
   const imgs = Array.from(root.querySelectorAll('img')).slice(0, 40);
@@ -2266,6 +2294,100 @@ def sight_flags_by_url(post):
     return out
 
 
+_STILL_REL_CACHE = {}
+_STILL_REL_CALLS = [0]
+STILL_REL_MAX_CALLS = int(os.environ.get("VIDEO_STILL_REL_MAX", "8"))
+
+
+def still_is_relevant(path, topic):
+    """r33: does this photo have anything to do with THIS story? A generic
+    stock plate (the Twitch-logo keyboard that carried real scenes of a story
+    about a person) is worse than one fewer scene — the viewer reads it as
+    filler and loses the thread. Mirrors footage_is_relevant: no key, over the
+    call cap, or any error -> True, so infra trouble never empties the pool."""
+    if not (GEMINI_API_KEY and path and topic):
+        return True
+    if path in _STILL_REL_CACHE:
+        return _STILL_REL_CACHE[path]
+    if _STILL_REL_CALLS[0] >= STILL_REL_MAX_CALLS:
+        return True
+    ok = True
+    try:
+        import io
+        im = Image.open(path).convert("RGB")
+        im.thumbnail((448, 448))
+        buf = io.BytesIO()
+        im.save(buf, "JPEG", quality=80)
+        im.close()
+        _STILL_REL_CALLS[0] += 1
+        prompt = (
+            "A short news video tells this story: \"%s\". Does this picture "
+            "show something from that story — a person, place, event, product "
+            "or document it is actually about? Answer relevant=false for "
+            "GENERIC STOCK that merely matches a keyword (a stock photo of a "
+            "keyboard, a phone, a logo, an empty studio, an abstract graphic) "
+            "with no connection to the specific people or events. "
+            'Respond ONLY JSON: {"relevant": true|false}.' % str(topic)[:220])
+        body = {"contents": [{"parts": [
+                    {"text": prompt},
+                    {"inline_data": {"mime_type": "image/jpeg",
+                        "data": base64.b64encode(buf.getvalue()).decode("ascii")}}]}],
+                "generationConfig": {"temperature": 0.0,
+                    "response_mime_type": "application/json"}}
+        url = ("https://generativelanguage.googleapis.com/v1beta/models/"
+               f"{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}")
+        r = requests.post(url, json=body, timeout=40)
+        if r.status_code == 200:
+            txt = (r.json()["candidates"][0]["content"]["parts"][0]["text"]
+                   or "").strip()
+            if txt.startswith("```"):
+                txt = txt.strip("`").strip()
+                if txt.lower().startswith("json"):
+                    txt = txt[4:].strip()
+            ok = bool(json.loads(txt).get("relevant", True))
+    except Exception:  # noqa: BLE001
+        ok = True
+    _STILL_REL_CACHE[path] = ok
+    return ok
+
+
+def openverse_photos(query, want=6):
+    """r33: more REAL photos of the subject, key-free, from Openverse (the
+    WordPress/CC aggregator over Flickr/Wikimedia/etc). A one-photo pool is
+    what forced the planner to hold a single frame for 20 seconds.
+
+    LICENCE GATE: we crop, zoom and pan every photo — that is a DERIVATIVE, so
+    licences that forbid modification (BY-ND, NC-ND) are unusable however
+    convenient. license_type=modification asks Openverse for only the licences
+    that permit it."""
+    if not query:
+        return []
+    try:
+        r = requests.get("https://api.openverse.org/v1/images/",
+                         params={"q": query, "page_size": max(4, want * 2),
+                                 "license_type": "modification",
+                                 "mature": "false"},
+                         headers={"User-Agent": _BROWSER_UA}, timeout=25)
+        if r.status_code != 200:
+            log.info("openverse HTTP %d for '%s'", r.status_code, query[:50])
+            return []
+        res = (r.json() or {}).get("results") or []
+    except Exception as exc:  # noqa: BLE001
+        log.info("openverse failed (%s)", str(exc)[:80])
+        return []
+    urls = []
+    for it in res:
+        u = it.get("url")
+        if isinstance(u, str) and u.startswith("http"):
+            urls.append(u)
+        if len(urls) >= want:
+            break
+    if urls:
+        log.info("openverse: %d modifiable-licence photos for '%s'",
+                 len(urls), query[:50])
+    return urls
+
+
 def build_visual_pool(post, page_id):
     """Assemble the scene visual pool: feed visuals (hero first) + resolved
     person photos, deduped, downloaded, validated. Returns (pool, person_map):
@@ -2324,6 +2446,22 @@ def build_visual_pool(post, page_id):
                 log.info("person photo resolved via wikidata: %s", name)
                 person_urls.append(u)
                 url2name.setdefault(u, name)
+
+    # r33 THIN-POOL RESCUE: with one or two usable images the planner has no
+    # choice but to hold the same frame for scene after scene (El Risitas ran
+    # ~20s on a single photo). Top up from Openverse — real, modifiable-licence
+    # photos of the actual subject — BEFORE planning, so variety is possible at
+    # all rather than enforced against an empty cupboard.
+    if len(urls) + len(person_urls) < VISUAL_POOL_MIN:
+        q = ""
+        for entry in (post.get("people") or [])[:1]:
+            q = str(entry.get("name") if isinstance(entry, dict) else entry or "")
+        if not q:
+            q = " ".join(str(post.get("title") or "").split()[:4])
+        extra = openverse_photos(q, want=VISUAL_POOL_MIN)
+        for u in extra:
+            if u not in urls:
+                urls.append(u)
 
     # v9 (owner round-9): the story COVER is a DESIGNED COMPOSITE from the site's
     # image engine (VS split, AI-art half, text) — a poster, not footage. Crop-
@@ -2388,6 +2526,16 @@ def build_visual_pool(post, page_id):
             entry = {"path": p, "textish": textish, "url": u,
                      "person": url2name.get(u),
                      "designed": _designed(u)}   # r21: cover ban in fallback
+            # r33 (owner: "the twitch img idk what it does doing right there"):
+            # a generic stock plate — a Twitch-logo keyboard — carried real
+            # scenes of a story about a person. Ask whether the picture has
+            # anything to do with THIS story; drop it if not. Person photos and
+            # text cards are exempt (a portrait is the subject by definition,
+            # a card is read, not depicted).
+            if not (entry["person"] or textish) and not still_is_relevant(
+                    p, f"{post.get('title', '')}"):
+                log.info("STILL GATE: off-topic stock dropped: %s", u[:100])
+                continue
             pool.append(entry)
             if entry["person"]:
                 # r11: LIST per person — avatar + recent thumbnails, in feed
@@ -2567,6 +2715,51 @@ def pick_footage_window(vid, n_windows, use_counts, prev_vid=None,
         return None
     return min(cands, key=lambda k: (use_counts.get((vid, k), 0),
                                      1 if k == prev_win else 0, k))
+
+
+def enforce_visual_variety(scenes, alt_paths, max_share=None):
+    """r33 (owner: "litteraly the same imgs keeps repeating"). still_hold_ok
+    only stops a THIRD CONSECUTIVE hold — it says nothing about the same photo
+    carrying 15 of 18 scenes non-consecutively, which is exactly what shipped:
+    one El Risitas frame under ~60% of the runtime. The judge has a 3+ repeats
+    rule and passed it anyway, so prevention cannot live in the judge.
+
+    Rewrites the worst offenders to the least-used alternative available.
+    Pure list-in/list-out over {"path": ...} dicts so it is unit-testable
+    offline (tools/variety_test.js has the same cases in JS for the crop; this
+    one is exercised by tools/variety_test.py). Returns the number of swaps."""
+    max_share = max_share or VISUAL_MAX_SHARE
+    idxs = [i for i, s in enumerate(scenes)
+            if s.get("path") and s.get("type") != "broll"]
+    if len(idxs) < 4:
+        return 0
+    cap = max(2, int(len(idxs) * max_share))
+    swaps = 0
+    counts = {}
+    for i in idxs:
+        counts[scenes[i]["path"]] = counts.get(scenes[i]["path"], 0) + 1
+    for i in idxs:
+        p = scenes[i]["path"]
+        if counts.get(p, 0) <= cap:
+            continue
+        # the least-used alternative that is not this path and not adjacent
+        neighbours = {scenes[j]["path"] for j in (i - 1, i + 1)
+                      if 0 <= j < len(scenes) and scenes[j].get("path")}
+        cands = [a for a in alt_paths if a != p and a not in neighbours]
+        if not cands:
+            continue
+        alt = min(cands, key=lambda a: counts.get(a, 0))
+        if counts.get(alt, 0) + 1 > cap:
+            continue                      # swapping would just move the problem
+        counts[p] -= 1
+        counts[alt] = counts.get(alt, 0) + 1
+        scenes[i]["path"] = alt
+        scenes[i]["variety_swap"] = True
+        swaps += 1
+    if swaps:
+        log.info("VARIETY: %d scene(s) re-pointed (cap %d of %d still scenes)",
+                 swaps, cap, len(idxs))
+    return swaps
 
 
 def still_hold_ok(prev_paths, path):
@@ -2821,9 +3014,113 @@ def screenshot_is_clean(png_path):
     return clean
 
 
+ARCHIVE_ENABLED = os.environ.get("VIDEO_ARCHIVE_FETCH", "1") != "0"
+ARCHIVE_MAX_ITEMS = int(os.environ.get("VIDEO_ARCHIVE_MAX", "5"))
+ARCHIVE_CLIP_S = float(os.environ.get("VIDEO_ARCHIVE_CLIP_S", "6"))
+
+
+def _archive_len_s(val):
+    """archive.org 'length' is either seconds ('195.32') or 'H:MM:SS'."""
+    try:
+        s = str(val or "").strip()
+        if ":" in s:
+            parts = [float(p) for p in s.split(":")]
+            out = 0.0
+            for p in parts:
+                out = out * 60.0 + p
+            return out
+        return float(s)
+    except Exception:  # noqa: BLE001
+        return 0.0
+
+
+def archive_org_clips(terms, want=3):
+    """r33 (owner: a video about the most iconic laugh on the internet that
+    contained neither the laugh nor the show). REAL footage from archive.org —
+    key-free, no bot-wall, no cookies, no WARP, and it holds exactly the old
+    TV/meme material our stories are about. Proven for this very story: a
+    search for El Risitas returns 5 movie items, one a 195s clip.
+    Returns playable https URLs (the story-clip pool takes it from there)."""
+    if not (ARCHIVE_ENABLED and terms):
+        return []
+    q = " OR ".join('title:("%s")' % str(t).replace('"', "") for t in terms[:3])
+    out = []
+    try:
+        r = requests.get(
+            "https://archive.org/advancedsearch.php",
+            params={"q": "(%s) AND mediatype:(movies)" % q,
+                    "fl[]": ["identifier", "title"], "rows": ARCHIVE_MAX_ITEMS,
+                    "output": "json"},
+            headers={"User-Agent": _BROWSER_UA}, timeout=25)
+        docs = (r.json().get("response") or {}).get("docs") or []
+    except Exception as exc:  # noqa: BLE001
+        log.info("archive.org search failed (%s)", str(exc)[:80])
+        return []
+    for d in docs:
+        if len(out) >= want:
+            break
+        ident = d.get("identifier")
+        if not ident:
+            continue
+        try:
+            m = requests.get("https://archive.org/metadata/%s" % ident,
+                             headers={"User-Agent": _BROWSER_UA},
+                             timeout=20).json()
+        except Exception:  # noqa: BLE001
+            continue
+        best = None
+        for f in (m.get("files") or []):
+            name = str(f.get("name") or "")
+            if not name.lower().endswith((".mp4", ".m4v")):
+                continue
+            size = int(f.get("size") or 0)
+            dur = _archive_len_s(f.get("length"))
+            if dur < 12.0 or dur > 2400.0 or size > 320 * 1024 * 1024:
+                continue
+            if best is None or size < best[1]:      # smallest derivative wins
+                best = (name, size, dur)
+        if best:
+            url = "https://archive.org/download/%s/%s" % (
+                ident, urllib.parse.quote(best[0]))
+            out.append(url)
+            log.info("archive.org clip: %s (%s, %.0fs, %.1fMB)",
+                     str(d.get("title"))[:60], ident, best[2],
+                     best[1] / 1e6)
+    return out
+
+
+def fetch_archive_clip(url, seconds=None):
+    """Pull ONE short section straight out of an archive.org mp4 with ffmpeg's
+    HTTP range support — no yt-dlp, no impersonation, no full download of a
+    45MB file. Re-encodes (a cut at an arbitrary offset is not on a keyframe)."""
+    seconds = seconds or ARCHIVE_CLIP_S
+    stem = "arch-" + hashlib.md5(url.encode()).hexdigest()[:12]
+    out = os.path.join(WORKDIR, stem + ".mp4")
+    if os.path.isfile(out) and os.path.getsize(out) > 40000:
+        return out
+    # skip titles/intros; the meme moment is rarely at second zero
+    for ss in (25.0, 8.0, 0.0):
+        cmd = ["ffmpeg", "-y", "-nostdin", "-ss", "%.1f" % ss, "-i", url,
+               "-t", "%.1f" % seconds, "-an", "-c:v", "libx264",
+               "-preset", "ultrafast", "-pix_fmt", "yuv420p",
+               "-vf", "scale=-2:1280", out]
+        try:
+            subprocess.run(cmd, timeout=110, stdout=subprocess.DEVNULL,
+                           stderr=subprocess.DEVNULL, check=False)
+        except Exception as exc:  # noqa: BLE001
+            log.info("archive clip ffmpeg failed (%s)", type(exc).__name__)
+            continue
+        if os.path.isfile(out) and os.path.getsize(out) > 40000:
+            log.info("archive.org footage: %.1fMB from %s",
+                     os.path.getsize(out) / 1e6, url[:70])
+            return out
+    return None
+
+
 def platform_of(url):
     """Which platform a clip URL belongs to (or None)."""
     u = (url or "").lower()
+    if "archive.org" in u:                      return "archive"
     if "kick.com" in u:                         return "kick"
     if "twitch.tv" in u:                        return "twitch"
     if "tiktok.com" in u:                       return "tiktok"
@@ -2843,6 +3140,10 @@ def fetch_platform_clip(url):
     if plat is None:
         _PLATFORM_CLIP_CACHE[url] = None
         return None
+    if plat == "archive":       # r33: ffmpeg range-fetch, no yt-dlp, no cap
+        path = fetch_archive_clip(url)
+        _PLATFORM_CLIP_CACHE[url] = path
+        return path
     path = None
     try:
         import shutil
@@ -5513,6 +5814,34 @@ def compose_video(pool, broll_terms, mp3_path, hook, script, word_timings,
         speech_span = max(0.0, w_end - w0)
         cap_from = first_body if first_body is not None else w_end
         caption_gap = max(0.0, min(cap_from, w_end) - max(hook_end, w0))
+    # r33 VARIETY LAW, enforced BEFORE the selfcheck reads the scene list: no
+    # single still may carry more than VISUAL_MAX_SHARE of the still scenes.
+    try:
+        _alts = [e["path"] for e in pool if e.get("path")]
+        enforce_visual_variety(scenes, _alts)
+        _share = {}
+        for _sc in scenes:
+            if _sc.get("path") and _sc.get("type") != "broll":
+                _share[_sc["path"]] = _share.get(_sc["path"], 0) + 1
+        if _share:
+            _top, _n = max(_share.items(), key=lambda kv: kv[1])
+            _tot = sum(_share.values())
+            log.info("VARIETY: %d distinct stills, top visual carries %d/%d "
+                     "(%.0f%%)", len(_share), _n, _tot, 100.0 * _n / _tot)
+            if _tot >= 6 and _n / float(_tot) > 0.55 and len(_alts) > 2:
+                # alternatives existed and it STILL monopolised the video — a
+                # planner bug, not a thin pool. Fail loudly instead of shipping
+                # 20 seconds of one frame again.
+                raise SelfCheckFailed(
+                    "one visual carries %d/%d still scenes (%.0f%%) with %d "
+                    "pool alternatives available: %s"
+                    % (_n, _tot, 100.0 * _n / _tot, len(_alts),
+                       os.path.basename(_top)))
+    except SelfCheckFailed:
+        raise
+    except Exception as exc:  # noqa: BLE001 — variety must never crash a render
+        log.warning("variety pass skipped (%s)", str(exc)[:90])
+
     avail_assets = (len(pool)
                     # r17: receipt values may be {"path","photo"} dicts (og
                     # report photos) — count unique underlying paths.
@@ -6183,6 +6512,20 @@ def make_one(post, font_path):
     global _STORY_CLIPS
     _STORY_CLIPS = [c.get("url") for c in (post.get("clips") or [])
                     if isinstance(c, dict) and platform_of(c.get("url"))]
+    if not _STORY_CLIPS:
+        # r33: the server harvested nothing for this story (story_vids=0 is why
+        # the El Risitas video had no laugh in it). archive.org is reachable
+        # from CI with no key, no cookies and no bot-wall — search it for the
+        # subject before giving up on footage entirely.
+        terms = []
+        for entry in (post.get("people") or [])[:2]:
+            n = str(entry.get("name") if isinstance(entry, dict) else entry or "")
+            if n:
+                terms.append(n)
+        t = str(post.get("title") or "").strip()
+        if t:
+            terms.append(" ".join(t.split()[:4]))
+        _STORY_CLIPS = archive_org_clips(terms)
     if _STORY_CLIPS:
         log.info("story clips available: %d (%s)", len(_STORY_CLIPS),
                  ", ".join(sorted({platform_of(u) for u in _STORY_CLIPS})))

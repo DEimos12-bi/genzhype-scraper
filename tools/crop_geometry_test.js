@@ -26,11 +26,13 @@ class El {
   }
 }
 
-function run(name, {h1, body, docw = 1440, doch = 4000, expect}) {
+function run(name, {h1, body, docw = 1440, doch = 4000, host = 'example.com', infobox = null, expect}) {
   global.window = {scrollX: 0, scrollY: 0};
+  global.location = {hostname: host};
   global.document = {
     documentElement: {scrollWidth: docw, clientWidth: docw, scrollHeight: doch, clientHeight: doch},
     body: body,
+    querySelector: (sel) => (sel.indexOf('infobox') >= 0 ? infobox : null),
     createRange: () => ({
       selectNodeContents(n) { this.n = n; },
       getClientRects() { return this.n._lines || [this.n._r]; },
@@ -106,6 +108,22 @@ function run(name, {h1, body, docw = 1440, doch = 4000, expect}) {
     h1, body, strictExclude: true,
     expect: {mustContain: {headline: R(60, 80, 700, 190)},
              mustExclude: {rightRail: R(780, 60, 1400, 900)}},
+  });
+}
+
+// ---- case 5 (r33): Wikipedia. The delivered El Risitas video showed a full
+// Wikipedia article scaled down to an unreadable grey block. The crop must
+// take the INFOBOX (portrait + name + dates), not the body wall.
+{
+  const hlLines = [R(40, 40, 300, 90)];
+  const h1 = new El('H1', R(40, 40, 300, 90), {text: 'El Risitas', lines: hlLines});
+  const bodyText = new El('P', R(40, 120, 780, 900), {text: 'Juan Joya Borja was a Spanish comedian...'});
+  const infobox = new El('TABLE', R(820, 40, 1180, 700), {text: 'El Risitas born 1956'});
+  const col = new El('DIV', R(30, 30, 1190, 3000), {children: [h1, bodyText, infobox]});
+  const body = new El('BODY', R(0, 0, 1440, 4000), {children: [col]});
+  run('wikipedia -> infobox not body wall', {
+    h1, body, host: 'en.wikipedia.org', infobox,
+    expect: {mustContain: {headline: R(40, 40, 300, 90), infobox: R(820, 40, 1180, 700)}},
   });
 }
 
