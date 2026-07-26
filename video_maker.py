@@ -3218,10 +3218,71 @@ def archive_org_clips(terms, want=3):
     return out
 
 
+def clip_is_caption_free(mp4_path):
+    """r39: archive.org items for a meme personality are mostly MEME EDITS with
+    burned-in joke captions — two renders shipped 'Actual Nazi' and a German
+    government joke over a death story. Two prompt nudges on the single-frame
+    gate failed (the caption isn't on every frame), so this is now explicit and
+    multi-frame: pull 3 frames across the cut, one Gemini call, and FAIL CLOSED
+    — no key / error / over cap means the archive clip is NOT used. A thin
+    video is recoverable; 'Actual Nazi' over a memorial is not."""
+    if not GEMINI_API_KEY:
+        return False
+    if _STILL_REL_CALLS[0] >= STILL_REL_MAX_CALLS + 4:   # own small headroom
+        return False
+    try:
+        import io
+        parts = [{"text": (
+            "These are 3 frames sampled across one short video clip. Does ANY "
+            "frame carry burned-in caption/subtitle/joke text composited onto "
+            "the video (any language)? Channel watermarks or tiny corner logos "
+            "do not count; readable caption text does. "
+            'Respond ONLY JSON: {"captions": true|false}.')}]
+        for pos in ("10", "50", "90"):
+            fp = mp4_path + f".cap{pos}.jpg"
+            subprocess.run(["ffmpeg", "-y", "-nostdin", "-i", mp4_path,
+                            "-vf", f"select=gte(t\\,{int(pos)/100*5}),scale=448:-2",
+                            "-frames:v", "1", fp],
+                           timeout=30, stdout=subprocess.DEVNULL,
+                           stderr=subprocess.DEVNULL, check=False)
+            if not (os.path.isfile(fp) and os.path.getsize(fp) > 2000):
+                continue
+            with open(fp, "rb") as f:
+                parts.append({"inline_data": {
+                    "mime_type": "image/jpeg",
+                    "data": base64.b64encode(f.read()).decode("ascii")}})
+        if len(parts) < 3:                      # need >=2 real frames to judge
+            return False
+        _STILL_REL_CALLS[0] += 1
+        body = {"contents": [{"parts": parts}],
+                "generationConfig": {"temperature": 0.0,
+                                     "response_mime_type": "application/json"}}
+        u = ("https://generativelanguage.googleapis.com/v1beta/models/"
+             f"{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}")
+        r = requests.post(u, json=body, timeout=45)
+        if r.status_code != 200:
+            return False
+        txt = (r.json()["candidates"][0]["content"]["parts"][0]["text"] or "").strip()
+        if txt.startswith("```"):
+            txt = txt.strip("`").strip()
+            if txt.lower().startswith("json"):
+                txt = txt[4:].strip()
+        clean = not bool(json.loads(txt).get("captions", True))
+        if not clean:
+            log.info("ARCHIVE CAPTION GATE: burned-in text found; clip dropped "
+                     "(%s)", os.path.basename(mp4_path))
+        return clean
+    except Exception as exc:  # noqa: BLE001 — fail closed
+        log.info("caption gate errored (%s); archive clip NOT used",
+                 str(exc)[:70])
+        return False
+
+
 def fetch_archive_clip(url, seconds=None):
     """Pull ONE short section straight out of an archive.org mp4 with ffmpeg's
     HTTP range support — no yt-dlp, no impersonation, no full download of a
-    45MB file. Re-encodes (a cut at an arbitrary offset is not on a keyframe)."""
+    45MB file. Re-encodes (a cut at an arbitrary offset is not on a keyframe).
+    r39: the cut must pass clip_is_caption_free before it is served."""
     seconds = seconds or ARCHIVE_CLIP_S
     stem = "arch-" + hashlib.md5(url.encode()).hexdigest()[:12]
     out = os.path.join(WORKDIR, stem + ".mp4")
@@ -3240,6 +3301,12 @@ def fetch_archive_clip(url, seconds=None):
             log.info("archive clip ffmpeg failed (%s)", type(exc).__name__)
             continue
         if os.path.isfile(out) and os.path.getsize(out) > 40000:
+            if not clip_is_caption_free(out):
+                try:
+                    os.remove(out)          # never serve it from the cache
+                except OSError:
+                    pass
+                return None
             log.info("archive.org footage: %.1fMB from %s",
                      os.path.getsize(out) / 1e6, url[:70])
             return out
