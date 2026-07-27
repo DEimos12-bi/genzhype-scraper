@@ -1960,13 +1960,16 @@ def screenshot_articles(targets, page_id, topic_kw=None):
                                      "(col %.0f, lead-img %s) %s",
                                      width, height, x, y, crop.get("colw", 0),
                                      crop.get("img"), url[:60])
+                        # r41 (runs #160/#162 both died in receipts): full_page
+                        # makes chromium RENDER THE ENTIRE DOCUMENT before
+                        # clipping — boundless on an infinite-scroll news page,
+                        # so the stage watchdog fired. The pre-r30 code shipped
+                        # tall document-coordinate clips WITHOUT full_page for
+                        # months (capture-beyond-viewport handles it); do that,
+                        # and cap the crop at one viewport of height.
+                        height = min(height, float(SHOT_VIEW_H))
                         clip = {"x": x, "y": y, "width": width, "height": height}
-                        # A clip that runs past the viewport bottom (hero image
-                        # above the headline) needs full_page — but full_page on
-                        # an infinite-scroll site captures the whole document, so
-                        # only pay for it when the crop actually needs it.
-                        page.screenshot(path=path, clip=clip,
-                                        full_page=(y + height > SHOT_VIEW_H - 4))
+                        page.screenshot(path=path, clip=clip)
                         # normalize the column crop to card width (1440-wide
                         # layouts shoot WIDER than 1080 now, so downscale too)
                         try:
