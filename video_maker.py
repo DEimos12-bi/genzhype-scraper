@@ -480,6 +480,12 @@ CARD_CAPTION_Y   = 1500     # (owner: "not fitting the phone"); caption band
 MAX_POOL = int(os.environ.get("VIDEO_MAX_POOL", "16"))
 PEOPLE_BUDGET_S = 100          # hard wall-clock cap on all person lookups
 POOL_NO_REPEAT_WINDOW = 3      # r11: an image never reappears within 3 scenes
+# r42: the window and the max-share below were tuned when a story had 4-6 images
+# and HAD to recycle. The people-resolver fix (athletes were being dropped from
+# their own stories) now yields ~24 distinct visuals for ~23 shots, so recycling
+# is no longer necessary — tune_variety_for_pool() widens the window and tightens
+# the share whenever the pool is rich, and leaves thin-pool behaviour untouched.
+POOL_NO_REPEAT_WINDOW_BASE = 3
 
 # --- v2: background music ---
 # Drop ONLY CC0 / royalty-free .mp3 tracks in this folder (platform copyright
@@ -531,7 +537,36 @@ LAST_EDL = None
 # planning (Openverse tops up a thin pool). Both exist because one photo ran
 # under ~60% of the El Risitas video while the judge's repetition rule slept.
 VISUAL_MAX_SHARE = float(os.environ.get("VIDEO_MAX_VISUAL_SHARE", "0.34"))
+VISUAL_MAX_SHARE_BASE = VISUAL_MAX_SHARE
 VISUAL_POOL_MIN = int(os.environ.get("VIDEO_POOL_MIN", "4"))
+
+
+def tune_variety_for_pool(n_pool, n_scenes):
+    """r42: scale the no-repeat window + max-share to the ACTUAL pool size.
+
+    With 4 images and 20 scenes a photo MUST come back, so the base rules allow
+    it (window 3, share 0.34 = one still may carry a third of the video). With
+    24 images and 23 scenes nothing needs to repeat at all — yet the base rules
+    still permitted the cover photo ~7 appearances, which is exactly the
+    "they keep repeating the same imgs" the owner sees. So: the richer the pool,
+    the wider the window and the tighter the per-image share. Thin pools keep
+    the old behaviour untouched (never stricter than the base)."""
+    global POOL_NO_REPEAT_WINDOW, VISUAL_MAX_SHARE
+    n_pool = max(0, int(n_pool or 0))
+    n_scenes = max(1, int(n_scenes or 1))
+    if n_pool < 6:                       # thin pool: recycling is unavoidable
+        POOL_NO_REPEAT_WINDOW = POOL_NO_REPEAT_WINDOW_BASE
+        VISUAL_MAX_SHARE = VISUAL_MAX_SHARE_BASE
+        return
+    # Never revisit an image until most of the pool has been spent (cap 8 so a
+    # huge pool can't starve the picker when some entries fail to download).
+    POOL_NO_REPEAT_WINDOW = max(POOL_NO_REPEAT_WINDOW_BASE, min(8, n_pool - 1))
+    # Ideal uses per image if we spread perfectly, +1 slack for pinned shots.
+    ideal = math.ceil(n_scenes / float(n_pool))
+    VISUAL_MAX_SHARE = min(VISUAL_MAX_SHARE_BASE,
+                           max(0.10, (ideal + 1) / float(n_scenes)))
+    log.info("VARIETY tuned for pool=%d scenes=%d -> window=%d max_share=%.2f",
+             n_pool, n_scenes, POOL_NO_REPEAT_WINDOW, VISUAL_MAX_SHARE)
 SELFCHECK_MIN_SHOT_S = 0.8     # scenes shorter than this are logged (warn only)
 CAPTION_COVERAGE_MIN = 0.80    # captions must cover >=80% of speech (warn only)
 
@@ -4369,6 +4404,8 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
     no-repeat window — blind round-robin is gone (owner round-11: "it keeps
     showing the same image again and again"); broll -> stock clip for the
     shot's query.
+    r42: variety rules are tuned to the ACTUAL pool size first (see
+    tune_variety_for_pool) so a rich pool never recycles a photo.
     Receipts and photos count as A-ROLL and reset the consecutive-b-roll
     counter (defensive cap: max 2 stock clips in a row). Every miss falls
     back down the ladder (receipt -> photo; person/visual -> pool photo;
@@ -4400,6 +4437,13 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
     receipts = receipts or {}
     person_map = person_map or {}
     visual_map = visual_map or {}
+    # r42: size the variety rules to THIS story's pool before any picking.
+    try:
+        tune_variety_for_pool(
+            len({e.get("path") for e in (pool or []) if e.get("path")}),
+            len(edl or []))
+    except Exception:  # noqa: BLE001 — variety tuning is never fatal
+        pass
     scenes, prev_motion, consec_broll = [], None, 0
     consec_footage = 0             # r25: footage scenes in a row (own cap)
     foot_n, foot_s = 0, 0.0        # r13: footage scenes / borrowed seconds
