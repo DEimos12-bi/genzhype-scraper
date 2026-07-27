@@ -4670,12 +4670,25 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                 recent = _recent_paths()
                 start = person_rot.get(pname, 0)
                 entry = None
-                for k in range(len(p_entries)):        # first of theirs not recent
+                # r42 (owner: "they keep repeating the same imgs"): prefer a
+                # photo of this person we have NEVER shown. Since the people fix
+                # each person now carries up to 8 real photos, so revisiting one
+                # while a fresh shot of the SAME person sits unused is pure
+                # self-inflicted repetition. Falls back to the old
+                # first-not-recent rule when they have all been used.
+                for k in range(len(p_entries)):
                     cand = p_entries[(start + k) % len(p_entries)]
-                    if cand["path"] not in recent:
+                    if cand["path"] not in recent and cand["path"] not in last_used:
                         entry = cand
                         person_rot[pname] = (start + k + 1) % len(p_entries)
                         break
+                if entry is None:
+                    for k in range(len(p_entries)):    # first of theirs not recent
+                        cand = p_entries[(start + k) % len(p_entries)]
+                        if cand["path"] not in recent:
+                            entry = cand
+                            person_rot[pname] = (start + k + 1) % len(p_entries)
+                            break
                 if entry is None:                      # all recent (tiny list)
                     # r12: repeating inside the window is the one hard-fail
                     # weirdness — LRU pool pick instead of freezing on them.
@@ -4690,9 +4703,11 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
             elif pname:
                 log.info("person '%s' has no resolved photo; pool fallback",
                          sh["person"])
+            from_pin = False
             if entry is None and sh.get("visual_i") is not None \
                     and sh["visual_i"] in visual_map:
                 entry = visual_map[sh["visual_i"]]
+                from_pin = True
                 planned_here = planned_flags[si]       # r17: Director's clip order
                 log.info("visual_i %d -> real story image (%s)%s",
                          sh["visual_i"], os.path.basename(entry["path"]),
@@ -4705,6 +4720,23 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                          "pool pick instead", POOL_NO_REPEAT_WINDOW)
                 entry = None
                 planned_here = False       # r17: pin lost -> clip order lost
+            elif entry is not None and from_pin and entry["path"] in last_used:
+                # r42 THE REPEAT SOURCE (measured on page 415: the Director
+                # pinned visual_i=0 THREE times across 23 shots, and the window
+                # guard above only catches repeats INSIDE the window, so the
+                # cover photo came back twice more while 24 pool images sat
+                # untouched). If a pinned image has already been on screen and
+                # the pool still holds images we have never shown, spend a fresh
+                # one — _lru_pick ranks never-used entries first.
+                _unused = [e for e in pool
+                           if e.get("path") and e["path"] not in last_used
+                           and not e.get("designed")]
+                if _unused:
+                    log.info("pinned visual_i already shown at scene %d; %d "
+                             "unused pool image(s) left -> fresh pick instead",
+                             last_used.get(entry["path"], -1), len(_unused))
+                    entry = None
+                    planned_here = False
             if entry is not None:
                 last_used[entry["path"]] = si          # r11: LRU sees pins too
                 path, typ, textish = entry["path"], "photo", entry["textish"]
