@@ -479,6 +479,18 @@ CARD_CAPTION_Y   = 1500     # (owner: "not fitting the phone"); caption band
 # was exactly "same image again and again" on a 3-image pool.
 MAX_POOL = int(os.environ.get("VIDEO_MAX_POOL", "16"))
 PEOPLE_BUDGET_S = 100          # hard wall-clock cap on all person lookups
+# r43 PACING LAW (owner, all day: "frozen slideshow", "trash"): the planner put
+# 23 scenes across 66.5s = 2.89s on EVERY still, each carrying one slow zoom.
+# That reads as a slideshow no matter how good the images are. Short-form rhythm
+# is a cut every ~1.2-1.5s, and the people fix finally supplies enough distinct
+# visuals (~24/story) to pay for those cuts. Long STILLS are therefore split into
+# consecutive beats that each show a DIFFERENT image. Set target to 0 to disable.
+# Tuned against the real scene durations of the page-415 render (1.6s-4.2s):
+# 23 scenes @ 2.89s avg -> 45 beats @ 1.48s avg, longest hold 2.3s.
+SCENE_SPLIT_TARGET_S = float(os.environ.get("VIDEO_SPLIT_TARGET_S", "1.2"))
+SCENE_SPLIT_MIN_S = float(os.environ.get("VIDEO_SPLIT_MIN_S", "1.8"))
+SCENE_SPLIT_MAX_PARTS = int(os.environ.get("VIDEO_SPLIT_MAX_PARTS", "4"))
+
 POOL_NO_REPEAT_WINDOW = 3      # r11: an image never reappears within 3 scenes
 # r42: the window and the max-share below were tuned when a story had 4-6 images
 # and HAD to recycle. The people-resolver fix (athletes were being dropped from
@@ -4976,6 +4988,59 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
             "src_off": FOOTAGE_SUB_OFF_S if footage else None,
         })
         prev_motion = motion
+
+    # r43 PACING: split long STILLS into ~SCENE_SPLIT_TARGET_S beats, each with a
+    # different image, so the picture changes at short-form rhythm instead of
+    # sitting for ~3s. Audio/captions are untouched — a sub-beat only subdivides
+    # its parent's own time window. Cards (textish: need read time) and footage
+    # (already moving) are never split. The parent's one-shot cues (sfx, emphasis)
+    # stay on the first beat so the sound design is unchanged.
+    if SCENE_SPLIT_TARGET_S > 0 and scenes:
+        split_scenes = []
+        for sc in scenes:
+            dur = float(sc["end"]) - float(sc["start"])
+            parts = 1
+            if (sc.get("type") == "photo" and not sc.get("textish")
+                    and not sc.get("footage") and dur >= SCENE_SPLIT_MIN_S):
+                parts = max(1, min(SCENE_SPLIT_MAX_PARTS,
+                                   int(dur // SCENE_SPLIT_TARGET_S)))
+            if parts <= 1:
+                split_scenes.append(sc)
+                continue
+            step = dur / float(parts)
+            for k in range(parts):
+                sub = dict(sc)
+                sub["start"] = float(sc["start"]) + k * step
+                sub["end"] = (float(sc["start"]) + (k + 1) * step
+                              if k < parts - 1 else float(sc["end"]))
+                if k > 0:
+                    si_here = len(split_scenes)
+                    recent = {s.get("path")
+                              for s in split_scenes[-POOL_NO_REPEAT_WINDOW:]}
+                    cands = [e for e in pool
+                             if e.get("path") and e["path"] not in recent
+                             and not e.get("designed") and not e.get("textish")]
+                    if cands:
+                        alt = min(cands,
+                                  key=lambda e: last_used.get(e["path"], -1))
+                        sub["path"] = alt["path"]
+                        sub["textish"] = False
+                        sub["footage"] = False
+                        sub["src_off"] = None
+                        last_used[alt["path"]] = si_here
+                    # one-shot cues belong to the parent's first beat only
+                    sub["sfx"] = None
+                    sub["emph_t"] = None
+                    sub["emph_rel"] = None
+                    sub["motion"] = "zoom_out" if (k % 2) else "zoom_in"
+                split_scenes.append(sub)
+        if len(split_scenes) != len(scenes):
+            log.info("PACING: %d scenes -> %d beats (target %.1fs/image, "
+                     "avg %.2fs)", len(scenes), len(split_scenes),
+                     SCENE_SPLIT_TARGET_S,
+                     (float(scenes[-1]["end"]) - float(scenes[0]["start"]))
+                     / max(1, len(split_scenes)))
+            scenes = split_scenes
 
     # r25 RENDER REPORT (owner: "your watch and still no progress" — stop
     # guessing from filmstrips): a compact record of what the planner actually
