@@ -6855,6 +6855,7 @@ def make_one(post, font_path):
     # be shaved by the letterbox detector.
     _set_stage("receipts")
     receipt_paths = {}
+    _rcpt_t0 = time.time()          # r41: wall-clock budget for the WHOLE stage
     recs = post.get("receipts")
     if isinstance(recs, list) and recs:
         # v6: cap raised 16 -> 20 (up to 10 events + 6 posts + the branded
@@ -6862,6 +6863,15 @@ def make_one(post, font_path):
         for i, u in enumerate(recs[:20]):
             if not (isinstance(u, str) and u.startswith("http")):
                 continue                   # r17: event rows carry no PNG
+            # r41 (runs #160/#162/#163 all watchdogged here): on a bitninja-
+            # blackholed runner IP every genzhype-hosted card burns up to 90s
+            # of connect timeouts — 20 cards vs a 150s stage cap. The feed
+            # branch now STAGES these files so this is normally a local read;
+            # the budget is the backstop when it is not.
+            if time.time() - _rcpt_t0 > 100:
+                log.info("receipts budget spent; %d card(s) skipped "
+                         "(subject/og fallbacks cover them)", len(recs) - i)
+                break
             p = fetch_visual(
                 u, os.path.join(WORKDIR, f"receipt-{page_id}-{i}.png"),
                 trim=False)
@@ -6903,6 +6913,8 @@ def make_one(post, font_path):
                 return screenshot_articles(targets, page_id, topic_kw=_topic_kw)
 
             def _og_fetch(i, u):
+                if time.time() - _rcpt_t0 > 130:   # r41: same stage budget
+                    return None
                 return fetch_visual(
                     u, os.path.join(WORKDIR, f"receipt-og-{page_id}-{i}.jpg"))
 
