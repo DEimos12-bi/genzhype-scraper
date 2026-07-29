@@ -5052,6 +5052,35 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
         })
         prev_motion = motion
 
+    # r46 SPEND THE POOL (owner, watching the scene plan: "fix the picker so it
+    # uses all the images"). Repetition survived r42/r43 because it enters from
+    # THREE independent doors: a pinned visual_i, a person shot cycling a short
+    # photo list, and the LRU fallback. Rather than police each door, enforce the
+    # outcome once, here: an image may not appear a second time while ANY pool
+    # image is still unused. Measured on this story vis-415-0 carried scenes
+    # 4, 5 AND 10 while other pool images were never touched.
+    # Receipts (textish) and footage are exempt — a proof card is chosen for what
+    # it PROVES, and footage is not interchangeable with a still.
+    if scenes and pool:
+        _used, _swapped = {}, 0
+        for sc in scenes:
+            p = sc.get("path")
+            if not p or sc.get("textish") or sc.get("footage"):
+                continue
+            if p in _used:
+                _fresh = [e for e in pool
+                          if e.get("path") and e["path"] not in _used
+                          and not e.get("designed") and not e.get("textish")]
+                if _fresh:
+                    sc["path"] = _fresh[0]["path"]
+                    _used[sc["path"]] = 1
+                    _swapped += 1
+                    continue
+            _used[p] = 1
+        if _swapped:
+            log.info("SPEND THE POOL: %d repeat(s) swapped for unused images "
+                     "(%d distinct stills now on screen)", _swapped, len(_used))
+
     # r43 PACING: split long STILLS into ~SCENE_SPLIT_TARGET_S beats, each with a
     # different image, so the picture changes at short-form rhythm instead of
     # sitting for ~3s. Audio/captions are untouched — a sub-beat only subdivides
