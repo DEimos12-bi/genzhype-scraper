@@ -77,7 +77,14 @@ jobs:
       # timed out 4 renders in 2 days, so that one source stays off (flip
       # VIDEO_YT_FETCH to "1" the day a residential proxy exists).
       VIDEO_FOOTAGE_FETCH: "1"
-      VIDEO_YT_FETCH: "0"
+      # r45: flipped 0 -> 1 on EVIDENCE. The warp-test result shows the unlock is
+      # the COOKIES, not WARP: it downloaded successfully with "WARP NOT ACTIVE",
+      # and failed 403 only in the warp-only (no cookies) mode. The comment above
+      # ("403 even with WARP + cookies") was therefore wrong, and this flag was
+      # switching off a path that already worked. The r45 HOOK LAW needs exactly
+      # ONE windowed download (10s around the reporter's timestamp), not the
+      # open-ended per-scene yt-dlp spawning that ate the render clock before.
+      VIDEO_YT_FETCH: "1"
       # r25: motion-lite lean pipeline — skip the heavy/fragile ML niceties that
       # were hanging the runner (CLIP verify + whisperx forced-align). edge-tts
       # timings sync captions fine; there is no footage to CLIP-verify.
