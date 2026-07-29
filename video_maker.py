@@ -3567,6 +3567,11 @@ def fetch_platform_clip(url):
 # the exact v5 center-crop behaviour. STRICTLY non-fatal everywhere.
 # ============================================================================
 _FACE_CACHE = {}
+# r48: EVERY detected face, not just the biggest. detect_face_box collapses to
+# max-area for framing, which threw the other faces away — and the judge kept
+# failing frames for "human face on the left edge sliced by the frame border".
+# The crop needs them all so it can avoid cutting through any of them.
+_FACE_ALL = {}
 _FACE_CASCADE = None
 _PROFILE_CASCADE = None
 _YUNET = None
@@ -3665,6 +3670,9 @@ def detect_face_box(path):
             if len(faces):
                 x, y, fw, fh = max(faces, key=lambda f: int(f[2]) * int(f[3]))
                 box = (x / scale, y / scale, fw / scale, fh / scale)
+                _FACE_ALL[path] = [(float(f[0]) / scale, float(f[1]) / scale,
+                                    float(f[2]) / scale, float(f[3]) / scale)
+                                   for f in faces]
                 log.info("face detected in %s: %dx%d at (%d,%d)",
                          os.path.basename(path), int(box[2]), int(box[3]),
                          int(box[0]), int(box[1]))
@@ -3692,7 +3700,7 @@ def cover_fit_headroom(pil_img, tw, th, bias=0.14):
     return img.crop((int(left), int(top), int(left) + tw, int(top) + th))
 
 
-def cover_fit_face(pil_img, tw, th, box):
+def cover_fit_face(pil_img, tw, th, box, all_faces=None):
     """Cover-crop like cover_fit, but the crop window is chosen so the face's
     EYELINE sits ~EYELINE_FRAC from the frame top and the face stays inside
     the phone-safe band (below the top-220px UI zone, above the caption band
@@ -3718,6 +3726,42 @@ def cover_fit_face(pil_img, tw, th, box):
     top = min(top, fy - FACE_TOP_MIN)
     top = max(0.0, min(top, nh - th))
     left = max(0.0, min(cx - tw / 2.0, nw - tw))
+
+    # r48 EDGE-SAFE CROP (judge, repeatedly: "human face on the left edge of the
+    # frame is sliced by the frame border"). The eyeline rules above frame the
+    # PRIMARY face well, but every other face in the photo was ignored, so the
+    # crop boundary regularly landed in the middle of someone's head — the exact
+    # thing the owner sees. This is Katna's idea without Katna's scipy weight:
+    # try a handful of candidate horizontal offsets and keep the one that slices
+    # the fewest faces, preferring the one closest to the ideal framing. A face
+    # is "sliced" when the crop edge passes THROUGH it — fully in or fully out
+    # are both fine.
+    faces_scaled = []
+    for f in (all_faces or []):
+        try:
+            faces_scaled.append((f[0] * sx, f[2] * sx))       # (x, width)
+        except Exception:  # noqa: BLE001
+            continue
+    if len(faces_scaled) > 1:
+        def _sliced(cand_left):
+            n = 0
+            for fx0, fwid in faces_scaled:
+                fx1 = fx0 + fwid
+                # straddles the left edge or the right edge of the crop window
+                if (fx0 < cand_left < fx1) or (fx0 < cand_left + tw < fx1):
+                    n += 1
+            return n
+        cands = [left]
+        for f0, fwd in faces_scaled:                 # align edges just outside faces
+            cands.append(f0 - 8)                     # face fully to the right
+            cands.append(f0 + fwd + 8 - tw)          # face fully to the left
+        cands = [max(0.0, min(c, nw - tw)) for c in cands]
+        best = min(cands, key=lambda c: (_sliced(c), abs(c - left)))
+        if _sliced(best) < _sliced(left):
+            log.info("EDGE-SAFE CROP: shifted %+dpx — %d sliced face(s) -> %d",
+                     int(best - left), _sliced(left), _sliced(best))
+            left = best
+
     img = img.crop((int(left), int(top), int(left) + tw, int(top) + th))
     return img, (cx - left, eye - top)
 
@@ -5434,7 +5478,10 @@ def scene_clip(image_path, start, end, motion, emph_rel=None, xfade=None,
         face_pt = None
         if face is not None:
             try:
-                fitted, face_pt = cover_fit_face(pil, W, H, face)
+                # r48: hand the crop EVERY face found in this image so the frame
+                # edge cannot land in the middle of a secondary face.
+                fitted, face_pt = cover_fit_face(
+                    pil, W, H, face, all_faces=_FACE_ALL.get(image_path))
             except Exception as exc:  # noqa: BLE001
                 log.warning("face framing failed (%s); center crop", exc)
                 fitted, face_pt = cover_fit(pil, W, H), None
