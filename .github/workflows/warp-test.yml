@@ -79,15 +79,19 @@ jobs:
           [ -n "$YT_COOKIES" ] && printf '%s' "$YT_COOKIES" > build/yt_cookies.txt
           log "cookies: $([ -s build/yt_cookies.txt ] && echo yes || echo no)"
 
-          log "---- the exact download that was bot-walled before ----"
-          STORY="2z8sHRNhuHc"
+          # r45: test the REAL money clip, not a generic video — the footage the
+          # dexerto reporter embedded for the Brady/Logan Paul story at
+          # ?start=182, i.e. the exact second of the slap. This is the asset the
+          # HOOK LAW needs, so a pass here means videos open on the actual event.
+          log "---- REAL money clip: I07mko_hkmk @ start=182 (the slap) ----"
+          STORY="I07mko_hkmk"
           for MODE in warp+cookies warp-only; do
             rm -f build/w-* 2>/dev/null
             ARGS=""
             if [ "$MODE" = "warp+cookies" ] && [ -s build/yt_cookies.txt ]; then ARGS="--cookies build/yt_cookies.txt"; fi
             OUT=$(yt-dlp $ARGS --no-playlist --no-warnings \
                   -f "bv*[height<=720]/b[height<=720]/b" \
-                  --download-sections "*00:00:10-00:00:20" \
+                  --download-sections "*180-190" --force-keyframes-at-cuts \
                   -o "build/w-%(id)s.%(ext)s" \
                   "https://www.youtube.com/watch?v=$STORY" 2>&1)
             F=$(ls build/w-* 2>/dev/null | head -1)
