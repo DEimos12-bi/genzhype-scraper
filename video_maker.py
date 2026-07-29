@@ -491,6 +491,12 @@ SCENE_SPLIT_TARGET_S = float(os.environ.get("VIDEO_SPLIT_TARGET_S", "1.2"))
 SCENE_SPLIT_MIN_S = float(os.environ.get("VIDEO_SPLIT_MIN_S", "1.8"))
 SCENE_SPLIT_MAX_PARTS = int(os.environ.get("VIDEO_SPLIT_MAX_PARTS", "4"))
 
+# r47 RESOLUTION FLOOR: research line is 720x1280 — below that a still reads soft
+# on a phone, and no upscaler recovers detail (Lanczos stays sharpest-per-cost;
+# Real-ESRGAN over-smooths and invents textures). 720 is the short side we demand
+# of a still that will fill a 1080-wide frame and then be zoomed into.
+MIN_STILL_SHORT_SIDE = int(os.environ.get("VIDEO_MIN_SHORT_SIDE", "720"))
+
 POOL_NO_REPEAT_WINDOW = 3      # r11: an image never reappears within 3 scenes
 # r42: the window and the max-share below were tuned when a story had 4-6 images
 # and HAD to recycle. The people-resolver fix (athletes were being dropped from
@@ -2642,6 +2648,28 @@ def build_visual_pool(post, page_id):
             # all (an object-stock plate — keyboard, phone, logo — does not,
             # and gets capped to ONE scene by the variety pass).
             entry["quality"] = image_quality(p)
+            # r47 RESOLUTION FLOOR (owner: "the resolution is so fucked"). Research
+            # line: BELOW 720x1280 a still is visibly soft on a modern phone, and
+            # upscaling never restores detail — only downscaling preserves it. We
+            # were feeding 480x360 thumbnails into a 1080-wide frame and then
+            # ZOOMING them, which is what turned faces into mush. So a still whose
+            # short side cannot reach MIN_STILL_SHORT_SIDE is rejected outright
+            # rather than upscaled. Text cards are exempt (they are rendered, not
+            # photographed) and the gate never empties the pool: once fewer than 2
+            # entries are in, a small image is still better than no image.
+            try:
+                with Image.open(p) as _pim:
+                    entry["px_w"], entry["px_h"] = _pim.size
+            except Exception:  # noqa: BLE001
+                entry["px_w"] = entry["px_h"] = 0
+            _short = min(entry["px_w"], entry["px_h"])
+            if (_short and not textish and len(pool) >= 2
+                    and _short < MIN_STILL_SHORT_SIDE):
+                log.info("RESOLUTION FLOOR: %dx%d (short side %d < %d) would be "
+                         "upscaled into mush; dropped: %s",
+                         entry["px_w"], entry["px_h"], _short,
+                         MIN_STILL_SHORT_SIDE, u[:90])
+                continue
             try:
                 entry["has_face"] = detect_face_box(p) is not None
             except Exception:  # noqa: BLE001
