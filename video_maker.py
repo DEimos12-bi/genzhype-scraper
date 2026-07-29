@@ -759,7 +759,10 @@ _HB_STARTED = False
 _STAGE_STALL_CAP = {
     # compose (the moviepy still-motion encode) is the heavy stage; give it room
     # to actually FINISH a slow-but-working render rather than killing it early.
-    "compose": 900, "tts": 180, "screenshots": 150, "judge": 180,
+    # r44: judge raised 180 -> 480. With r43 pacing a video now has ~43 beats, so
+    # the judge samples far more frames and legitimately took 3.5min — the old cap
+    # force-killed a render that was working (run 170).
+    "compose": 900, "tts": 180, "screenshots": 150, "judge": 480,
     "filmstrip": 120, "post": 330, "receipts": 150, "visuals": 180,
 }
 _STAGE_STALL_DEFAULT = 240
@@ -2654,7 +2657,20 @@ def build_visual_pool(post, page_id):
             # a story that mentions Twitch does not make a stock keyboard
             # relevant. Strict (fail-closed) only once 2 entries are already
             # in, so an infra failure can never empty the whole pool.
-            if not (entry["person"] or textish):
+            # r44 (judge: "masked person in hoodie is unrelated filler for a Tom
+            # Brady story"): the person-exemption above assumed a person URL is a
+            # PORTRAIT. A YouTube VIDEO THUMBNAIL is not — it is arbitrary cover
+            # art that merely came from that person's channel, so it can show a
+            # masked figure, a car or pure text. Such a thumbnail only earns the
+            # portrait exemption when a face is actually visible in it; otherwise
+            # it must justify itself like any other stock plate. Deterministic and
+            # free (YuNet), which matters while the Gemini quota is exhausted.
+            _is_thumb = "ytimg.com/vi" in u
+            if _is_thumb and entry["person"] and not entry.get("has_face"):
+                log.info("PORTRAIT GATE: person thumbnail has no visible face; "
+                         "not a portrait: %s", u[:100])
+                continue
+            if not ((entry["person"] and not _is_thumb) or textish):
                 _names = ", ".join(sorted(person_map)) or \
                     ", ".join(url2name.values())
                 _t = str(post.get("title", ""))
