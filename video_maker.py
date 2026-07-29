@@ -3103,6 +3103,12 @@ def fetch_story_footage(video_id, window=0):
 _PLATFORM_CLIP_CACHE = {}
 _STORY_CLIPS = []          # r28: this story's harvested platform clip URLs
                            # (Twitch/TikTok/Kick/YouTube), consumed as footage.
+# r45 MONEY MOMENT: url -> the seconds offset the REPORTER embedded the clip at
+# (youtube.com/embed/<id>?start=182 on the Brady/Logan Paul article = the exact
+# second of the slap). That offset is the most valuable number in the story: it
+# is where the event happens, so it is what the HOOK must show.
+_STORY_CLIP_START = {}
+_HOOK_CLIP = [None]        # (path, src_off) of the clip chosen to open the video
 _FOOTAGE_REL_CACHE = {}    # r28 smart gate: clip path -> is-it-on-topic
 _FOOTAGE_REL_CALLS = [0]
 FOOTAGE_REL_MAX_CALLS = 5  # cap Gemini relevance checks per render (speed)
@@ -3475,6 +3481,17 @@ def fetch_platform_clip(url):
         cmd = ["yt-dlp", "--no-playlist", "--quiet", "--no-warnings",
                "-f", "b[height<=720]/b", "--max-filesize", "45M",
                "-o", outtmpl, url]
+        # r45 MONEY MOMENT: when the reporter embedded this clip at a timestamp,
+        # download the window AROUND that second rather than the video's opening
+        # (a 40-minute panel stream opens on an empty stage; second 182 is the
+        # slap). 2s of run-up + 8s after gives the hook something to cut into.
+        _st = _STORY_CLIP_START.get(url, 0)
+        if _st > 0:
+            _a = max(0, _st - 2)
+            cmd[1:1] = ["--download-sections", f"*{_a}-{_a + 10}",
+                        "--force-keyframes-at-cuts"]
+            log.info("CLIP window: %s at t=%ds (reporter's timestamp)",
+                     plat, _st)
         if plat in ("kick", "twitch", "tiktok"):
             # TLS-fingerprint bypass — the whole trick for these three.
             cmd[1:1] = ["--impersonate", "chrome"]
@@ -4643,7 +4660,37 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                                        # before the opportunistic upgrade block
         gapfill = False                # r25: this scene came from GAP-FILL
         sfx, emph_t = sh["sfx"], sh["emph_t"]
-        if sh["shot_class"] == "receipt":
+
+        # r45 HOOK LAW (owner: "the video is about the slap — why not pull the
+        # clip itself and put it in the hook, the hook is what keeps the watcher").
+        # ~1/3 of viewers leave inside 3s, so the FIRST scene must be the event,
+        # not a portrait of a bystander. The source article embedded the footage
+        # at a timestamp (?start=182 = the slap); fetch_platform_clip cuts that
+        # exact window. If we land it, scene 1 opens on it — outranking receipts,
+        # portraits and every pinned still. Failure changes nothing downstream.
+        if si == 0 and clip_pool and _HOOK_CLIP[0] is None:
+            _money = next((u for u in clip_pool if _STORY_CLIP_START.get(u)), None)
+            if _money:
+                _hp = fetch_platform_clip(_money)
+                if _hp and footage_is_relevant(_hp, title):
+                    _HOOK_CLIP[0] = _hp
+                    try:
+                        clip_pool.remove(_money)
+                    except ValueError:
+                        pass
+                    path, typ, textish = _hp, "broll", False
+                    motion, footage = "punch_build", True
+                    foot_n += 1
+                    foot_s += need_s
+                    log.info("HOOK = MONEY MOMENT: opening on %s (t=%ds)",
+                             os.path.basename(_hp), _STORY_CLIP_START[_money])
+                else:
+                    log.info("HOOK: money clip unavailable (%s); normal opener",
+                             "off-topic" if _hp else "fetch failed")
+        # r45: `path is None` guard — the HOOK LAW above may already have claimed
+        # scene 1 for the money clip, and a receipt must not overwrite the event.
+        # (The subject/broll branches below already carried this guard.)
+        if path is None and sh["shot_class"] == "receipt":
             rv = receipts.get(sh.get("receipt_i"))
             r_photo = isinstance(rv, dict)     # r17: og report photo entry
             path = rv.get("path") if r_photo else rv
@@ -6969,9 +7016,18 @@ def make_one(post, font_path):
     # r28: this story's harvested platform clips (Twitch/TikTok/Kick/YouTube) —
     # the scene planner pulls these in as REAL MOVING footage matched to the
     # story, each fetched with its proper method (fetch_platform_clip).
-    global _STORY_CLIPS
+    global _STORY_CLIPS, _STORY_CLIP_START
     _STORY_CLIPS = [c.get("url") for c in (post.get("clips") or [])
                     if isinstance(c, dict) and platform_of(c.get("url"))]
+    # r45: carry the reporter's own timestamp for each embedded clip. Embedded
+    # clips lead the feed list, so _STORY_CLIPS[0] is normally the money moment.
+    _STORY_CLIP_START = {}
+    for c in (post.get("clips") or []):
+        if isinstance(c, dict) and c.get("url") and int(c.get("start") or 0) > 0:
+            _STORY_CLIP_START[c["url"]] = int(c["start"])
+    if _STORY_CLIP_START:
+        log.info("MONEY MOMENT offsets from the source articles: %s",
+                 {u.rsplit("=", 1)[-1]: s for u, s in _STORY_CLIP_START.items()})
     if not _STORY_CLIPS:
         # r33: the server harvested nothing for this story (story_vids=0 is why
         # the El Risitas video had no laugh in it). archive.org is reachable
