@@ -1,4 +1,4 @@
-warp-test @ 2026-07-23T21:57:40Z
+warp-test @ 2026-07-29T22:31:36Z
 raw egress: 
 ---- install tools ----
 No VM guests are running outdated hypervisor (qemu) binaries on this host.
@@ -7,10 +7,10 @@ wgcf: Error: unknown flag: --version
 yt-dlp: 2026.07.04; ffmpeg: /usr/bin/ffmpeg
 ---- bring up Cloudflare WARP ----
 wireguard module: 3 (1=loaded)
-2026/07/23 21:58:16 =======================================
-2026/07/23 21:58:16 Successfully created Cloudflare Warp account
-2026/07/23 21:58:16 =======================================
-2026/07/23 21:58:16 Successfully generated WireGuard profile: wgcf-profile.conf
+2026/07/29 22:32:16 =======================================
+2026/07/29 22:32:16 Successfully created Cloudflare Warp account
+2026/07/29 22:32:17 =======================================
+2026/07/29 22:32:17 Successfully generated WireGuard profile: wgcf-profile.conf
 profile written: yes
 [#] ip -4 rule add table main suppress_prefixlength 0
 [#] ip -4 route add 0.0.0.0/0 dev warp table 51820
@@ -19,7 +19,7 @@ profile written: yes
 warp egress: 
 WARP NOT ACTIVE ❌ (egress still raw)
 cookies: yes
----- the exact download that was bot-walled before ----
-[warp+cookies] SUCCESS -> 215149 bytes  ***FOOTAGE UNLOCKED***
-[warp-only] fail: [https @ 0x55a121e19bc0] HTTP error 403 Forbidden
+---- REAL money clip: I07mko_hkmk @ start=182 (the slap) ----
+[warp+cookies] SUCCESS -> 1988520 bytes  ***FOOTAGE UNLOCKED***
+[warp-only] SUCCESS -> 1988520 bytes  ***FOOTAGE UNLOCKED***
 ---- done ----
