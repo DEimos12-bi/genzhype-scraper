@@ -2204,12 +2204,55 @@ def _trim_letterbox(img, thr=16.0, max_frac=0.28):
         return img
 
 
+def upsize_image_url(url):
+    """r49 SUPPLY (owner: "still no progress" — and the r47 resolution floor
+    proved why: once blurry stills are refused only ~9 usable images per story
+    remain, which cannot carry a 60s video). Most of that loss is
+    self-inflicted: publishers hand us DELIBERATELY SHRUNK renditions and we
+    downloaded them as-is. This asks the same host for a big version, so the
+    resolution floor keeps the image instead of dropping it. Pure URL rewrite —
+    no new dependency, and fetch_visual retries the ORIGINAL if a rewrite 404s.
+      - WordPress size suffix   photo-800x600.jpg -> photo.jpg
+      - WP/Jetpack width params ?w=1024 / ?width=640 -> 1600
+      - Cloudflare image resize /cdn-cgi/image/?width=640/<real> -> width=1600
+      - Google avatars          =s176-c-k / =w480-h270 -> =s1200
+    """
+    u = str(url or "")
+    if not u.startswith("http"):
+        return u
+    try:
+        # Google/YouTube avatar + thumbnail sizing suffix
+        u = re.sub(r"=(?:s|w)\d+(-h\d+)?([-a-z0-9]*)$", "=s1200", u)
+        # Cloudflare (and similar) on-the-fly resizers
+        u = re.sub(r"(cdn-cgi/image/[^/]*?)width=\d+", r"\1width=1600", u)
+        # WordPress hard-coded size suffix: keep the original file
+        u = re.sub(r"-\d{2,4}x\d{2,4}(\.(?:jpe?g|png|webp))(\?|$)", r"\1\2", u)
+        # width query params (WP, Jetpack/Photon, Commons Special:FilePath)
+        def _bump(m):
+            return m.group(1) + ("1600" if int(m.group(2)) < 1600 else m.group(2))
+        u = re.sub(r"([?&](?:w|width)=)(\d+)", _bump, u)
+    except Exception:  # noqa: BLE001 — a rewrite must never break a fetch
+        return str(url or "")
+    return u
+
+
 def fetch_visual(url, dest, trim=True):
     """Download + validate one visual. Corrupt/tiny/unreadable -> None (dropped
     from the pool), never a crash. Letterbox bars are trimmed on arrival
     (trim=False for receipt cards: their dark paper background sits near the
-    bar-detector threshold and must never be shaved)."""
-    data = _download_bytes(url)
+    bar-detector threshold and must never be shaved).
+    r49: a BIGGER rendition is requested first (upsize_image_url); if that fails
+    the original URL is retried, so upsizing can only ever add resolution."""
+    _big = upsize_image_url(url)
+    data = None
+    if _big != url:
+        data = _download_bytes(_big)
+        if data and len(data) >= 2000:
+            log.info("UPSIZED: %s", _big[:110])
+        else:
+            data = None
+    if data is None:
+        data = _download_bytes(url)
     if not data or len(data) < 2000:
         return None
     try:
