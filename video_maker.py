@@ -501,7 +501,10 @@ SCENE_SPLIT_MAX_PARTS = int(os.environ.get("VIDEO_SPLIT_MAX_PARTS", "4"))
 # while still refusing thumbnails/avatars (428x428, 480x270). The proper fix is
 # to stop upscaling mid-size photos at all (contain on a blurred fill) — until
 # then, an ordinary photo beats no photo.
-MIN_STILL_SHORT_SIDE = int(os.environ.get("VIDEO_MIN_SHORT_SIDE", "540"))
+MIN_STILL_SHORT_SIDE = int(os.environ.get("VIDEO_MIN_SHORT_SIDE", "400"))
+# r52: a photo needing more than this much upscale to COVER the frame is
+# rendered contained on a blurred fill instead of being stretched.
+COVER_MAX_UPSCALE = float(os.environ.get("VIDEO_COVER_MAX_UPSCALE", "1.35"))
 
 POOL_NO_REPEAT_WINDOW = 3      # r11: an image never reappears within 3 scenes
 # r42: the window and the max-share below were tuned when a story had 4-6 images
@@ -2711,6 +2714,22 @@ def build_visual_pool(post, page_id):
                     entry["px_w"], entry["px_h"] = _pim.size
             except Exception:  # noqa: BLE001
                 entry["px_w"] = entry["px_h"] = 0
+            # r52 CONTAIN INSTEAD OF UPSCALE (the real fix behind the floor):
+            # filling a 1080x1920 phone frame with a landscape press photo needs
+            # a ~2.8x upscale, which is what turned faces to mush and forced an
+            # aggressive floor that then starved the pool to 6 images. The engine
+            # ALREADY has the professional answer — contain_scene_clip draws the
+            # whole image over a blurred, darkened fill of ITSELF (no crop, no
+            # upscale, no black bars). It was reserved for text cards. Any photo
+            # that would need more than COVER_MAX_UPSCALE to cover now renders
+            # that way instead: sharp picture, full frame, nothing sliced.
+            if entry["px_w"] and entry["px_h"] and not textish:
+                _need = max(W / float(entry["px_w"]), H / float(entry["px_h"]))
+                if _need > COVER_MAX_UPSCALE:
+                    entry["textish"] = textish = True
+                    log.info("CONTAIN MODE: %dx%d needs %.1fx upscale to cover; "
+                             "rendering whole on a blurred fill instead",
+                             entry["px_w"], entry["px_h"], _need)
             _short = min(entry["px_w"], entry["px_h"])
             if (_short and not textish and len(pool) >= 2
                     and _short < MIN_STILL_SHORT_SIDE):
