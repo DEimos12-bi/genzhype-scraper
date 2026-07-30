@@ -568,7 +568,14 @@ LAST_EDL = None
 # under ~60% of the El Risitas video while the judge's repetition rule slept.
 VISUAL_MAX_SHARE = float(os.environ.get("VIDEO_MAX_VISUAL_SHARE", "0.34"))
 VISUAL_MAX_SHARE_BASE = VISUAL_MAX_SHARE
-VISUAL_POOL_MIN = int(os.environ.get("VIDEO_POOL_MIN", "4"))
+# r56 (owner: "look for the ones already built and wire them safely"): the
+# Openverse top-up below IS the "add an image search" advice — key-free and
+# already implemented — but it only fired when the pool was under 4 images.
+# Starved renders had 6, so it never ran once. A 25-45 beat video needs ~20
+# distinct visuals, so that is the real floor. Openverse results still pass
+# every existing gate (relevance, resolution, dedup, face), so raising this
+# adds candidates WITHOUT lowering any quality bar.
+VISUAL_POOL_MIN = int(os.environ.get("VIDEO_POOL_MIN", "20"))
 
 
 def tune_variety_for_pool(n_pool, n_scenes):
