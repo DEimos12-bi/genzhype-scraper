@@ -502,6 +502,9 @@ SCENE_SPLIT_MAX_PARTS = int(os.environ.get("VIDEO_SPLIT_MAX_PARTS", "4"))
 # to stop upscaling mid-size photos at all (contain on a blurred fill) — until
 # then, an ordinary photo beats no photo.
 MIN_STILL_SHORT_SIDE = int(os.environ.get("VIDEO_MIN_SHORT_SIDE", "400"))
+# r55: hard deadline on ONE edge-tts call. Segmented narration makes several
+# calls, so this stays well under the tts stage watchdog (420s).
+TTS_CALL_TIMEOUT_S = int(os.environ.get("VIDEO_TTS_CALL_TIMEOUT", "75"))
 # r52: a photo needing more than this much upscale to COVER the frame is
 # rendered contained on a blurred fill instead of being stretched.
 COVER_MAX_UPSCALE = float(os.environ.get("VIDEO_COVER_MAX_UPSCALE", "1.35"))
@@ -951,6 +954,42 @@ def _make_communicate(text, voice_name, rate_str, pitch_str=None):
 
 
 def _edge_tts_synthesize(text, voice_name, rate_str, out_mp3, pitch_str=None):
+    """r55 TTS DEADLINE. edge-tts stream_sync() iterates a NETWORK stream that
+    has no timeout of its own, so a stalled connection blocks forever. That is
+    what killed four renders tonight: the stage watchdog kept escalating (180s
+    -> 420s -> 482s) and threw away the whole video each time, including work
+    that had already succeeded. Run the synthesis in a worker thread with a hard
+    deadline instead; on timeout we RAISE, which lets the caller fall back to its
+    simpler single-pass path (or a retry) rather than losing the render. The
+    thread is a daemon, so an abandoned stall cannot keep the process alive."""
+    import threading
+    box = {}
+
+    def _run():
+        try:
+            box["sub"] = _edge_tts_stream(text, voice_name, rate_str,
+                                          out_mp3, pitch_str)
+        except BaseException as exc:  # noqa: BLE001 — reported to the caller
+            box["err"] = exc
+
+    th = threading.Thread(target=_run, daemon=True)
+    th.start()
+    th.join(TTS_CALL_TIMEOUT_S)
+    if th.is_alive():
+        log.warning("TTS DEADLINE: edge-tts stalled past %ss; abandoning this "
+                    "call so the render can fall back", TTS_CALL_TIMEOUT_S)
+        try:
+            if os.path.exists(out_mp3) and os.path.getsize(out_mp3) == 0:
+                os.remove(out_mp3)
+        except OSError:
+            pass
+        raise RuntimeError(f"edge-tts stalled >{TTS_CALL_TIMEOUT_S}s")
+    if "err" in box:
+        raise box["err"]
+    return box["sub"]
+
+
+def _edge_tts_stream(text, voice_name, rate_str, out_mp3, pitch_str=None):
     """Compact port of voice.azure_tts_v1: stream edge-tts audio to disk and
     feed WordBoundary/SentenceBoundary events into a SubMaker (returns cues)."""
     import edge_tts
