@@ -1,0 +1,235 @@
+name: tts-test
+
+# DIAGNOSTIC: why does the VOICE step hang?
+#
+# Renders die with STALLED:tts, but the stage watchdog force-exits the process
+# so nobody has ever seen the ACTUAL error. This workflow calls edge-tts
+# directly, each call bounded by `timeout` so a hang shows up as exit code 124
+# ("HUNG") instead of killing the job, and writes every verdict to
+# .social/tts-test-result.txt.
+#
+# THE HYPOTHESIS UNDER TEST: it is not edge-tts, it is Cloudflare WARP.
+# The render that stalled also had archive.org read-timeout AND a Playwright
+# goto timeout in the same run — three unrelated network stalls. WARP is a
+# WireGuard tunnel (MTU 1280) and only comes up when VIDEO_YT_FETCH=1, which
+# was flipped on the same night the stalls started. A tunnel that black-holes
+# large packets lets a SHORT tts call through and hangs a LONG one forever —
+# which is exactly the observed shape (hook segment ok, body segment hangs).
+#
+# So: run identical probes with WARP DOWN, then bring WARP UP and run them
+# again. The diff is the answer. The yt-dlp probe runs in both phases too, so
+# that removing WARP can be judged on evidence rather than assumed safe.
+#
+# Trigger: push .social/tts-test, or run manually.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".social/tts-test"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tts-test
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      YT_COOKIES: ${{ secrets.YT_COOKIES }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run TTS probes (never aborts; writes full log)
+        shell: bash
+        run: |
+          set +e
+          mkdir -p build .social
+          R=".social/tts-test-result.txt"
+          : > "$R"
+          log(){ echo "$@" | tee -a "$R"; }
+
+          log "tts-test @ $(date -u +%FT%TZ)"
+
+          log "---- install ----"
+          python -m pip install -U edge-tts >/dev/null 2>&1
+          python -m pip install -U yt-dlp >/dev/null 2>&1
+          log "edge-tts: $(python -c 'import edge_tts;print(edge_tts.__version__)' 2>&1 | tail -1)"
+          log "yt-dlp:   $(yt-dlp --version 2>&1 | tail -1)"
+
+          # ---- the probe: ONE edge-tts call, exactly as video_maker.py makes it
+          cat > build/tts_probe.py <<'PYEOF'
+          import sys, os, time, traceback
+          import edge_tts
+
+          VOICE = "en-US-AndrewMultilingualNeural"
+
+          # Same three calls the maker's expressive path makes, same rate/pitch.
+          HOOK = ("PSA just got hit with a class action lawsuit, and the "
+                  "collector world is losing it.")
+          BODY = (
+              "The complaint says PSA, the biggest grading company in trading "
+              "cards, used its position to control the market and squeeze "
+              "collectors on price. Filed in May, it accuses the company of "
+              "running what the plaintiffs call a monopoly over card grading, "
+              "pointing at the pause on lower tiers as proof that supply was "
+              "being managed rather than met. Collectors had already spent "
+              "months complaining about turnaround times and rising fees, so "
+              "the filing landed on ground that was very ready for it. PSA has "
+              "not conceded anything, and the case is early, but the numbers "
+              "involved are large enough that the outcome could reset how "
+              "grading works for everyone who buys and sells cards."
+          )
+          CTA = "Follow GenZHype for the receipts."
+
+          TEXTS = {"hook": (HOOK, "+18%", "+2Hz"),
+                   "body": (BODY, "+5%", None),
+                   "cta":  (CTA, "+1%", None),
+                   "full": (HOOK + " " + BODY + " " + CTA, "+5%", None)}
+
+
+          def main():
+              which = sys.argv[1]
+              out = sys.argv[2]
+              text, rate, pitch = TEXTS[which]
+              kwargs = {"rate": rate}
+              import inspect
+              sig = inspect.signature(edge_tts.Communicate)
+              if "boundary" in sig.parameters:
+                  kwargs["boundary"] = "WordBoundary"
+              if pitch and "pitch" in sig.parameters:
+                  kwargs["pitch"] = pitch
+              t0 = time.time()
+              comm = edge_tts.Communicate(text, VOICE, **kwargs)
+              sub = edge_tts.SubMaker()
+              nbytes = 0
+              ncues = 0
+              last = t0
+              with open(out, "wb") as f:
+                  for chunk in comm.stream_sync():
+                      if chunk.get("type") == "audio":
+                          f.write(chunk["data"])
+                          nbytes += len(chunk["data"])
+                      elif chunk.get("type") in ("WordBoundary", "SentenceBoundary"):
+                          sub.feed(chunk)
+                          ncues += 1
+                      now = time.time()
+                      # print progress so a HANG shows WHERE it stopped
+                      if now - last > 5:
+                          print("    ... %.1fs %d bytes %d cues" %
+                                (now - t0, nbytes, ncues), flush=True)
+                          last = now
+              print("OK %s: %.1fs %d words %d bytes %d cues" %
+                    (which, time.time() - t0, len(text.split()), nbytes, ncues),
+                    flush=True)
+
+
+          try:
+              main()
+          except BaseException:
+              traceback.print_exc()
+              sys.exit(3)
+          PYEOF
+
+          # ---- run the whole probe battery; $1 = phase label
+          battery(){
+            PHASE="$1"
+            log ""
+            log "===================== PHASE: $PHASE ====================="
+            log "egress: $(curl -s --max-time 15 https://www.cloudflare.com/cdn-cgi/trace/ | grep -E '^ip=|^warp=' | tr '\n' ' ')"
+
+            # network shape probe: a big download exposes an MTU black-hole,
+            # which is what makes a tunnel pass short calls and hang long ones.
+            # Deliberately NOT a Cloudflare host — WARP is Cloudflare, so its
+            # own speed endpoint would flatter the tunnel and prove nothing.
+            T0=$(date +%s)
+            SZ=$(curl -sL --max-time 60 -o /dev/null -w '%{size_download}' \
+                 "https://github.com/ViRb3/wgcf/releases/download/v2.2.22/wgcf_2.2.22_linux_amd64" 2>/dev/null)
+            T1=$(date +%s)
+            log "8MB off-Cloudflare download: ${SZ} bytes in $((T1-T0))s"
+
+            for W in hook body cta full; do
+              rm -f build/probe.mp3
+              OUT=$(timeout -k 10 90 python build/tts_probe.py "$W" build/probe.mp3 2>&1)
+              RC=$?
+              if [ $RC -eq 124 ]; then
+                log "[$PHASE] $W: *** HUNG (no response in 90s, killed) *** $(echo "$OUT" | tail -1)"
+              elif [ $RC -ne 0 ]; then
+                log "[$PHASE] $W: FAILED rc=$RC :: $(echo "$OUT" | grep -E 'Error|error|Exception' | tail -1 | cut -c1-160)"
+              else
+                log "[$PHASE] $W: $(echo "$OUT" | grep '^OK' | cut -c1-140)"
+              fi
+            done
+
+            # does footage still work in this phase? (decides whether WARP can go)
+            rm -f build/w-* 2>/dev/null
+            ARGS=""
+            [ -s build/yt_cookies.txt ] && ARGS="--cookies build/yt_cookies.txt"
+            YOUT=$(timeout 120 yt-dlp $ARGS --no-playlist --no-warnings \
+                   -f "bv*[height<=720]/b[height<=720]/b" \
+                   --download-sections "*180-190" --force-keyframes-at-cuts \
+                   -o "build/w-%(id)s.%(ext)s" \
+                   "https://www.youtube.com/watch?v=I07mko_hkmk" 2>&1)
+            F=$(ls build/w-* 2>/dev/null | head -1)
+            if [ -n "$F" ]; then
+              log "[$PHASE] yt-dlp money clip: SUCCESS $(wc -c < "$F") bytes"
+            else
+              log "[$PHASE] yt-dlp money clip: fail :: $(echo "$YOUT" | grep -iE 'bot|sign in|unavailable|error|forbidden|timed out' | head -1 | cut -c1-120)"
+            fi
+          }
+
+          [ -n "$YT_COOKIES" ] && printf '%s' "$YT_COOKIES" > build/yt_cookies.txt
+          log "cookies: $([ -s build/yt_cookies.txt ] && echo yes || echo no)"
+
+          # ============ PHASE 1: plain runner egress, no tunnel ============
+          battery "NO-WARP"
+
+          # ============ bring up Cloudflare WARP (same recipe as video-maker) ==
+          log ""
+          log "---- bringing up Cloudflare WARP ----"
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq wireguard-tools 2>&1 | tail -1
+          sudo apt-get install -y -qq resolvconf 2>&1 | tail -1
+          WGCF_VER=2.2.22
+          curl -sL -o wgcf "https://github.com/ViRb3/wgcf/releases/download/v${WGCF_VER}/wgcf_${WGCF_VER}_linux_amd64"
+          chmod +x wgcf && sudo mv wgcf /usr/local/bin/wgcf
+          sudo modprobe wireguard
+          wgcf register --accept-tos 2>&1 | tail -1
+          wgcf generate 2>&1 | tail -1
+          sudo mkdir -p /etc/wireguard
+          sudo cp wgcf-profile.conf /etc/wireguard/warp.conf || true
+          sudo sed -i '/^DNS/d' /etc/wireguard/warp.conf || true
+          sudo wg-quick up warp 2>&1 | tail -3
+          sleep 3
+          log "MTU: $(ip link show warp 2>/dev/null | grep -o 'mtu [0-9]*' || echo 'warp iface missing')"
+
+          # ============ PHASE 2: identical probes, through the tunnel ============
+          battery "WARP-ON"
+
+          log ""
+          log "---- done ----"
+          exit 0
+
+      - name: Commit result
+        if: always()
+        shell: bash
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .social/tts-test-result.txt 2>/dev/null || true
+          git commit -m "tts-test: result [skip ci]" || echo "nothing to commit"
+          for i in 1 2 3 4; do
+            git pull --rebase --autostash origin main && git push && break
+            sleep $((RANDOM % 3 + 2))
+          done
