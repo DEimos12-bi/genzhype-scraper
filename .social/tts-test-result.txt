@@ -1,0 +1,28 @@
+tts-test @ 2026-07-30T23:34:57Z
+---- install ----
+edge-tts: 7.2.8
+yt-dlp:   2026.07.04
+cookies: yes
+
+===================== PHASE: NO-WARP =====================
+egress: 
+8MB off-Cloudflare download: 9404568 bytes in 1s
+[NO-WARP] hook: OK hook: 2.8s 16 words 29664 bytes 16 cues
+[NO-WARP] body: OK body: 14.7s 114 words 239184 bytes 114 cues
+[NO-WARP] cta: OK cta: 2.8s 5 words 15552 bytes 5 cues
+[NO-WARP] full: OK full: 34.2s 135 words 286704 bytes 135 cues
+[NO-WARP] yt-dlp money clip: fail :: ERROR: [youtube] I07mko_hkmk: Sign in to confirm you’re not a bot. Use --cookies-from-browser or --cookies for the aut
+
+---- bringing up Cloudflare WARP ----
+MTU: mtu 1280
+
+===================== PHASE: WARP-ON =====================
+egress: 
+8MB off-Cloudflare download: 0 bytes in 60s
+[WARP-ON] hook: OK hook: 0.7s 16 words 29664 bytes 16 cues
+[WARP-ON] body: OK body: 1.3s 114 words 239184 bytes 114 cues
+[WARP-ON] cta: OK cta: 0.7s 5 words 15552 bytes 5 cues
+[WARP-ON] full: OK full: 1.4s 135 words 286704 bytes 135 cues
+[WARP-ON] yt-dlp money clip: fail :: ERROR: [youtube] I07mko_hkmk: Sign in to confirm you’re not a bot. Use --cookies-from-browser or --cookies for the aut
+
+---- done ----
