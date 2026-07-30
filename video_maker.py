@@ -495,7 +495,13 @@ SCENE_SPLIT_MAX_PARTS = int(os.environ.get("VIDEO_SPLIT_MAX_PARTS", "4"))
 # on a phone, and no upscaler recovers detail (Lanczos stays sharpest-per-cost;
 # Real-ESRGAN over-smooths and invents textures). 720 is the short side we demand
 # of a still that will fill a 1080-wide frame and then be zoomed into.
-MIN_STILL_SHORT_SIDE = int(os.environ.get("VIDEO_MIN_SHORT_SIDE", "720"))
+# r51: 720 was TOO STRICT — it rejected 1024x682, an ordinary press photo, and
+# starved the pool to 6 images (31% repetition, worse than before the floor).
+# Almost no news photo is 720 on its SHORT side. 540 keeps real press photos
+# while still refusing thumbnails/avatars (428x428, 480x270). The proper fix is
+# to stop upscaling mid-size photos at all (contain on a blurred fill) — until
+# then, an ordinary photo beats no photo.
+MIN_STILL_SHORT_SIDE = int(os.environ.get("VIDEO_MIN_SHORT_SIDE", "540"))
 
 POOL_NO_REPEAT_WINDOW = 3      # r11: an image never reappears within 3 scenes
 # r42: the window and the max-share below were tuned when a story had 4-6 images
