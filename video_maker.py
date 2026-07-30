@@ -4818,6 +4818,41 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                 _hp = fetch_platform_clip(_money)
                 if _hp and footage_is_relevant(_hp, title):
                     _HOOK_CLIP[0] = _hp
+                    # r54 CLIP FRAMES — the best supply source we have. We are
+                    # already holding a 10s clip of the ACTUAL EVENT, so every
+                    # frame in it is high-res, on-topic by construction, real
+                    # (not AI), free, and carries no licensing doubt. Harvesting
+                    # stills from it turns one download into ~12 extra pool
+                    # images, which is exactly the starvation the quality gates
+                    # exposed. Beats generic stock (the owner rejected it) and
+                    # beats generated images (fabricating pictures of real people
+                    # in a real dispute is not something a news site should do).
+                    try:
+                        _fr = _extract_frames_at(
+                            _hp, [0.6 + 0.75 * _k for _k in range(12)],
+                            prefix="clipfr", width=1080)
+                        _added = 0
+                        for _fp, _ft in _fr:
+                            _dh = image_dhash(_fp)
+                            if any(dhash_distance(_dh, e.get("dhash")) <= 6
+                                   for e in pool):
+                                continue          # near-duplicate of a pool image
+                            _e = {"path": _fp, "textish": False, "url": None,
+                                  "person": None, "designed": False,
+                                  "dhash": _dh, "quality": image_quality(_fp)}
+                            try:
+                                _e["has_face"] = detect_face_box(_fp) is not None
+                            except Exception:  # noqa: BLE001
+                                _e["has_face"] = True
+                            pool.append(_e)
+                            _added += 1
+                        if _added:
+                            log.info("CLIP FRAMES: +%d stills harvested from the "
+                                     "event footage (pool %d -> %d)",
+                                     _added, len(pool) - _added, len(pool))
+                    except Exception as _fx:  # noqa: BLE001 — never fatal
+                        log.info("clip-frame harvest unavailable (%s)",
+                                 str(_fx)[:70])
                     try:
                         clip_pool.remove(_money)
                     except ValueError:
