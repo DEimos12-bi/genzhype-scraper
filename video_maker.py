@@ -777,7 +777,11 @@ _STAGE_STALL_CAP = {
     # r44: judge raised 180 -> 480. With r43 pacing a video now has ~43 beats, so
     # the judge samples far more frames and legitimately took 3.5min — the old cap
     # force-killed a render that was working (run 170).
-    "compose": 900, "tts": 180, "screenshots": 150, "judge": 480,
+# r53: tts 180 -> 420. edge-tts is a NETWORK service and stalls on its own
+# schedule; a 180s cap was force-killing whole renders over a transient
+# hang (two runs in a row produced no video at all). It has its own retry
+# path, so give it room rather than throwing the render away.
+    "compose": 900, "tts": 420, "screenshots": 150, "judge": 480,
     "filmstrip": 120, "post": 330, "receipts": 150, "visuals": 180,
 }
 _STAGE_STALL_DEFAULT = 240
