@@ -215,38 +215,34 @@ jobs:
           yt-dlp --list-impersonate-targets 2>/dev/null | grep -ciE "chrome|safari" \
             && echo "impersonation ready" || echo "impersonation NOT available"
 
-      # r28 FOOTAGE UNLOCK (proven by warp-test: warp+cookies downloaded a
-      # previously bot-walled story video). Route the runner's egress through
-      # FREE Cloudflare WARP so YouTube stops bot-walling the datacenter IP.
-      # Combined with the YT_COOKIES secret, yt-dlp footage fetches now succeed.
-      # Non-fatal: if WARP won't come up, footage degrades to the cookie-less
-      # bot-wall (motion-lite stills) — the render never breaks.
-      - name: Route egress through Cloudflare WARP (footage unlock)
-        # r32: gate on VIDEO_YT_FETCH, not VIDEO_FOOTAGE_FETCH. WARP exists for
-        # ONE job — beating YouTube's bot-wall — and YouTube fetching is off.
-        # Turning footage back on silently re-armed it, and a WireGuard tunnel
-        # that carries ALL egress is pure downside when nothing needs it: the
-        # r32 run went 26 minutes without a single heartbeat (the driver could
-        # not reach genzhype.com), where every run with WARP skipped booted in
-        # under a minute. Kick/Twitch/TikTok never needed it — curl_cffi
-        # impersonation is what walks past their bot-wall.
-        if: env.VIDEO_YT_FETCH == '1'
-        continue-on-error: true
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq wireguard-tools || true
-          sudo apt-get install -y -qq resolvconf || true
-          WGCF_VER=2.2.22
-          curl -sL -o /tmp/wgcf "https://github.com/ViRb3/wgcf/releases/download/v${WGCF_VER}/wgcf_${WGCF_VER}_linux_amd64" \
-            && chmod +x /tmp/wgcf && sudo mv /tmp/wgcf /usr/local/bin/wgcf
-          sudo modprobe wireguard || true
-          wgcf register --accept-tos || true
-          wgcf generate || true
-          sudo mkdir -p /etc/wireguard
-          sudo cp wgcf-profile.conf /etc/wireguard/warp.conf || true
-          sudo sed -i '/^DNS/d' /etc/wireguard/warp.conf || true
-          sudo wg-quick up warp && echo "WARP up — footage egress via Cloudflare" \
-            || echo "WARP failed to start; footage will bot-wall (stills fallback)"
+      # ==================================================================
+      # r57: THE CLOUDFLARE WARP STEP IS DELETED. DO NOT BRING IT BACK.
+      # ==================================================================
+      # WARP was a WireGuard tunnel carrying ALL of the runner's egress, added
+      # in r28 to beat YouTube's bot-wall. r32 already found it was "pure
+      # downside" and gated it behind VIDEO_YT_FETCH. r45 then flipped
+      # VIDEO_YT_FETCH 0 -> 1 for the hook clip — which SILENTLY RE-ARMED THE
+      # TUNNEL. Renders started stalling that same night.
+      #
+      # MEASURED by the tts-test workflow (.social/tts-test-result.txt), same
+      # job, identical probes run with the tunnel down and then up:
+      #   8MB download, off-Cloudflare host   WARP off: 9,404,568 bytes in 1s
+      #                                       WARP on:          0 bytes in 60s
+      #   YouTube money clip (WITH cookies)   WARP off: "Sign in to confirm
+      #                                       you're not a bot"
+      #                                       WARP on:  the SAME failure
+      #
+      # So the tunnel black-holes large transfers and does NOT unlock YouTube.
+      # That is what produced three unrelated network stalls inside one render
+      # (archive.org read timeout, Playwright goto timeout, and the edge-tts
+      # body segment hanging forever) and the STALLED:tts force-kills.
+      #
+      # Footage is unaffected: Kick/Twitch/TikTok never needed WARP (curl_cffi
+      # impersonation is what walks past their bot-wall), and YouTube is
+      # bot-walled with or without it. VIDEO_YT_FETCH stays at "1" — the flag
+      # and the tunnel are different things, and only the tunnel was harmful.
+      # If YouTube footage is wanted back, the answer is a residential proxy or
+      # fresh cookies, NOT this tunnel.
 
       # r24 FOOTAGE-FIRST: write the logged-in cookies.txt where the driver
       # looks for it (<VIDEO_WORKDIR>/yt_cookies.txt). printf to a file only

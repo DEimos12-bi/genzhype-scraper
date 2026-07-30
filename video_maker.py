@@ -502,9 +502,33 @@ SCENE_SPLIT_MAX_PARTS = int(os.environ.get("VIDEO_SPLIT_MAX_PARTS", "4"))
 # to stop upscaling mid-size photos at all (contain on a blurred fill) — until
 # then, an ordinary photo beats no photo.
 MIN_STILL_SHORT_SIDE = int(os.environ.get("VIDEO_MIN_SHORT_SIDE", "400"))
-# r55: hard deadline on ONE edge-tts call. Segmented narration makes several
-# calls, so this stays well under the tts stage watchdog (420s).
-TTS_CALL_TIMEOUT_S = int(os.environ.get("VIDEO_TTS_CALL_TIMEOUT", "75"))
+# r55: hard deadline on ONE edge-tts call.
+# r57: 75 -> 45. r55's per-call deadline was correct but never bounded the
+# STAGE: 3 segments x 2 attempts x 75s = 477s, which blows the 420s tts
+# watchdog BEFORE the single-pass fallback ever gets a turn — so a stalled
+# voice stream still threw away the whole render. A healthy call takes ~1.5s
+# (measured: the hook segment, 13 cues, 4.46s of audio). 45s is already a
+# 30x margin; anything past it is a dead stream, not a slow one.
+TTS_CALL_TIMEOUT_S = int(os.environ.get("VIDEO_TTS_CALL_TIMEOUT", "45"))
+# r57: WALL-CLOCK CEILING for the whole voice stage, retries included. This is
+# the number that actually protects the render: whatever the ladder does, the
+# stage cannot outlive its budget, so it always exits in time to be handled
+# instead of being force-killed by the watchdog at 420s.
+TTS_STAGE_BUDGET_S = int(os.environ.get("VIDEO_TTS_BUDGET", "300"))
+_TTS_DEADLINE = None           # set by tts_begin() when the stage starts
+
+
+def tts_begin():
+    """Start the voice stage's wall clock. Called at _set_stage('tts')."""
+    global _TTS_DEADLINE
+    _TTS_DEADLINE = time.time() + TTS_STAGE_BUDGET_S
+
+
+def tts_left():
+    """Seconds of voice-stage budget remaining (inf when no stage clock)."""
+    if _TTS_DEADLINE is None:
+        return float("inf")
+    return _TTS_DEADLINE - time.time()
 # r52: a photo needing more than this much upscale to COVER the frame is
 # rendered contained on a blurred fill instead of being stretched.
 COVER_MAX_UPSCALE = float(os.environ.get("VIDEO_COVER_MAX_UPSCALE", "1.35"))
@@ -968,9 +992,20 @@ def _edge_tts_synthesize(text, voice_name, rate_str, out_mp3, pitch_str=None):
     that had already succeeded. Run the synthesis in a worker thread with a hard
     deadline instead; on timeout we RAISE, which lets the caller fall back to its
     simpler single-pass path (or a retry) rather than losing the render. The
-    thread is a daemon, so an abandoned stall cannot keep the process alive."""
+    thread is a daemon, so an abandoned stall cannot keep the process alive.
+
+    r57: the per-call deadline is now also clamped by the STAGE budget, so the
+    ladder (expressive segments -> single-pass retries) can never collectively
+    outrun the watchdog the way it did on 07-30."""
     import threading
     box = {}
+
+    left = tts_left()
+    if left <= 5:
+        raise RuntimeError(
+            f"TTS budget exhausted ({TTS_STAGE_BUDGET_S}s); not starting "
+            "another call")
+    deadline = min(TTS_CALL_TIMEOUT_S, left)
 
     def _run():
         try:
@@ -981,16 +1016,17 @@ def _edge_tts_synthesize(text, voice_name, rate_str, out_mp3, pitch_str=None):
 
     th = threading.Thread(target=_run, daemon=True)
     th.start()
-    th.join(TTS_CALL_TIMEOUT_S)
+    th.join(deadline)
     if th.is_alive():
-        log.warning("TTS DEADLINE: edge-tts stalled past %ss; abandoning this "
-                    "call so the render can fall back", TTS_CALL_TIMEOUT_S)
+        log.warning("TTS DEADLINE: edge-tts stalled past %.0fs; abandoning this "
+                    "call so the render can fall back (%.0fs stage budget left)",
+                    deadline, max(tts_left(), 0))
         try:
             if os.path.exists(out_mp3) and os.path.getsize(out_mp3) == 0:
                 os.remove(out_mp3)
         except OSError:
             pass
-        raise RuntimeError(f"edge-tts stalled >{TTS_CALL_TIMEOUT_S}s")
+        raise RuntimeError(f"edge-tts stalled >{deadline:.0f}s")
     if "err" in box:
         raise box["err"]
     return box["sub"]
@@ -1076,9 +1112,17 @@ def synthesize(script, out_mp3):
     last_err = None
 
     for attempt in range(1, TTS_OUTER_RETRIES + 1):
+        # r57: never START an attempt that the stage budget cannot pay for.
+        # Without this the retry ladder just walks into the watchdog.
+        if tts_left() <= 5:
+            log.warning("TTS: stage budget spent after %d attempt(s); giving "
+                        "up cleanly instead of stalling into the watchdog",
+                        attempt - 1)
+            break
         try:
-            log.info("TTS attempt %d/%d voice=%s rate=%s",
-                     attempt, TTS_OUTER_RETRIES, VOICE, rate_str)
+            log.info("TTS attempt %d/%d voice=%s rate=%s (%.0fs budget left)",
+                     attempt, TTS_OUTER_RETRIES, VOICE, rate_str,
+                     max(tts_left(), 0))
             if mpt_voice is not None:
                 sub = mpt_voice.tts(
                     text=script,
@@ -1115,6 +1159,8 @@ def synthesize(script, out_mp3):
             last_err = exc
             is_403 = "403" in str(exc) or "Sec-MS-GEC" in str(exc)
             wait = (6 if is_403 else 3) * attempt
+            # r57: don't sleep away budget we do not have.
+            wait = int(max(0, min(wait, tts_left() - 5)))
             log.warning("TTS failed (%s). retrying in %ds", exc, wait)
             if os.path.exists(out_mp3) and os.path.getsize(out_mp3) == 0:
                 try:
@@ -1190,17 +1236,16 @@ def synthesize_expressive(script, out_mp3, grave=False):
         for si, (text, mult, pitch) in enumerate(plan):
             rate_str = _convert_rate_to_percent(VOICE_RATE * mult)
             seg_mp3 = f"{out_mp3}.seg{si}.mp3"
-            sub, last_err = None, None
-            for attempt in (1, 2):           # light retry; heavy retry lives
-                try:                         # in the single-pass fallback
-                    sub = _edge_tts_synthesize(text, VOICE, rate_str, seg_mp3,
-                                               pitch_str=pitch)
-                    break
-                except Exception as exc:  # noqa: BLE001
-                    last_err = exc
-                    time.sleep(3 * attempt)
-            if sub is None:
-                raise RuntimeError(f"segment {si} TTS failed: {last_err}")
+            # r57: ONE attempt per segment, no in-segment retry. The single-pass
+            # path below IS the retry, and it is the cheaper one — retrying a
+            # dead stream twice per segment across three segments is exactly
+            # what burned 477s and got the render force-killed before any
+            # fallback could run. First stall here = abandon expressive.
+            try:
+                sub = _edge_tts_synthesize(text, VOICE, rate_str, seg_mp3,
+                                           pitch_str=pitch)
+            except Exception as exc:  # noqa: BLE001
+                raise RuntimeError(f"segment {si} TTS failed: {exc}") from exc
             seg_t = _explode_multiword(_cues_to_word_timings(sub))
             if not seg_t:
                 raise RuntimeError(f"segment {si} returned no word cues")
@@ -7406,6 +7451,7 @@ def make_one(post, font_path):
                      shot_n, og_n)
 
     _set_stage("tts")
+    tts_begin()            # r57: start the voice stage's wall-clock budget
     mp3 = os.path.join(WORKDIR, f"voice-{page_id}.mp3")
     # r12: expressive segmented narration first; ANY doubt -> the proven
     # single-pass path (synthesize_expressive verifies its own offsets and
