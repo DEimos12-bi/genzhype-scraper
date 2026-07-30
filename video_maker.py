@@ -5227,14 +5227,24 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                     cands = [e for e in pool
                              if e.get("path") and e["path"] not in recent
                              and not e.get("designed") and not e.get("textish")]
-                    if cands:
-                        alt = min(cands,
-                                  key=lambda e: last_used.get(e["path"], -1))
-                        sub["path"] = alt["path"]
-                        sub["textish"] = False
-                        sub["footage"] = False
-                        sub["src_off"] = None
-                        last_used[alt["path"]] = si_here
+                    if not cands:
+                        # r50 FROZEN GUARD: a beat with no fresh image would
+                        # inherit the parent's, and 3 identical consecutive
+                        # scenes is exactly what the pre-encode selfcheck
+                        # hard-fails ("same image FROZEN", page 515 crash). So
+                        # stop splitting here and give the remaining time back
+                        # to the beat we already created — better one honest
+                        # longer shot than a fake cut to the same picture.
+                        if split_scenes:
+                            split_scenes[-1]["end"] = float(sc["end"])
+                        break
+                    alt = min(cands,
+                              key=lambda e: last_used.get(e["path"], -1))
+                    sub["path"] = alt["path"]
+                    sub["textish"] = False
+                    sub["footage"] = False
+                    sub["src_off"] = None
+                    last_used[alt["path"]] = si_here
                     # one-shot cues belong to the parent's first beat only
                     sub["sfx"] = None
                     sub["emph_t"] = None
