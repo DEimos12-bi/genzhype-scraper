@@ -5999,21 +5999,26 @@ def plan_scenes(beats, pool, fetcher, total):
     return scenes
 
 
-def _wrap_text(text, font_path, size, max_w):
+def _wrap_text(text, font_path, size, max_w, stroke=0):
     """Greedy word-wrap to fit `max_w` at `size`, returning newline-joined text.
-    Mirrors Turbo's approach of pre-wrapping before rendering with method=label,
-    which sidesteps MoviePy 2.x `caption` size quirks."""
+
+    r57: `stroke` matters. font.getbbox measures the LETTERS ONLY, but the hook
+    is drawn with a black outline that adds `stroke` px on EACH side. Wrapping
+    to the full width therefore produced lines that render 2*stroke wider than
+    they were measured to be — which is half of why the last word came out
+    sliced. Reserve the outline before fitting."""
     from PIL import ImageFont
 
     try:
         font = ImageFont.truetype(font_path, size)
     except Exception:  # noqa: BLE001
         return text
+    fit_w = max(1, max_w - 2 * stroke)
     lines, cur = [], ""
     for word in text.split():
         cand = f"{cur} {word}".strip()
         l, _, r, _ = font.getbbox(cand)
-        if (r - l) <= max_w or not cur:
+        if (r - l) <= fit_w or not cur:
             cur = cand
         else:
             lines.append(cur)
@@ -6021,6 +6026,25 @@ def _wrap_text(text, font_path, size, max_w):
     if cur:
         lines.append(cur)
     return "\n".join(lines)
+
+
+def _text_block_size(text, font_path, size, stroke, align="center"):
+    """r57: measure a WRAPPED block exactly as it will be drawn.
+
+    PIL's multiline_textbbox is the only measurement that accounts for BOTH the
+    stroke outline and the interline spacing. MoviePy's method="label" sizes its
+    canvas from glyph bounds alone, so the outline overflowed the canvas and was
+    clipped at the edge — the reported "HAPPENED cut in half". Returns (w, h);
+    (0, 0) on any failure so the caller can keep the old behaviour."""
+    try:
+        from PIL import Image, ImageDraw, ImageFont
+        font = ImageFont.truetype(font_path, size)
+        draw = ImageDraw.Draw(Image.new("RGB", (10, 10)))
+        l, t, r, b = draw.multiline_textbbox((0, 0), text, font=font,
+                                             stroke_width=stroke, align=align)
+        return int(r - l), int(b - t)
+    except Exception:  # noqa: BLE001
+        return 0, 0
 
 
 def hook_clip(text, start, end, font_path):
@@ -6031,12 +6055,30 @@ def hook_clip(text, start, end, font_path):
     text = text.strip()
     if not text:
         return None
-    render_text = _wrap_text(text, font_path, HOOK_FONT, int(W * 0.86))
+    # r57 HOOK SLICING FIX (owner: "HAPPENED cut in half"). Two compounding
+    # bugs, both about the black outline:
+    #   1. the wrap fitted lines to the full width measuring LETTERS ONLY, so a
+    #      full line rendered 2*stroke wider than it was measured to be;
+    #   2. method="label" sizes its canvas from glyph bounds WITHOUT the stroke,
+    #      so that overflow was clipped flat at the canvas edge.
+    # Reserve the stroke when wrapping, measure the real block with PIL
+    # (multiline_textbbox is stroke- and interline-aware), then hand moviepy an
+    # explicitly padded canvas via method="caption" so nothing can be cropped.
     stroke = max(4, int(HOOK_FONT * 0.06))
+    render_text = _wrap_text(text, font_path, HOOK_FONT, int(W * 0.86),
+                             stroke=stroke)
+    tw, th = _text_block_size(render_text, font_path, HOOK_FONT, stroke)
+    kwargs = {}
+    if tw > 0 and th > 0:
+        pad = stroke * 2 + 8
+        kwargs = {"method": "caption",
+                  "size": (min(W, tw + 2 * pad), th + 2 * pad)}
+    else:                      # measurement unavailable -> exact old behaviour
+        kwargs = {"method": "label"}
     tc = TextClip(
         text=render_text, font=font_path, font_size=HOOK_FONT, color="#FFFFFF",
-        stroke_color="#000000", stroke_width=stroke, method="label",
-        text_align="center",
+        stroke_color="#000000", stroke_width=stroke,
+        text_align="center", **kwargs
     )
     dur = max(end - start, 0.05)
     tc = tc.with_start(start).with_end(start + dur)
