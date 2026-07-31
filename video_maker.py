@@ -1997,6 +1997,17 @@ def screenshot_articles(targets, page_id, topic_kw=None):
                                     log.info("screenshot: no ON-TOPIC headline "
                                              "(%s) on %s; skipping", topic_kw[:3],
                                              url[:70])
+                                    # r58: remember the refusal. This verdict is
+                                    # deterministic — the same URL will fail it
+                                    # every time — but the r22 url_shot cache was
+                                    # only written on the LATER paths, so a URL
+                                    # appearing at two receipt indexes was fetched
+                                    # and re-judged twice. Run #198 spent ~11s
+                                    # doing exactly that on one NYT article while
+                                    # the screenshot stage runs against a hard
+                                    # wall-clock budget, i.e. the waste is taken
+                                    # straight out of other proofs' chances.
+                                    url_shot[url] = None
                                     page.close()
                                     continue
                             elif cands:
@@ -2007,6 +2018,7 @@ def screenshot_articles(targets, page_id, topic_kw=None):
                             log.info("screenshot: no headline block found; "
                                      "skipping (no raw-page fallback): %s",
                                      url[:90])
+                            url_shot[url] = None      # r58: also deterministic
                             page.close()
                             continue
                         # r30c: the whole crop is measured in the page by
@@ -3671,10 +3683,20 @@ def fetch_archive_clip(url, seconds=None):
                     os.remove(out)          # never serve it from the cache
                 except OSError:
                     pass
+                # r58 NO SILENT REFUSAL. This gate fails CLOSED by design, and
+                # correctly so. But it returned None without a word, so when the
+                # Gemini quota is spent (HTTP 429 on runs #198/#199) EVERY
+                # archive clip was dropped here and the log looked as if no clip
+                # had ever been found — a working gate reading as a broken
+                # feature. Say which it is. NOTE: the gate itself is unchanged.
+                log.info("archive clip REFUSED by the caption gate (burned-in "
+                         "text, or the check could not run — it fails closed "
+                         "on purpose): %s", url[:70])
                 return None
             log.info("archive.org footage: %.1fMB from %s",
                      os.path.getsize(out) / 1e6, url[:70])
             return out
+    log.info("archive clip unusable at every offset (25s/8s/0s): %s", url[:70])
     return None
 
 
@@ -5027,11 +5049,19 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
         if (si == 0 and clip_pool and not _CLIP_FRAMES_DONE[0]
                 and _HOOK_CLIP[0] is None):     # money clip already harvested
             _CLIP_FRAMES_DONE[0] = True
+            _got = 0
             for _cu in list(clip_pool)[:2]:
                 _cp = fetch_platform_clip(_cu)
                 if _cp and harvest_clip_frames(_cp, pool,
                                                label="story clip"):
+                    _got = 1
                     break
+            if not _got:
+                # r58: say so. Run #199 held one archive clip and harvested
+                # nothing, with zero log lines explaining why.
+                log.info("CLIP FRAMES: no usable clip of the %d available "
+                         "(fetch or a quality gate refused every one); pool "
+                         "stays at %d", len(clip_pool), len(pool))
         # r45: `path is None` guard — the HOOK LAW above may already have claimed
         # scene 1 for the money clip, and a receipt must not overwrite the event.
         # (The subject/broll branches below already carried this guard.)
