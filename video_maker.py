@@ -2645,7 +2645,18 @@ def openverse_photos(query, want=6):
         return []
     try:
         r = requests.get("https://api.openverse.org/v1/images/",
-                         params={"q": query, "page_size": max(4, want * 2),
+                         # r57 HARD CAP AT 20. Openverse allows page_size>20
+                         # only for AUTHENTICATED clients; anonymous requests
+                         # above it are rejected with 401, not truncated.
+                         # Measured against the live API:
+                         #   page_size=20 -> HTTP 200 | page_size=21 -> HTTP 401
+                         # r56 raised VISUAL_POOL_MIN 4 -> 20 to make this
+                         # search fire, which made want=22 and page_size=44 —
+                         # so the change meant to switch Openverse ON is what
+                         # switched it off. Every render since has logged
+                         # "openverse HTTP 401" and added zero photos.
+                         params={"q": query,
+                                 "page_size": max(4, min(20, want * 2)),
                                  "license_type": "modification",
                                  "mature": "false"},
                          headers={"User-Agent": _BROWSER_UA}, timeout=25)
@@ -3300,6 +3311,7 @@ _STORY_CLIPS = []          # r28: this story's harvested platform clip URLs
 # is where the event happens, so it is what the HOOK must show.
 _STORY_CLIP_START = {}
 _HOOK_CLIP = [None]        # (path, src_off) of the clip chosen to open the video
+_CLIP_FRAMES_DONE = [False]   # r57: the supply harvest runs once per story
 _FOOTAGE_REL_CACHE = {}    # r28 smart gate: clip path -> is-it-on-topic
 _FOOTAGE_REL_CALLS = [0]
 FOOTAGE_REL_MAX_CALLS = 5  # cap Gemini relevance checks per render (speed)
@@ -3502,6 +3514,41 @@ def archive_org_clips(terms, want=3):
     vlow = [v.lower() for v in variants]
     docs.sort(key=lambda d: 0 if any(v in str(d.get("title") or "").lower()
                                      for v in vlow) else 1)
+    # r57 ACRONYM GUARD. archive.org TOKENISES title:("PSA Class"), so a short
+    # acronym in a story title matches any item containing it: the PSA
+    # trading-card lawsuit pulled back "Youth Spaces PSA" and "Media
+    # Representation of Women PSA" — 1990s public service announcements. Those
+    # frames would have been presented as the event itself.
+    # Require a DISTINCTIVE story word (>=4 chars, not a stopword) to appear in
+    # the item's TITLE. A 3-letter acronym can then never carry a match alone.
+    # This keeps the proven El Risitas behaviour ("risitas" is distinctive) and
+    # is deterministic — no vision quota needed, which matters because the
+    # Gemini gates are rate-limited exactly when renders pile up (HTTP 429 on
+    # run #198, so no vision check could have caught this).
+    _STOP = {"the", "and", "with", "from", "that", "this", "what", "when",
+             "after", "over", "into", "your", "just", "they", "them", "than",
+             "then", "have", "here", "news", "video", "clip", "full", "says",
+             "new", "his", "her", "its"}
+    distinctive = {w for v in variants for w in v.lower().split()
+                   if len(w) >= 4 and w not in _STOP}
+    if not distinctive:
+        log.info("archive.org: no distinctive term in %s (acronym-only "
+                 "story); skipped rather than risk a coincidence match",
+                 variants[:3])
+        return []
+    kept = [d for d in docs
+            if any(w in str(d.get("title") or "").lower()
+                   for w in distinctive)]
+    if len(kept) < len(docs):
+        log.info("archive.org: dropped %d coincidence match(es) with no "
+                 "distinctive story word in the title (e.g. %s); kept %d",
+                 len(docs) - len(kept),
+                 str((docs[len(kept)] if len(kept) < len(docs) else {})
+                     .get("title") or "")[:40], len(kept))
+    docs = kept
+    if not docs:
+        log.info("archive.org: 0 topical items for %s", list(distinctive)[:4])
+        return []
     out = []
     for d in docs:
         if len(out) >= want:
@@ -4670,6 +4717,52 @@ def motion_scale_fn(motion, dur, emph_rel):
     return _s
 
 
+def harvest_clip_frames(clip_path, pool, want=12, label="event footage"):
+    """r54/r57: turn ONE downloaded clip into ~12 extra pool stills.
+
+    Every frame is high-res, on-topic by construction, real (not AI), free and
+    carries no licensing doubt — the best supply source we have, and the direct
+    cure for the pool starvation the quality gates keep exposing.
+
+    r57 WIRING FIX: r54 buried this inside the "money moment" hook branch, which
+    only fires for a YouTube clip carrying the reporter's ?start= timestamp.
+    YouTube is bot-walled from CI (measured again in tts-test: "Sign in to
+    confirm you're not a bot", with cookies, tunnel or no tunnel), so on a real
+    story the branch never opened and the harvest never ran once — even when a
+    clip HAD been downloaded successfully from archive.org. Any clip we are
+    already holding is now harvested, whatever platform it came from.
+
+    Returns the number of stills added. Never raises."""
+    added = 0
+    try:
+        frames = _extract_frames_at(
+            clip_path, [0.6 + 0.75 * k for k in range(want)],
+            prefix="clipfr", width=1080)
+        for fp, _ft in frames:
+            dh = image_dhash(fp)
+            if any(dhash_distance(dh, e.get("dhash")) <= 6 for e in pool):
+                continue                  # near-duplicate of a pool image
+            entry = {"path": fp, "textish": False, "url": None,
+                     "person": None, "designed": False,
+                     "dhash": dh, "quality": image_quality(fp)}
+            try:
+                entry["has_face"] = detect_face_box(fp) is not None
+            except Exception:  # noqa: BLE001
+                entry["has_face"] = True
+            pool.append(entry)
+            added += 1
+        if added:
+            log.info("CLIP FRAMES: +%d stills harvested from the %s "
+                     "(pool %d -> %d)", added, label,
+                     len(pool) - added, len(pool))
+        else:
+            log.info("CLIP FRAMES: 0 usable stills from the %s (all "
+                     "near-duplicates of the pool)", label)
+    except Exception as exc:  # noqa: BLE001 — never fatal
+        log.info("clip-frame harvest unavailable (%s)", str(exc)[:70])
+    return added
+
+
 def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                     person_map=None, visual_map=None):
     """v4/v4.5 planner: the Director decided WHAT; this resolves each shot to
@@ -4909,41 +5002,7 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                 _hp = fetch_platform_clip(_money)
                 if _hp and footage_is_relevant(_hp, title):
                     _HOOK_CLIP[0] = _hp
-                    # r54 CLIP FRAMES — the best supply source we have. We are
-                    # already holding a 10s clip of the ACTUAL EVENT, so every
-                    # frame in it is high-res, on-topic by construction, real
-                    # (not AI), free, and carries no licensing doubt. Harvesting
-                    # stills from it turns one download into ~12 extra pool
-                    # images, which is exactly the starvation the quality gates
-                    # exposed. Beats generic stock (the owner rejected it) and
-                    # beats generated images (fabricating pictures of real people
-                    # in a real dispute is not something a news site should do).
-                    try:
-                        _fr = _extract_frames_at(
-                            _hp, [0.6 + 0.75 * _k for _k in range(12)],
-                            prefix="clipfr", width=1080)
-                        _added = 0
-                        for _fp, _ft in _fr:
-                            _dh = image_dhash(_fp)
-                            if any(dhash_distance(_dh, e.get("dhash")) <= 6
-                                   for e in pool):
-                                continue          # near-duplicate of a pool image
-                            _e = {"path": _fp, "textish": False, "url": None,
-                                  "person": None, "designed": False,
-                                  "dhash": _dh, "quality": image_quality(_fp)}
-                            try:
-                                _e["has_face"] = detect_face_box(_fp) is not None
-                            except Exception:  # noqa: BLE001
-                                _e["has_face"] = True
-                            pool.append(_e)
-                            _added += 1
-                        if _added:
-                            log.info("CLIP FRAMES: +%d stills harvested from the "
-                                     "event footage (pool %d -> %d)",
-                                     _added, len(pool) - _added, len(pool))
-                    except Exception as _fx:  # noqa: BLE001 — never fatal
-                        log.info("clip-frame harvest unavailable (%s)",
-                                 str(_fx)[:70])
+                    harvest_clip_frames(_hp, pool, label="money-moment clip")
                     try:
                         clip_pool.remove(_money)
                     except ValueError:
@@ -4957,6 +5016,22 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                 else:
                     log.info("HOOK: money clip unavailable (%s); normal opener",
                              "off-topic" if _hp else "fetch failed")
+        # r57 SUPPLY HARVEST — the money-moment branch above is the ONLY thing
+        # that ever called the frame harvest, and it needs a YouTube clip with
+        # the reporter's ?start= timestamp. Most stories have neither. But we
+        # often DO hold a perfectly good clip from archive.org / Twitch / Kick /
+        # TikTok, already downloaded, whose frames are real on-topic photos of
+        # the event. Mine it for stills even when it is not the opener. The
+        # clip stays in clip_pool so it can still play as footage later, and
+        # fetch_platform_clip caches per URL, so this costs no extra download.
+        if (si == 0 and clip_pool and not _CLIP_FRAMES_DONE[0]
+                and _HOOK_CLIP[0] is None):     # money clip already harvested
+            _CLIP_FRAMES_DONE[0] = True
+            for _cu in list(clip_pool)[:2]:
+                _cp = fetch_platform_clip(_cu)
+                if _cp and harvest_clip_frames(_cp, pool,
+                                               label="story clip"):
+                    break
         # r45: `path is None` guard — the HOOK LAW above may already have claimed
         # scene 1 for the money clip, and a receipt must not overwrite the event.
         # (The subject/broll branches below already carried this guard.)
@@ -7329,6 +7404,8 @@ def make_one(post, font_path):
     # the scene planner pulls these in as REAL MOVING footage matched to the
     # story, each fetched with its proper method (fetch_platform_clip).
     global _STORY_CLIPS, _STORY_CLIP_START
+    _HOOK_CLIP[0] = None          # r57: per-story, not per-process
+    _CLIP_FRAMES_DONE[0] = False
     _STORY_CLIPS = [c.get("url") for c in (post.get("clips") or [])
                     if isinstance(c, dict) and platform_of(c.get("url"))]
     # r45: carry the reporter's own timestamp for each embedded clip. Embedded
