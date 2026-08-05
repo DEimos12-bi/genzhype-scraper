@@ -1,0 +1,68 @@
+name: depth-bench
+
+# TREATMENT V2 gate (2026-08-05): measure Depth-Anything-V2-Small ONNX CPU
+# latency + the production parallax warp on a real runner, on REAL story
+# photos from the video-feed branch. No published CPU number exists for this
+# model (the repo's latency table is CUDA-only) — so we measure before any
+# maker code is written. Same diagnostic pattern as tts-test / warp-test.
+# NO torch: onnxruntime + opencv only (lean-runner rule from r25 — the 1GB
+# ML stack once hung renders to the 30-min timeout).
+# License note: vitS checkpoint ONLY (Apache-2.0). Base/Large are CC-BY-NC.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/depth-bench.yml"
+      - "tools/depth_bench.py"
+      - ".social/depth-bench"
+  workflow_dispatch:
+
+concurrency:
+  group: depth-bench
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  bench:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: deps (no torch)
+        run: pip install --quiet onnxruntime opencv-python-headless numpy
+
+      - name: model + real test photos
+        run: |
+          set -e
+          curl -sL -o davits.onnx \
+            https://github.com/fabio-sim/Depth-Anything-ONNX/releases/download/v2.0.0/depth_anything_v2_vits.onnx
+          echo "model bytes: $(wc -c < davits.onnx)"
+          git fetch --depth 1 origin video-feed
+          mkdir -p bench-imgs
+          # real staged story photos (sha1-named, imread sniffs content)
+          git ls-tree -r FETCH_HEAD visuals/ | awk '{print $4}' | head -4 | while read f; do
+            git show "FETCH_HEAD:$f" > "bench-imgs/$(basename "$f")"
+          done
+          ls -la bench-imgs
+
+      - name: bench
+        run: python tools/depth_bench.py davits.onnx bench-imgs/* 2>&1 | tee depth-bench-result.txt
+
+      - name: commit result
+        run: |
+          mkdir -p .social
+          cp depth-bench-result.txt .social/depth-bench-result.txt
+          git config user.name depth-bench
+          git config user.email bench@genzhype
+          git add .social/depth-bench-result.txt
+          git commit -m "depth-bench result $(date -u +%FT%TZ)" || exit 0
+          git pull --rebase -q origin main
+          git push -q origin main
