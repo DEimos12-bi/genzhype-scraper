@@ -117,11 +117,14 @@ def main(feed_path, out_path):
 
         person_needles = [p.lower() for p in people]
         kw_needles = [k.lower() for k in kws]
-        # two-signal rule (run 7 lesson): one generic-ish keyword is not
-        # evidence a tweet is about THIS story — require the person's name
-        # or two distinctive keywords together (wrong-story posts on screen
-        # would be worse than none)
-        kw_need = 2 if len(kw_needles) >= 2 else 1
+        # ANCHOR RULE (run 8 lesson, final form): "posts are about-the-story
+        # by search construction" only holds when the person's name anchors
+        # the match. Run 8 proved keyword co-occurrence cannot carry story
+        # identity — "yoga"+"routine" matched wellness spam, "startup"
+        # matched YC ads. So: a page WITH named people accepts ONLY tweets
+        # naming one of them (nobody tweets the person -> ZERO posts, the
+        # honest outcome); a no-people page needs 3 distinctive keywords.
+        kw_need = min(3, max(1, len(kw_needles)))
         seen, cand = set(), []
         used = 0
         for q in queries[:3]:
@@ -140,7 +143,10 @@ def main(feed_path, out_path):
                 tl = text.lower()
                 person_hit = any(p and p in tl for p in person_needles)
                 kw_hits = sum(1 for k in kw_needles if k and k in tl)
-                if not (person_hit or kw_hits >= kw_need):
+                if person_needles:
+                    if not person_hit:
+                        continue  # people-story: the name is the only anchor
+                elif kw_hits < kw_need:
                     continue  # off-story keyword noise
                 seen.add(tid)
                 cand.append({
