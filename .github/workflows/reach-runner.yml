@@ -52,7 +52,7 @@ jobs:
         run: |
           set +e
           mkdir -p drop
-          pip install --quiet twitter-cli 2>drop/install-twitter.err
+          pip install --quiet "git+https://github.com/jackwener/twitter-cli.git" 2>drop/install-twitter.err
           echo "twitter-cli install exit=$?" | tee -a drop/reach.log
           # pinned commit from the agent-reach study (PyPI lags upstream)
           pip install --quiet "git+https://github.com/public-clis/rdt-cli.git@5e4fb3720d5c174e976cd425ccc3b879d52cac66" 2>drop/install-rdt.err
