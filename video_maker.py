@@ -1752,6 +1752,93 @@ def _shot_is_blank(path):
         return True
 
 
+def _shot_dead_zone_fix(path):
+    """r61 DEAD-ZONE BACKSTOP (page 484 shipped a giant black rectangle where
+    an in-article video player never painted). Deterministic — PIL only, no
+    vision quota, so it cannot go silent the way the Gemini ad-gate does when
+    the key is over cap. Detection: rows where >35% of pixels are near-black
+    (lum < 22) — the box spans only the article COLUMN, so whole-row
+    uniformity does NOT work (measured: 0 hits on the exact 484 frame).
+    Dark-photo guard: the band's black pixels must be FLAT fill (std < 6;
+    measured 0.29 on 484) — a night photo's darks carry texture and pass.
+    The band is spliced out (top+bottom rejoined; band edges are dead rows so
+    the seam cannot cut text — verified visually on the 484 frame: headline,
+    photo and body text flow cleanly). Too little page left, or still >20%
+    dead after repair -> reject; the og-photo/subject chain covers the proof.
+    Returns True if the file at `path` is usable (possibly rewritten)."""
+    try:
+        im = Image.open(path).convert("RGB")
+        g = np.asarray(im.convert("L")).astype("float32")
+        h, w = g.shape
+        if h < 120:
+            im.close()
+            return True
+        # MEASURED on the real 484 shot: the player box spans only the article
+        # COLUMN (black left, white sidebar right), so whole-row uniformity
+        # never fires — the first version of this check found 0 dead rows on
+        # the exact frame it was written for. The working signal is per-row
+        # NEAR-BLACK FRACTION: the box rows are >35% pixels under lum 22.
+        black = g < 22.0
+        frac = black.mean(axis=1)
+        dead = frac > 0.35
+        # largest contiguous dead band
+        best_s, best_e, s = 0, 0, -1
+        for y in range(h + 1):
+            if y < h and dead[y]:
+                if s < 0:
+                    s = y
+            elif s >= 0:
+                if y - s > best_e - best_s:
+                    best_s, best_e = s, y
+                s = -1
+        band = best_e - best_s
+        if band < max(60, int(h * 0.12)):
+            im.close()
+            return True                       # nothing meaningful to repair
+        # dark-PHOTO guard: a night photo can be >35% near-black, but its dark
+        # pixels carry texture. An unpainted player is FLAT fill: the band's
+        # black-pixel std is ~0 (measured 484: pure 0s). Std >= 6 -> real
+        # photo content, leave the frame alone.
+        band_black = g[best_s:best_e][black[best_s:best_e]]
+        if band_black.size == 0 or float(band_black.std()) >= 6.0:
+            im.close()
+            return True
+        keep_top = im.crop((0, 0, w, best_s)) if best_s > 0 else None
+        keep_bot = im.crop((0, best_e, w, h)) if best_e < h else None
+        parts = [p for p in (keep_top, keep_bot) if p is not None and p.height >= 40]
+        if not parts:
+            im.close()
+            log.info("SHOT DEAD-ZONE: frame is one dead band; rejected (%s)",
+                     os.path.basename(path))
+            return False
+        if len(parts) == 1:
+            fixed = parts[0]
+        else:
+            fixed = Image.new("RGB", (w, parts[0].height + parts[1].height))
+            fixed.paste(parts[0], (0, 0))
+            fixed.paste(parts[1], (0, parts[0].height))
+        if fixed.height < 260:                # too little page left to read
+            im.close()
+            log.info("SHOT DEAD-ZONE: only %dpx of page survives; rejected "
+                     "(%s)", fixed.height, os.path.basename(path))
+            return False
+        fixed.save(path)
+        im.close()
+        # re-measure with the SAME fraction test: if the repaired frame still
+        # has >20% dead rows (a second player box), reject rather than loop
+        g2 = np.asarray(Image.open(path).convert("L")).astype("float32")
+        if float(((g2 < 22.0).mean(axis=1) > 0.35).mean()) > 0.20:
+            log.info("SHOT DEAD-ZONE: still >20%% dead after repair; rejected "
+                     "(%s)", os.path.basename(path))
+            return False
+        log.info("SHOT DEAD-ZONE: removed %dpx dead band at y=%d (%s)",
+                 band, best_s, os.path.basename(path))
+        return True
+    except Exception as exc:  # noqa: BLE001 — never block a shot on infra
+        log.info("dead-zone check failed open (%s)", str(exc)[:60])
+        return True
+
+
 def screenshot_articles(targets, page_id, topic_kw=None):
     """Screenshot REAL article pages (masthead + headline + lead image, as the
     site actually renders) — the drama-genre confidence move: FOUND evidence,
@@ -1857,7 +1944,18 @@ def screenshot_articles(targets, page_id, topic_kw=None):
                           // shop/store/merch/product/deal/affiliate + recirc widgets
                           // that carry their own big images. display:none also drops
                           // them from layout so nothing is measured or shot.
-                          const sels = ['iframe',
+                          // r61: EMBEDDED-PLAYER KILL. Page 484 shipped with a
+                          // huge BLACK dead zone: an in-article video player
+                          // (a <video>/JS widget, NOT an iframe) that never
+                          // paints in headless chromium. Kill the player
+                          // family too; display:none reflows the text/lead
+                          // image up into the space.
+                          const sels = ['iframe', 'video',
+                            '[class*="jwplayer" i]', '[class*="vjs-" i]',
+                            '[class*="video-player" i]', '[class*="player-" i]',
+                            '[id*="player" i]', '[data-player]',
+                            '[class*="video-container" i]',
+                            '[class*="connatix" i]', '[class*="brid-" i]',
                             '[id*="ad-" i]', '[id^="ad" i]', '[id*="-ad" i]',
                             '[class*="advert" i]', '[class*="-ad-" i]',
                             '[class*="sponsor" i]', '[class*="promo" i]',
@@ -2170,6 +2268,12 @@ def screenshot_articles(targets, page_id, topic_kw=None):
                         url_shot[url] = None
                         continue
                 except Exception:
+                    url_shot[url] = None
+                    continue
+                # r61 DEAD-ZONE BACKSTOP (deterministic, quota-free): repair or
+                # reject black player/embed rectangles BEFORE the vision gate,
+                # so the fix works even when Gemini is over cap.
+                if not _shot_dead_zone_fix(path):
                     url_shot[url] = None
                     continue
                 # r29 AD BACKSTOP: vision-verify the shot is clean of ad / merch /
