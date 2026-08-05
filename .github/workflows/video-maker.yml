@@ -127,17 +127,45 @@ jobs:
         # broke run #1 (current runners ship it elsewhere). moviepy + the faststart
         # remux both honor IMAGEIO_FFMPEG_EXE; if ffmpeg were ever missing entirely,
         # the pip-installed imageio-ffmpeg bundles its own binary as the fallback.
+        #
+        # run #230 ROOT CAUSE: some runner images now ship WITHOUT ffmpeg
+        # (GitHub rolls images gradually — #229 had it, #230 didn't), and the
+        # apt fallback had NO time bound, so one stalled mirror hung the job
+        # 23+ min. Fix keeps every layer and bounds the network instead:
+        #   1) system ffmpeg (fast path, unchanged)
+        #   2) apt, TIME-BOUNDED (a dead mirror now costs <=4.5 min, not the job)
+        #   3) pip static-ffmpeg — verified from its own docs: ships BOTH
+        #      ffmpeg AND ffprobe (pydub's sound mix needs ffprobe), Ubuntu-CI
+        #      tested, no sudo needed for the binaries themselves
+        #   4) imageio-ffmpeg bundled binary (moviepy-only, last resort, as before)
+        timeout-minutes: 10
         run: |
           FF="$(command -v ffmpeg || true)"
+          if [ -z "$FF" ]; then
+            echo "no system ffmpeg; bounded apt install (pydub needs ffprobe too)"
+            sudo timeout 120 apt-get update -qq \
+              -o Acquire::Retries=2 -o Acquire::http::Timeout=15 || true
+            sudo timeout 150 apt-get install -y -qq ffmpeg \
+              -o Acquire::Retries=2 -o Acquire::http::Timeout=15 \
+              -o DPkg::Lock::Timeout=60 || true
+            FF="$(command -v ffmpeg || true)"
+          fi
+          if [ -z "$FF" ]; then
+            echo "apt failed; static-ffmpeg pip fallback (ffmpeg + ffprobe)"
+            python3 -m pip install --quiet static-ffmpeg || true
+            PATHS="$(timeout 240 static_ffmpeg_paths 2>/dev/null || true)"
+            FFS="$(echo "$PATHS" | sed -n 's/^FFMPEG=//p')"
+            FFP="$(echo "$PATHS" | sed -n 's/^FFPROBE=//p')"
+            [ -n "$FFS" ] && sudo ln -sf "$FFS" /usr/local/bin/ffmpeg
+            [ -n "$FFP" ] && sudo ln -sf "$FFP" /usr/local/bin/ffprobe
+            FF="$(command -v ffmpeg || true)"
+          fi
           if [ -n "$FF" ]; then
             echo "IMAGEIO_FFMPEG_EXE=$FF" >> "$GITHUB_ENV"
             echo "ffmpeg at: $FF"
             "$FF" -hide_banner -encoders | grep -E "libx264|aac " || true
           else
-            echo "no system ffmpeg; installing via apt (pydub needs ffprobe for the sound mix)"
-            sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg || true
-            FF="$(command -v ffmpeg || true)"
-            [ -n "$FF" ] && echo "IMAGEIO_FFMPEG_EXE=$FF" >> "$GITHUB_ENV" || true
+            echo "WARNING: no ffmpeg from any layer; moviepy falls back to imageio-ffmpeg's bundled binary"
           fi
           fc-list | grep -iE "dejavu|liberation" | head || true
 
