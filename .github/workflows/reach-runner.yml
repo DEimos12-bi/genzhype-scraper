@@ -109,10 +109,10 @@ jobs:
           echo "exit=$?" >> drop/x.txt
           for q in "streamer drama" "youtuber apology"; do
             echo "== twitter search \"$q\" ==" >> drop/x.txt
-            timeout 120 twitter search "$q" --limit 15 >> drop/x.txt 2>&1
+            timeout 120 twitter search "$q" -n 15 --min-likes 50 >> drop/x.txt 2>&1
             echo "exit=$?" >> drop/x.txt
           done
-          timeout 120 twitter search "streamer drama" --limit 15 --json > drop/x-search.json 2>drop/x-json.err
+          timeout 120 twitter search "streamer drama" -n 15 --min-likes 50 --json > drop/x-search.json 2>drop/x-json.err
           echo "json exit=$? bytes=$(wc -c < drop/x-search.json)" >> drop/x.txt
 
       - name: deliver to reach-drop branch
