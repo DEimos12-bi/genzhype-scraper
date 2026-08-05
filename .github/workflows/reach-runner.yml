@@ -21,6 +21,11 @@ concurrency:
   group: reach-runner
   cancel-in-progress: true
 
+# the delivery step pushes the reach-drop branch; the default token is
+# read-only (run #1 failed 403 on exactly this)
+permissions:
+  contents: write
+
 jobs:
   reach:
     runs-on: ubuntu-latest
