@@ -115,6 +115,23 @@ jobs:
           timeout 120 twitter search "streamer drama" -n 15 --min-likes 50 --json > drop/x-search.json 2>drop/x-json.err
           echo "json exit=$? bytes=$(wc -c < drop/x-search.json)" >> drop/x.txt
 
+      # REACH-POWERED VIDEO (2026-08-05): the video-feed branch lists the
+      # maker's pending pages — search X for each story's REAL viral posts
+      # (people names + title keywords). The server ingest writes them into
+      # video_scripts.reach_posts; receipt building renders them as verified
+      # X cards (syndication check fail-closed) so people-stories stop being
+      # visually starved. Grave stories skipped inside the tool (r16 law).
+      - name: story-driven x harvest (per pending video page)
+        run: |
+          set +e
+          git fetch --depth 1 origin video-feed 2>>drop/reach.log \
+            && git show FETCH_HEAD:feed.json > feed-video.json \
+            || echo '{}' > feed-video.json
+          echo "video feed bytes=$(wc -c < feed-video.json)" | tee -a drop/reach.log
+          timeout 600 python tools/reach_video_search.py feed-video.json drop/x-pages.json >> drop/reach.log 2>&1
+          echo "x-pages exit=$? bytes=$(wc -c < drop/x-pages.json 2>/dev/null || echo 0)" | tee -a drop/reach.log
+          tail -30 drop/reach.log
+
       - name: deliver to reach-drop branch
         run: |
           set -e
