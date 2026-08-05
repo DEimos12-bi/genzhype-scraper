@@ -1,0 +1,85 @@
+name: reach-runner
+
+# REACH v1 (2026-08-05): first runner for the cookie-gated channels from the
+# agent-reach adoption map. This version VERIFIES auth for twitter-cli and
+# rdt-cli with the owner's burner secrets and captures each tool's real help
+# text + a best-effort first probe, delivering everything to the reach-drop
+# branch (same git-bus pattern as video-drop — bitninja blackholes runner IPs,
+# so git is the only reliable delivery). v2 wires exact harvest commands from
+# the captured help text — never guessed.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/reach-runner.yml"
+  schedule:
+    - cron: "41 */6 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: reach-runner
+  cancel-in-progress: true
+
+jobs:
+  reach:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      TWITTER_AUTH_TOKEN: ${{ secrets.TWITTER_AUTH_TOKEN }}
+      TWITTER_CT0: ${{ secrets.TWITTER_CT0 }}
+      REDDIT_COOKIES: ${{ secrets.REDDIT_COOKIES }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: install channel tools
+        run: |
+          set +e
+          mkdir -p drop
+          pip install --quiet twitter-cli 2>drop/install-twitter.err
+          echo "twitter-cli install exit=$?" | tee -a drop/reach.log
+          # pinned commit from the agent-reach study (PyPI lags upstream)
+          pip install --quiet "git+https://github.com/public-clis/rdt-cli.git@5e4fb3720d5c174e976cd425ccc3b879d52cac66" 2>drop/install-rdt.err
+          echo "rdt-cli install exit=$?" | tee -a drop/reach.log
+
+      - name: capture real CLI surfaces (never guess syntax)
+        run: |
+          set +e
+          { echo "== which twitter: $(which twitter)"; twitter --help; } > drop/help-twitter.txt 2>&1
+          { echo "== which rdt: $(which rdt)"; rdt --help; } > drop/help-rdt.txt 2>&1
+          echo "help captured" | tee -a drop/reach.log
+
+      - name: probe twitter auth (best effort)
+        run: |
+          set +e
+          for sub in status whoami me; do
+            echo "== twitter $sub ==" >> drop/probe-twitter.txt
+            timeout 60 twitter "$sub" >> drop/probe-twitter.txt 2>&1
+            echo "exit=$?" >> drop/probe-twitter.txt
+          done
+
+      - name: probe reddit auth (best effort)
+        run: |
+          set +e
+          printf '%s' "$REDDIT_COOKIES" > /tmp/reddit-cookies.txt
+          for sub in "doctor" "hot OutOfTheLoop" "sub OutOfTheLoop"; do
+            echo "== rdt $sub ==" >> drop/probe-rdt.txt
+            timeout 60 rdt $sub >> drop/probe-rdt.txt 2>&1
+            echo "exit=$?" >> drop/probe-rdt.txt
+          done
+
+      - name: deliver to reach-drop branch
+        run: |
+          set -e
+          cd drop
+          git init -q
+          git checkout -q -b reach-drop
+          git add -A
+          git -c user.name=reach-runner -c user.email=reach@genzhype \
+              commit -qm "reach probe $(date -u +%FT%TZ) run ${{ github.run_number }}"
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" reach-drop
+          echo "delivered"
