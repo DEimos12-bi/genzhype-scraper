@@ -5981,8 +5981,13 @@ def depth_scene_clip(image_path, start, end, motion, emph_rel=None,
             dy = DEPTH_AMP_Y * np.cos(ph * 0.7)
             jx = 1.3 * np.sin(t * 2.1 + j[0]) + 0.7 * np.sin(t * 5.3 + j[1])
             jy = 1.1 * np.sin(t * 1.7 + j[2]) + 0.6 * np.sin(t * 4.3 + j[3])
-            map_x = (xx - fx) / s + fx + dc * dx + jx
-            map_y = (yy - fy) / s + fy + dc * dy + jy
+            # run-229 lesson: dx/dy/jx are float64 scalars, and float32 array
+            # + float64 scalar promotes the whole map to float64 — which
+            # cv2.remap REJECTS (needs CV_32FC1). Cast at the boundary.
+            map_x = ((xx - fx) / s + fx + dc * dx + jx).astype(
+                np.float32, copy=False)
+            map_y = ((yy - fy) / s + fy + dc * dy + jy).astype(
+                np.float32, copy=False)
             out = cv2.remap(frame, map_x, map_y, cv2.INTER_LINEAR,
                             borderMode=cv2.BORDER_REFLECT)
             g = np.roll(grain, (int(t * FPS) * 97) % H, axis=0)
