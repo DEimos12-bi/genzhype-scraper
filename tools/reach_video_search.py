@@ -21,6 +21,7 @@ returns off-story noise otherwise); grave-gravity stories are skipped whole
 The REAL gate stays server-side: every id is verified against X's syndication
 CDN at card-render time (post_cards_recovered, tombstone -> NO card).
 """
+import datetime
 import json
 import re
 import subprocess
@@ -29,12 +30,21 @@ import sys
 MAX_PAGES = 6         # feed ships at most 8 jobs; bridge feed at most 6
 MAX_SEARCHES = 12     # burner-account courtesy cap per run
 MAX_PER_PAGE = 8      # candidates kept per page (sorted by likes)
+SINCE_DAYS = 60       # current dramas only (run 7: a 2022 tweet ranked top)
 
 STOP = set("""a an and the this that these those of in on at to for from by
 with over after before about into out up down as is are was were be been has
 have had how what when where who why will would can could says said say calls
 call called new his her their they them its it he she we you your video watch
-update confirmed reportedly amid sparks against during""".split())
+update confirmed reportedly amid sparks against during
+influencer influencers streamer streamers creator creators youtuber tiktoker
+backlash drama controversy apology apologizes apologized viral trend trending
+internet online social media star celebrity fans slams facing faces accused
+claims responds response explained explainer timeline story""".split())
+# the second block is NICHE-GENERIC vocabulary (run 7 lesson): on a drama
+# site every story title contains these, so as keywords they matched
+# OFF-STORY tweets (plane-yoga page harvested Meghan Markle + OpenAI posts
+# via "influencer backlash"). Distinctive words only — yoga, plane, zietz.
 
 
 def keywords(title, people):
@@ -51,10 +61,16 @@ def keywords(title, people):
 
 
 def x_search(query):
-    """One twitter-cli search; [] on any failure (never raises)."""
+    """One twitter-cli search; [] on any failure (never raises).
+
+    Flags verified from twitter-cli's cli.py + search.py sources: --since /
+    --lang / --exclude compose X advanced-search operators into the query.
+    """
+    since = (datetime.date.today() - datetime.timedelta(days=SINCE_DAYS)).isoformat()
     try:
         r = subprocess.run(
-            ["twitter", "search", query, "-n", "15", "--min-likes", "50", "--json"],
+            ["twitter", "search", query, "-n", "15", "--min-likes", "50",
+             "--since", since, "--lang", "en", "--exclude", "retweets", "--json"],
             capture_output=True, text=True, timeout=120)
         data = json.loads(r.stdout or "{}")
         hits = data.get("data") or []
@@ -99,7 +115,13 @@ def main(feed_path, out_path):
         if kws:
             queries.append(" ".join(kws[:4]))
 
-        needles = [p.lower() for p in people] + [k.lower() for k in kws]
+        person_needles = [p.lower() for p in people]
+        kw_needles = [k.lower() for k in kws]
+        # two-signal rule (run 7 lesson): one generic-ish keyword is not
+        # evidence a tweet is about THIS story — require the person's name
+        # or two distinctive keywords together (wrong-story posts on screen
+        # would be worse than none)
+        kw_need = 2 if len(kw_needles) >= 2 else 1
         seen, cand = set(), []
         used = 0
         for q in queries[:3]:
@@ -115,7 +137,10 @@ def main(feed_path, out_path):
                 text = (tw.get("text") or "").strip()
                 if not tid or not tid.isdigit() or not text or tid in seen:
                     continue
-                if not any(n and n in text.lower() for n in needles):
+                tl = text.lower()
+                person_hit = any(p and p in tl for p in person_needles)
+                kw_hits = sum(1 for k in kw_needles if k and k in tl)
+                if not (person_hit or kw_hits >= kw_need):
                     continue  # off-story keyword noise
                 seen.add(tid)
                 cand.append({
