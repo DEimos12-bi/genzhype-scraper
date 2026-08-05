@@ -7682,6 +7682,25 @@ def post_video(page_id, slug, mp4_path, sheet_path=None):
             body["sheet_b64"] = base64.b64encode(fh.read()).decode("ascii")
     log.info("delivering %s (%.1f MB as base64)", os.path.basename(mp4_path),
              len(b64) / 1024 / 1024)
+    # r62: stage the drop-meta BEFORE the upload. Run #229 proved the r37
+    # fallback had a hole: the watchdog killed a HUNG upload mid-attempt, so
+    # the failure branch below never ran — the drop carried the mp4 but no
+    # meta sidecar, and the bridge (correctly) refuses meta-less drops as
+    # judge-rejects. Staging first means a kill at ANY point leaves a
+    # complete, ingestable drop; confirmed success deletes the sidecar (and
+    # the bridge's newer-video idempotency check backstops even that).
+    meta_path = os.path.join(WORKDIR, f"drop-meta-{page_id}.json")
+    try:
+        with open(meta_path, "w", encoding="utf-8") as f:
+            json.dump({"page_id": int(page_id), "slug": slug or "",
+                       "mp4": os.path.basename(mp4_path),
+                       "sheet": os.path.basename(sheet_path)
+                                if sheet_path and os.path.isfile(sheet_path)
+                                else None,
+                       "report": dict(_RENDER_REPORT) if _RENDER_REPORT else None,
+                       "reason": "staged-before-post"}, f)
+    except Exception:  # noqa: BLE001
+        pass
     last = None
     for attempt in range(1, 5):
         # engine 1: curl_cffi browser TLS (the pattern that dodges the WAF)
@@ -7691,6 +7710,10 @@ def post_video(page_id, slug, mp4_path, sheet_path=None):
                           timeout=300, headers={"User-Agent": _BROWSER_UA})
             if r.status_code == 200 and r.json().get("ok"):
                 log.info("posted video for page_id=%s", page_id)
+                try:
+                    os.remove(meta_path)   # r62: delivered — drop not needed
+                except Exception:  # noqa: BLE001
+                    pass
                 return
             last = f"curl_cffi HTTP {r.status_code} {r.text[:200]}"
         except Exception as e:  # noqa: BLE001
@@ -7706,6 +7729,10 @@ def post_video(page_id, slug, mp4_path, sheet_path=None):
                 pass
             if ok:
                 log.info("posted video for page_id=%s", page_id)
+                try:
+                    os.remove(meta_path)   # r62: delivered — drop not needed
+                except Exception:  # noqa: BLE001
+                    pass
                 return
             last = f"requests HTTP {r.status_code} {r.text[:200]}"
         except Exception as e:  # noqa: BLE001
