@@ -57,7 +57,10 @@ def x_search(query):
             ["twitter", "search", query, "-n", "15", "--min-likes", "50", "--json"],
             capture_output=True, text=True, timeout=120)
         data = json.loads(r.stdout or "{}")
-        return data.get("data") or []
+        hits = data.get("data") or []
+        if not hits:  # empty is a finding, not an error — show WHY (ok:false?)
+            print(f"  search {query!r}: 0 hits, raw={r.stdout[:160]!r}")
+        return hits
     except Exception as exc:  # tool exit, timeout, bad JSON — all non-fatal
         print(f"  search {query!r} failed: {exc}")
         return []
@@ -85,21 +88,28 @@ def main(feed_path, out_path):
                   if isinstance(p, dict) and p.get("name")]
         kws = keywords(post.get("title") or "", people)
 
+        # progressive relaxation (run #6 lesson: '"Rosa.Adventures" Influencer
+        # Backlash' = handle AND both keywords in one tweet -> 0 hits; real
+        # tweets describe the story, not the handle). Tightest first, stop
+        # early once 3 candidates land.
         queries = []
         if people:
             queries.append(f'"{people[0]}" ' + " ".join(kws[:2]))
-            if len(people) > 1 and kws:
-                queries.append(f'"{people[1]}" {kws[0]}')
-        elif kws:
+            queries.append(f'"{people[0]}"')
+        if kws:
             queries.append(" ".join(kws[:4]))
 
         needles = [p.lower() for p in people] + [k.lower() for k in kws]
         seen, cand = set(), []
-        for q in queries[:2]:
+        used = 0
+        for q in queries[:3]:
+            if len(cand) >= 3:
+                break
             if searches >= MAX_SEARCHES:
                 print("  search cap reached — remaining pages deferred")
                 break
             searches += 1
+            used += 1
             for tw in x_search(q.strip()):
                 tid = str(tw.get("id") or "").strip()
                 text = (tw.get("text") or "").strip()
@@ -116,7 +126,7 @@ def main(feed_path, out_path):
                 })
         cand.sort(key=lambda c: -c["likes"])
         pages[str(pid)] = cand[:MAX_PER_PAGE]
-        print(f"  page {pid}: {len(cand)} candidate(s) from {len(queries)} search(es)")
+        print(f"  page {pid}: {len(cand)} candidate(s) from {used} search(es)")
 
     with open(out_path, "w", encoding="utf-8") as fh:
         json.dump({"pages": pages}, fh, ensure_ascii=False)

@@ -20,6 +20,7 @@ on:
     branches: [main]
     paths:
       - ".github/workflows/reach-runner.yml"
+      - "tools/reach_video_search.py"
   schedule:
     - cron: "41 */6 * * *"
   workflow_dispatch:
