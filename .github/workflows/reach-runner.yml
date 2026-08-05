@@ -1,12 +1,19 @@
 name: reach-runner
 
-# REACH v1 (2026-08-05): first runner for the cookie-gated channels from the
-# agent-reach adoption map. This version VERIFIES auth for twitter-cli and
-# rdt-cli with the owner's burner secrets and captures each tool's real help
-# text + a best-effort first probe, delivering everything to the reach-drop
-# branch (same git-bus pattern as video-drop — bitninja blackholes runner IPs,
-# so git is the only reliable delivery). v2 wires exact harvest commands from
-# the captured help text — never guessed.
+# REACH v2 (2026-08-05): the cookie-gated discovery channels from the
+# agent-reach adoption map, running on a GitHub runner because Reddit and X
+# both wall our Hostinger IP (measured: cookie'd reddit .json still 403s from
+# the server; the wall is IP-reputation + fingerprint, not just auth).
+#
+# v1 proved: X burner authenticates (twitter-cli status -> @Nightygxa), and
+# reach-drop delivery works once the token has contents:write.
+# v2 finishes Reddit: rdt-cli never saw the cookie because it reads
+# ~/.config/rdt-cli/credential.json — so we WRITE that file from the secret,
+# in the exact shape rdt_cli/auth.py Credential.to_dict() produces
+# ({"cookies":{...},"source","username","modhash","saved_at",...}), with
+# reddit_session present (constants.REQUIRED_COOKIES = {"reddit_session"}).
+# Every harvest verb below is copied from the tools' OWN --help captured by
+# v1 (help-rdt.txt / help-twitter.txt) — never guessed.
 
 on:
   push:
@@ -29,7 +36,7 @@ permissions:
 jobs:
   reach:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     env:
       TWITTER_AUTH_TOKEN: ${{ secrets.TWITTER_AUTH_TOKEN }}
       TWITTER_CT0: ${{ secrets.TWITTER_CT0 }}
@@ -51,31 +58,62 @@ jobs:
           pip install --quiet "git+https://github.com/public-clis/rdt-cli.git@5e4fb3720d5c174e976cd425ccc3b879d52cac66" 2>drop/install-rdt.err
           echo "rdt-cli install exit=$?" | tee -a drop/reach.log
 
-      - name: capture real CLI surfaces (never guess syntax)
+      - name: write rdt credential from secret
+        env:
+          RC: ${{ secrets.REDDIT_COOKIES }}
         run: |
-          set +e
-          { echo "== which twitter: $(which twitter)"; twitter --help; } > drop/help-twitter.txt 2>&1
-          { echo "== which rdt: $(which rdt)"; rdt --help; } > drop/help-rdt.txt 2>&1
-          echo "help captured" | tee -a drop/reach.log
+          python - <<'PY'
+          import json, os, time, pathlib
+          raw = os.environ.get("RC", "")
+          cookies = {}
+          for part in raw.split(";"):
+              part = part.strip()
+              if not part or "=" not in part:
+                  continue
+              k, v = part.split("=", 1)
+              cookies[k.strip()] = v.strip()
+          d = pathlib.Path.home() / ".config" / "rdt-cli"
+          d.mkdir(parents=True, exist_ok=True)
+          f = d / "credential.json"
+          f.write_text(json.dumps({
+              "cookies": cookies,
+              "source": "ci-secret",
+              "username": None,
+              "modhash": None,
+              "saved_at": time.time(),
+              "last_verified_at": None,
+          }, indent=2))
+          f.chmod(0o600)
+          print("credential written, cookie names:", sorted(cookies))
+          print("reddit_session present:", "reddit_session" in cookies)
+          PY
 
-      - name: probe twitter auth (best effort)
+      - name: reddit harvest (r/OutOfTheLoop = our discovery source)
         run: |
           set +e
-          for sub in status whoami me; do
-            echo "== twitter $sub ==" >> drop/probe-twitter.txt
-            timeout 60 twitter "$sub" >> drop/probe-twitter.txt 2>&1
-            echo "exit=$?" >> drop/probe-twitter.txt
-          done
+          echo "== rdt status ==" > drop/reddit.txt
+          timeout 90 rdt status >> drop/reddit.txt 2>&1
+          echo "exit=$?" >> drop/reddit.txt
+          echo "== rdt sub OutOfTheLoop --limit 25 ==" >> drop/reddit.txt
+          timeout 120 rdt sub OutOfTheLoop --limit 25 >> drop/reddit.txt 2>&1
+          echo "exit=$?" >> drop/reddit.txt
+          # machine-readable copy for the server ingest (export writes a file)
+          timeout 120 rdt sub OutOfTheLoop --limit 25 --json > drop/reddit-ootl.json 2>drop/reddit-json.err
+          echo "json exit=$? bytes=$(wc -c < drop/reddit-ootl.json)" >> drop/reddit.txt
 
-      - name: probe reddit auth (best effort)
+      - name: x harvest (drama discovery + social-post citations)
         run: |
           set +e
-          printf '%s' "$REDDIT_COOKIES" > /tmp/reddit-cookies.txt
-          for sub in "doctor" "hot OutOfTheLoop" "sub OutOfTheLoop"; do
-            echo "== rdt $sub ==" >> drop/probe-rdt.txt
-            timeout 60 rdt $sub >> drop/probe-rdt.txt 2>&1
-            echo "exit=$?" >> drop/probe-rdt.txt
+          echo "== twitter status ==" > drop/x.txt
+          timeout 90 twitter status >> drop/x.txt 2>&1
+          echo "exit=$?" >> drop/x.txt
+          for q in "streamer drama" "youtuber apology"; do
+            echo "== twitter search \"$q\" ==" >> drop/x.txt
+            timeout 120 twitter search "$q" --limit 15 >> drop/x.txt 2>&1
+            echo "exit=$?" >> drop/x.txt
           done
+          timeout 120 twitter search "streamer drama" --limit 15 --json > drop/x-search.json 2>drop/x-json.err
+          echo "json exit=$? bytes=$(wc -c < drop/x-search.json)" >> drop/x.txt
 
       - name: deliver to reach-drop branch
         run: |
@@ -85,6 +123,6 @@ jobs:
           git checkout -q -b reach-drop
           git add -A
           git -c user.name=reach-runner -c user.email=reach@genzhype \
-              commit -qm "reach probe $(date -u +%FT%TZ) run ${{ github.run_number }}"
+              commit -qm "reach harvest $(date -u +%FT%TZ) run ${{ github.run_number }}"
           git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" reach-drop
           echo "delivered"
