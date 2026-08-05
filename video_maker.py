@@ -434,6 +434,19 @@ WORKDIR = os.environ.get("VIDEO_WORKDIR", "build")
 VOICE = os.environ.get("VIDEO_VOICE", "en-US-AndrewMultilingualNeural")
 VOICE_RATE = float(os.environ.get("VIDEO_VOICE_RATE", "1.05"))
 VOICE_VOLUME = float(os.environ.get("VIDEO_VOICE_VOLUME", "1.0"))
+
+# --- TREATMENT V2 (2026-08-05): 2.5D depth parallax on real photos -----------
+# Depth-Anything-V2-Small ONNX (Apache-2.0 — the ONLY DA2 size we may ship;
+# Base/Large are CC-BY-NC). The yml downloads the model to build/; missing
+# model or onnxruntime = classic motion, never fatal. Measured on the runner
+# (depth-bench run #1): 0.85s depth/photo, 8.4ms/frame warp — the warp is
+# CHEAPER than moviepy's per-frame PIL resize it replaces.
+DEPTH_PARALLAX = os.environ.get("VIDEO_DEPTH_PARALLAX", "1") != "0"
+DEPTH_MODEL_PATH = os.environ.get("VIDEO_DEPTH_MODEL", "build/depth_vits.onnx")
+DEPTH_AMP_X = 16.0            # px of max near-plane horizontal drift
+DEPTH_AMP_Y = 6.0             # vertical drift (subtler — vertical par. reads odd)
+DEPTH_DRIFT_PERIOD = 7.0      # s per drift orbit (slow, documentary)
+DEPTH_GRAIN = 5.0             # film-grain sigma (uint8 space), depth scenes only
 VIDEO_BATCH = int(os.environ.get("VIDEO_BATCH", "1"))
 
 W, H = 1080, 1920
@@ -5836,6 +5849,160 @@ def make_scrim(duration):
     return ImageClip(grad, transparent=True).with_duration(duration)
 
 
+# =================  TREATMENT V2: 2.5D DEPTH PARALLAX (2026-08-05)  ==========
+# The camera moves THROUGH the real photo instead of zooming a flat image:
+# every pixel is displaced by its estimated depth (foreground travels more
+# than background), on top of the exact Law-6 zoom curves and face-anchor
+# rules scene_clip already enforces. Nothing is generated — the pixels are
+# the photo's own (found-not-made law holds). Any failure at any point
+# returns None and the caller falls back to classic scene_clip.
+
+_DEPTH_SESS = "unset"          # tri-state: "unset" | None (dead) | session
+_DEPTH_CACHE = {}              # image_path -> float32 HxW depth of its frame
+_GRAIN_PLATE = None
+
+
+def _depth_session():
+    global _DEPTH_SESS
+    if _DEPTH_SESS != "unset":
+        return _DEPTH_SESS
+    _DEPTH_SESS = None
+    if not DEPTH_PARALLAX:
+        return None
+    try:
+        import onnxruntime as ort
+        if (not os.path.isfile(DEPTH_MODEL_PATH)
+                or os.path.getsize(DEPTH_MODEL_PATH) < 10_000_000):
+            log.info("depth: no model at %s — classic motion", DEPTH_MODEL_PATH)
+            return None
+        _DEPTH_SESS = ort.InferenceSession(
+            DEPTH_MODEL_PATH, providers=["CPUExecutionProvider"])
+        log.info("depth: session ready")
+    except Exception as exc:  # noqa: BLE001
+        log.warning("depth: unavailable (%s) — classic motion", exc)
+        _DEPTH_SESS = None
+    return _DEPTH_SESS
+
+
+def depth_for_frame(arr, key=None):
+    """Relative depth (float32 HxW in [0,1], 1=near) for an RGB uint8 frame.
+    Preprocessing copied verbatim from fabio-sim/Depth-Anything-ONNX
+    dynamo.py infer() (its own comment: "implement this part in your chosen
+    language"). None on any failure."""
+    if key is not None and key in _DEPTH_CACHE:
+        return _DEPTH_CACHE[key]
+    sess = _depth_session()
+    if sess is None:
+        return None
+    try:
+        import cv2
+        t0 = time.time()
+        img = arr.astype(np.float32) / 255.0
+        x = cv2.resize(img, (518, 518), interpolation=cv2.INTER_CUBIC)
+        x = (x - [0.485, 0.456, 0.406]) / [0.229, 0.224, 0.225]
+        x = x.transpose(2, 0, 1)[None].astype(np.float32)
+        out = sess.run(None, {sess.get_inputs()[0].name: x})[0]
+        d = out[0] if out.ndim == 3 else out[0, 0]
+        d = (d - d.min()) / max(1e-6, float(d.max() - d.min()))
+        d = cv2.resize(d.astype(np.float32), (arr.shape[1], arr.shape[0]),
+                       interpolation=cv2.INTER_CUBIC)
+        if key is not None:
+            _DEPTH_CACHE[key] = d
+        log.info("depth: %s in %.2fs", os.path.basename(str(key)) if key else "frame",
+                 time.time() - t0)
+        return d
+    except Exception as exc:  # noqa: BLE001
+        log.warning("depth inference failed (%s)", exc)
+        return None
+
+
+def _grain_plate():
+    global _GRAIN_PLATE
+    if _GRAIN_PLATE is None:
+        rng = np.random.default_rng(7)
+        _GRAIN_PLATE = rng.normal(
+            0.0, DEPTH_GRAIN, (H, W, 1)).astype(np.float32)
+    return _GRAIN_PLATE
+
+
+def depth_scene_clip(image_path, start, end, motion, emph_rel=None,
+                     xfade=None, face=None):
+    """Treatment-v2 photo scene: depth parallax + anchored zoom + hand-held
+    micro-drift + film grain, all in one cv2.remap per frame. Reuses the
+    exact face framing (cover_fit_face/_FACE_ALL) and zoom curves
+    (motion_scale_fn/SCENE_ZOOM) of classic scene_clip so every v6/r48
+    face-safety law holds unchanged. None -> caller uses scene_clip."""
+    if not DEPTH_PARALLAX or motion in ("panl", "panr",
+                                        "pan_left", "pan_right"):
+        return None                       # pans keep their classic travel
+    try:
+        import cv2
+        from moviepy import VideoClip, vfx
+        dur = max(end - start, 0.2)
+        pil = Image.open(image_path)
+        if pil.size[0] < 720:             # r40: low-res keeps gentle classic
+            pil.close()
+            return None
+        if face is not None:
+            fitted, face_pt = cover_fit_face(
+                pil, W, H, face, all_faces=_FACE_ALL.get(image_path))
+        else:
+            fitted = cover_fit_headroom(pil, W, H)
+            face_pt = (W / 2.0, H * 0.30)
+        pil.close()
+        frame = grade_frame(np.array(fitted.convert("RGB")))
+        depth = depth_for_frame(frame, key=image_path)
+        if depth is None:
+            return None
+        if motion in ("punch_hit", "punch_build", "zoom_out"):
+            scale_fn = motion_scale_fn(motion, dur, emph_rel)
+        elif motion == "out":
+            def scale_fn(t, d=dur):
+                return max(1.001, 1.0 + SCENE_ZOOM - SCENE_ZOOM * (t / d))
+        else:
+            def scale_fn(t, d=dur):
+                return max(1.001, 1.0 + SCENE_ZOOM * (t / d))
+        yy, xx = np.indices((H, W), dtype=np.float32)
+        fx = float(face_pt[0]) if face_pt else W / 2.0
+        fy = float(face_pt[1]) if face_pt else H / 2.0
+        # center depth on the anchor's plane so the face/subject stays put
+        # and the world moves around it (parallax never shifts the eyeline)
+        d0 = float(depth[min(H - 1, int(fy)), min(W - 1, int(fx))])
+        dc = depth - d0
+        grain = _grain_plate()
+        rng = np.random.default_rng(abs(hash(image_path)) % (2 ** 32))
+        j = rng.uniform(0, 2 * np.pi, 4)
+        phase0 = rng.uniform(0, 2 * np.pi)
+
+        def mk(t):
+            s = float(scale_fn(t))
+            ph = phase0 + 2 * np.pi * (t / DEPTH_DRIFT_PERIOD)
+            dx = DEPTH_AMP_X * np.sin(ph)
+            dy = DEPTH_AMP_Y * np.cos(ph * 0.7)
+            jx = 1.3 * np.sin(t * 2.1 + j[0]) + 0.7 * np.sin(t * 5.3 + j[1])
+            jy = 1.1 * np.sin(t * 1.7 + j[2]) + 0.6 * np.sin(t * 4.3 + j[3])
+            map_x = (xx - fx) / s + fx + dc * dx + jx
+            map_y = (yy - fy) / s + fy + dc * dy + jy
+            out = cv2.remap(frame, map_x, map_y, cv2.INTER_LINEAR,
+                            borderMode=cv2.BORDER_REFLECT)
+            g = np.roll(grain, (int(t * FPS) * 97) % H, axis=0)
+            return np.clip(out.astype(np.float32) + g, 0, 255).astype(np.uint8)
+
+        clip = VideoClip(mk, duration=dur).with_start(start)
+        xf = XFADE if xfade is None else xfade
+        if xf > 0 and start > 0:
+            try:
+                clip = clip.with_effects([vfx.CrossFadeIn(min(xf, dur / 2))])
+            except Exception:  # noqa: BLE001
+                pass
+        log.info("DEPTH SCENE %s motion=%s dur=%.1fs",
+                 os.path.basename(image_path), motion, dur)
+        return clip
+    except Exception as exc:  # noqa: BLE001
+        log.warning("depth scene failed (%s) — classic motion", exc)
+        return None
+
+
 def scene_clip(image_path, start, end, motion, emph_rel=None, xfade=None,
                face=None):
     """One full-frame photo scene with its own motion. v3 motions ('in',
@@ -6935,12 +7102,18 @@ def compose_video(pool, broll_terms, mp3_path, hook, script, word_timings,
             scene_clips.append(clip)
         else:
             # v6: face-aware phone framing on every photo scene (cached
-            # detection; None -> the pre-v6 center crop, never a crash)
-            clip = scene_clip(sc["path"], sc["start"], sc["end"],
-                              sc["motion"],
-                              emph_rel=sc.get("emph_rel"),
-                              xfade=xfade,
-                              face=detect_face_box(sc["path"]))
+            # detection; None -> the pre-v6 center crop, never a crash).
+            # TREATMENT V2: depth parallax first; any failure -> classic.
+            face_box = detect_face_box(sc["path"])
+            clip = depth_scene_clip(sc["path"], sc["start"], sc["end"],
+                                    sc["motion"],
+                                    emph_rel=sc.get("emph_rel"),
+                                    xfade=xfade, face=face_box)
+            if clip is None:
+                clip = scene_clip(sc["path"], sc["start"], sc["end"],
+                                  sc["motion"],
+                                  emph_rel=sc.get("emph_rel"),
+                                  xfade=xfade, face=face_box)
             layers.append(clip)
             scene_clips.append(clip)
 

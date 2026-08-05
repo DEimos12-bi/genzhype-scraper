@@ -98,6 +98,9 @@ jobs:
       VIDEO_PRESET: "ultrafast"
       VIDEO_FPS: "24"
       VIDEO_THREADS: "4"
+      # TREATMENT V2: 2.5D depth parallax on photo scenes ("0" = classic)
+      VIDEO_DEPTH_PARALLAX: "1"
+      VIDEO_DEPTH_MODEL: "build/depth_vits.onnx"
       # r29: abandon a page after 1 retry if the judge keeps failing it, so a
       # visually-poor story (repetition / irrelevant stock the judge rightly
       # rejects) can never freeze the queue behind it. Good stories pass on
@@ -162,7 +165,22 @@ jobs:
             "requests>=2.31" \
             "imageio-ffmpeg>=0.5" \
             "curl_cffi>=0.7" \
-            "opencv-python-headless>=4.9,<5"
+            "opencv-python-headless>=4.9,<5" \
+            "onnxruntime>=1.18"
+
+      # TREATMENT V2 (2026-08-05): Depth-Anything-V2-Small ONNX for the 2.5D
+      # depth-parallax photo scenes. vitS checkpoint ONLY (Apache-2.0 —
+      # Base/Large are CC-BY-NC, never ship those). Measured on this runner
+      # class: 0.85s/photo depth, 8.4ms/frame warp (depth-bench run #1).
+      # Missing/failed download = maker logs "no model" and renders classic
+      # motion. Kill switch: env VIDEO_DEPTH_PARALLAX: "0".
+      - name: depth model (treatment v2)
+        continue-on-error: true
+        run: |
+          mkdir -p build
+          curl -sL --retry 2 -o build/depth_vits.onnx \
+            https://github.com/fabio-sim/Depth-Anything-ONNX/releases/download/v2.0.0/depth_anything_v2_vits.onnx
+          echo "depth model bytes: $(wc -c < build/depth_vits.onnx)"
 
       # r14 CLIP VERIFYING EYE (optional, quota-free): sentence-transformers
       # CLIP ViT-B-32 scores each photo scene's image against the words
