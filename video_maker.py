@@ -3458,6 +3458,16 @@ _STORY_CLIPS = []          # r28: this story's harvested platform clip URLs
 # is where the event happens, so it is what the HOOK must show.
 _STORY_CLIP_START = {}
 _HOOK_CLIP = [None]        # (path, src_off) of the clip chosen to open the video
+_TIMELINE_MODE = [False]   # TIMELINE CONTRACT (2026-08-06): shotlist meta
+                           # timeline=1 -> beats are deterministic artifact
+                           # orders; ALL legacy clip opportunism (hook-law
+                           # money grab, clip-frame harvest into the pool,
+                           # still->clip upgrades) is OFF — run #237's judge
+                           # caught exactly those paths breaking the
+                           # 1-beat-1-artifact contract (a spare clip played
+                           # over the "X comment" sentence; harvested clip
+                           # frames with burned-in captions leaked into
+                           # photo scenes as cut text).
 _CLIP_FRAMES_DONE = [False]   # r57: the supply harvest runs once per story
 _FOOTAGE_REL_CACHE = {}    # r28 smart gate: clip path -> is-it-on-topic
 _FOOTAGE_REL_CALLS = [0]
@@ -5165,7 +5175,11 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
             _tp = fetch_platform_clip(t_curl)
             if _tp and footage_is_relevant(_tp, title):
                 path, typ, textish = _tp, "broll", False
-                motion, footage = "punch_build", True
+                # run #237 judge lesson: TikTok clips carry burned-in
+                # captions edge to edge — ANY zoom motion crops them
+                # mid-word (judge criterion a). motion=None = plain cover
+                # fit; a 9:16 source fills the 9:16 frame uncropped.
+                motion, footage = None, True
                 planned_here = True
                 foot_n += 1
                 foot_s += need_s
@@ -5183,7 +5197,8 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
         # at a timestamp (?start=182 = the slap); fetch_platform_clip cuts that
         # exact window. If we land it, scene 1 opens on it — outranking receipts,
         # portraits and every pinned still. Failure changes nothing downstream.
-        if si == 0 and clip_pool and _HOOK_CLIP[0] is None:
+        if si == 0 and clip_pool and _HOOK_CLIP[0] is None \
+                and not _TIMELINE_MODE[0]:
             _money = next((u for u in clip_pool if _STORY_CLIP_START.get(u)), None)
             if _money:
                 _hp = fetch_platform_clip(_money)
@@ -5212,7 +5227,8 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
         # clip stays in clip_pool so it can still play as footage later, and
         # fetch_platform_clip caches per URL, so this costs no extra download.
         if (si == 0 and clip_pool and not _CLIP_FRAMES_DONE[0]
-                and _HOOK_CLIP[0] is None):     # money clip already harvested
+                and _HOOK_CLIP[0] is None
+                and not _TIMELINE_MODE[0]):     # money clip already harvested
             _CLIP_FRAMES_DONE[0] = True
             _got = 0
             for _cu in list(clip_pool)[:2]:
@@ -5536,6 +5552,7 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
         # = highly relevant). Twitch/TikTok/Kick need no cookies. Priority over a
         # plain still; obeys the footage budget + the consecutive-footage cap.
         if (not footage and typ == "photo" and clip_pool
+                and not _TIMELINE_MODE[0]
                 and consec_footage < FOOTAGE_CK_MAX_CONSEC):
             prev_foot = bool(scenes and scenes[-1].get("footage"))
             res_n, res_s = _planned_reserve(si)
@@ -8032,6 +8049,10 @@ def make_one(post, font_path):
     if not isinstance(shotlist, dict):
         shotlist = None
         log.info("no shotlist in feed; v3 behaviour throughout")
+    _TIMELINE_MODE[0] = bool(isinstance(shotlist, dict)
+                             and (shotlist.get("meta") or {}).get("timeline"))
+    if _TIMELINE_MODE[0]:
+        log.info("TIMELINE MODE: deterministic beats, clip opportunism OFF")
 
     # v6: resolve the shotlist's visual_i references (real story images)
     visual_map = build_visual_map(post, page_id, pool, shotlist)
