@@ -3594,6 +3594,10 @@ _STORY_CLIPS = []          # r28: this story's harvested platform clip URLs
 # is where the event happens, so it is what the HOOK must show.
 _STORY_CLIP_START = {}
 _HOOK_CLIP = [None]        # (path, src_off) of the clip chosen to open the video
+_CLIP_ARTIFACT_FRAMES = []  # jpgs of each clip beat's REAL video, shipped
+                            # with delivery for the carousel (joined by
+                            # event_id — "the video beat must show THAT
+                            # video, not an img")
 _TIMELINE_MODE = [False]   # TIMELINE CONTRACT (2026-08-06): shotlist meta
                            # timeline=1 -> beats are deterministic artifact
                            # orders; ALL legacy clip opportunism (hook-law
@@ -4950,6 +4954,7 @@ def build_edl(shotlist, script, timings, total):
                 # Director guess).
                 "date": str(s.get("date") or "").strip(),
                 "clip_url": str(s.get("clip_url") or "").strip(),
+                "event_id": int(s.get("event_id") or 0),
             })
         if not shots:
             return None
@@ -5730,6 +5735,8 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
             # freeze-frame edit: timeline clip beats longer than ~4s play
             # 2.5s of real motion then hold the frame under the narration
             "freeze_after": 2.5 if (planned_here and need_s > 4.0) else None,
+            "event_id": int(sh.get("event_id") or 0),
+            "is_clip_beat": bool(planned_here),
         })
         prev_motion = motion
 
@@ -7331,6 +7338,34 @@ def compose_video(pool, broll_terms, mp3_path, hook, script, word_timings,
         # image matches the words spoken over it; clear mismatches swap to
         # a better pool image (in-place, never fatal, logs a summary).
         clip_verify_scenes(scenes, edl, pool)
+        # CAROUSEL ARTIFACT FRAMES (2026-08-06, owner: carousel video beats
+        # "must keep showing that video, not an img"): grab 2 real frames of
+        # every timeline clip beat; post_video ships them and the server
+        # joins them to the beat by event_id. Never fatal.
+        del _CLIP_ARTIFACT_FRAMES[:]
+        if _TIMELINE_MODE[0]:
+            try:
+                from moviepy import VideoFileClip as _VFrm
+                for sc in scenes:
+                    if (sc["type"] == "broll" and sc.get("event_id")
+                            and sc.get("path")):
+                        vsrc = _VFrm(sc["path"])
+                        for j, tt in enumerate((1.0, 2.4)):
+                            if vsrc.duration and tt < vsrc.duration - 0.1:
+                                fr = Image.fromarray(
+                                    vsrc.get_frame(tt).astype("uint8"))
+                                fr.thumbnail((720, 1280))
+                                fp = os.path.join(
+                                    WORKDIR, f"clipframe-{page_id}-"
+                                    f"{sc['event_id']}-{j}.jpg")
+                                fr.save(fp, "JPEG", quality=88)
+                                _CLIP_ARTIFACT_FRAMES.append(fp)
+                        vsrc.close()
+                if _CLIP_ARTIFACT_FRAMES:
+                    log.info("carousel frames: %d real clip frame(s) staged",
+                             len(_CLIP_ARTIFACT_FRAMES))
+            except Exception as exc:  # noqa: BLE001
+                log.warning("carousel frames failed (%s)", exc)
     else:
         if shotlist:
             log.info("shotlist present but unusable; v3 scene planner")
@@ -8076,6 +8111,18 @@ def post_video(page_id, slug, mp4_path, sheet_path=None):
     if sheet_path and os.path.isfile(sheet_path):
         with open(sheet_path, "rb") as fh:
             body["sheet_b64"] = base64.b64encode(fh.read()).decode("ascii")
+    if _CLIP_ARTIFACT_FRAMES:      # carousel: real frames of each clip beat
+        cf = []
+        for fp in _CLIP_ARTIFACT_FRAMES[:12]:
+            try:
+                with open(fp, "rb") as fh:
+                    cf.append({"name": os.path.basename(fp),
+                               "b64": base64.b64encode(fh.read())
+                               .decode("ascii")})
+            except Exception:  # noqa: BLE001
+                pass
+        if cf:
+            body["clip_frames"] = cf
     log.info("delivering %s (%.1f MB as base64)", os.path.basename(mp4_path),
              len(b64) / 1024 / 1024)
     # r62: stage the drop-meta BEFORE the upload. Run #229 proved the r37
