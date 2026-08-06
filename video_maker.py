@@ -5125,6 +5125,21 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
     receipts = receipts or {}
     person_map = person_map or {}
     visual_map = visual_map or {}
+    # TIMELINE POOL HYGIENE (run #242): the visual pool carries harvested
+    # event/gallery thumbnails of UNVERIFIED provenance — for 131 that meant
+    # a commentary creator's ad-course TikTok thumbs, which rode beats as
+    # fallbacks whenever the beat's own artifact died (deleted TikToks).
+    # Under the timeline contract a fallback must still be TRUE: restrict the
+    # pool to identity-verified person photos (+ the cover) so a failed beat
+    # shows the story's people, never a stranger's thumbnail.
+    if _TIMELINE_MODE[0] and pool:
+        safe = [e for e in pool
+                if e.get("person") or bool(e.get("designed"))]
+        if len({e.get("path") for e in safe if e.get("path")}) >= 2:
+            log.info("TIMELINE POOL: %d/%d entries kept (person-verified + "
+                     "cover); unverified thumbnails excluded",
+                     len(safe), len(pool))
+            pool = safe
     # r42: size the variety rules to THIS story's pool before any picking.
     try:
         tune_variety_for_pool(
@@ -5330,6 +5345,10 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                 log.info("TIMELINE ARTIFACT: clip unavailable for beat %d "
                          "(%s); receipt fallback", si + 1,
                          "off-topic" if _tp else "fetch failed")
+                # truthful judge manifest (run #242): the artifact died
+                # upstream — stop DEMANDING it on this beat, or the judge
+                # fails the honest fallback for not being the dead clip
+                sh["clip_url"] = ""
 
         # r45 HOOK LAW (owner: "the video is about the slap — why not pull the
         # clip itself and put it in the hook, the hook is what keeps the watcher").
@@ -5763,6 +5782,10 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
             "event_id": int(sh.get("event_id") or 0),
             "is_clip_beat": bool(planned_here),
         })
+        # truthful judge manifest: record what this beat actually RESOLVED
+        # to (broll/receipt/photo) on the shared EDL dict — the judge's
+        # per-frame expectation follows reality, not the dead original plan
+        sh["resolved"] = typ if not textish else "receipt"
         prev_motion = motion
 
     # r46 SPEND THE POOL (owner, watching the scene plan: "fix the picker so it
@@ -7804,16 +7827,25 @@ def vision_judge(mp4_path, hook, title, total_s, edl=None):
         frames = [p for p, _t in framepairs]
 
         def _artifact_at(t):
-            """ARTIFACT LAW expectation for the shot under timestamp t."""
+            """ARTIFACT LAW expectation for the shot under timestamp t —
+            based on what the beat actually RESOLVED to (run #242: demanding
+            a dead upstream artifact failed every honest fallback)."""
             for s in (edl or []):
                 if s.get("start", 0) <= t < s.get("end", 0):
-                    if s.get("clip_url") or (s.get("shot_class") == "broll"):
+                    res = s.get("resolved")
+                    if res == "broll" or (res is None
+                                          and s.get("clip_url")):
                         return (" | EXPECTED ARTIFACT: REAL VIDEO FOOTAGE of "
                                 "this moment (a portrait photo here = "
                                 "artifact_miss)")
-                    if s.get("shot_class") == "receipt":
-                        return (" | EXPECTED ARTIFACT: the real post card / "
-                                "article screenshot for these words")
+                    if res == "receipt" or (res is None
+                                            and s.get("shot_class")
+                                            == "receipt"):
+                        return (" | EXPECTED ARTIFACT: a real post card or "
+                                "article screenshot from this story's "
+                                "coverage (a same-story article whose "
+                                "headline covers an ADJACENT fact is "
+                                "acceptable, NOT a miss)")
                     break
             return ""
 
