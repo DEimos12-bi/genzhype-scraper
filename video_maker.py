@@ -7841,7 +7841,10 @@ def vision_judge(mp4_path, hook, title, total_s, edl=None):
             text = text.strip("`").strip()
             if text.lower().startswith("json"):
                 text = text[4:].strip()
-        verdict = json.loads(text)
+        try:
+            verdict = json.loads(text)
+        except Exception:  # noqa: BLE001 — run #241: a tier returned JSON
+            verdict = json.loads(_json_slice(text))   # wrapped in prose
         if not isinstance(verdict, dict) or "pass" not in verdict:
             log.warning("judge returned unusable JSON; skipping judge")
             return None
