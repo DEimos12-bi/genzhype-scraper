@@ -1980,6 +1980,15 @@ def screenshot_articles(targets, page_id, topic_kw=None):
                             '[class*="related" i]', '[class*="recirc" i]',
                             '[class*="trending" i]', '[class*="outbrain" i]',
                             '[class*="taboola" i]', '[class*="widget" i]',
+                            // run #232: Variety shipped an "ALLOW ADS"
+                            // adblock-recovery begging box over the article
+                            // photo (judge was quota-skipped so it aired).
+                            // Kill consent/adblock/paywall furniture too —
+                            // the shell guard below protects the article.
+                            '[class*="adblock" i]', '[id*="adblock" i]',
+                            '[class*="ad-block" i]', '[class*="allow-ads" i]',
+                            '[class*="consent" i]', '[id*="consent" i]',
+                            '[class*="paywall" i]', '[class*="regwall" i]',
                             '[aria-label*="advertisement" i]',
                             'aside',
                             'a[href*="shop" i]', 'a[href*="/store" i]',
@@ -6165,13 +6174,60 @@ def contain_scene_clip(image_path, start, end, xfade=None, card=False):
     canvas.paste(fg, ((canvas_w - fg.width) // 2, fg_y))
     pil.close()
 
-    base = ImageClip(grade_frame(np.array(canvas))).with_duration(dur)
-
     # r25 motion-lite: cards were nearly frozen (2% drift, no zoom) — the owner
     # paused on exactly these and saw dead frames. Give them a gentle push-in
     # (still fully readable — the whole card stays in frame, just grows) plus a
     # slow horizontal drift. Centered while zooming so no bars/edges show.
     cw, ch = float(canvas_w), float(H)
+
+    # TREATMENT V2: TWO-LAYER card parallax — the panel travels the full
+    # drift+zoom while the blurred backdrop travels ~35% of it at half the
+    # zoom, so the card visibly floats IN FRONT of its background (the 2.5D
+    # separation cue) with ZERO warping of the text pixels (warping text =
+    # cut-letter risk, and screenshots are depth-flat anyway so the depth
+    # model would add nothing). Panel geometry replicates the flat path's
+    # canvas transform exactly, so every r30/r31 containment law holds.
+    # Any failure -> the flat single-canvas path below, unchanged.
+    if DEPTH_PARALLAX:
+        try:
+            bg_clip = ImageClip(grade_frame(np.array(bg))).with_duration(dur)
+            fg_clip = ImageClip(grade_frame(np.array(fg))).with_duration(dur)
+            cx_p = (canvas_w - fg.width) / 2.0
+            fy_p = float(fg_y)
+
+            def _bpos(t, d=dur, px=float(drift)):
+                sb = 1.0 + CARD_ZOOM * 0.5 * (t / d)
+                return ((W - cw * sb) / 2.0 + 0.35 * px * (0.5 - t / d),
+                        (H - ch * sb) / 2.0)
+
+            def _bscale(t, d=dur):
+                return 1.0 + CARD_ZOOM * 0.5 * (t / d)
+
+            def _fpos(t, d=dur, px=float(drift)):
+                s = 1.0 + CARD_ZOOM * (t / d)
+                return ((W - cw * s) / 2.0 + px * (0.5 - t / d) + cx_p * s,
+                        (H - ch * s) / 2.0 + fy_p * s)
+
+            def _fscale(t, d=dur):
+                return 1.0 + CARD_ZOOM * (t / d)
+
+            pil.close()
+            clip = CompositeVideoClip(
+                [bg_clip.resized(_bscale).with_position(_bpos),
+                 fg_clip.resized(_fscale).with_position(_fpos)],
+                size=(W, H)).with_duration(dur)
+            clip = clip.with_start(start)
+            if xfade > 0 and start > 0:
+                try:
+                    clip = clip.with_effects(
+                        [vfx.CrossFadeIn(min(xfade, dur / 2))])
+                except Exception as exc:  # noqa: BLE001
+                    log.warning("crossfade unavailable (%s); hard cut", exc)
+            return clip
+        except Exception as exc:  # noqa: BLE001
+            log.warning("card parallax failed (%s); flat card path", exc)
+
+    base = ImageClip(grade_frame(np.array(canvas))).with_duration(dur)
 
     def _cscale(t, d=dur):
         return 1.0 + CARD_ZOOM * (t / d)
@@ -6381,15 +6437,53 @@ def hook_clip(text, start, end, font_path):
                   "size": (min(W, tw + 2 * pad), th + 2 * pad)}
     else:                      # measurement unavailable -> exact old behaviour
         kwargs = {"method": "label"}
+    dur = max(end - start, 0.05)
+    base_y = H * 0.34
+
+    # TREATMENT V2 kinetic hook: multi-line hooks build LINE BY LINE — each
+    # line lands 100ms after the previous with its own slide-up + fade (the
+    # staggered title-card entrance every produced short uses). Single-line
+    # hooks and any failure keep the exact pre-v2 single-clip path below.
+    lines = [ln for ln in render_text.split("\n") if ln.strip()]
+    if DEPTH_PARALLAX and len(lines) > 1 and dur > 0.6:
+        try:
+            clips = []
+            y_cursor = base_y
+            for i, ln in enumerate(lines):
+                lw, lh = _text_block_size(ln, font_path, HOOK_FONT, stroke)
+                pad = stroke * 2 + 8
+                ltc = TextClip(
+                    text=ln, font=font_path, font_size=HOOK_FONT,
+                    color="#FFFFFF", stroke_color="#000000",
+                    stroke_width=stroke, text_align="center",
+                    method="caption",
+                    size=(min(W, lw + 2 * pad), lh + 2 * pad))
+                appear = start + min(i * 0.10, dur * 0.3)
+                ltc = ltc.with_start(appear).with_end(start + dur)
+                lx = (W - ltc.w) / 2.0
+                ly = y_cursor
+
+                def _lpos(t, lx=lx, ly=ly):
+                    dy = -26.0 * max(0.0, 1.0 - (t / 0.18))
+                    return (lx, ly + dy)
+
+                ltc = ltc.with_position(_lpos)
+                fade = min(0.10, dur / 2.0)
+                if fade > 0:
+                    ltc = ltc.with_effects([vfx.CrossFadeIn(fade)])
+                clips.append(ltc)
+                y_cursor += lh + 2 * pad - stroke   # stack, stroke overlap
+            return clips
+        except Exception as exc:  # noqa: BLE001
+            log.warning("kinetic hook failed (%s); single-clip hook", exc)
+
     tc = TextClip(
         text=render_text, font=font_path, font_size=HOOK_FONT, color="#FFFFFF",
         stroke_color="#000000", stroke_width=stroke,
         text_align="center", **kwargs
     )
-    dur = max(end - start, 0.05)
     tc = tc.with_start(start).with_end(start + dur)
     x_center = (W - tc.w) / 2.0
-    base_y = H * 0.34
 
     def _pos(t):
         dy = -20.0 * max(0.0, 1.0 - (t / 0.14))   # slide up over first 0.14s
@@ -6418,10 +6512,13 @@ def _chunk_words(beat_words):
     return chunks
 
 
-def render_chunk_frame(words, hot_idx, font_path):
+def render_chunk_frame(words, hot_idx, font_path, hot_boost=1.0):
     """Render one caption state as an RGBA array: the whole 2-3 word chunk on
     one line, every word white with a black stroke EXCEPT the currently spoken
-    word which is slightly larger and in the brand accent. Baselines aligned."""
+    word which is slightly larger and in the brand accent. Baselines aligned.
+    TREATMENT V2 hot_boost: extra multiplier on the hot word only — the
+    kinetic pop-in renders a brief overshoot state (boost>1) that settles to
+    the normal state, so the spoken word lands with a punch."""
     from PIL import ImageDraw, ImageFont
 
     words = [w.upper() for w in words]
@@ -6433,7 +6530,8 @@ def render_chunk_frame(words, hot_idx, font_path):
     for _ in range(4):
         sizes = [
             max(20, int(round(CHUNK_FONT * scale
-                              * (HOT_SCALE if i == hot_idx else 1.0))))
+                              * (HOT_SCALE * hot_boost if i == hot_idx
+                                 else 1.0))))
             for i in range(len(words))
         ]
         fonts = [ImageFont.truetype(font_path, s) for s in sizes]
@@ -6488,22 +6586,34 @@ def chunk_caption_clips(beats, hook_end, duration, font_path, card_windows=None)
             st = ws
             en = chunk[k + 1][1] if k + 1 < len(chunk) else chunk_end
             en = max(en, st + 0.05)
-            try:
-                arr = render_chunk_frame(chunk_words, k, font_path)
-            except Exception as exc:  # noqa: BLE001
-                log.warning("caption render failed (%s); skipped state", exc)
-                continue
             mid = (st + en) / 2.0
             y_center = CAPTION_CENTER_Y
             for cw_s, cw_e in (card_windows or []):
                 if cw_s <= mid < cw_e:      # v9: this word plays over a card
                     y_center = CARD_CAPTION_Y
                     break
-            ic = ImageClip(arr, transparent=True)
-            ic = ic.with_start(st).with_end(en).with_position(
-                ((W - arr.shape[1]) / 2.0,
-                 y_center - arr.shape[0] / 2.0))
-            clips.append(ic)
+            # TREATMENT V2 kinetic pop: the spoken word lands as a brief
+            # OVERSHOOT state (hot word at 1.22x its accent size for the
+            # first 90ms) then settles to the normal accent state — the
+            # word-by-word "punch" every produced short uses. States too
+            # short to carry both keep the single-state (pre-v2) render.
+            states = [(st, en, 1.0)]
+            if DEPTH_PARALLAX and (en - st) >= 0.18:
+                pop_end = min(st + 0.09, mid)
+                states = [(st, pop_end, 1.22), (pop_end, en, 1.0)]
+            for s_st, s_en, boost in states:
+                try:
+                    arr = render_chunk_frame(chunk_words, k, font_path,
+                                             hot_boost=boost)
+                except Exception as exc:  # noqa: BLE001
+                    log.warning("caption render failed (%s); skipped state",
+                                exc)
+                    continue
+                ic = ImageClip(arr, transparent=True)
+                ic = ic.with_start(s_st).with_end(s_en).with_position(
+                    ((W - arr.shape[1]) / 2.0,
+                     y_center - arr.shape[0] / 2.0))
+                clips.append(ic)
     return clips
 
 
@@ -7142,7 +7252,8 @@ def compose_video(pool, broll_terms, mp3_path, hook, script, word_timings,
 
     hc = hook_clip(hook.upper(), 0.0, hook_end, font_path)
     if hc is not None:
-        layers.append(hc)
+        # treatment v2: the kinetic hook returns one clip PER LINE
+        layers.extend(hc if isinstance(hc, list) else [hc])
 
     # --- word-pop chunk captions after the hook ---
     # v9: on card scenes the captions drop below the card (never on its text)
