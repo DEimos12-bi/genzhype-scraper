@@ -1998,6 +1998,13 @@ def screenshot_articles(targets, page_id, topic_kw=None):
                             '[class*="admiral" i]', '[id*="admiral" i]',
                             '[data-admiral]', 'admiral-engagement',
                             '[class*="transparent-window" i]',
+                            // run #244: an article-embedded TikTok's poster
+                            // (a commentary creator's promo frame) rode the
+                            // screenshot crop as if it were the article's
+                            // lead image — kill social embeds pre-shot
+                            'blockquote.tiktok-embed', '[class*="tiktok-embed" i]',
+                            'blockquote.twitter-tweet', '.instagram-media',
+                            '[class*="social-embed" i]', '[class*="embed-container" i]',
                             '[aria-label*="advertisement" i]',
                             'aside',
                             'a[href*="shop" i]', 'a[href*="/store" i]',
@@ -5430,14 +5437,18 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                 # swallowed the receipt-typing below -> type=None crash, run #92)
                 evidence_scene_uses[path] = evidence_scene_uses.get(path, 0) + 1
             if path and r_photo and _TIMELINE_MODE[0]:
-                # run #240: a marketing-blog source's og:image was a course
-                # promo slide — under the timeline contract an og photo must
-                # PROVE its beat, so it faces the strict relevance gate
-                # (fail-closed) before it may ride a receipt shot.
-                if not still_is_relevant(path, title, strict=True):
-                    log.info("receipt %s og photo REFUSED by relevance gate; "
-                             "subject fallback", sh.get("receipt_i"))
-                    path = None
+                # run #244 (supersedes the run-#240 relevance gate, which a
+                # commentary creator's promo PASSED — commentary IS
+                # "related"): og social-cards are the weakest evidence class
+                # (the article's marketing thumbnail, often a promo
+                # composite). Under the timeline contract they no longer
+                # ride receipts at all — the beat falls to the verified
+                # person photo instead. og images still serve the carousel,
+                # where each faces a per-sentence DEPICTION gate.
+                log.info("receipt %s og social-card excluded under timeline "
+                         "contract; person-photo fallback",
+                         sh.get("receipt_i"))
+                path = None
             if path and r_photo:
                 # r17: the article's real og:image — it IS the moment's
                 # photo, so it renders as a NORMAL photo scene (cover-crop,
