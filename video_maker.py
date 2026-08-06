@@ -4813,6 +4813,13 @@ def build_edl(shotlist, script, timings, total):
                 # v5: the exact spoken phrase under this shot — the vision
                 # re-rank judges stock candidates against THESE words.
                 "phrase": " ".join(tokens[w_in:w_out + 1]),
+                # TIMELINE CONTRACT (2026-08-06): deterministic beat fields
+                # from the timeline generator — "date" renders as the beat's
+                # date chip; "clip_url" is the beat's OWN platform clip
+                # (1 event = 1 artifact = 1 sentence; a data join, never a
+                # Director guess).
+                "date": str(s.get("date") or "").strip(),
+                "clip_url": str(s.get("clip_url") or "").strip(),
             })
         if not shots:
             return None
@@ -5145,6 +5152,29 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                                        # before the opportunistic upgrade block
         gapfill = False                # r25: this scene came from GAP-FILL
         sfx, emph_t = sh["sfx"], sh["emph_t"]
+
+        # TIMELINE CONTRACT (format pivot 2026-08-06): a shot carrying
+        # "clip_url" is a deterministic artifact ORDER — the timeline script
+        # generator bound this beat to its OWN event's platform clip
+        # (1 dated event = 1 artifact = 1 sentence; placement is a data
+        # join, not a Director guess — the owner's "clip at the wrong
+        # place" class of failure is impossible by construction). Fetch
+        # failure falls through to the beat's receipt/photo like any shot.
+        t_curl = str(sh.get("clip_url") or "").strip()
+        if t_curl:
+            _tp = fetch_platform_clip(t_curl)
+            if _tp and footage_is_relevant(_tp, title):
+                path, typ, textish = _tp, "broll", False
+                motion, footage = "punch_build", True
+                planned_here = True
+                foot_n += 1
+                foot_s += need_s
+                log.info("TIMELINE ARTIFACT: beat %d plays its own clip %s",
+                         si + 1, os.path.basename(_tp))
+            else:
+                log.info("TIMELINE ARTIFACT: clip unavailable for beat %d "
+                         "(%s); receipt fallback", si + 1,
+                         "off-topic" if _tp else "fetch failed")
 
         # r45 HOOK LAW (owner: "the video is about the slap — why not pull the
         # clip itself and put it in the hook, the hook is what keeps the watcher").
@@ -5559,6 +5589,7 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
             "sfx": sfx, "music": sh["music"], "emph_t": emph_t,
             "footage": footage, "gapfill": gapfill, "frozen": hold_capped,
             "src_off": FOOTAGE_SUB_OFF_S if footage else None,
+            "date": str(sh.get("date") or ""),   # timeline beat's date chip
         })
         prev_motion = motion
 
@@ -6418,6 +6449,53 @@ def _text_block_size(text, font_path, size, stroke, align="center"):
         return 0, 0
 
 
+def date_chip_clip(date_label, start, end, font_path):
+    """TIMELINE CONTRACT date chip: a small rounded badge ("JUN 25") that
+    slides in from the left at its beat's start and holds — the visual
+    grammar of the timeline format (every receipt is date-stamped on
+    screen). PIL-only, top-left inside the phone-safe zone, below the UI
+    band and above the card band. None on any failure — never fatal."""
+    try:
+        from moviepy import ImageClip, vfx
+        from PIL import ImageDraw, ImageFont
+
+        label = str(date_label).strip().upper()
+        if not label:
+            return None
+        size = 46
+        font = ImageFont.truetype(font_path, size)
+        measurer = ImageDraw.Draw(Image.new("RGB", (8, 8)))
+        tw = int(measurer.textlength(label, font=font))
+        pad_x, pad_y, bar = 26, 14, 8
+        w = tw + pad_x * 2 + bar
+        h = size + pad_y * 2
+        img = Image.new("RGBA", (w + 8, h + 8), (0, 0, 0, 0))
+        d = ImageDraw.Draw(img)
+        d.rounded_rectangle([4, 4, w + 4, h + 4], radius=12,
+                            fill=(12, 12, 14, 230))
+        d.rectangle([4, 4, 4 + bar, h + 4], fill=ACCENT)   # accent spine
+        d.text((4 + bar + pad_x, 4 + pad_y - 4), label, font=font,
+               fill="#FFFFFF")
+        arr = np.array(img)
+
+        ic = ImageClip(arr, transparent=True).with_start(start).with_end(end)
+        y = 250.0                              # under the top-UI safe band
+
+        def _pos(t, w=w, y=y):
+            k = 1.0 - (1.0 - min(1.0, t / 0.25)) ** 3   # ease-out cubic
+            return (40 - (w + 52) * (1.0 - k), y)       # slide -w -> x=40
+
+        ic = ic.with_position(_pos)
+        try:
+            ic = ic.with_effects([vfx.CrossFadeIn(0.12)])
+        except Exception:  # noqa: BLE001
+            pass
+        return ic
+    except Exception as exc:  # noqa: BLE001
+        log.warning("date chip failed (%s); no chip", exc)
+        return None
+
+
 def hook_clip(text, start, end, font_path):
     """The oversized HOOK card over the first ~2s (kept from v1): TextClip with
     pre-wrapped text, slide-up + CrossFadeIn."""
@@ -7240,6 +7318,15 @@ def compose_video(pool, broll_terms, mp3_path, hook, script, word_timings,
                                   xfade=xfade, face=face_box)
             layers.append(clip)
             scene_clips.append(clip)
+
+    # TIMELINE CONTRACT: date chips — one per dated beat, sliding in at the
+    # beat's start. Above the scene image, below vignette/hook/captions.
+    for sc in scenes:
+        if sc.get("date"):
+            chip = date_chip_clip(sc["date"], sc["start"], sc["end"],
+                                  font_path)
+            if chip is not None:
+                layers.append(chip)
 
     # --- r12 produced energy: whoosh-boundary transitions + the pattern
     # interrupt overlay. Both sit BELOW vignette/scrim/hook/captions so the
