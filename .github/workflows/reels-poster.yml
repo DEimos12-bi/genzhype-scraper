@@ -1,0 +1,61 @@
+name: GenZHype Reels poster
+
+# VIDEO POSTING (2026-08-06 posting study): posts judged READY videos to
+# Instagram Reels + the Facebook Page, one per platform per run, from the
+# site's read-only queue (api/video_social_next.php). Tokens come from the
+# server vault at runtime (repo is public — only INGEST_TOKEN lives in
+# GitHub secrets). Vault keys: 'ig' (Instagram-Login token, self-refreshing)
+# and 'fb_page' (never-expiring Page token). Runs 2x daily; each run posts
+# at most 1 video per platform (caps: IG 50-100/day, FB 30/day — untouched).
+# DORMANT until the vault carries fresh tokens (the old Meta app was deleted
+# — poster logs "no credentials; skipped" harmlessly until then).
+
+on:
+  schedule:
+    - cron: '25 13,19 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: reels-poster
+  cancel-in-progress: false
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Fetch tokens from our server vault
+        env:
+          INGEST_TOKEN: ${{ secrets.INGEST_TOKEN }}
+        run: |
+          CREDS=$(curl -s -X POST -H "Content-Type: application/json" \
+            -d "{\"token\":\"$INGEST_TOKEN\",\"want\":[\"ig\",\"fb_page\"]}" \
+            https://genzhype.com/api/creds.php)
+          IG=$(echo "$CREDS" | python3 -c "import sys,json;print(json.load(sys.stdin)['creds'].get('ig',''),end='')")
+          FB=$(echo "$CREDS" | python3 -c "import sys,json;print(json.load(sys.stdin)['creds'].get('fb_page',''),end='')")
+          echo "::add-mask::$IG"
+          echo "::add-mask::$FB"
+          echo "IG_ACCESS_TOKEN=$IG" >> "$GITHUB_ENV"
+          echo "FB_PAGE_TOKEN=$FB" >> "$GITHUB_ENV"
+      - name: Post videos
+        env:
+          SOCIAL_BASE: 'https://genzhype.com'
+          INGEST_TOKEN: ${{ secrets.INGEST_TOKEN }}
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          FB_PAGE_ID: ${{ secrets.FB_PAGE_ID }}
+        run: python reels_poster.py
+      - name: Save poster state
+        run: |
+          git config user.name "genzhype-bot"
+          git config user.email "bot@genzhype.com"
+          git add .social 2>/dev/null || true
+          git commit -m "reels poster state" 2>/dev/null || echo "no state change"
+          git pull --rebase -q origin main || true
+          git push 2>/dev/null || echo "nothing to push"
