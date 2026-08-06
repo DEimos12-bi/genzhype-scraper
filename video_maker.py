@@ -1989,6 +1989,15 @@ def screenshot_articles(targets, page_id, topic_kw=None):
                             '[class*="ad-block" i]', '[class*="allow-ads" i]',
                             '[class*="consent" i]', '[id*="consent" i]',
                             '[class*="paywall" i]', '[class*="regwall" i]',
+                            // run #233 (510): "AOL Ads keep us running" box
+                            // by the Admiral adblock-recovery vendor rode
+                            // OVER the article photo — its markup carries
+                            // none of the generic words above. Admiral
+                            // mounts as a transparent-window engagement
+                            // element; kill by vendor marks.
+                            '[class*="admiral" i]', '[id*="admiral" i]',
+                            '[data-admiral]', 'admiral-engagement',
+                            '[class*="transparent-window" i]',
                             '[aria-label*="advertisement" i]',
                             'aside',
                             'a[href*="shop" i]', 'a[href*="/store" i]',
