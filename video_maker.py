@@ -5727,6 +5727,9 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
             "footage": footage, "gapfill": gapfill, "frozen": hold_capped,
             "src_off": FOOTAGE_SUB_OFF_S if footage else None,
             "date": str(sh.get("date") or ""),   # timeline beat's date chip
+            # freeze-frame edit: timeline clip beats longer than ~4s play
+            # 2.5s of real motion then hold the frame under the narration
+            "freeze_after": 2.5 if (planned_here and need_s > 4.0) else None,
         })
         prev_motion = motion
 
@@ -6427,7 +6430,7 @@ def contain_scene_clip(image_path, start, end, xfade=None, card=False):
 
 
 def broll_scene_clip(video_path, start, end, motion=None, emph_rel=None,
-                     xfade=None, t_off=None):
+                     xfade=None, t_off=None, freeze_after=None):
     """One full-frame B-ROLL scene — trim to the beat length, cover-crop to
     1080x1920 (MoviePy 2.x .subclipped/.resized/.cropped), darken slightly so
     the captions pop over busy footage. v4: the house grade runs per-frame
@@ -6472,6 +6475,30 @@ def broll_scene_clip(video_path, start, end, motion=None, emph_rel=None,
         clip = clip.image_transform(grade_frame)      # v4 house grade
     except Exception as exc:  # noqa: BLE001
         log.warning("broll grade unavailable (%s)", exc)
+
+    # FREEZE-FRAME EDIT (owner-directed, 2026-08-06): the clip PLAYS its
+    # moment (~2.5s of real motion), then FREEZES on that frame while the
+    # narration keeps talking over the held still — the editor move he
+    # described ("small clip from the tiktok, then stop and continue").
+    # The frozen frame gets a slow push so it never reads as a dead frame.
+    # Any failure keeps the plain full-length clip.
+    if freeze_after and dur > float(freeze_after) + 1.0:
+        try:
+            from moviepy import ImageClip as _FreezeIC
+            fz = float(freeze_after)
+            live = clip.subclipped(0, fz)
+            frame = clip.get_frame(max(0.0, fz - 0.04))
+            hold = dur - fz
+            frozen = (_FreezeIC(frame).with_duration(hold)
+                      .with_start(fz)
+                      .resized(lambda t, h=hold: 1.0 + 0.05 * (t / h))
+                      .with_position("center"))
+            clip = CompositeVideoClip([live, frozen],
+                                      size=(W, H)).with_duration(dur)
+            log.info("FREEZE FRAME: clip plays %.1fs then holds %.1fs", fz,
+                     hold)
+        except Exception as exc:  # noqa: BLE001
+            log.warning("freeze-frame unavailable (%s); full clip", exc)
 
     if motion in ("punch_hit", "punch_build", "zoom_out", "pan_left",
                   "pan_right"):
@@ -7429,7 +7456,8 @@ def compose_video(pool, broll_terms, mp3_path, hook, script, word_timings,
                 sc["path"], sc["start"], sc["end"],
                 motion=sc["motion"] if v4_mode else None,
                 emph_rel=sc.get("emph_rel"), xfade=xfade,
-                t_off=sc.get("src_off"))   # r13: footage starts 2s in
+                t_off=sc.get("src_off"),   # r13: footage starts 2s in
+                freeze_after=sc.get("freeze_after"))
             open_sources.append(src)     # must stay open until after encode
             layers.append(clip)
             scene_clips.append(clip)
@@ -7624,15 +7652,17 @@ g. AD-CLUTTERED PROOF: a proof/screenshot/article frame cluttered with website a
 
 SAID-VS-SEEN CHECK (r16 closed loop) — each frame below is paired with the exact narration WORDS being spoken at that moment. For every frame whose words are non-empty, judge: do the visuals BELONG to these exact words? A named person -> that person (or their post/evidence) must be on screen; a described event (the arrest, the courtroom, the party, the post) -> its image or screenshot; generic filler imagery shown during a specific fact = MISMATCH. Frames with empty words (pre-hook, tail padding) are exempt. Only flag CLEAR mismatches — a plausible related visual (the story's cover photo, the person's other photo, a receipt card of that fact) is fine.
 
-FRAME WORDS (frame number: the words spoken during that frame):
+ARTIFACT LAW (the hardest rule — judge like a human editor who researched this story): some frames below carry an EXPECTED ARTIFACT — the pipeline verified that the real artifact for that moment EXISTS and ordered it on screen. When the expectation says REAL VIDEO FOOTAGE, the frame must visibly be a frame OF THAT VIDEO (a real captured moment: interface, motion, environment) — a posed portrait or press photo of the person during that beat is an AUTOMATIC artifact_miss, even though it is the right person. The moment matters, not the face. When the expectation says a post/screenshot artifact, the actual post card or article capture must be the dominant visual. ONE artifact_miss fails the whole video.
+
+FRAME WORDS (frame number: words spoken during that frame, plus the expected artifact when one exists):
 {pairs}
 
 Acceptable and NEVER a fail: minor blur, film grain, compression artifacts, darkened or blurred backgrounds, one intentional motion-blur transition frame, the styled captions themselves.
 Judge ONLY the checklist above. Be strict: one weird frame fails the whole video; two or more clear said-vs-seen mismatches also fail it.
 
 Respond with ONLY this JSON object, no markdown fences, no extra text:
-{{"pass": true, "weird": [], "mismatches": [], "issues": [], "scores": {{"readability": 0, "framing": 0, "variety": 0, "edit_variety": 0}}}}
-where pass is true/false (false whenever weird is non-empty OR mismatches has 2+ entries); weird is a list of {{"frame": <1-based frame number>, "issue": "<which checklist letter + short description>"}} covering EVERY checklist hit; mismatches is a list of {{"frame": <1-based frame number>, "words": "<the paired words>", "what_shown": "<short description of what the frame actually shows>"}} covering every CLEAR said-vs-seen mismatch (empty when none); issues is a list of short overall problem descriptions (empty when passing); each score is an integer 0-10."""
+{{"pass": true, "weird": [], "mismatches": [], "artifact_misses": [], "issues": [], "scores": {{"readability": 0, "framing": 0, "variety": 0, "edit_variety": 0, "completeness": 0}}}}
+where pass is true/false (false whenever weird is non-empty OR mismatches has 2+ entries OR artifact_misses has ANY entry); weird is a list of {{"frame": <1-based frame number>, "issue": "<which checklist letter + short description>"}} covering EVERY checklist hit; mismatches is a list of {{"frame": <1-based frame number>, "words": "<the paired words>", "what_shown": "<short description of what the frame actually shows>"}} covering every CLEAR said-vs-seen mismatch (empty when none); artifact_misses is the same shape for every ARTIFACT LAW violation (an expected real artifact replaced by a mere portrait/filler); issues is a list of short overall problem descriptions (empty when passing); each score is an integer 0-10 (completeness = does the video SHOW the story's moments rather than talk over faces)."""
 
 
 def _scene_midpoints(edl, total_s, cap=None):
@@ -7712,8 +7742,23 @@ def vision_judge(mp4_path, hook, title, total_s, edl=None):
                         len(framepairs))
             return None
         frames = [p for p, _t in framepairs]
+
+        def _artifact_at(t):
+            """ARTIFACT LAW expectation for the shot under timestamp t."""
+            for s in (edl or []):
+                if s.get("start", 0) <= t < s.get("end", 0):
+                    if s.get("clip_url") or (s.get("shot_class") == "broll"):
+                        return (" | EXPECTED ARTIFACT: REAL VIDEO FOOTAGE of "
+                                "this moment (a portrait photo here = "
+                                "artifact_miss)")
+                    if s.get("shot_class") == "receipt":
+                        return (" | EXPECTED ARTIFACT: the real post card / "
+                                "article screenshot for these words")
+                    break
+            return ""
+
         pairs_txt = "\n".join(
-            f'frame {i + 1}: "{_phrase_at(edl, t)[:160]}"'
+            f'frame {i + 1}: "{_phrase_at(edl, t)[:160]}"{_artifact_at(t)}'
             for i, (_p, t) in enumerate(framepairs))
         prompt = _JUDGE_PROMPT.format(
             n=len(frames), hook=(hook or title or "").replace('"', "'")[:200],
@@ -7748,9 +7793,20 @@ def vision_judge(mp4_path, hook, title, total_s, edl=None):
         verdict["mismatches"] = mm
         if len(mm) >= 2 and verdict.get("pass") is True:
             verdict["pass"] = False
-        log.info("vision judge: pass=%s weird=%s mismatches=%s scores=%s "
-                 "issues=%s", verdict.get("pass"), verdict.get("weird"),
-                 mm, verdict.get("scores"), verdict.get("issues"))
+        # ARTIFACT LAW (2026-08-06, owner: "showing only their img at that
+        # moment is not enough — the moment is what matters"): ONE verified
+        # artifact replaced by a portrait/filler fails the video, enforced
+        # deterministically regardless of the model's pass field.
+        am = verdict.get("artifact_misses")
+        am = [m for m in am if isinstance(m, dict)] if isinstance(am, list) \
+            else []
+        verdict["artifact_misses"] = am
+        if am and verdict.get("pass") is True:
+            verdict["pass"] = False
+        log.info("vision judge: pass=%s weird=%s mismatches=%s "
+                 "artifact_misses=%s scores=%s issues=%s",
+                 verdict.get("pass"), verdict.get("weird"), mm, am,
+                 verdict.get("scores"), verdict.get("issues"))
         return verdict
     except Exception as exc:  # noqa: BLE001
         log.warning("vision judge unavailable (%s); delivering unjudged", exc)
