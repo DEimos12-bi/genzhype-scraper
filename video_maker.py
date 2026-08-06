@@ -2774,17 +2774,24 @@ def _gemini_to_openai_content(body):
     return out
 
 
-def vision_post(body, timeout=60, tag="vision"):
+def vision_post(body, timeout=60, tag="vision", strong_first=False):
     """POST a Gemini-shaped vision request through the free-tier rotation.
     Returns the response TEXT (think-stripped; JSON isolated when the call
     asked for JSON) or None when every tier is down. Logs the serving tier
     whenever it is not the primary, so quota drift is visible in render
-    logs."""
+    logs.
+    strong_first (run #240 lesson): GATE calls that decide what reaches the
+    screen use the best rubric-follower FIRST — gemma-31b passed promo-slide
+    'screenshots' as clean that flash-lite's judge then rejected. Flash-Lite
+    has 500 RPD; gates cost ~10/render, easily afforded."""
     wants_json = "response_mime_type" in (body.get("generationConfig") or {})
     n_imgs = sum(1 for p in (body.get("contents") or [{}])[0].get("parts", [])
                  if "inline_data" in p)
+    order = (GEMINI_MODEL, "gemma-4-31b-it", "gemini-3.5-flash-lite")
+    if strong_first:
+        order = ("gemini-3.5-flash-lite", GEMINI_MODEL, "gemma-4-31b-it")
     if GEMINI_API_KEY:
-        for model in (GEMINI_MODEL, "gemma-4-31b-it", "gemini-3.5-flash-lite"):
+        for model in order:
             b = body
             if model.startswith("gemma") and wants_json:
                 # Gemma rejects response_mime_type — JSON via prompt + slice
@@ -2902,7 +2909,8 @@ def still_is_relevant(path, topic, strict=False):
                         "data": base64.b64encode(buf.getvalue()).decode("ascii")}}]}],
                 "generationConfig": {"temperature": 0.0,
                     "response_mime_type": "application/json"}}
-        txt = vision_post(body, timeout=40, tag="still-relevance")
+        txt = vision_post(body, timeout=40, tag="still-relevance",
+                          strong_first=True)
         if txt:
             if txt.startswith("```"):
                 txt = txt.strip("`").strip()
@@ -3710,6 +3718,13 @@ def screenshot_is_clean(png_path):
             "an advertisement, a merch / shop / store / 'buy our t-shirt' or "
             "product box, a cookie / newsletter / subscribe banner, or unrelated "
             "page furniture (nav menus, related-story grids, comment widgets). "
+            "ALSO clean=false when the frame is dominated by promotional or "
+            "marketing content of ANY kind — a course ad ('free course', "
+            "'sign up'), a product promo slide, a giveaway graphic, an "
+            "email-capture form — or by a cookie-consent / legal-terms dialog "
+            "or its dimmed gray backdrop. ALSO clean=false if you cannot see "
+            "an actual news headline or article body text anywhere in the "
+            "frame (a proof shot must PROVE something). "
             "A small logo or a thin byline is fine. "
             'Respond ONLY JSON: {"clean": true|false}.')
         body = {"contents": [{"parts": [
@@ -3718,7 +3733,8 @@ def screenshot_is_clean(png_path):
                         "data": base64.b64encode(buf.getvalue()).decode("ascii")}}]}],
                 "generationConfig": {"temperature": 0.0,
                     "response_mime_type": "application/json"}}
-        txt = vision_post(body, timeout=40, tag="screenshot-clean")
+        txt = vision_post(body, timeout=40, tag="screenshot-clean",
+                          strong_first=True)
         if txt:
             if txt.startswith("```"):
                 txt = txt.strip("`").strip()
@@ -5394,6 +5410,15 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                 # r21 fix: count WITHOUT consuming the branch (the elif version
                 # swallowed the receipt-typing below -> type=None crash, run #92)
                 evidence_scene_uses[path] = evidence_scene_uses.get(path, 0) + 1
+            if path and r_photo and _TIMELINE_MODE[0]:
+                # run #240: a marketing-blog source's og:image was a course
+                # promo slide — under the timeline contract an og photo must
+                # PROVE its beat, so it faces the strict relevance gate
+                # (fail-closed) before it may ride a receipt shot.
+                if not still_is_relevant(path, title, strict=True):
+                    log.info("receipt %s og photo REFUSED by relevance gate; "
+                             "subject fallback", sh.get("receipt_i"))
+                    path = None
             if path and r_photo:
                 # r17: the article's real og:image — it IS the moment's
                 # photo, so it renders as a NORMAL photo scene (cover-crop,
