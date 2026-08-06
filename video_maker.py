@@ -7864,7 +7864,7 @@ def vision_judge(mp4_path, hook, title, total_s, edl=None):
         body = {"contents": [{"parts": parts}],
                 "generationConfig": {"temperature": 0.0,
                                      "response_mime_type": "application/json"}}
-        text = vision_post(body, timeout=90, tag="JUDGE")
+        text = vision_post(body, timeout=90, tag="JUDGE", strong_first=True)
         if not text:
             log.warning("judge unavailable on ALL rotation tiers; "
                         "delivering unjudged")
@@ -8332,6 +8332,38 @@ def make_one(post, font_path):
                              and (shotlist.get("meta") or {}).get("timeline"))
     if _TIMELINE_MODE[0]:
         log.info("TIMELINE MODE: deterministic beats, clip opportunism OFF")
+        # run #243 ROOT CAUSE: per-person "recent video" thumbnails come from
+        # UNVERIFIED channel guesses — 131's "Alex Cooper" channel was an
+        # ads-course creator, "Alix Earle" a product reviewer, and those
+        # strangers' faces rode beats wearing verified name tags. Under the
+        # timeline contract only identity-verified imagery may ride: strip
+        # every i.ytimg.com thumbnail from the job at this single choke
+        # point, before any pool / person map / visual map is built.
+        try:
+            stripped = 0
+            for pe in (post.get("people") or []):
+                if isinstance(pe, dict):
+                    if "i.ytimg.com" in str(pe.get("photo") or ""):
+                        pe["photo"] = None
+                        stripped += 1
+                    old_n = len(pe.get("photos") or [])
+                    pe["photos"] = [u for u in (pe.get("photos") or [])
+                                    if "i.ytimg.com" not in str(u)]
+                    stripped += old_n - len(pe["photos"])
+            vis = post.get("visuals") or []
+            vt = post.get("visual_titles") or []
+            keep = [(v, (vt[i] if i < len(vt) else ""))
+                    for i, v in enumerate(vis)
+                    if "i.ytimg.com" not in str(v)]
+            if len(keep) < len(vis):
+                stripped += len(vis) - len(keep)
+                post["visuals"] = [kv[0] for kv in keep]
+                post["visual_titles"] = [kv[1] for kv in keep]
+            if stripped:
+                log.info("TIMELINE: %d unverified channel thumbnail(s) "
+                         "stripped from the job", stripped)
+        except Exception as exc:  # noqa: BLE001
+            log.warning("timeline thumbnail strip failed (%s)", exc)
 
     # v6: resolve the shotlist's visual_i references (real story images)
     visual_map = build_visual_map(post, page_id, pool, shotlist)
