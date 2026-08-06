@@ -101,6 +101,13 @@ jobs:
       # TREATMENT V2: 2.5D depth parallax on photo scenes ("0" = classic)
       VIDEO_DEPTH_PARALLAX: "1"
       VIDEO_DEPTH_MODEL: "build/depth_vits.onnx"
+      # FREE-AI VISION ROTATION (2026-08-06): judge/gate fallback tiers.
+      # Same Gemini key carries gemma-4-31b (14,400 RPD) + flash-lite
+      # (500 RPD); Groq qwen3.6 vision (1,000 RPD, <=5 imgs/call);
+      # Cloudflare llama-3.2-11b-vision (10k neurons/day, 1 img/call).
+      GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+      CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+      CF_AI_TOKEN: ${{ secrets.CF_AI_TOKEN }}
       # r29: abandon a page after 1 retry if the judge keeps failing it, so a
       # visually-poor story (repetition / irrelevant stock the judge rightly
       # rejects) can never freeze the queue behind it. Good stories pass on

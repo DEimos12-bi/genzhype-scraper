@@ -2724,6 +2724,146 @@ _STILL_REL_CALLS = [0]
 STILL_REL_MAX_CALLS = int(os.environ.get("VIDEO_STILL_REL_MAX", "8"))
 
 
+# ==================  FREE-AI VISION ROTATION (2026-08-06)  ==================
+# The nightly judge blindness had a cause: plain gemini-flash free tier is
+# now ~20 requests/DAY. The SAME key serves gemma-4-31b-it (14,400 RPD) and
+# gemini-3.5-flash-lite (500 RPD) — verified live against our key — plus the
+# owner's new Groq key (qwen3.6-27b vision, 1,000 RPD, MAX 5 images/call)
+# and Cloudflare Workers AI (llama-3.2-11b-vision, 10k neurons/day,
+# single-image calls; license 'agree' already submitted, body shape
+# verified live). ONE wrapper serves every vision call site; each tier
+# failure falls to the next; total exhaustion returns None and every
+# caller keeps its existing fail-open/fail-closed semantics unchanged.
+
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
+CF_ACCOUNT_ID = os.environ.get("CF_ACCOUNT_ID", "")
+CF_AI_TOKEN = os.environ.get("CF_AI_TOKEN", "")
+_VISION_TIER_USED = {}      # tier name -> calls served this run
+
+
+def _strip_think(t):
+    """qwen/gemma emit <think>reasoning</think> before the answer."""
+    return re.sub(r"<think>.*?</think>", "", t or "", flags=re.S).strip()
+
+
+def _json_slice(t):
+    """Reasoning models wrap JSON in prose — return the outermost {...}
+    slice when it parses, else the text unchanged (caller's parsing rules
+    stay authoritative)."""
+    a, b = t.find("{"), t.rfind("}")
+    if 0 <= a < b:
+        cand = t[a:b + 1]
+        try:
+            json.loads(cand)
+            return cand
+        except Exception:  # noqa: BLE001
+            pass
+    return t
+
+
+def _gemini_to_openai_content(body):
+    out = []
+    for part in (body.get("contents") or [{}])[0].get("parts", []):
+        if part.get("text"):
+            out.append({"type": "text", "text": part["text"]})
+        elif "inline_data" in part:
+            d = part["inline_data"]
+            out.append({"type": "image_url", "image_url": {
+                "url": f"data:{d.get('mime_type', 'image/jpeg')};base64,"
+                       f"{d.get('data', '')}"}})
+    return out
+
+
+def vision_post(body, timeout=60, tag="vision"):
+    """POST a Gemini-shaped vision request through the free-tier rotation.
+    Returns the response TEXT (think-stripped; JSON isolated when the call
+    asked for JSON) or None when every tier is down. Logs the serving tier
+    whenever it is not the primary, so quota drift is visible in render
+    logs."""
+    wants_json = "response_mime_type" in (body.get("generationConfig") or {})
+    n_imgs = sum(1 for p in (body.get("contents") or [{}])[0].get("parts", [])
+                 if "inline_data" in p)
+    if GEMINI_API_KEY:
+        for model in (GEMINI_MODEL, "gemma-4-31b-it", "gemini-3.5-flash-lite"):
+            b = body
+            if model.startswith("gemma") and wants_json:
+                # Gemma rejects response_mime_type — JSON via prompt + slice
+                b = dict(body)
+                gc = dict(b.get("generationConfig") or {})
+                gc.pop("response_mime_type", None)
+                b["generationConfig"] = gc
+            try:
+                r = requests.post(
+                    "https://generativelanguage.googleapis.com/v1beta/models/"
+                    f"{model}:generateContent?key={GEMINI_API_KEY}",
+                    json=b, timeout=timeout)
+                if r.status_code == 200:
+                    parts = ((r.json().get("candidates") or [{}])[0]
+                             .get("content", {}).get("parts", []))
+                    txt = _strip_think("\n".join(
+                        p.get("text", "") for p in parts if p.get("text")))
+                    if txt:
+                        _VISION_TIER_USED[model] = \
+                            _VISION_TIER_USED.get(model, 0) + 1
+                        if model != GEMINI_MODEL:
+                            log.info("vision rotation: %s served by %s",
+                                     tag, model)
+                        return _json_slice(txt) if wants_json else txt
+                elif r.status_code != 429:
+                    log.info("vision %s: %s HTTP %d", tag, model,
+                             r.status_code)
+            except Exception as exc:  # noqa: BLE001
+                log.info("vision %s: %s failed (%s)", tag, model, exc)
+    if GROQ_API_KEY and n_imgs <= 5:      # hard Groq cap: 5 images/request
+        try:
+            payload = {"model": "qwen/qwen3.6-27b",
+                       "messages": [{"role": "user",
+                                     "content": _gemini_to_openai_content(body)}],
+                       "temperature": 0.1, "max_tokens": 1024}
+            if wants_json:
+                payload["response_format"] = {"type": "json_object"}
+            r = requests.post("https://api.groq.com/openai/v1/chat/completions",
+                              headers={"Authorization":
+                                       f"Bearer {GROQ_API_KEY}"},
+                              json=payload, timeout=timeout)
+            if r.status_code == 200:
+                txt = _strip_think(((r.json().get("choices") or [{}])[0]
+                                    .get("message", {}).get("content", "")))
+                if txt:
+                    _VISION_TIER_USED["groq"] = \
+                        _VISION_TIER_USED.get("groq", 0) + 1
+                    log.info("vision rotation: %s served by groq/qwen3.6",
+                             tag)
+                    return _json_slice(txt) if wants_json else txt
+            else:
+                log.info("vision %s: groq HTTP %d", tag, r.status_code)
+        except Exception as exc:  # noqa: BLE001
+            log.info("vision %s: groq failed (%s)", tag, exc)
+    if CF_ACCOUNT_ID and CF_AI_TOKEN and n_imgs == 1:   # CF: 1 image/call
+        try:
+            r = requests.post(
+                "https://api.cloudflare.com/client/v4/accounts/"
+                f"{CF_ACCOUNT_ID}/ai/run/"
+                "@cf/meta/llama-3.2-11b-vision-instruct",
+                headers={"Authorization": f"Bearer {CF_AI_TOKEN}"},
+                json={"messages": [{"role": "user",
+                                    "content": _gemini_to_openai_content(body)}],
+                      "max_tokens": 512}, timeout=timeout)
+            j = r.json() if r.status_code == 200 else {}
+            txt = _strip_think((j.get("result") or {}).get("response", ""))
+            if txt:
+                _VISION_TIER_USED["cloudflare"] = \
+                    _VISION_TIER_USED.get("cloudflare", 0) + 1
+                log.info("vision rotation: %s served by cloudflare/llama-3.2",
+                         tag)
+                return _json_slice(txt) if wants_json else txt
+            log.info("vision %s: cloudflare HTTP %d", tag, r.status_code)
+        except Exception as exc:  # noqa: BLE001
+            log.info("vision %s: cloudflare failed (%s)", tag, exc)
+    log.warning("vision %s: ALL rotation tiers exhausted", tag)
+    return None
+
+
 def still_is_relevant(path, topic, strict=False):
     """r33: does this photo have anything to do with THIS story? A generic
     stock plate (the Twitch-logo keyboard that carried real scenes of a story
@@ -2762,12 +2902,8 @@ def still_is_relevant(path, topic, strict=False):
                         "data": base64.b64encode(buf.getvalue()).decode("ascii")}}]}],
                 "generationConfig": {"temperature": 0.0,
                     "response_mime_type": "application/json"}}
-        url = ("https://generativelanguage.googleapis.com/v1beta/models/"
-               f"{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}")
-        r = requests.post(url, json=body, timeout=40)
-        if r.status_code == 200:
-            txt = (r.json()["candidates"][0]["content"]["parts"][0]["text"]
-                   or "").strip()
+        txt = vision_post(body, timeout=40, tag="still-relevance")
+        if txt:
             if txt.startswith("```"):
                 txt = txt.strip("`").strip()
                 if txt.lower().startswith("json"):
@@ -3517,12 +3653,8 @@ def footage_is_relevant(clip_path, topic):
                         "data": base64.b64encode(buf.getvalue()).decode("ascii")}}]}],
                 "generationConfig": {"temperature": 0.0,
                     "response_mime_type": "application/json"}}
-        url = ("https://generativelanguage.googleapis.com/v1beta/models/"
-               f"{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}")
-        r = requests.post(url, json=body, timeout=40)
-        if r.status_code == 200:
-            txt = (r.json()["candidates"][0]["content"]["parts"][0]["text"]
-                   or "").strip()
+        txt = vision_post(body, timeout=40, tag="footage-relevance")
+        if txt:
             if txt.startswith("```"):
                 txt = txt.strip("`").strip()
                 if txt.lower().startswith("json"):
@@ -3582,12 +3714,8 @@ def screenshot_is_clean(png_path):
                         "data": base64.b64encode(buf.getvalue()).decode("ascii")}}]}],
                 "generationConfig": {"temperature": 0.0,
                     "response_mime_type": "application/json"}}
-        url = ("https://generativelanguage.googleapis.com/v1beta/models/"
-               f"{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}")
-        r = requests.post(url, json=body, timeout=40)
-        if r.status_code == 200:
-            txt = (r.json()["candidates"][0]["content"]["parts"][0]["text"]
-                   or "").strip()
+        txt = vision_post(body, timeout=40, tag="screenshot-clean")
+        if txt:
             if txt.startswith("```"):
                 txt = txt.strip("`").strip()
                 if txt.lower().startswith("json"):
@@ -3779,12 +3907,9 @@ def clip_is_caption_free(mp4_path):
         body = {"contents": [{"parts": parts}],
                 "generationConfig": {"temperature": 0.0,
                                      "response_mime_type": "application/json"}}
-        u = ("https://generativelanguage.googleapis.com/v1beta/models/"
-             f"{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}")
-        r = requests.post(u, json=body, timeout=45)
-        if r.status_code != 200:
+        txt = vision_post(body, timeout=45, tag="caption-free")
+        if not txt:
             return False
-        txt = (r.json()["candidates"][0]["content"]["parts"][0]["text"] or "").strip()
         if txt.startswith("```"):
             txt = txt.strip("`").strip()
             if txt.lower().startswith("json"):
@@ -4428,15 +4553,10 @@ class BrollFetcher:
                     "generationConfig": {
                         "temperature": 0.0,
                         "response_mime_type": "application/json"}}
-            url = ("https://generativelanguage.googleapis.com/v1beta/models/"
-                   f"{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}")
-            r = requests.post(url, json=body, timeout=60)
-            if r.status_code != 200:
-                log.warning("vision re-rank HTTP %d; keyword order",
-                            r.status_code)
+            text = vision_post(body, timeout=60, tag="broll-rerank")
+            if not text:
+                log.warning("vision re-rank unavailable; keyword order")
                 return None
-            text = (r.json()["candidates"][0]["content"]["parts"][0]["text"]
-                    or "").strip()
             if text.startswith("```"):
                 text = text.strip("`").strip()
                 if text.lower().startswith("json"):
@@ -7607,15 +7727,11 @@ def vision_judge(mp4_path, hook, title, total_s, edl=None):
         body = {"contents": [{"parts": parts}],
                 "generationConfig": {"temperature": 0.0,
                                      "response_mime_type": "application/json"}}
-        url = ("https://generativelanguage.googleapis.com/v1beta/models/"
-               f"{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}")
-        r = requests.post(url, json=body, timeout=90)
-        if r.status_code != 200:
-            log.warning("judge HTTP %d (%s); skipping judge",
-                        r.status_code, r.text[:200])
+        text = vision_post(body, timeout=90, tag="JUDGE")
+        if not text:
+            log.warning("judge unavailable on ALL rotation tiers; "
+                        "delivering unjudged")
             return None
-        text = (r.json()["candidates"][0]["content"]["parts"][0]["text"]
-                or "").strip()
         if text.startswith("```"):       # belt-and-suspenders fence strip
             text = text.strip("`").strip()
             if text.lower().startswith("json"):
