@@ -38,9 +38,10 @@ def log(*a):
     print(*a, flush=True)
 
 
-def jpost(url, data, headers=None, raw=False):
+def jpost(url, data, headers=None, raw=False, method=None):
     body = data if raw else urllib.parse.urlencode(data).encode()
-    req = urllib.request.Request(url, data=body, headers=headers or {})
+    req = urllib.request.Request(url, data=body, headers=headers or {},
+                                 method=method)
     try:
         with urllib.request.urlopen(req, timeout=300) as r:
             return json.load(r), dict(r.headers)
@@ -95,7 +96,7 @@ def upload(v, token):
     if not put_url:
         log("YT init gave no upload URL")
         return False
-    res, _ = jpost(put_url, blob, raw=True, headers={
+    res, _ = jpost(put_url, blob, raw=True, method="PUT", headers={
         "Authorization": f"Bearer {token}", "Content-Type": "video/mp4"})
     vid = res.get("id")
     if not vid:
