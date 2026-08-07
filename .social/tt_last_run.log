@@ -1,13 +1,5 @@
 TT: uploading page 116 (streamer-awards-2025-sparks-controversy-and-backlash)
 downloaded 50339KB
-Traceback (most recent call last):
-  File "/home/runner/work/genzhype-scraper/genzhype-scraper/tiktok_poster.py", line 138, in <module>
-    raise SystemExit(main())
-                     ^^^^^^
-  File "/home/runner/work/genzhype-scraper/genzhype-scraper/tiktok_poster.py", line 130, in main
-    if not upload(v, token):
-           ^^^^^^^^^^^^^^^^
-  File "/home/runner/work/genzhype-scraper/genzhype-scraper/tiktok_poster.py", line 92, in upload
-    if put.get("error"):
-       ^^^^^^^
-AttributeError: 'NoneType' object has no attribute 'get'
+TT v_inbox_file~v2.7671442434773288982: PROCESSING_UPLOAD
+TT v_inbox_file~v2.7671442434773288982: SEND_TO_USER_INBOX
+TT DRAFT DELIVERED — open TikTok app, add caption, publish
