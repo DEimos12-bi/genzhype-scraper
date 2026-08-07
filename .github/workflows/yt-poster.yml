@@ -1,0 +1,59 @@
+name: GenZHype YouTube poster
+
+# VIDEO POSTING (2026-08-07): uploads judged READY videos to the channel as
+# Shorts, one per run. Credentials come from the server vault at runtime
+# (repo is public — only INGEST_TOKEN lives in GitHub secrets). Vault keys:
+# yt_refresh (minted once via site api/yt_oauth.php), yt_client_id,
+# yt_client_secret. DORMANT until the vault carries them ("no credentials;
+# skipped"). Until the YouTube API audit passes, uploads land PRIVATE —
+# the run log prints the returned privacyStatus so the unlock is visible.
+
+on:
+  schedule:
+    - cron: '40 14,20 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: yt-poster
+  cancel-in-progress: false
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Fetch credentials from our server vault
+        env:
+          INGEST_TOKEN: ${{ secrets.INGEST_TOKEN }}
+        run: |
+          CREDS=$(curl -s -X POST -H "Content-Type: application/json" \
+            -d "{\"token\":\"$INGEST_TOKEN\",\"want\":[\"yt_refresh\",\"yt_client_id\",\"yt_client_secret\"]}" \
+            https://genzhype.com/api/creds.php)
+          RT=$(echo "$CREDS" | python3 -c "import sys,json;print(json.load(sys.stdin)['creds'].get('yt_refresh',''),end='')")
+          CI=$(echo "$CREDS" | python3 -c "import sys,json;print(json.load(sys.stdin)['creds'].get('yt_client_id',''),end='')")
+          CS=$(echo "$CREDS" | python3 -c "import sys,json;print(json.load(sys.stdin)['creds'].get('yt_client_secret',''),end='')")
+          echo "::add-mask::$RT"
+          echo "::add-mask::$CS"
+          echo "YT_REFRESH=$RT" >> "$GITHUB_ENV"
+          echo "YT_CLIENT_ID=$CI" >> "$GITHUB_ENV"
+          echo "YT_CLIENT_SECRET=$CS" >> "$GITHUB_ENV"
+      - name: Upload video
+        env:
+          SOCIAL_BASE: 'https://genzhype.com'
+          INGEST_TOKEN: ${{ secrets.INGEST_TOKEN }}
+        run: python yt_poster.py
+      - name: Save poster state
+        run: |
+          git config user.name "genzhype-bot"
+          git config user.email "bot@genzhype.com"
+          git add .social 2>/dev/null || true
+          git commit -m "yt poster state" 2>/dev/null || echo "no state change"
+          git pull --rebase -q origin main || true
+          git push 2>/dev/null || echo "nothing to push"
