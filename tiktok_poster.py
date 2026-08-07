@@ -64,7 +64,9 @@ def tk(url, payload, token, method=None, raw=None, headers=None):
     try:
         with urllib.request.urlopen(req, timeout=300) as r:
             t = r.read()
-            return json.loads(t) if t.strip() else {"http": r.status}
+            # upload PUTs answer 2xx with empty/"null" bodies — success
+            res = json.loads(t) if t.strip() else None
+            return res if isinstance(res, dict) else {"http": r.status}
     except urllib.error.HTTPError as e:
         try:
             return json.load(e)
