@@ -1,0 +1,49 @@
+name: GenZHype TikTok poster
+
+# VIDEO POSTING (2026-08-08): pushes judged READY videos into the TikTok
+# account's inbox as DRAFTS (unaudited-app legal path — owner taps publish
+# in the app). Access token minted at runtime by our server's
+# api/tt_refresh.php (it owns the rotating refresh token; only INGEST_TOKEN
+# lives in GitHub secrets). Manual trigger: date > .social/tt_poke + push.
+# Run log tee'd to .social/tt_last_run.log for server-side diagnosis.
+
+on:
+  schedule:
+    - cron: '55 14,20 * * *'
+  workflow_dispatch:
+  push:
+    paths:
+      - '.social/tt_poke'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tiktok-poster
+  cancel-in-progress: false
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Upload video to TikTok inbox
+        env:
+          SOCIAL_BASE: 'https://genzhype.com'
+          INGEST_TOKEN: ${{ secrets.INGEST_TOKEN }}
+        run: |
+          set -o pipefail
+          python tiktok_poster.py 2>&1 | sed "s/$INGEST_TOKEN/***/g" | tee .social/tt_last_run.log
+      - name: Save poster state
+        if: always()
+        run: |
+          git config user.name "genzhype-bot"
+          git config user.email "bot@genzhype.com"
+          git add .social 2>/dev/null || true
+          git commit -m "tiktok poster state" 2>/dev/null || echo "no state change"
+          git pull --rebase -q origin main || true
+          git push 2>/dev/null || echo "nothing to push"
