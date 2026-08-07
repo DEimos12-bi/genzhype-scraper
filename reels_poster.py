@@ -21,6 +21,7 @@ Env: SOCIAL_BASE, INGEST_TOKEN, IG_USER_ID, FB_PAGE_ID,
 """
 import json
 import os
+import subprocess
 import time
 import urllib.error
 import urllib.parse
@@ -55,6 +56,19 @@ def call(url, data=None):
             return json.load(e)
         except Exception:  # noqa: BLE001
             return {"error": e.read().decode()[:300]}
+    except Exception as e:  # noqa: BLE001
+        return {"error": str(e)}
+
+
+def site_get(url):
+    """Fetch from OUR site via curl: Hostinger's WAF TLS-blocks Python's
+    urllib (proven in the yt-poster's first run). Graph APIs stay on urllib."""
+    r = subprocess.run(["curl", "-s", "--fail", "--max-time", "120", url],
+                       capture_output=True, timeout=140)
+    if r.returncode != 0:
+        return {"error": f"curl {r.returncode}"}
+    try:
+        return json.loads(r.stdout)
     except Exception as e:  # noqa: BLE001
         return {"error": str(e)}
 
@@ -120,8 +134,8 @@ def post_fb(v):
 
 def main():
     os.makedirs(STATE, exist_ok=True)
-    q = call(f"{BASE}/api/video_social_next.php"
-             f"?token={urllib.parse.quote(INGEST)}")
+    q = site_get(f"{BASE}/api/video_social_next.php"
+                 f"?token={urllib.parse.quote(INGEST)}")
     vids = q.get("videos", [])
     if not vids:
         log("queue empty")

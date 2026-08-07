@@ -21,6 +21,7 @@ Env: SOCIAL_BASE, INGEST_TOKEN,
 """
 import json
 import os
+import subprocess
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -54,6 +55,17 @@ def jpost(url, data, headers=None, raw=False, method=None):
         return {"error": str(e)}, {}
 
 
+def site_get(url, binary=False):
+    """Fetch from OUR site via curl: Hostinger's WAF TLS-blocks Python's
+    urllib (the original scraper lesson — runs died exactly here while the
+    workflow's curl steps passed). Google endpoints stay on urllib."""
+    r = subprocess.run(["curl", "-s", "--fail", "--max-time", "180", url],
+                       capture_output=True, timeout=200)
+    if r.returncode != 0:
+        raise RuntimeError(f"curl {r.returncode} for {url.split('?')[0]}")
+    return r.stdout if binary else json.loads(r.stdout)
+
+
 def access_token():
     tok, _ = jpost("https://oauth2.googleapis.com/token", {
         "client_id": CID, "client_secret": SEC,
@@ -63,8 +75,7 @@ def access_token():
 
 def upload(v, token):
     """Resumable upload: init -> PUT bytes. Returns True on success."""
-    with urllib.request.urlopen(v["video"], timeout=300) as r:
-        blob = r.read()
+    blob = site_get(v["video"], binary=True)
     log(f"downloaded {len(blob) // 1024}KB")
     meta = {
         "snippet": {
@@ -113,10 +124,8 @@ def main():
         log("YT: no credentials; skipped")
         return 0
     os.makedirs(STATE, exist_ok=True)
-    with urllib.request.urlopen(
-            f"{BASE}/api/video_social_next.php?token="
-            + urllib.parse.quote(INGEST), timeout=60) as r:
-        q = json.load(r)
+    q = site_get(f"{BASE}/api/video_social_next.php?token="
+                 + urllib.parse.quote(INGEST))
     vids = q.get("videos", [])
     if not vids:
         log("queue empty")
