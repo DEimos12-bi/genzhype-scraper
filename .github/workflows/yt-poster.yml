@@ -12,6 +12,9 @@ on:
   schedule:
     - cron: '40 14,20 * * *'
   workflow_dispatch:
+  push:
+    paths:
+      - '.social/yt_poke'   # server-side manual trigger (no gh CLI on Hostinger)
 
 permissions:
   contents: write
