@@ -3017,6 +3017,73 @@ def still_is_relevant(path, topic, strict=False):
     return ok
 
 
+_PERSON_OK_CACHE = {}
+
+
+def shows_person(path, name):
+    """r75: does this photo show THIS PERSON? Identity only — nothing about
+    the story.
+
+    The Openverse top-up gate used to call still_is_relevant() with the story
+    TITLE, so the model was asked whether a photo belonged to "Tom Brady and
+    Logan Paul's Fanatics Fest Confrontation". A real portrait of Logan Paul
+    from any other day is honestly NOT from that event, so it was rejected —
+    correctly answering the wrong question. Nine of twelve genuine Logan Paul
+    photos were binned that way and the pool starved at 7 for 12 scenes, which
+    is what the judge then failed for repetition.
+
+    Identity is the only thing this gate needs to protect: the r38 bug it was
+    built for was two UNIDENTIFIED men in suits carried for 10 seconds, and
+    wrong-person imagery on a serious story is the defamation risk the image
+    engine exists to prevent. Asking "is this that person?" still stops all of
+    that, while letting ordinary photos of the subject through.
+
+    Fails CLOSED like its predecessor: no key, no answer, over the cap or any
+    error keeps the picture OUT."""
+    if not (GEMINI_API_KEY and path and name):
+        return False
+    ck = (path, name.lower())
+    if ck in _PERSON_OK_CACHE:
+        return _PERSON_OK_CACHE[ck]
+    if _STILL_REL_CALLS[0] >= STILL_REL_MAX_CALLS:
+        return False
+    ok = False
+    try:
+        import io
+        im = Image.open(path).convert("RGB")
+        im.thumbnail((448, 448))
+        buf = io.BytesIO()
+        im.save(buf, "JPEG", quality=80)
+        im.close()
+        _STILL_REL_CALLS[0] += 1
+        prompt = (
+            'Does this photograph show %s? Answer shows=true only if %s is '
+            'visible and recognisable in it. Answer shows=false for a '
+            'different person, for someone you cannot identify, for a crowd '
+            'in which they are not recognisable, and for a logo, product, '
+            'graphic or empty scene with no person in it. It does NOT matter '
+            'what event the photo is from or how old it is. '
+            'Respond ONLY JSON: {"shows": true|false}.' % (name, name))
+        body = {"contents": [{"parts": [
+                    {"text": prompt},
+                    {"inline_data": {"mime_type": "image/jpeg",
+                        "data": base64.b64encode(buf.getvalue()).decode("ascii")}}]}],
+                "generationConfig": {"temperature": 0.0,
+                    "response_mime_type": "application/json"}}
+        txt = vision_post(body, timeout=40, tag="person-identity",
+                          strong_first=True)
+        if txt:
+            if txt.startswith("```"):
+                txt = txt.strip("`").strip()
+                if txt.lower().startswith("json"):
+                    txt = txt[4:].strip()
+            ok = bool(json.loads(txt).get("shows", False))
+    except Exception:  # noqa: BLE001
+        ok = False
+    _PERSON_OK_CACHE[ck] = ok
+    return ok
+
+
 def openverse_photos(query, want=6):
     """r33: more REAL photos of the subject, key-free, from Openverse (the
     WordPress/CC aggregator over Flickr/Wikimedia/etc). A one-photo pool is
@@ -3326,11 +3393,14 @@ def build_visual_pool(post, page_id):
             # positively show the story's subject; on any doubt it stays out —
             # for UNVERIFIED extras, fail CLOSED, unlike the feed's own
             # site-verified visuals.
-            ident_topic = ("%s — the picture must clearly show %s themselves"
-                           % (post.get("title", ""), q)) if q else \
-                          str(post.get("title", ""))
-            if not entry["textish"] and not still_is_relevant(p, ident_topic,
-                                                              strict=True):
+            # r75: identity-only when we know whose photo we asked for; the
+            # story-relevance question is the wrong test for a portrait.
+            if q:
+                _keep = shows_person(p, q)
+            else:
+                _keep = still_is_relevant(p, str(post.get("title", "")),
+                                          strict=True)
+            if not entry["textish"] and not _keep:
                 log.info("openverse candidate rejected (identity/relevance): "
                          "%s", u[:90])
                 continue
@@ -8503,11 +8573,18 @@ def make_one(post, font_path):
     if _STORY_CLIP_START:
         log.info("MONEY MOMENT offsets from the source articles: %s",
                  {u.rsplit("=", 1)[-1]: s for u, s in _STORY_CLIP_START.items()})
-    if not _STORY_CLIPS:
+    if len(_STORY_CLIPS) < CLIP_HUNT_MIN:
         # r33: the server harvested nothing for this story (story_vids=0 is why
         # the El Risitas video had no laugh in it). archive.org is reachable
         # from CI with no key, no cookies and no bot-wall — search it for the
         # subject before giving up on footage entirely.
+        #
+        # r75: this used to fire ONLY when the story had zero clips, and that
+        # gate cost us page 415. The YouTube hunt found exactly one clip, which
+        # was enough to look like "we have footage", so archive.org was skipped
+        # — then that single clip failed to download and the render ended with
+        # no footage at all. Found is not the same as usable. archive.org is now
+        # a TOP-UP alongside the hunt, so one dud can never be our only option.
         terms = []
         for entry in (post.get("people") or [])[:2]:
             n = str(entry.get("name") if isinstance(entry, dict) else entry or "")
@@ -8516,7 +8593,9 @@ def make_one(post, font_path):
         t = str(post.get("title") or "").strip()
         if t:
             terms.append(" ".join(t.split()[:4]))
-        _STORY_CLIPS = archive_org_clips(terms)
+        for _au in archive_org_clips(terms):
+            if _au not in _STORY_CLIPS:
+                _STORY_CLIPS.append(_au)
     if _STORY_CLIPS:
         log.info("story clips available: %d (%s)", len(_STORY_CLIPS),
                  ", ".join(sorted({platform_of(u) for u in _STORY_CLIPS})))
