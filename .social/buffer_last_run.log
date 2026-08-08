@@ -1,7 +1,4 @@
-channels: facebook:Genzhypee, tiktok:genzhype0, instagram:therealgenzhype_
-fb: queueing page 244 (tiktok-raw-milk-meme)
-  SCHEDULED on facebook as reel for 2026-08-08T23:15:00.000Z (buffer post 6a77954aa69527d8fa60099f)
-tt: queueing page 244 (tiktok-raw-milk-meme)
-  SCHEDULED on tiktok as reel for 2026-08-08T23:15:00.000Z (buffer post 6a77954b9517ea3cc6890938)
-ig: queueing page 244 (tiktok-raw-milk-meme)
-  SCHEDULED on instagram as reel for 2026-08-08T23:15:00.000Z (buffer post 6a77954d9517ea3cc6890964)
+channels: instagram:therealgenzhype_, facebook:Genzhypee, tiktok:genzhype0
+ig: daily cap reached (2/2) - skipping
+fb: daily cap reached (2/2) - skipping
+tt: daily cap reached (2/2) - skipping
