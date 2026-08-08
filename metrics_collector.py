@@ -16,6 +16,7 @@ Env: SOCIAL_BASE, INGEST_TOKEN.
 import json
 import os
 import subprocess
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -28,14 +29,24 @@ def log(*a):
     print(*a, flush=True)
 
 
-def site(url, payload=None):
-    cmd = ["curl", "-s", "--fail", "--max-time", "120"]
+def site(url, payload=None, tries=3):
+    """Talk to our own site. Hostinger's WAF intermittently blackholes
+    GitHub runner IPs (curl 28 timeouts) even though the endpoint answers
+    in milliseconds elsewhere — so retry with backoff instead of losing a
+    whole day's snapshot to one bad packet path."""
+    cmd = ["curl", "-s", "--fail", "--max-time", "60"]
     if payload is not None:
         cmd += ["-H", "Content-Type: application/json", "-d", json.dumps(payload)]
-    r = subprocess.run(cmd + [url], capture_output=True, timeout=140)
-    if r.returncode != 0:
-        raise RuntimeError(f"curl {r.returncode} for {url.split('?')[0]}")
-    return json.loads(r.stdout)
+    last = ""
+    for attempt in range(1, tries + 1):
+        r = subprocess.run(cmd + [url], capture_output=True, timeout=90)
+        if r.returncode == 0:
+            return json.loads(r.stdout)
+        last = f"curl {r.returncode}"
+        log(f"  {last} on {url.split('?')[0]} (attempt {attempt}/{tries})")
+        if attempt < tries:
+            time.sleep(15 * attempt)
+    raise RuntimeError(f"{last} for {url.split('?')[0]}")
 
 
 def http_json(url, data=None, headers=None, form=False):
