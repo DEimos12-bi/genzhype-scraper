@@ -22,6 +22,7 @@ Env: SOCIAL_BASE, INGEST_TOKEN,
 import json
 import os
 import subprocess
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -90,9 +91,13 @@ def upload(v, token):
     log(f"downloaded {len(blob) // 1024}KB")
     meta = {
         "snippet": {
-            "title": v["caption"].split("\n")[0][:95],
-            "description": v["caption"] + "\n" + v["link"],
-            "categoryId": "24",  # Entertainment
+            # Shorts rulebook: only ~40 chars are visible in the feed, so
+            # the title leads with the subject (the site composes it) and
+            # hashtags live in the description, never the title.
+            "title": (v.get("yt_title") or v["title"])[:95],
+            "description": v.get("yt_desc") or (v["caption"] + "\n" + v["link"]),
+            "tags": v.get("yt_tags") or [],
+            "categoryId": "24",  # Entertainment (25=News draws stricter review)
         },
         "status": {
             "privacyStatus": "public",
@@ -129,7 +134,26 @@ def upload(v, token):
         + ("  (audit not passed yet -> locked private)" if priv != "public" else ""))
     register_post(BASE, INGEST, "yt", v["page_id"], vid,
                   f"https://youtube.com/shorts/{vid}")
+    first_comment(vid, v, token)
     return True
+
+
+def first_comment(vid, v, token):
+    """Post the sourced-timeline link as the first comment. On a 0-comment
+    Short it sits on top anyway; pinning it is a manual Studio step (the
+    Data API has no pin endpoint). Needs the youtube.force-ssl scope — if
+    the grant predates it, this logs and moves on."""
+    body = {"snippet": {"videoId": vid, "topLevelComment": {"snippet": {
+        "textOriginal": "Every receipt in this video is sourced and dated "
+                        "here: " + v["link"]}}}}
+    res, _ = jpost("https://www.googleapis.com/youtube/v3/commentThreads"
+                   "?part=snippet", json.dumps(body).encode(), raw=True,
+                   headers={"Authorization": f"Bearer {token}",
+                            "Content-Type": "application/json"})
+    if res.get("id"):
+        log("  first comment posted (pin it manually in Studio)")
+    else:
+        log("  first comment skipped:", json.dumps(res.get("error", res))[:180])
 
 
 def main():
@@ -147,6 +171,21 @@ def main():
     todo = [v for v in vids if str(v["page_id"]) not in done]
     if not todo:
         log("YT: nothing new")
+        return 0
+
+    # Slot logic (Shorts rulebook): this runs hourly, but publishes only in
+    # the two US-audience slots — UNLESS the story is fresh news (<12h),
+    # where freshness is an official ranking factor and waiting costs reach.
+    hour = time.gmtime().tm_hour
+    slots = [int(h) for h in os.environ.get("YT_SLOT_HOURS", "16,23").split(",")]
+    hot = [v for v in todo if v.get("hot")]
+    if hour in slots:
+        todo = hot + [v for v in todo if not v.get("hot")]
+    elif hot:
+        log(f"YT: hot story outside slots (hour {hour}) — publishing now")
+        todo = hot
+    else:
+        log(f"YT: hour {hour} is not a slot {slots} and nothing is hot; waiting")
         return 0
     token = access_token()
     if not token:
