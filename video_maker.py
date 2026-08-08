@@ -620,6 +620,9 @@ def tts_left():
 # rendered contained on a blurred fill instead of being stretched.
 COVER_MAX_UPSCALE = float(os.environ.get("VIDEO_COVER_MAX_UPSCALE", "1.35"))
 
+# r70: hunt for more footage until a story has at least this many clips.
+CLIP_HUNT_MIN = int(os.environ.get("VIDEO_CLIP_HUNT_MIN", "3"))
+
 POOL_NO_REPEAT_WINDOW = 3      # r11: an image never reappears within 3 scenes
 # r42: the window and the max-share below were tuned when a story had 4-6 images
 # and HAD to recycle. The people-resolver fix (athletes were being dropped from
@@ -8431,6 +8434,43 @@ def make_one(post, font_path):
     for c in (post.get("clips") or []):
         if isinstance(c, dict) and c.get("url") and int(c.get("start") or 0) > 0:
             _STORY_CLIP_START[c["url"]] = int(c["start"])
+    # r70 CLIP HUNTER — the supply fix, measured: one clip yields 12-20 usable
+    # frames of the actual event, an article yields ~1 photo (trafilatura found
+    # ZERO images inside a real article body), and generic image search yields
+    # robots. So when a story is short on footage, SEARCH for more using the
+    # VISUAL DIRECTOR's event-shaped phrases — never a bare name, which is what
+    # returned robots and gingerbread houses. Runs here, not on the server,
+    # because Hostinger disables shell_exec. Fails closed: no plan, no search.
+    _vp = post.get("visual_plan") or {}
+    if (not _vp.get("skip")) and len(_STORY_CLIPS) < CLIP_HUNT_MIN:
+        import shutil as _sh
+        if _sh.which("yt-dlp"):
+            for _q in (_vp.get("clip_queries") or [])[:3]:
+                if len(_STORY_CLIPS) >= CLIP_HUNT_MIN:
+                    break
+                try:
+                    _r = subprocess.run(
+                        ["yt-dlp", "--no-warnings", "--flat-playlist",
+                         "--skip-download", "--print", "%(id)s\t%(duration)s",
+                         f"ytsearch2:{_q}"],
+                        capture_output=True, text=True, timeout=45)
+                    for _ln in (_r.stdout or "").splitlines():
+                        _pp = _ln.split("\t")
+                        if len(_pp) < 1 or len(_pp[0]) < 6:
+                            continue
+                        try:
+                            if int(float(_pp[1])) > 3600:
+                                continue        # skip full streams
+                        except (ValueError, IndexError):
+                            pass
+                        _u = "https://www.youtube.com/watch?v=" + _pp[0]
+                        if _u not in _STORY_CLIPS:
+                            _STORY_CLIPS.append(_u)
+                            log.info("CLIP HUNT: found %s for %r", _pp[0], _q[:60])
+                except Exception as _e:  # noqa: BLE001 — never fatal
+                    log.info("clip hunt failed for %r (%s)", _q[:40], str(_e)[:60])
+            log.info("CLIP HUNT: story now has %d clip(s)", len(_STORY_CLIPS))
+
     if _STORY_CLIP_START:
         log.info("MONEY MOMENT offsets from the source articles: %s",
                  {u.rsplit("=", 1)[-1]: s for u, s in _STORY_CLIP_START.items()})
