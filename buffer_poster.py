@@ -116,9 +116,24 @@ def done_path(code):
     return f"{STATE}/buffer_posted_{code}.txt"
 
 
-def load_done(code):
+def server_posted():
+    """Page ids the SITE already recorded as posted, per platform.
+    The repo's .social/*.txt files can drift — a run that published but
+    never committed its state leaves the file behind, and next time we
+    repost the same video. That nearly put the Streamer Awards video on
+    TikTok a third time. The site's registry is the source of truth."""
+    try:
+        return curl_json(f"{BASE}/api/metrics_next.php?token={INGEST}") \
+            .get("posted") or {}
+    except Exception as e:  # noqa: BLE001
+        log("could not read server registry (using local state only):", e)
+        return {}
+
+
+def load_done(code, server=None):
     p = done_path(code)
-    return set(l.strip() for l in open(p)) if os.path.exists(p) else set()
+    local = set(l.strip() for l in open(p)) if os.path.exists(p) else set()
+    return local | {str(x) for x in (server or {}).get(code, [])}
 
 
 def save_done(code, done):
@@ -236,6 +251,7 @@ def main():
     if not vids:
         log("queue empty")
         return 0
+    posted = server_posted()
     chans = channels()
     if not chans:
         return 1
@@ -250,7 +266,7 @@ def main():
         if n >= DAILY_CAP:
             log(f"{code}: daily cap reached ({n}/{DAILY_CAP}) - skipping")
             continue
-        done = load_done(code)
+        done = load_done(code, posted)
         todo = [v for v in vids if str(v["page_id"]) not in done]
         if not todo:
             log(f"{code}: nothing new")
