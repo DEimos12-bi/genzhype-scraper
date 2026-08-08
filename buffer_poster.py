@@ -33,7 +33,17 @@ TOKEN = os.environ.get("BUFFER_TOKEN", "")
 API = "https://api.buffer.com"
 STATE = ".social"
 # Buffer's service name -> our platform code + state file
-WANTED = {"facebook": "fb", "instagram": "ig"}
+# r72: Buffer now owns TIKTOK ONLY.
+# Why this matters more than it looks: TikTok's own API only grants us INBOX
+# (draft) mode because our app is not audit-approved, so every video sat waiting
+# for the owner to tap publish — at 5:15am his time for the late-US slots.
+# Buffer IS an approved TikTok partner, so posts it queues publish DIRECTLY.
+# The channel (genzhype0) was already connected in Buffer; this map simply never
+# listed "tiktok", so the code walked straight past it.
+# Facebook/Instagram are deliberately NOT here — the native reels/facebook
+# posters own those, and having both queue to them is what pushed IG and FB to
+# 8 posts/day earlier.
+WANTED = {"tiktok": "tt"}
 
 
 def log(*a):

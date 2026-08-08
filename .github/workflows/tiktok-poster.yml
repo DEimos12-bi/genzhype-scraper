@@ -8,12 +8,10 @@ name: GenZHype TikTok poster
 # Run log tee'd to .social/tt_last_run.log for server-side diagnosis.
 
 on:
-  schedule:
-    - cron: '0 21 * * *'
-    - cron: '15 22 * * *'
-    - cron: '30 23 * * *'
-    - cron: '45 0 * * *'
-    - cron: '0 2 * * *'
+  # r72 STOOD DOWN: TikTok now publishes through Buffer (an approved TikTok
+  # partner), which posts DIRECTLY instead of leaving drafts for the owner to
+  # tap at 5am. This poster only ever had inbox/draft permission because our
+  # own app is not audit-approved. Kept runnable by hand as a fallback.
   workflow_dispatch:
   push:
     paths:
