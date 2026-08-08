@@ -5356,6 +5356,22 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
     # pool to identity-verified person photos (+ the cover) so a failed beat
     # shows the story's people, never a stranger's thumbnail.
     if _TIMELINE_MODE[0] and pool:
+        # r80: a person LABEL is not person IMAGERY. Kyedae's December vlog
+        # thumbnail ("GINGERBREAD HOUSES", burned-in text and all) carried
+        # person="Kyedae" and sailed through this filter into an awards-
+        # scandal video — the judge caught it, twice. A YouTube thumbnail is
+        # a decorated promo frame, not a portrait; in timeline mode it can
+        # never be evidence, whoever it is labeled as. This strip is
+        # UNCONDITIONAL (the earlier person/designed preference only applied
+        # when >=2 safe entries existed, so on thin pools the junk that
+        # caused the rejection was exactly what survived).
+        no_thumb = [e for e in pool
+                    if "ytimg.com/vi" not in (e.get("url") or "")]
+        if no_thumb and len(no_thumb) < len(pool):
+            log.info("TIMELINE POOL: dropped %d thumbnail(s) — decorated "
+                     "promo frames are never evidence",
+                     len(pool) - len(no_thumb))
+            pool = no_thumb
         safe = [e for e in pool
                 if e.get("person") or bool(e.get("designed"))]
         if len({e.get("path") for e in safe if e.get("path")}) >= 2:
