@@ -67,6 +67,29 @@ def curl_json(url, payload=None, headers=None):
     return json.loads(r.stdout or b"{}")
 
 
+def fetch_vault_token():
+    """Get the Buffer key from our server. This used to live in a bash step
+    in the workflow — and when Hostinger's WAF blackholed the runner's IP
+    the whole job died there with NO LOG AT ALL, which is what made two
+    failures un-diagnosable. Doing it here means every run leaves a log,
+    win or lose. Retrying is best-effort only: the block is per-IP, so if
+    this runner is blocked all attempts fail and the next scheduled run
+    (5x/day, cap 2) simply picks it up."""
+    for attempt in (1, 2, 3):
+        try:
+            creds = curl_json(f"{BASE}/api/creds.php",
+                              {"token": INGEST, "want": ["buffer"]})
+            tok = (creds.get("creds") or {}).get("buffer", "")
+            if tok:
+                return tok
+            log(f"vault returned no buffer key (attempt {attempt})")
+        except Exception as e:  # noqa: BLE001
+            log(f"vault unreachable from this runner (attempt {attempt}): {e}")
+        if attempt < 3:
+            time.sleep(10 * attempt)
+    return ""
+
+
 def gql(query, variables=None):
     """Buffer GraphQL call. Returns (data, errors)."""
     res = curl_json(API, {"query": query, "variables": variables or {}},
@@ -242,10 +265,14 @@ def post(channel, v):
 
 
 def main():
-    if not TOKEN:
-        log("Buffer: no credentials; skipped")
-        return 0
+    global TOKEN
     os.makedirs(STATE, exist_ok=True)
+    if not TOKEN:
+        TOKEN = fetch_vault_token()
+    if not TOKEN:
+        log("Buffer: no token this run; the next scheduled run will retry")
+        return 0
+
     q = curl_json(f"{BASE}/api/video_social_next.php?token={INGEST}")
     vids = q.get("videos", [])
     if not vids:
