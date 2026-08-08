@@ -45,3 +45,22 @@ jobs:
           done
           echo "video intel unreachable after 3 attempts (WAF or site down)"
           exit 1
+      # r78: the second arm — is any published story missing its ending?
+      # Same server-side pattern; a failed poke just waits for tomorrow.
+      - name: Ask the server to check story freshness
+        if: always()
+        env:
+          INGEST_TOKEN: ${{ secrets.INGEST_TOKEN }}
+        run: |
+          for i in 1 2 3; do
+            OUT=$(curl -s --max-time 300 \
+              "https://genzhype.com/api/story_watch_run.php?token=$INGEST_TOKEN" || true)
+            if echo "$OUT" | grep -q '"ok":true'; then
+              echo "$OUT" | sed "s/$INGEST_TOKEN/***/g"
+              exit 0
+            fi
+            echo "attempt $i failed; retrying"
+            sleep $((i * 20))
+          done
+          echo "story watch unreachable after 3 attempts"
+          exit 1
