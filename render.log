@@ -1,0 +1,155 @@
+2026-08-08 19:20:47,980 INFO caption font: /usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf
+2026-08-08 19:20:47,981 INFO job feed from repo branch (generated 2026-08-08T19:05:53+00:00)
+2026-08-08 19:20:47,981 INFO FORCED re-render job for page 415
+2026-08-08 19:20:47,981 INFO job from static feed (generated 2026-08-08T19:05:53+00:00)
+2026-08-08 19:20:47,981 INFO processing page_id=415 slug=tom-brady-and-logan-paul-s-fanatics-fest-confrontation
+2026-08-08 19:20:47,981 INFO STYLE rapid: lead=receipts cuts~1.0s xfade=0.00 zoom=0.20 punch=1.22 bgm_2 evidence_cap=3 footage_consec=2
+2026-08-08 19:20:47,982 INFO STAGE: visuals
+2026-08-08 19:20:47,982 INFO CLIP HUNT: story now has 1 clip(s)
+2026-08-08 19:20:47,982 INFO MONEY MOMENT offsets from the source articles: {'I07mko_hkmk': 182}
+2026-08-08 19:20:47,982 INFO story clips available: 1 (youtube)
+2026-08-08 19:20:47,982 INFO person photos from feed (site-resolved): Logan Paul x4
+2026-08-08 19:20:47,982 INFO person photos from feed (site-resolved): Tom Brady x4
+2026-08-08 19:20:47,982 INFO person photos from feed (site-resolved): Karl-Anthony Towns x4
+2026-08-08 19:20:48,745 INFO face detected in vis-415-0: 1095x1422 at (824,639)
+2026-08-08 19:20:48,895 INFO trimmed letterbox (1280, 720) -> (1280, 714): https://i.ytimg.com/vi/q9jk6_zBfAM/maxresdefault.jpg
+2026-08-08 19:20:48,908 INFO CONTAIN MODE: 1280x714 needs 2.7x upscale to cover; rendering whole on a blurred fill instead
+2026-08-08 19:20:48,923 INFO face detected in vis-415-1: 362x562 at (727,50)
+2026-08-08 19:20:49,794 INFO vision rotation: still-relevance served by gemini-3.5-flash-lite
+2026-08-08 19:20:49,819 INFO CONTAIN MODE: 1280x720 needs 2.7x upscale to cover; rendering whole on a blurred fill instead
+2026-08-08 19:20:49,832 INFO face detected in vis-415-2: 207x304 at (540,87)
+2026-08-08 19:20:50,910 INFO vision rotation: still-relevance served by gemini-3.5-flash-lite
+2026-08-08 19:20:50,925 INFO trimmed letterbox (1280, 720) -> (1260, 689): https://i.ytimg.com/vi/7ynH-DVfaDE/maxresdefault.jpg
+2026-08-08 19:20:50,936 INFO CONTAIN MODE: 1260x689 needs 2.8x upscale to cover; rendering whole on a blurred fill instead
+2026-08-08 19:20:50,948 INFO face detected in vis-415-3: 177x257 at (263,58)
+2026-08-08 19:20:51,776 INFO vision rotation: still-relevance served by gemini-3.5-flash-lite
+2026-08-08 19:20:51,777 INFO STILL GATE: off-topic stock dropped: https://i.ytimg.com/vi/7ynH-DVfaDE/maxresdefault.jpg
+2026-08-08 19:20:51,942 INFO UPSIZED: https://yt3.ggpht.com/jAoWc9QwMsH9LqvrQ-8lTO5YVi3GOf4fD8PFv0Iv-I1mY_Jw6aqlWo8IkTHwdwV6F_TwLiIj=s1200
+2026-08-08 19:20:51,948 INFO CONTAIN MODE: 428x428 needs 4.5x upscale to cover; rendering whole on a blurred fill instead
+2026-08-08 19:20:51,957 INFO face detected in vis-415-4: 97x101 at (151,79)
+2026-08-08 19:20:51,964 INFO trimmed letterbox (1280, 720) -> (1080, 720): https://i.ytimg.com/vi/hKDFJwIidKA/maxresdefault.jpg
+2026-08-08 19:20:51,973 INFO CONTAIN MODE: 1080x720 needs 2.7x upscale to cover; rendering whole on a blurred fill instead
+2026-08-08 19:20:51,988 INFO face detected in vis-415-5: 151x210 at (498,118)
+2026-08-08 19:20:52,942 INFO vision rotation: still-relevance served by gemini-3.5-flash-lite
+2026-08-08 19:20:52,951 INFO trimmed letterbox (480, 360) -> (480, 270): https://i.ytimg.com/vi/Xcdo9xnSKkE/hqdefault_live.jpg
+2026-08-08 19:20:52,954 INFO CONTAIN MODE: 480x270 needs 7.1x upscale to cover; rendering whole on a blurred fill instead
+2026-08-08 19:20:52,954 INFO RESOLUTION FLOOR: 480x270 (short side 270 < 400) would be upscaled into mush; dropped: https://i.ytimg.com/vi/Xcdo9xnSKkE/hqdefault_live.jpg
+2026-08-08 19:20:52,966 INFO CONTAIN MODE: 1280x720 needs 2.7x upscale to cover; rendering whole on a blurred fill instead
+2026-08-08 19:20:52,978 INFO face detected in vis-415-7: 45x75 at (1232,175)
+2026-08-08 19:20:54,010 INFO vision rotation: still-relevance served by gemini-3.5-flash-lite
+2026-08-08 19:20:54,386 INFO UPSIZED: https://yt3.ggpht.com/bsSwZdftZOVPYs1a3QynolQX40SIeBgs0QwSEq1XemRk-cNCajt1cEyYdjyFEAPhX1WJphZ8R8Y=s1200
+2026-08-08 19:20:54,394 INFO trimmed letterbox (1200, 1200) -> (726, 966): https://yt3.ggpht.com/bsSwZdftZOVPYs1a3QynolQX40SIeBgs0QwSEq1XemRk-cNCajt1cEyYdjyFEAPhX1WJphZ8R8Y=s800-k-c0xffffffff-no-
+2026-08-08 19:20:54,405 INFO CONTAIN MODE: 726x966 needs 2.0x upscale to cover; rendering whole on a blurred fill instead
+2026-08-08 19:20:54,419 INFO face detected in vis-415-8: 163x254 at (207,32)
+2026-08-08 19:20:54,436 INFO CONTAIN MODE: 1280x720 needs 2.7x upscale to cover; rendering whole on a blurred fill instead
+2026-08-08 19:20:54,449 INFO face detected in vis-415-9: 219x302 at (571,387)
+2026-08-08 19:20:55,261 INFO vision rotation: still-relevance served by gemini-3.5-flash-lite
+2026-08-08 19:20:55,262 INFO STILL GATE: off-topic stock dropped: https://i.ytimg.com/vi/DqEmB2KIRmw/maxresdefault.jpg
+2026-08-08 19:20:55,274 INFO CONTAIN MODE: 1280x720 needs 2.7x upscale to cover; rendering whole on a blurred fill instead
+2026-08-08 19:20:55,289 INFO face detected in vis-415-10: 27x34 at (622,117)
+2026-08-08 19:20:56,144 INFO vision rotation: still-relevance served by gemini-3.5-flash-lite
+2026-08-08 19:20:56,145 INFO STILL GATE: off-topic stock dropped: https://i.ytimg.com/vi/fNAxVsjhJA4/maxresdefault.jpg
+2026-08-08 19:20:56,156 INFO CONTAIN MODE: 1280x720 needs 2.7x upscale to cover; rendering whole on a blurred fill instead
+2026-08-08 19:20:56,167 INFO face detected in vis-415-11: 52x66 at (680,458)
+2026-08-08 19:20:56,945 INFO vision rotation: still-relevance served by gemini-3.5-flash-lite
+2026-08-08 19:20:56,946 INFO STILL GATE: off-topic stock dropped: https://i.ytimg.com/vi/YYFDUd22t-Y/maxresdefault.jpg
+2026-08-08 19:20:56,966 INFO CONTAIN MODE: 1600x900 needs 2.1x upscale to cover; rendering whole on a blurred fill instead
+2026-08-08 19:20:56,981 INFO face detected in vis-415-12: 307x411 at (416,176)
+2026-08-08 19:20:56,981 INFO STILL GATE: off-topic stock dropped: https://www.dexerto.com/cdn-image/wp-content/uploads/2026/02/11/logan-paul-tom-brady.jpg
+2026-08-08 19:20:57,010 INFO CONTAIN MODE: 1440x810 needs 2.4x upscale to cover; rendering whole on a blurred fill instead
+2026-08-08 19:20:57,030 INFO face detected in vis-415-13: 55x66 at (904,178)
+2026-08-08 19:20:57,030 INFO STILL GATE: off-topic stock dropped: https://www.hollywoodreporter.com/wp-content/uploads/2026/07/GettyImages-2286562366.jpg?crop=0px%2C3
+2026-08-08 19:20:57,063 INFO trimmed letterbox (1200, 630) -> (1185, 630): https://genzhype.com/assets/covers/tom-brady-and-logan-paul-s-fanatics-fest-confrontation-hero.webp
+2026-08-08 19:20:57,066 INFO text-heavy visual (heuristic) -> contain mode (no crop/zoom): https://genzhype.com/assets/covers/tom-brady-and-logan-paul-s-fanatics-fest-confrontation-hero.webp
+2026-08-08 19:20:57,084 INFO face detected in vis-415-14: 101x136 at (405,142)
+2026-08-08 19:20:58,929 INFO openverse: 12 modifiable-licence photos for 'Logan Paul'
+2026-08-08 19:20:59,925 INFO openverse candidate rejected (identity/relevance): https://upload.wikimedia.org/wikipedia/commons/e/e6/Logan_Paul%2C_WrestleMania_XL_in_2024_
+2026-08-08 19:20:59,996 INFO openverse candidate rejected (identity/relevance): https://upload.wikimedia.org/wikipedia/commons/5/5c/Ksi_Vs_Logan_Paul_Face_off.png
+2026-08-08 19:21:00,415 INFO openverse candidate rejected (identity/relevance): https://upload.wikimedia.org/wikipedia/commons/5/50/Logan_Paul_RR25_%28cropped%29.jpg
+2026-08-08 19:21:00,444 INFO openverse candidate rejected (identity/relevance): https://upload.wikimedia.org/wikipedia/commons/b/b8/Logan_Paul_August_2018.png
+2026-08-08 19:21:18,916 WARNING visual download failed (requests HTTP 404): https://upload.wikimedia.org/wikipedia/commons/c/cd/Logan-Paul-WWE-2022.jpg
+2026-08-08 19:21:18,972 INFO openverse candidate rejected (identity/relevance): https://upload.wikimedia.org/wikipedia/commons/c/c7/KSI_and_Logan_Paul_Host_PRIME_Hydratio
+2026-08-08 19:21:19,232 INFO trimmed letterbox (1638, 2048) -> (1638, 1997): https://upload.wikimedia.org/wikipedia/commons/8/88/Logan_Paul%2C_WrestleMania_XL_in_2024_2.jpg
+2026-08-08 19:21:19,272 INFO openverse candidate rejected (identity/relevance): https://upload.wikimedia.org/wikipedia/commons/8/88/Logan_Paul%2C_WrestleMania_XL_in_2024_
+2026-08-08 19:21:25,489 WARNING visual download failed (requests HTTP 404): https://upload.wikimedia.org/wikipedia/commons/1/19/Logan-Paul-The-Miz-WWE-WrestleMania-2022.jpg
+2026-08-08 19:21:25,523 INFO openverse candidate rejected (identity/relevance): https://upload.wikimedia.org/wikipedia/commons/5/5f/Logan_Paul.png
+2026-08-08 19:21:31,727 WARNING visual download failed (requests HTTP 404): https://upload.wikimedia.org/wikipedia/commons/9/97/Logan-Paul-WWE-United-States-Champion-2023.jpg
+2026-08-08 19:21:31,901 INFO openverse candidate rejected (identity/relevance): https://upload.wikimedia.org/wikipedia/commons/a/a1/Logan_Paul_at_the_Weigh_In_2023.jpg
+2026-08-08 19:21:31,901 INFO visual pool: 8 distinct of 15 candidates (12 from people, 3 name(s) mapped: {'logan paul': 3, 'tom brady': 3, 'karl-anthony towns': 1})
+2026-08-08 19:21:31,901 INFO STAGE: receipts
+2026-08-08 19:21:31,922 INFO receipts: 1 card(s) downloaded of 8 entries (event entries carry no card by design)
+2026-08-08 19:21:31,923 INFO STAGE: screenshots
+2026-08-08 19:21:33,147 INFO Readability injected from vendor/Readability.js
+2026-08-08 19:21:38,255 INFO crop r30c: 1328x1646 at 56,210 (col 1280, lead-img False) https://www.dexerto.com/entertainment/tom-brady-slaps-logan-
+2026-08-08 19:21:39,778 INFO vision rotation: screenshot-clean served by gemini-3.5-flash-lite
+2026-08-08 19:21:39,780 INFO REAL source screenshot: https://www.dexerto.com/entertainment/tom-brady-slaps-logan-paul-during-viral-fanatics-fest-confront
+2026-08-08 19:21:44,839 INFO crop r30c: 1176x1457 at 132,184 (col 1128, lead-img False) https://www.hollywoodreporter.com/news/general-news/tom-brad
+2026-08-08 19:21:46,623 INFO vision rotation: screenshot-clean served by gemini-3.5-flash-lite
+2026-08-08 19:21:46,625 INFO SHOT AD-GATE: ad/merch-cluttered screenshot rejected (shot-415-6.png)
+2026-08-08 19:21:46,710 INFO event receipts: 1 clean screenshot(s), 3 og report photo(s); the rest fall back to subject photos
+2026-08-08 19:21:46,710 INFO STAGE: tts
+2026-08-08 19:21:48,081 INFO expressive TTS: segment 1/3 rate=+18% pitch=+2Hz 3.17s 8 cue(s)
+2026-08-08 19:21:53,443 INFO expressive TTS: segment 2/3 rate=+5% pitch=- 12.12s 28 cue(s)
+2026-08-08 19:21:56,024 INFO expressive TTS: segment 3/3 rate=+1% pitch=- 3.53s 7 cue(s)
+2026-08-08 19:21:56,394 INFO expressive TTS ok: 3 segment(s), 18.86s audio, 43 word timings
+2026-08-08 19:21:56,395 INFO STAGE: compose
+2026-08-08 19:21:56,395 INFO no broll terms in feed; cursor mode off (v4 per-shot queries may still fetch)
+2026-08-08 19:21:56,405 INFO EDL: 5 shot(s) from 5 directed (words=43)
+2026-08-08 19:21:56,405 INFO VARIETY tuned for pool=8 scenes=5 -> window=7 max_share=0.34
+2026-08-08 19:21:56,406 INFO footage: cookies active
+2026-08-08 19:21:56,406 INFO CLIP window: youtube at t=182s (reporter's timestamp)
+2026-08-08 19:22:01,192 INFO HOOK: money clip unavailable (fetch failed); normal opener
+2026-08-08 19:22:01,192 INFO CLIP FRAMES: no usable clip of the 1 available (fetch or a quality gate refused every one); pool stays at 8
+2026-08-08 19:22:01,192 INFO person shot -> Logan Paul's photo 1/3 (vis-415-0)
+2026-08-08 19:22:01,192 INFO person shot -> Logan Paul's photo 2/3 (vis-415-1)
+2026-08-08 19:22:09,702 INFO FOOTAGE unavailable for q9jk6_zBfAM; thumbnail fallback
+2026-08-08 19:22:09,702 INFO person shot -> Tom Brady's photo 1/3 (vis-415-4)
+2026-08-08 19:22:09,702 INFO person shot -> Karl-Anthony Towns's photo 1/1 (vis-415-8)
+2026-08-08 19:22:09,702 INFO person shot -> Logan Paul's photo 3/3 (vis-415-2)
+2026-08-08 19:22:17,180 INFO FOOTAGE unavailable for OyqGqePD6Ck; thumbnail fallback
+2026-08-08 19:22:17,180 INFO PACING: 5 scenes -> 15 beats (target 1.0s/image, avg 1.29s)
+2026-08-08 19:22:17,181 INFO RENDER REPORT: {"style": "rapid", "ck_mode": true, "cookie_bytes": 1581, "story_vids": 4, "scenes": 15, "runtime_s": 19.3, "footage_scenes": 0, "gap_fill_scenes": 0, "opportunistic_footage": 0, "still_photo_scenes": 15, "card_scenes": 0, "frozen_stills": 0, "footage_fetches": 3, "seq": "sssssssssssssss"}
+2026-08-08 19:22:17,181 INFO CLIP verify disabled (VIDEO_CLIP_VERIFY=0)
+2026-08-08 19:22:17,181 INFO scene plan (v4 EDL): 15 scene(s) (0 receipt, 0 b-roll), pool=8
+2026-08-08 19:22:17,181 INFO   scene 1: 0.00-1.48s type=photo motion=punch_hit sfx=impact music=bed visual=vis-415-0
+2026-08-08 19:22:17,181 INFO   scene 2: 1.48-2.96s type=photo motion=zoom_out sfx=None music=bed visual=vis-415-5
+2026-08-08 19:22:17,181 INFO   scene 3: 2.96-4.00s type=photo motion=punch_build sfx=none music=bed visual=vis-415-1
+2026-08-08 19:22:17,181 INFO   scene 4: 4.00-5.03s type=photo motion=zoom_out sfx=None music=bed visual=vis-415-7
+2026-08-08 19:22:17,181 INFO   scene 5: 5.03-6.06s type=photo motion=zoom_in sfx=None music=bed visual=vis-415-4
+2026-08-08 19:22:17,181 INFO   scene 6: 6.06-7.09s type=photo motion=zoom_out sfx=None music=bed visual=vis-415-8
+2026-08-08 19:22:17,181 INFO   scene 7: 7.09-8.12s type=photo motion=zoom_out sfx=none music=bed visual=vis-415-4
+2026-08-08 19:22:17,181 INFO   scene 8: 8.12-9.15s type=photo motion=zoom_out sfx=None music=bed visual=vis-415-2
+2026-08-08 19:22:17,181 INFO   scene 9: 9.15-10.18s type=photo motion=zoom_in sfx=None music=bed visual=vis-415-0
+2026-08-08 19:22:17,181 INFO   scene 10: 10.18-11.21s type=photo motion=zoom_out sfx=None music=bed visual=vis-415-5
+2026-08-08 19:22:17,181 INFO   scene 11: 11.21-12.52s type=photo motion=punch_build sfx=pop music=bed visual=vis-415-8
+2026-08-08 19:22:17,181 INFO   scene 12: 12.52-13.82s type=photo motion=zoom_out sfx=None music=bed visual=vis-415-1
+2026-08-08 19:22:17,181 INFO   scene 13: 13.82-15.12s type=photo motion=zoom_in sfx=None music=bed visual=vis-415-7
+2026-08-08 19:22:17,181 INFO   scene 14: 15.12-16.17s type=photo motion=zoom_out sfx=none music=bed visual=vis-415-2
+2026-08-08 19:22:17,181 INFO   scene 15: 16.17-19.31s type=photo motion=zoom_out sfx=None music=bed visual=vis-415-4
+2026-08-08 19:22:17,181 INFO VARIETY: 7 distinct stills, top visual carries 3/15 (20%)
+2026-08-08 19:22:17,181 INFO SELFCHECK: repeats=0 short_scenes=none caption_cov=98% (window=6, assets=13)
+2026-08-08 19:22:17,181 WARNING SELFCHECK: 3 near-repeat(s) within the 6-scene window (small pool; each reappears with different motion) — non-fatal
+[0;93m2026-08-08 19:22:17.534308364 [W:onnxruntime:Default, device_discovery.cc:134 GetPciBusId] Skipping pci_bus_id for PCI path at "/sys/devices/LNXSYSTM:00/LNXSYBUS:00/ACPI0004:00/MSFT1000:00/5620e0c7-8062-4dce-aeb7-520c7ef76171" because filename "5620e0c7-8062-4dce-aeb7-520c7ef76171" did not match expected pattern of [0-9a-f]+:[0-9a-f]+:[0-9a-f]+[.][0-9a-f]+[m
+2026-08-08 19:22:17,780 INFO depth: session ready
+2026-08-08 19:22:18,710 INFO depth: vis-415-0 in 0.93s
+2026-08-08 19:22:18,795 INFO DEPTH SCENE vis-415-0 motion=punch_hit dur=1.5s
+2026-08-08 19:22:21,429 INFO DEPTH SCENE vis-415-0 motion=zoom_in dur=1.0s
+2026-08-08 19:22:24,749 INFO sound: bed bgm_2.mp3 over 1 interval(s)
+2026-08-08 19:22:24,977 INFO sound: 2 SFX placed
+2026-08-08 19:22:25,004 INFO sound: final -17.3 dBFS avg / -1.5 dBFS peak
+2026-08-08 19:25:03,907 INFO STAGE: judge
+2026-08-08 19:25:07,189 INFO vision rotation: JUDGE served by gemini-3.5-flash-lite
+2026-08-08 19:25:07,191 INFO vision judge: pass=False weird=[{'frame': 2, 'issue': 'c. REPETITION: image repeated'}, {'frame': 5, 'issue': 'c. REPETITION: image repeated'}] mismatches=[{'frame': 2, 'words': 'Tom Brady reaches around Karl-Anthony Towns to strike Logan Paul.', 'what_shown': 'Tom Brady shirtless on a boat'}, {'frame': 4, 'words': 'Towns separates them as Brady and Paul exchange words.', 'what_shown': 'Logan Paul holding a Pokemon card'}, {'frame': 5, 'words': 'Full video and witness accounts on GenZHype.', 'what_shown': 'Tom Brady shirtless on a boat'}] artifact_misses=[] scores={'readability': 8, 'framing': 8, 'variety': 4, 'edit_variety': 4, 'completeness': 3} issues=['Repetition of the same Tom Brady boat image across multiple frames', 'Said-vs-seen mismatches where B-roll does not match narration']
+2026-08-08 19:25:13,235 INFO caption font: /usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf
+2026-08-08 19:25:13,377 INFO filmstrip built: build/reject-415.jpg
+2026-08-08 19:25:16,248 INFO DIAG reject-sheet -> HTTP 200
+2026-08-08 19:25:17,743 INFO DIAG shot-415-0 -> HTTP 200
+2026-08-08 19:25:20,051 INFO DIAG shot-415-6 -> HTTP 200
+2026-08-08 19:25:20,301 INFO replan requested for page 415
+2026-08-08 19:25:20,302 ERROR failed to make video for 415: vision judge rejected page 415 (attempt 1/1): weird=[{'frame': 2, 'issue': 'c. REPETITION: image repeated'}, {'frame': 5, 'issue': 'c. REPETITION: image repeated'}] mism=[{'frame': 2, 'words': 'Tom Brady reaches around Karl-Anthony Towns to strike Logan Paul.', 'what_shown': 'Tom Brady shirtless on a boat'}, {'frame': 4, 'words': 'Towns separates them as Brady and Paul exchange words.', 'what_shown': 'Logan Paul holding a Pokemon card'}, {'frame': 5, 'words': 'Full video and witness accounts on GenZHype.', 'what_shown': 'Tom Brady shirtless on a boat'}] issues=['Repetition of the same Tom Brady boat image across multiple frames', 'Said-vs-seen mismatches where B-roll does not match narration']
+Traceback (most recent call last):
+  File "/home/runner/work/genzhype-scraper/genzhype-scraper/video_maker.py", line 8786, in main
+    make_one(post, font_path)
+  File "/home/runner/work/genzhype-scraper/genzhype-scraper/video_maker.py", line 8743, in make_one
+    raise JudgeRejected(
+JudgeRejected: vision judge rejected page 415 (attempt 1/1): weird=[{'frame': 2, 'issue': 'c. REPETITION: image repeated'}, {'frame': 5, 'issue': 'c. REPETITION: image repeated'}] mism=[{'frame': 2, 'words': 'Tom Brady reaches around Karl-Anthony Towns to strike Logan Paul.', 'what_shown': 'Tom Brady shirtless on a boat'}, {'frame': 4, 'words': 'Towns separates them as Brady and Paul exchange words.', 'what_shown': 'Logan Paul holding a Pokemon card'}, {'frame': 5, 'words': 'Full video and witness accounts on GenZHype.', 'what_shown': 'Tom Brady shirtless on a boat'}] issues=['Repetition of the same Tom Brady boat image across multiple frames', 'Said-vs-seen mismatches where B-roll does not match narration']
