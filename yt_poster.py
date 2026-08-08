@@ -26,6 +26,17 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
+# feedback loop: report what got posted so the metrics collector can poll it
+def register_post(base, ingest, platform, page_id, video_id=None, url=None):
+    payload = {"token": ingest, "action": "register", "platform": platform,
+               "page_id": page_id, "video_id": video_id, "url": url}
+    r = subprocess.run(["curl", "-s", "--max-time", "60",
+                        "-H", "Content-Type: application/json",
+                        "-d", json.dumps(payload),
+                        f"{base}/api/metrics_ingest.php"],
+                       capture_output=True, timeout=80)
+    print("registry:", (r.stdout or b"?").decode()[:120], flush=True)
+
 BASE = os.environ.get("SOCIAL_BASE", "https://genzhype.com").rstrip("/")
 INGEST = os.environ["INGEST_TOKEN"]
 REFRESH = os.environ.get("YT_REFRESH", "")
@@ -116,6 +127,8 @@ def upload(v, token):
     priv = (res.get("status") or {}).get("privacyStatus", "?")
     log(f"YT UPLOADED https://youtube.com/shorts/{vid} privacy={priv}"
         + ("  (audit not passed yet -> locked private)" if priv != "public" else ""))
+    register_post(BASE, INGEST, "yt", v["page_id"], vid,
+                  f"https://youtube.com/shorts/{vid}")
     return True
 
 

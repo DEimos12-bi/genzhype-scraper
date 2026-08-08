@@ -76,6 +76,18 @@ def tk(url, payload, token, method=None, raw=None, headers=None):
         return {"error": str(e)}
 
 
+def register_draft(v):
+    """Feedback loop: log the delivered draft (video_id unknown until the
+    human publishes; the collector's video.list matches it by time order)."""
+    try:
+        r = site_post_json(f"{BASE}/api/metrics_ingest.php",
+                           {"token": INGEST, "action": "register",
+                            "platform": "tt", "page_id": v["page_id"]})
+        log("registry:", json.dumps(r)[:120])
+    except Exception as e:  # noqa: BLE001
+        log("registry failed (non-fatal):", e)
+
+
 def upload(v, token):
     blob = site_get(v["video"], binary=True)
     n = len(blob)
@@ -102,6 +114,7 @@ def upload(v, token):
         log(f"TT {pid}: {code}")
         if code == "SEND_TO_USER_INBOX":
             log("TT DRAFT DELIVERED — open TikTok app, add caption, publish")
+            register_draft(v)
             return True
         if code in ("FAILED",):
             log("TT failed:", json.dumps(st)[:400])
