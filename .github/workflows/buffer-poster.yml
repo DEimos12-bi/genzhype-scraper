@@ -9,8 +9,9 @@ name: GenZHype Buffer poster (FB + IG)
 # .social/buffer_poke + push. Log tee'd to .social/buffer_last_run.log.
 
 on:
-  schedule:
-    - cron: '10 15,21 * * *'
+  # r64 DISABLED (owner): duplicate posting to IG/FB — reels-poster and
+  # facebook-poster own those platforms now. Videos only, no feed posts.
+  # schedule: (removed; still runnable by hand)
   workflow_dispatch:
   push:
     paths:

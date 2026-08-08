@@ -1,9 +1,8 @@
 name: GenZHype Instagram poster
 on:
-  schedule:
-    - cron: '17 21 * * *'
-    - cron: '47 0 * * *'
-    - cron: '17 4 * * *'
+  # r64 DISABLED (owner): duplicate posting to IG/FB — reels-poster and
+  # facebook-poster own those platforms now. Videos only, no feed posts.
+  # schedule: (removed; still runnable by hand)
   workflow_dispatch:
 permissions:
   contents: write

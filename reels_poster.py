@@ -166,7 +166,10 @@ def main():
     else:
         log("IG: no credentials; skipped")
 
-    if FB_PAGE and FB_TOKEN:
+    # r64: owner set different per-platform volumes (IG Reels 5/day, FB 3/day)
+    # but this one poster serves BOTH. REELS_SKIP_FB=1 lets the extra IG-only
+    # runs skip Facebook so each platform hits its own number.
+    if FB_PAGE and FB_TOKEN and os.environ.get("REELS_SKIP_FB", "0") != "1":
         done = load_done(FB_DONE)
         todo = [v for v in vids if str(v["page_id"]) not in done]
         if todo:

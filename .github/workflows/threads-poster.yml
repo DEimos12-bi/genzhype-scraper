@@ -2,8 +2,10 @@ name: GenZHype Threads poster
 on:
   schedule:
     - cron: '22 21 * * *'
-    - cron: '50 0 * * *'
-    - cron: '30 4 * * *'
+    - cron: '37 22 * * *'
+    - cron: '52 23 * * *'
+    - cron: '7 1 * * *'
+    - cron: '22 2 * * *'
   workflow_dispatch:
 permissions:
   contents: write
