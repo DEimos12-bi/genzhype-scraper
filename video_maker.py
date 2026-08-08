@@ -1613,8 +1613,19 @@ SHOT_TOTAL_BUDGET_S = 45.0     # wall-clock across ALL screenshots per video
 # the r29 "full 1080 band" then cut it mid-word anyway (judge failed exactly
 # that, twice, WITH the full-width fix in). 1440 renders the desktop layout as
 # designed; the crop below then takes the article COLUMN out of it.
-SHOT_VIEW_W = 1440
-SHOT_VIEW_H = 1800
+# r76 LEGIBILITY. These were 1440x1800, and that combination is what made the
+# judge fail page 443 for "c2. UNREADABLE EVIDENCE". A 1440-wide column is
+# DOWNSCALED to the 1080 card width, shrinking every letter to 0.75x, and the
+# full-viewport height cap let four paragraphs of body copy into one card. In a
+# 9:16 frame that lands as a wall of 6px text. Shooting a narrower column means
+# fewer characters per line and a slight UPSCALE to card width instead — the
+# same headline roughly 1.4x larger. The judge's own rule is the spec: if you
+# cannot read the headline at this resolution, neither can the viewer.
+SHOT_VIEW_W = int(os.environ.get("VIDEO_SHOT_VIEW_W", "1000"))
+SHOT_VIEW_H = int(os.environ.get("VIDEO_SHOT_VIEW_H", "1800"))
+# Cap a card at headline + lede rather than a whole article, as a multiple of
+# its own width. 1.25 keeps the story's first beat and drops the long tail.
+SHOT_MAX_H_RATIO = float(os.environ.get("VIDEO_SHOT_MAX_H_RATIO", "1.25"))
 SHOT_PAD    = 28               # breathing room around the measured text/photo
 
 # r30c CROP GEOMETRY, measured in the page instead of guessed from one box.
@@ -2363,6 +2374,9 @@ def screenshot_articles(targets, page_id, topic_kw=None):
                         # months (capture-beyond-viewport handles it); do that,
                         # and cap the crop at one viewport of height.
                         height = min(height, float(SHOT_VIEW_H))
+                        # r76: and never taller than headline+lede for its own
+                        # width — a whole-article card is unreadable at 9:16.
+                        height = min(height, float(width) * SHOT_MAX_H_RATIO)
                         clip = {"x": x, "y": y, "width": width, "height": height}
                         page.screenshot(path=path, clip=clip)
                         # normalize the column crop to card width (1440-wide
@@ -3999,10 +4013,24 @@ def archive_org_clips(terms, want=3):
     # is deterministic — no vision quota needed, which matters because the
     # Gemini gates are rate-limited exactly when renders pile up (HTTP 429 on
     # run #198, so no vision check could have caught this).
+    # r76: the >=4-char rule alone is not distinctiveness. "World of Warcraft"
+    # let the word WORLD carry a match, so a search for the WoW cheating
+    # scandal came back with "A Look At The Modern World Of Doctor Who",
+    # "wonderful world of inventions" and "WORLD OF HONOR" — three coincidence
+    # matches shipped as this story's footage. Common long words are stopwords
+    # too; a title must share something genuinely rare (warcraft, risitas)
+    # before we treat an archive item as this story's own material.
     _STOP = {"the", "and", "with", "from", "that", "this", "what", "when",
              "after", "over", "into", "your", "just", "they", "them", "than",
              "then", "have", "here", "news", "video", "clip", "full", "says",
-             "new", "his", "her", "its"}
+             "new", "his", "her", "its",
+             "world", "game", "games", "gaming", "life", "live", "show",
+             "shows", "story", "stories", "part", "series", "movie", "film",
+             "people", "player", "players", "best", "first", "last", "time",
+             "times", "year", "years", "week", "today", "night", "real",
+             "official", "channel", "watch", "online", "free", "home",
+             "modern", "look", "thing", "things", "universe", "america",
+             "american", "update", "updates", "response", "incident"}
     distinctive = {w for v in variants for w in v.lower().split()
                    if len(w) >= 4 and w not in _STOP}
     if not distinctive:
