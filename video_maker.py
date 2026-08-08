@@ -5372,13 +5372,14 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                      "promo frames are never evidence",
                      len(pool) - len(no_thumb))
             pool = no_thumb
-        safe = [e for e in pool
-                if e.get("person") or bool(e.get("designed"))]
-        if len({e.get("path") for e in safe if e.get("path")}) >= 2:
-            log.info("TIMELINE POOL: %d/%d entries kept (person-verified + "
-                     "cover); unverified thumbnails excluded",
-                     len(safe), len(pool))
-            pool = safe
+        # r80b: the old person/designed preference is GONE. It existed to
+        # exclude unverified thumbnails, which the strip above now removes
+        # directly — so all it still did was discard genuine report photos
+        # for lacking a person label. The 116 retry proved it: pool cut
+        # 6 -> 2 (the Kotaku screenshot of the actual moment thrown away),
+        # then rejected for repetition because two images can't carry a
+        # video. Report photos, portraits and covers are all legitimate
+        # timeline imagery; the per-image gates already police quality.
     # r42: size the variety rules to THIS story's pool before any picking.
     try:
         tune_variety_for_pool(
