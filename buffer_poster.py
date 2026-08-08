@@ -43,7 +43,12 @@ STATE = ".social"
 # Facebook/Instagram are deliberately NOT here — the native reels/facebook
 # posters own those, and having both queue to them is what pushed IG and FB to
 # 8 posts/day earlier.
-WANTED = {"tiktok": "tt"}
+WANTED = {"tiktok": "tt", "facebook": "fb", "instagram": "ig"}
+# Posts per channel per DAY. The workflow checks 5x/day so a fresh video
+# goes out soon after it renders — but without this cap those 5 checks
+# would drain a 10-video backlog at 5 posts/channel/day, which is what
+# caused the 8-a-day flood the first time fb/ig were on Buffer.
+DAILY_CAP = int(os.environ.get("BUFFER_DAILY_CAP", "2"))
 
 
 def log(*a):
@@ -85,6 +90,26 @@ def next_slot():
     h, m = (int(x) for x in slots[0].split(":"))   # tomorrow's first slot
     tmr = time.gmtime(time.time() + 86400)
     return time.strftime(f"%Y-%m-%dT{h:02d}:{m:02d}:00.000Z", tmr)
+
+
+def rate_path(code):
+    return f"{STATE}/buffer_rate_{code}.json"
+
+
+def sent_today(code):
+    """How many we've already scheduled on this channel today (UTC)."""
+    try:
+        d = json.load(open(rate_path(code)))
+        today = time.strftime("%Y-%m-%d", time.gmtime())
+        return d["n"] if d.get("date") == today else 0
+    except Exception:  # noqa: BLE001
+        return 0
+
+
+def bump_today(code):
+    today = time.strftime("%Y-%m-%d", time.gmtime())
+    json.dump({"date": today, "n": sent_today(code) + 1},
+              open(rate_path(code), "w"))
 
 
 def done_path(code):
@@ -221,6 +246,10 @@ def main():
         code = WANTED.get((c.get("service") or "").lower())
         if not code:
             continue
+        n = sent_today(code)
+        if n >= DAILY_CAP:
+            log(f"{code}: daily cap reached ({n}/{DAILY_CAP}) - skipping")
+            continue
         done = load_done(code)
         todo = [v for v in vids if str(v["page_id"]) not in done]
         if not todo:
@@ -231,6 +260,7 @@ def main():
         if post(c, v):
             done.add(str(v["page_id"]))
             save_done(code, done)
+            bump_today(code)
             register(code, v["page_id"])
         else:
             rc = 1
