@@ -3130,7 +3130,12 @@ def build_visual_pool(post, page_id):
             if entry["px_w"] and entry["px_h"] and not textish:
                 _need = max(W / float(entry["px_w"]), H / float(entry["px_h"]))
                 if _need > COVER_MAX_UPSCALE:
-                    entry["textish"] = textish = True
+                    # r57: DEDICATED flag. Setting textish here (r52) made every
+                    # contain photo count as a CARD, and cards are never split into
+                    # beats — so pacing collapsed from ~30 beats to 8 (7s per image,
+                    # straight back to a slideshow). Contain is a RENDERING choice,
+                    # not a content type: still a photo, still paced.
+                    entry["contain"] = True
                     log.info("CONTAIN MODE: %dx%d needs %.1fx upscale to cover; "
                              "rendering whole on a blurred fill instead",
                              entry["px_w"], entry["px_h"], _need)
@@ -5320,6 +5325,7 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
             motion = _MOTION_ALTERNATE.get(motion, "punch_build")
 
         path, typ, textish, src_url = None, None, False, None
+        contain_here = False           # r57: contained render, still a photo
         planned_here = False           # r17: this scene is a PLANNED clip shot
         footage = False                # r25: init early — GAP-FILL may set it
                                        # before the opportunistic upgrade block
@@ -5551,6 +5557,7 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
             if entry is not None:
                 last_used[entry["path"]] = si          # r11: LRU sees pins too
                 path, typ, textish = entry["path"], "photo", entry["textish"]
+                contain_here = bool(entry.get("contain"))     # r57
                 src_url = entry.get("url")             # r13: footage upgrade
         if path is None and sh["shot_class"] == "broll":
             # r20 FACT GATE (filmstrip verdict: storm clouds over "on Jun 26",
@@ -5610,6 +5617,7 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                         path, typ = bp, "broll"
                 if path is None:
                     path, typ, textish = entry["path"], "photo", entry["textish"]
+                    contain_here = bool(entry.get("contain"))     # r57
                     src_url = entry.get("url")         # r13: footage upgrade
             else:
                 path = fetcher.clip_for(need_s)   # last resort: cursor mode
@@ -5785,6 +5793,7 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
             "textish": textish, "emph_rel": emph_rel,
             "sfx": sfx, "music": sh["music"], "emph_t": emph_t,
             "footage": footage, "gapfill": gapfill, "frozen": hold_capped,
+            "contain": contain_here,   # r57: contain-render without card rules
             "src_off": FOOTAGE_SUB_OFF_S if footage else None,
             "date": str(sh.get("date") or ""),   # timeline beat's date chip
             # freeze-frame edit: timeline clip beats longer than ~4s play
@@ -5874,6 +5883,7 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                               key=lambda e: last_used.get(e["path"], -1))
                     sub["path"] = alt["path"]
                     sub["textish"] = False
+                    sub["contain"] = bool(alt.get("contain"))
                     sub["footage"] = False
                     sub["src_off"] = None
                     last_used[alt["path"]] = si_here
@@ -7555,7 +7565,7 @@ def compose_video(pool, broll_terms, mp3_path, hook, script, word_timings,
             open_sources.append(src)     # must stay open until after encode
             layers.append(clip)
             scene_clips.append(clip)
-        elif sc["textish"]:
+        elif sc["textish"] or sc.get("contain"):
             clip = contain_scene_clip(sc["path"], sc["start"],
                                       sc["end"], xfade=xfade,
                                       card=(sc["type"] == "receipt"))
