@@ -1,3 +1,3 @@
 YT: 1 videos -> {"ok": true, "recorded": 1, "tt_matched": 0}
-  yt/UhFbUyoIBB8: 0 views, 0 likes
-TT video.list error (scope granted yet?): {"code": "scope_not_authorized", "message": "The user did not authorize the scope required for completing this request.", "log_id": "202608080109116CF0AD8AA990B65D3784"}
+  yt/UhFbUyoIBB8: 3 views, 0 likes
+TT video.list error (scope granted yet?): {"code": "scope_not_authorized", "message": "The user did not authorize the scope required for completing this request.", "log_id": "20260808011044F46156B9D3B65A56EA19"}
