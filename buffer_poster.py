@@ -146,7 +146,10 @@ def post(channel, v):
     service = (channel.get("service") or "").lower()
     # FB captions take clickable links; IG's don't, so it keeps the plain
     # "on GenZHype.com" line the caption already ends with.
-    text = v["caption"] + ("\n" + v["link"] if service == "facebook" else "")
+    # IG gets its own caption (hook in the first ~125 chars, 3-5 hashtags,
+    # no URL — IG captions aren't clickable). FB keeps the clickable link.
+    text = (v.get("ig_caption") or v["caption"]) if service == "instagram" \
+        else v["caption"] + "\n" + v["link"]
     due = next_slot()
     for as_reel in (True, False):
         data, err = gql(MUTATION, {"i": {
@@ -155,8 +158,11 @@ def post(channel, v):
             "dueAt": due,
             "needsApproval": False,
             "metadata": _meta(service, v, as_reel),
+            # cover = frame 0 = our title card. IG's thumb_offset is in ms
+            # and defaults to 0; 2000 would have grabbed a mid-hook frame.
+            # Covers barely affect reach (Mosseri) but decide grid CTR.
             "assets": [{"video": {"url": v["video"],
-                                  "metadata": {"thumbnailOffset": 2000}}}]}})
+                                  "metadata": {"thumbnailOffset": 0}}}]}})
         if err:
             log("  createPost error:", json.dumps(err)[:300])
             return False
