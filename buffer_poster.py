@@ -97,22 +97,28 @@ def gql(query, variables=None):
     return res.get("data"), res.get("errors")
 
 
-def next_slot():
+def next_slot(service=""):
     """Exact publish time, in UTC, decided HERE — not by Buffer's queue.
     Buffer's per-channel schedule grid is fiddly and drifts to random
     times (6am ET posts help nobody), so we pass customScheduled + dueAt
     and the grid becomes irrelevant. Slots sit ~30min after the YouTube
     ones so the same story doesn't land everywhere in the same minute."""
+    # Per-platform stagger: the same story landing on every network in the
+    # same minute is a pattern platforms read as automation, and every
+    # rulebook warns against duplicate-looking simultaneous posts.
+    offset = {"tiktok": 0, "instagram": 7, "facebook": 14}.get(service, 0)
     slots = os.environ.get("BUFFER_SLOTS_UTC", "17:15,23:15").split(",")
     now = time.gmtime()
     mins_now = now.tm_hour * 60 + now.tm_min
     for s in slots:
         h, m = (int(x) for x in s.split(":"))
-        if h * 60 + m > mins_now + 10:          # not in the past / too soon
-            return time.strftime(f"%Y-%m-%dT{h:02d}:{m:02d}:00.000Z", now)
+        t = h * 60 + m + offset
+        if t > mins_now + 10:                   # not in the past / too soon
+            return time.strftime(f"%Y-%m-%dT{t // 60:02d}:{t % 60:02d}:00.000Z", now)
     h, m = (int(x) for x in slots[0].split(":"))   # tomorrow's first slot
+    t = h * 60 + m + offset
     tmr = time.gmtime(time.time() + 86400)
-    return time.strftime(f"%Y-%m-%dT{h:02d}:{m:02d}:00.000Z", tmr)
+    return time.strftime(f"%Y-%m-%dT{t // 60:02d}:{t % 60:02d}:00.000Z", tmr)
 
 
 def rate_path(code):
@@ -236,7 +242,7 @@ def post(channel, v):
     cap_key = {"instagram": "ig_caption", "facebook": "fb_caption",
                "tiktok": "tt_caption"}.get(service)
     text = (v.get(cap_key) if cap_key else None) or v["caption"]
-    due = next_slot()
+    due = next_slot(service)
     for as_reel in (True, False):
         data, err = gql(MUTATION, {"i": {
             "channelId": channel["id"], "text": text,
