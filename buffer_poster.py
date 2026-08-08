@@ -146,10 +146,13 @@ def post(channel, v):
     service = (channel.get("service") or "").lower()
     # FB captions take clickable links; IG's don't, so it keeps the plain
     # "on GenZHype.com" line the caption already ends with.
-    # IG gets its own caption (hook in the first ~125 chars, 3-5 hashtags,
-    # no URL — IG captions aren't clickable). FB keeps the clickable link.
-    text = (v.get("ig_caption") or v["caption"]) if service == "instagram" \
-        else v["caption"] + "\n" + v["link"]
+    # Each network gets its own caption. NEITHER carries a clickable URL:
+    # IG captions aren't clickable at all, and Meta's own creator guidance
+    # says FB "captions without links... perform better" (Clickbait Links
+    # is one of only four remaining demotion categories). Both name
+    # genzhype.com in plain text instead.
+    text = v.get(f"{'ig' if service == 'instagram' else 'fb'}_caption") \
+        or v["caption"]
     due = next_slot()
     for as_reel in (True, False):
         data, err = gql(MUTATION, {"i": {
