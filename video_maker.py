@@ -6490,6 +6490,17 @@ def contain_scene_clip(image_path, start, end, xfade=None, card=False):
     # card so the push-in ENDS at 0.94*W instead of starting there: it now
     # grows from 88% to 94% and never leaves the frame at any t.
     fit_w = (W * 0.94) / (1.0 + CARD_ZOOM)
+    # r68 SMALL-PICTURE FIX (owner saw it immediately): a wide press photo shown
+    # whole filled barely a third of the phone — sharp, but a postage stamp on a
+    # blurred field. Two causes: the width budget above is shrunk twice (0.94 and
+    # again by the card-zoom headroom), and min() then picks the SMALLER
+    # constraint. Cards genuinely need that headroom because they push in and
+    # must stay readable; PHOTOS do not. So photos get nearly the full width and
+    # may scale up to the sharpness ceiling (COVER_MAX_UPSCALE) instead of
+    # stopping at native size. Beyond that ceiling it would be mush again, which
+    # is the bug this whole contain path exists to avoid.
+    if not card:
+        fit_w = W * 0.98
     if card:
         # v9/r25: card scenes anchor toward the top so the caption band below
         # stays clear — top at CARD_TOP_Y, bottom capped at CARD_MAX_BOTTOM.
@@ -6497,7 +6508,11 @@ def contain_scene_clip(image_path, start, end, xfade=None, card=False):
         # the phone instead of sitting small and letterboxed.
         scale = min(fit_w / w, float(CARD_MAX_BOTTOM - CARD_TOP_Y) / h)
     else:
-        scale = min(fit_w / w, (H * 0.90) / h)
+        scale = min(fit_w / w, (H * 0.94) / h)
+        # Grow toward filling the frame, but never past the sharpness ceiling.
+        want = min(max(W / float(w), (H * 0.94) / float(h)), COVER_MAX_UPSCALE)
+        if want > scale:
+            scale = min(want, fit_w / w * COVER_MAX_UPSCALE)
     fg = pil.resize((max(1, int(w * scale)), max(1, int(h * scale))),
                     Image.Resampling.LANCZOS)
     canvas = bg.copy()
