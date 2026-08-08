@@ -513,11 +513,21 @@ PEOPLE_BUDGET_S = 100          # hard wall-clock cap on all person lookups
 #   punch     - middle rhythm, biggest zoom hits, third bed
 # Override for a deliberate test with VIDEO_STYLE=rapid|slowburn|punch.
 # ============================================================================
+# r67 adds the CONTENT dimension: "lead" decides WHAT dominates the screen, so
+# the three styles differ in substance and not only in rhythm.
+#   receipts - proof-heavy: screenshots/tweets carry more scenes (evidence cap 3)
+#   footage  - moment-heavy: real clips run longer and are chased harder
+#   faces    - people-heavy: portraits win subject shots, footage stays sparse
 VIDEO_STYLES = {
-    "rapid":    {"split": 1.0, "xfade": 0.00, "zoom": 0.20, "punch": 1.22, "bgm": 2},
-    "slowburn": {"split": 2.2, "xfade": 0.25, "zoom": 0.10, "punch": 1.10, "bgm": 1},
-    "punch":    {"split": 1.5, "xfade": 0.08, "zoom": 0.16, "punch": 1.17, "bgm": 3},
+    "rapid":    {"split": 1.0, "xfade": 0.00, "zoom": 0.20, "punch": 1.22,
+                 "bgm": 2, "lead": "receipts"},
+    "slowburn": {"split": 2.2, "xfade": 0.25, "zoom": 0.10, "punch": 1.10,
+                 "bgm": 1, "lead": "footage"},
+    "punch":    {"split": 1.5, "xfade": 0.08, "zoom": 0.16, "punch": 1.17,
+                 "bgm": 3, "lead": "faces"},
 }
+STYLE_LEAD = ""                    # receipts | footage | faces
+EVIDENCE_MAX_SCENES = 2            # scenes one proof image may back (r21 cap)
 STYLE_NAME = ""
 STYLE_BGM = 0                      # 1-based bgm index chosen by the style
 
@@ -545,9 +555,23 @@ def apply_style(name):
     SCENE_ZOOM = float(st["zoom"])
     PUNCH_BUILD_SCALE = float(st["punch"])
     STYLE_BGM = int(st["bgm"])
-    log.info("STYLE %s: cuts~%.1fs xfade=%.2f zoom=%.2f punch=%.2f bgm_%d",
-             name, SCENE_SPLIT_TARGET_S, XFADE, SCENE_ZOOM,
-             PUNCH_BUILD_SCALE, STYLE_BGM)
+    # r67 CONTENT LEAD — retune the mix knobs that decide what fills the screen.
+    global STYLE_LEAD, EVIDENCE_MAX_SCENES, FOOTAGE_CK_MAX_CONSEC
+    STYLE_LEAD = str(st.get("lead", ""))
+    if STYLE_LEAD == "receipts":
+        EVIDENCE_MAX_SCENES = 3        # let a strong proof carry one scene more
+        FOOTAGE_CK_MAX_CONSEC = 2      # keep clips short so proof stays the star
+    elif STYLE_LEAD == "footage":
+        EVIDENCE_MAX_SCENES = 2
+        FOOTAGE_CK_MAX_CONSEC = 6      # let the real moment breathe
+    elif STYLE_LEAD == "faces":
+        EVIDENCE_MAX_SCENES = 2
+        FOOTAGE_CK_MAX_CONSEC = 2      # portraits carry it, clips are punctuation
+    log.info("STYLE %s: lead=%s cuts~%.1fs xfade=%.2f zoom=%.2f punch=%.2f "
+             "bgm_%d evidence_cap=%d footage_consec=%d",
+             name, STYLE_LEAD, SCENE_SPLIT_TARGET_S, XFADE, SCENE_ZOOM,
+             PUNCH_BUILD_SCALE, STYLE_BGM, EVIDENCE_MAX_SCENES,
+             FOOTAGE_CK_MAX_CONSEC)
 
 
 SCENE_SPLIT_TARGET_S = float(os.environ.get("VIDEO_SPLIT_TARGET_S", "1.2"))
@@ -5303,6 +5327,14 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
             base = non_cover
         recent = _recent_paths()
         cands = [e for e in base if e["path"] not in recent]
+        # r67 FACES LEAD: when the style leads on people, a pool image with a
+        # visible face beats a scene-setting plate for the same slot. Only a
+        # PREFERENCE — if no faces are free we fall through to the normal set,
+        # so this can never starve the picker.
+        if STYLE_LEAD == "faces":
+            _faces = [e for e in cands if e.get("has_face")]
+            if len(_faces) >= 2:
+                cands = _faces
         if not cands:
             prev = scenes[-1].get("path") if scenes else None
             cands = [e for e in base if e["path"] != prev] or base
@@ -5477,7 +5509,7 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
             # article screenshot still carried 3 scenes via receipt_i reuse —
             # the per-index cap has an index-reuse loophole). Any single
             # evidence image backs at most 2 SCENES, full stop.
-            if path and evidence_scene_uses.get(path, 0) >= 2:
+            if path and evidence_scene_uses.get(path, 0) >= EVIDENCE_MAX_SCENES:
                 log.info("receipt image already in 2 scenes; subject photo "
                          "for variety")
                 path = None
