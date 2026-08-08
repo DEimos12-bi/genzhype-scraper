@@ -9,7 +9,9 @@ name: GenZHype YouTube poster
 # the run log prints the returned privacyStatus so the unlock is visible.
 
 on:
-  # Hourly, but the poster only publishes inside YT_SLOT_HOURS (16:40 and
+  # Hourly, but the poster only publishes inside YT_SLOT_HOURS. r59: raised to
+  # FIVE US-audience slots/day (12,16,20,23,02 UTC = 8am,12pm,4pm,7pm,10pm ET).
+  # (was 16:40 and
   # 23:40 UTC = US lunch + evening peak, per the 2026 Shorts rulebook) —
   # except for stories under 12h old, which publish on sight because
   # freshness is an official ranking factor for news content.
@@ -55,7 +57,7 @@ jobs:
         env:
           SOCIAL_BASE: 'https://genzhype.com'
           INGEST_TOKEN: ${{ secrets.INGEST_TOKEN }}
-          YT_SLOT_HOURS: '16,23'
+          YT_SLOT_HOURS: '12,16,20,23,2'
         # log tee'd to .social so failures are diagnosable from the server
         # (public API refuses log downloads); token masked defensively.
         run: |
