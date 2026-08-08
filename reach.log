@@ -1,0 +1,9 @@
+twitter-cli install exit=0
+rdt-cli install exit=0
+From https://github.com/DEimos12-bi/genzhype-scraper
+ * branch            video-feed -> FETCH_HEAD
+ * [new branch]      video-feed -> origin/video-feed
+video feed bytes=6806
+  page 415: 15 candidate(s) from 2 search(es)
+x-pages: 1 page(s), 2 search(es) used
+x-pages exit=0 bytes=2256
