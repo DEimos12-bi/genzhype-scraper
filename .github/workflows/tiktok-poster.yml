@@ -9,9 +9,8 @@ name: GenZHype TikTok poster
 
 on:
   schedule:
-    - cron: '15 21 * * *'
-    - cron: '45 0 * * *'
-    - cron: '15 4 * * *'
+    - cron: '30 22 * * *'
+    - cron: '0 2 * * *'
   workflow_dispatch:
   push:
     paths:
