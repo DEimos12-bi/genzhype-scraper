@@ -146,6 +146,14 @@ def _meta(service, v, as_reel=True):
                               "isAiGenerated": True}}
     if service == "facebook":
         return {"facebook": {"type": "reel" if as_reel else "post"}}
+    if service == "tiktok":
+        # Buffer's TikTokPostMetadataInput has only {title, isAiGenerated} —
+        # nothing is required, and the caption rides in `text`. AI label left
+        # OFF to match what we've been publishing by hand (the TikTok
+        # rulebook's call: generic TTS over real receipts isn't the
+        # impersonation case their policy targets). Flip to True here if we
+        # ever decide to align it with Instagram.
+        return {"tiktok": {}}
     return {}
 
 
@@ -154,15 +162,17 @@ def post(channel, v):
     Falls back reel -> plain video post if the network refuses (FB Reels
     cap at 90s; a long timeline would otherwise be dropped entirely)."""
     service = (channel.get("service") or "").lower()
-    # FB captions take clickable links; IG's don't, so it keeps the plain
-    # "on GenZHype.com" line the caption already ends with.
-    # Each network gets its own caption. NEITHER carries a clickable URL:
-    # IG captions aren't clickable at all, and Meta's own creator guidance
-    # says FB "captions without links... perform better" (Clickbait Links
-    # is one of only four remaining demotion categories). Both name
-    # genzhype.com in plain text instead.
-    text = v.get(f"{'ig' if service == 'instagram' else 'fb'}_caption") \
-        or v["caption"]
+    # Each network gets its OWN caption from app/social_copy.php. None
+    # carries a clickable URL: IG captions aren't clickable at all, and
+    # Meta's own guidance says FB "captions without links... perform
+    # better". They name genzhype.com in plain text instead.
+    # BUG FIXED: the old ternary sent the FACEBOOK caption to TikTok
+    # (anything not instagram fell through to fb_caption), which would have
+    # posted FB hashtags and FB phrasing to TikTok — where the caption is
+    # the main search surface and must lead with the person's name.
+    cap_key = {"instagram": "ig_caption", "facebook": "fb_caption",
+               "tiktok": "tt_caption"}.get(service)
+    text = (v.get(cap_key) if cap_key else None) or v["caption"]
     due = next_slot()
     for as_reel in (True, False):
         data, err = gql(MUTATION, {"i": {

@@ -39,11 +39,24 @@ jobs:
       - name: Fetch Buffer token from our server vault
         env:
           INGEST_TOKEN: ${{ secrets.INGEST_TOKEN }}
+        # RETRY: Hostinger's WAF intermittently blackholes runner IPs, so a
+        # single curl returns empty and the whole job dies here BEFORE the
+        # poster runs — which is exactly why the 19:46 TikTok test produced
+        # no log at all. Three attempts with backoff, and a clear message.
         run: |
-          CREDS=$(curl -s -X POST -H "Content-Type: application/json" \
-            -d "{\"token\":\"$INGEST_TOKEN\",\"want\":[\"buffer\"]}" \
-            https://genzhype.com/api/creds.php)
-          BT=$(echo "$CREDS" | python3 -c "import sys,json;print(json.load(sys.stdin)['creds'].get('buffer',''),end='')")
+          for i in 1 2 3; do
+            CREDS=$(curl -s --max-time 45 -X POST -H "Content-Type: application/json" \
+              -d "{\"token\":\"$INGEST_TOKEN\",\"want\":[\"buffer\"]}" \
+              https://genzhype.com/api/creds.php || true)
+            BT=$(echo "$CREDS" | python3 -c "import sys,json;\
+print(json.load(sys.stdin).get('creds',{}).get('buffer',''),end='')" 2>/dev/null || true)
+            if [ -n "$BT" ]; then break; fi
+            echo "vault fetch attempt $i failed (site unreachable from runner); retrying"
+            sleep $((i * 15))
+          done
+          if [ -z "$BT" ]; then
+            echo "VAULT UNREACHABLE after 3 attempts - aborting"; exit 1
+          fi
           echo "::add-mask::$BT"
           echo "BUFFER_TOKEN=$BT" >> "$GITHUB_ENV"
       - name: Queue videos on Buffer
