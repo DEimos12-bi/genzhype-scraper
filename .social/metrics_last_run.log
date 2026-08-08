@@ -1,3 +1,10 @@
-YT: 1 videos -> {"ok": true, "recorded": 1, "tt_matched": 0}
-  yt/UhFbUyoIBB8: 3 views, 0 likes
-TT video.list error (scope granted yet?): {"code": "scope_not_authorized", "message": "The user did not authorize the scope required for completing this request.", "log_id": "20260808011044F46156B9D3B65A56EA19"}
+Traceback (most recent call last):
+  File "/home/runner/work/genzhype-scraper/genzhype-scraper/metrics_collector.py", line 148, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "/home/runner/work/genzhype-scraper/genzhype-scraper/metrics_collector.py", line 134, in main
+    plan = site(f"{BASE}/api/metrics_next.php?token=" + INGEST)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/work/genzhype-scraper/genzhype-scraper/metrics_collector.py", line 37, in site
+    raise RuntimeError(f"curl {r.returncode} for {url.split('?')[0]}")
+RuntimeError: curl 28 for https://genzhype.com/api/metrics_next.php
