@@ -622,6 +622,9 @@ COVER_MAX_UPSCALE = float(os.environ.get("VIDEO_COVER_MAX_UPSCALE", "1.35"))
 
 # r70: hunt for more footage until a story has at least this many clips.
 CLIP_HUNT_MIN = int(os.environ.get("VIDEO_CLIP_HUNT_MIN", "3"))
+# r71: minimum perceptual distance (of 64 bits) between two stills taken from
+# the SAME clip. 6 was the pool-wide near-duplicate bar and far too loose here.
+CLIP_FRAME_MIN_DIFF = int(os.environ.get("VIDEO_CLIP_FRAME_MIN_DIFF", "14"))
 
 POOL_NO_REPEAT_WINDOW = 3      # r11: an image never reappears within 3 scenes
 # r42: the window and the max-share below were tuned when a story had 4-6 images
@@ -5146,13 +5149,39 @@ def harvest_clip_frames(clip_path, pool, want=12, label="event footage"):
     Returns the number of stills added. Never raises."""
     added = 0
     try:
-        frames = _extract_frames_at(
-            clip_path, [0.6 + 0.75 * k for k in range(want)],
-            prefix="clipfr", width=1080)
+        # r71 FRAME SPACING (judge: "REPETITION: image repeated"). Sampling every
+        # 0.75s from one continuous shot produced near-identical stills: they
+        # counted as 12 images but read as ONE picture on screen, so the video
+        # was rejected for repetition while the pool "had" 27 visuals. Two fixes:
+        #   1. spread the samples across the WHOLE clip instead of a fixed 0.75s
+        #      cadence, so we cross actual cuts and movement;
+        #   2. judge sameness far more strictly for clip frames. 6/64 bits apart
+        #      is nothing between two frames of the same static shot — the
+        #      threshold below is what let visually identical frames through.
+        try:
+            from moviepy import VideoFileClip as _VFC
+            _v = _VFC(clip_path); _dur = float(_v.duration or 0); _v.close()
+        except Exception:  # noqa: BLE001
+            _dur = 0.0
+        if _dur > 1.5:
+            _lo, _hi = 0.3, max(0.6, _dur - 0.3)
+            _times = [_lo + (_hi - _lo) * i / float(max(1, want - 1))
+                      for i in range(want)]
+        else:
+            _times = [0.6 + 0.75 * k for k in range(want)]
+        frames = _extract_frames_at(clip_path, _times,
+                                    prefix="clipfr", width=1080)
+        kept_hashes = []
         for fp, _ft in frames:
             dh = image_dhash(fp)
             if any(dhash_distance(dh, e.get("dhash")) <= 6 for e in pool):
                 continue                  # near-duplicate of a pool image
+            # STRICT against sibling frames from this same clip.
+            if any(dhash_distance(dh, kh) < CLIP_FRAME_MIN_DIFF
+                   for kh in kept_hashes):
+                log.info("clip frame too similar to one already kept; skipped")
+                continue
+            kept_hashes.append(dh)
             entry = {"path": fp, "textish": False, "url": None,
                      "person": None, "designed": False,
                      "dhash": dh, "quality": image_quality(fp)}
