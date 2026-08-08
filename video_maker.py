@@ -500,6 +500,56 @@ PEOPLE_BUDGET_S = 100          # hard wall-clock cap on all person lookups
 # consecutive beats that each show a DIFFERENT image. Set target to 0 to disable.
 # Tuned against the real scene durations of the page-415 render (1.6s-4.2s):
 # 23 scenes @ 2.89s avg -> 45 beats @ 1.48s avg, longest hold 2.3s.
+# ============================================================================
+# r65 STYLE SYSTEM — the owner's A/B test: same story, same ~60s+ length, but a
+# different FEEL, so we can learn which treatment actually makes people share.
+# A style is a preset over knobs that already exist, so no new render code and
+# no new failure modes. Three dimensions vary together because they are what a
+# viewer actually perceives: CUT RHYTHM, TRANSITION HARDNESS, MOTION INTENSITY,
+# and MUSIC BED. The chosen style is stamped into the render report so the
+# metrics collector can compare performance per style later.
+#   rapid     - machine-gun cuts, hard cuts, aggressive push-in, energetic bed
+#   slowburn  - long holds, soft dissolves, gentle drift, dark ambient bed
+#   punch     - middle rhythm, biggest zoom hits, third bed
+# Override for a deliberate test with VIDEO_STYLE=rapid|slowburn|punch.
+# ============================================================================
+VIDEO_STYLES = {
+    "rapid":    {"split": 1.0, "xfade": 0.00, "zoom": 0.20, "punch": 1.22, "bgm": 2},
+    "slowburn": {"split": 2.2, "xfade": 0.25, "zoom": 0.10, "punch": 1.10, "bgm": 1},
+    "punch":    {"split": 1.5, "xfade": 0.08, "zoom": 0.16, "punch": 1.17, "bgm": 3},
+}
+STYLE_NAME = ""
+STYLE_BGM = 0                      # 1-based bgm index chosen by the style
+
+
+def pick_style(page_id):
+    """Deterministic per story so a re-render of the same page keeps its style
+    (a fair test needs a stable assignment), rotating across the library."""
+    forced = os.environ.get("VIDEO_STYLE", "").strip().lower()
+    if forced in VIDEO_STYLES:
+        return forced
+    names = sorted(VIDEO_STYLES)
+    return names[int(page_id) % len(names)]
+
+
+def apply_style(name):
+    """Bind the style's knobs. Called once per video before planning."""
+    global SCENE_SPLIT_TARGET_S, XFADE, SCENE_ZOOM, PUNCH_BUILD_SCALE
+    global STYLE_NAME, STYLE_BGM
+    st = VIDEO_STYLES.get(name)
+    if not st:
+        return
+    STYLE_NAME = name
+    SCENE_SPLIT_TARGET_S = float(st["split"])
+    XFADE = float(st["xfade"])
+    SCENE_ZOOM = float(st["zoom"])
+    PUNCH_BUILD_SCALE = float(st["punch"])
+    STYLE_BGM = int(st["bgm"])
+    log.info("STYLE %s: cuts~%.1fs xfade=%.2f zoom=%.2f punch=%.2f bgm_%d",
+             name, SCENE_SPLIT_TARGET_S, XFADE, SCENE_ZOOM,
+             PUNCH_BUILD_SCALE, STYLE_BGM)
+
+
 SCENE_SPLIT_TARGET_S = float(os.environ.get("VIDEO_SPLIT_TARGET_S", "1.2"))
 SCENE_SPLIT_MIN_S = float(os.environ.get("VIDEO_SPLIT_MIN_S", "1.8"))
 SCENE_SPLIT_MAX_PARTS = int(os.environ.get("VIDEO_SPLIT_MAX_PARTS", "4"))
@@ -5915,6 +5965,7 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                   if s.get("type") == "photo" and not s.get("footage"))
     _RENDER_REPORT.clear()
     _RENDER_REPORT.update({
+        "style": STYLE_NAME,          # r65: which A/B treatment this video used
         "ck_mode": bool(ck_mode),
         "cookie_bytes": (os.path.getsize(_ck_path) if _ck_path else 0),
         "story_vids": len(story_vids),
@@ -6948,6 +6999,12 @@ def chunk_caption_clips(beats, hook_end, duration, font_path, card_windows=None)
 # Background music (optional, deterministic, non-fatal)
 # ============================================================================
 def pick_bgm(page_id, grave=False):
+    # r65: the STYLE owns the bed (energetic vs dark ambient) — it is one of
+    # the things being A/B tested. Grave stories still override everything.
+    if STYLE_BGM and not grave:
+        _p = os.path.join(BGM_DIR, f"bgm_{STYLE_BGM}.mp3")
+        if os.path.exists(_p):
+            return _p
     """Deterministically pick a track from BGM_DIR by page_id hash. The folder
     must contain ONLY CC0/royalty-free .mp3 files. Missing/empty -> None.
     r16 GRAVITY: a grave story never gets a tension/trap bed — it takes the
@@ -8304,6 +8361,7 @@ def make_one(post, font_path):
         hook = " ".join(script.split()[:8])
 
     os.makedirs(WORKDIR, exist_ok=True)
+    apply_style(pick_style(page_id))   # r65: this video's A/B treatment
     _set_stage("visuals", pid=page_id)
     # r28: this story's harvested platform clips (Twitch/TikTok/Kick/YouTube) —
     # the scene planner pulls these in as REAL MOVING footage matched to the
