@@ -48,8 +48,7 @@ jobs:
             CREDS=$(curl -s --max-time 45 -X POST -H "Content-Type: application/json" \
               -d "{\"token\":\"$INGEST_TOKEN\",\"want\":[\"buffer\"]}" \
               https://genzhype.com/api/creds.php || true)
-            BT=$(echo "$CREDS" | python3 -c "import sys,json;\
-print(json.load(sys.stdin).get('creds',{}).get('buffer',''),end='')" 2>/dev/null || true)
+            BT=$(echo "$CREDS" | python3 -c "import sys,json;print(json.load(sys.stdin).get('creds',{}).get('buffer',''),end='')" 2>/dev/null || true)
             if [ -n "$BT" ]; then break; fi
             echo "vault fetch attempt $i failed (site unreachable from runner); retrying"
             sleep $((i * 15))
