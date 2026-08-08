@@ -1,0 +1,47 @@
+name: GenZHype video intelligence
+
+# r77: the outward-facing arm of the competitor engine. Watches rival YouTube
+# channels, finds the videos that beat THEIR OWN channel's median, and distils
+# what those winners have in common into comp_rule rows (scope='video').
+#
+# The work happens SERVER-SIDE (api/video_intel_run.php) and this job only
+# pokes the URL. Deliberate: our server talks to googleapis reliably, while
+# GitHub runners get randomly blackholed by Hostinger's WAF — so there is no
+# fragile middle. If the poke fails, tomorrow's run simply picks it up.
+
+on:
+  schedule:
+    - cron: '35 9 * * *'
+  workflow_dispatch:
+  push:
+    paths:
+      - '.social/intel_poke'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: video-intel
+  cancel-in-progress: false
+
+jobs:
+  learn:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Ask the server to study the rivals
+        env:
+          INGEST_TOKEN: ${{ secrets.INGEST_TOKEN }}
+        run: |
+          for i in 1 2 3; do
+            OUT=$(curl -s --max-time 300 \
+              "https://genzhype.com/api/video_intel_run.php?token=$INGEST_TOKEN&per=50" || true)
+            if echo "$OUT" | grep -q '"ok":true'; then
+              echo "$OUT" | sed "s/$INGEST_TOKEN/***/g"
+              exit 0
+            fi
+            echo "attempt $i failed; retrying"
+            sleep $((i * 20))
+          done
+          echo "video intel unreachable after 3 attempts (WAF or site down)"
+          exit 1
