@@ -25,6 +25,7 @@ Env: SOCIAL_BASE, INGEST_TOKEN, BUFFER_TOKEN (fetched by the workflow).
 import json
 import os
 import subprocess
+import time
 
 BASE = os.environ.get("SOCIAL_BASE", "https://genzhype.com").rstrip("/")
 INGEST = os.environ["INGEST_TOKEN"]
@@ -56,6 +57,24 @@ def gql(query, variables=None):
     res = curl_json(API, {"query": query, "variables": variables or {}},
                     [f"Authorization: Bearer {TOKEN}"])
     return res.get("data"), res.get("errors")
+
+
+def next_slot():
+    """Exact publish time, in UTC, decided HERE — not by Buffer's queue.
+    Buffer's per-channel schedule grid is fiddly and drifts to random
+    times (6am ET posts help nobody), so we pass customScheduled + dueAt
+    and the grid becomes irrelevant. Slots sit ~30min after the YouTube
+    ones so the same story doesn't land everywhere in the same minute."""
+    slots = os.environ.get("BUFFER_SLOTS_UTC", "17:15,23:15").split(",")
+    now = time.gmtime()
+    mins_now = now.tm_hour * 60 + now.tm_min
+    for s in slots:
+        h, m = (int(x) for x in s.split(":"))
+        if h * 60 + m > mins_now + 10:          # not in the past / too soon
+            return time.strftime(f"%Y-%m-%dT{h:02d}:{m:02d}:00.000Z", now)
+    h, m = (int(x) for x in slots[0].split(":"))   # tomorrow's first slot
+    tmr = time.gmtime(time.time() + 86400)
+    return time.strftime(f"%Y-%m-%dT{h:02d}:{m:02d}:00.000Z", tmr)
 
 
 def done_path(code):
@@ -128,10 +147,12 @@ def post(channel, v):
     # FB captions take clickable links; IG's don't, so it keeps the plain
     # "on GenZHype.com" line the caption already ends with.
     text = v["caption"] + ("\n" + v["link"] if service == "facebook" else "")
+    due = next_slot()
     for as_reel in (True, False):
         data, err = gql(MUTATION, {"i": {
             "channelId": channel["id"], "text": text,
-            "schedulingType": "automatic", "mode": "addToQueue",
+            "schedulingType": "automatic", "mode": "customScheduled",
+            "dueAt": due,
             "needsApproval": False,
             "metadata": _meta(service, v, as_reel),
             "assets": [{"video": {"url": v["video"],
@@ -145,8 +166,8 @@ def post(channel, v):
                 res["message"][:200])
             continue
         pid = (res.get("post") or {}).get("id")
-        log(f"  QUEUED on {service} as {'reel' if as_reel else 'post'}"
-            f" (buffer post {pid})")
+        log(f"  SCHEDULED on {service} as {'reel' if as_reel else 'post'}"
+            f" for {due} (buffer post {pid})")
         return True
     return False
 
