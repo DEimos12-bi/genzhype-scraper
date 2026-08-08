@@ -107,19 +107,16 @@ MUTATION = ("mutation($i:CreatePostInput!){ createPost(input:$i){"
 
 def _meta(service, v, as_reel=True):
     """Per-network options (schema-introspected 2026-08-08).
-    IG: reel + shouldShareToFeed for reach; the sourced-timeline link goes
-    in firstComment because IG captions can't carry clickable links.
-    isAiGenerated=true: Meta REQUIRES disclosure for digitally created
-    realistic audio, which our TTS narration is."""
-    link = "Full sourced timeline + every receipt: " + v["link"]
+    NOTE: firstComment is a PAID Buffer feature — the free plan rejects the
+    whole post if it's set (proven in run 1), so the timeline link rides in
+    the caption instead. isAiGenerated=true: Meta REQUIRES disclosure for
+    digitally created realistic audio, which our TTS narration is."""
     if service == "instagram":
         return {"instagram": {"type": "reel" if as_reel else "post",
                               "shouldShareToFeed": True,
-                              "isAiGenerated": True,
-                              "firstComment": link}}
+                              "isAiGenerated": True}}
     if service == "facebook":
-        return {"facebook": {"type": "reel" if as_reel else "post",
-                             "firstComment": link}}
+        return {"facebook": {"type": "reel" if as_reel else "post"}}
     return {}
 
 
@@ -128,7 +125,9 @@ def post(channel, v):
     Falls back reel -> plain video post if the network refuses (FB Reels
     cap at 90s; a long timeline would otherwise be dropped entirely)."""
     service = (channel.get("service") or "").lower()
-    text = v["caption"]
+    # FB captions take clickable links; IG's don't, so it keeps the plain
+    # "on GenZHype.com" line the caption already ends with.
+    text = v["caption"] + ("\n" + v["link"] if service == "facebook" else "")
     for as_reel in (True, False):
         data, err = gql(MUTATION, {"i": {
             "channelId": channel["id"], "text": text,
