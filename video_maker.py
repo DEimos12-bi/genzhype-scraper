@@ -686,7 +686,14 @@ VISUAL_MAX_SHARE_BASE = VISUAL_MAX_SHARE
 # distinct visuals, so that is the real floor. Openverse results still pass
 # every existing gate (relevance, resolution, dedup, face), so raising this
 # adds candidates WITHOUT lowering any quality bar.
-VISUAL_POOL_MIN = int(os.environ.get("VIDEO_POOL_MIN", "20"))
+# r69 CORRECTED DOWN from 20. Raising it to 20 (r56) made the Openverse
+# top-up fire on almost every story, and on thin/abstract stories it has
+# nothing real to find — an AI-actress story got robot components, a
+# streamer story got gingerbread houses. BOTH videos were rejected by the
+# judge for context mismatch. The judge is right: fewer honest images beat
+# padding. 10 still rescues genuinely starved stories (the 6-image case)
+# without inviting filler into every other one.
+VISUAL_POOL_MIN = int(os.environ.get("VIDEO_POOL_MIN", "10"))
 
 
 def tune_variety_for_pool(n_pool, n_scenes):
