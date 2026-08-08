@@ -92,7 +92,7 @@ def channels():
         return []
     org = orgs[0]["id"]
     data, err = gql(
-        "query($o:String!){ channels(input:{organizationId:$o})"
+        "query($o:OrganizationId!){ channels(input:{organizationId:$o})"
         "{ id name displayName service } }", {"o": org})
     if err or not data:
         log("Buffer: channels query failed:", json.dumps(err)[:300])
@@ -100,27 +100,56 @@ def channels():
     return data.get("channels") or []
 
 
+MUTATION = ("mutation($i:CreatePostInput!){ createPost(input:$i){"
+            " ... on PostActionSuccess { post { id } }"
+            " ... on MutationError { message } } }")
+
+
+def _meta(service, v, as_reel=True):
+    """Per-network options (schema-introspected 2026-08-08).
+    IG: reel + shouldShareToFeed for reach; the sourced-timeline link goes
+    in firstComment because IG captions can't carry clickable links.
+    isAiGenerated=true: Meta REQUIRES disclosure for digitally created
+    realistic audio, which our TTS narration is."""
+    link = "Full sourced timeline + every receipt: " + v["link"]
+    if service == "instagram":
+        return {"instagram": {"type": "reel" if as_reel else "post",
+                              "shouldShareToFeed": True,
+                              "isAiGenerated": True,
+                              "firstComment": link}}
+    if service == "facebook":
+        return {"facebook": {"type": "reel" if as_reel else "post",
+                             "firstComment": link}}
+    return {}
+
+
 def post(channel, v):
-    """Queue one video on one channel. Returns True on success."""
-    text = v["caption"] + "\n" + v["link"]
-    data, err = gql(
-        "mutation($i:PostInput!){ createPost(input:$i){"
-        " ... on PostActionSuccess { post { id } }"
-        " ... on MutationError { message } } }",
-        {"i": {"channelId": channel["id"], "text": text,
-               "schedulingType": "automatic", "mode": "addToQueue",
-               "assets": [{"video": {"url": v["video"],
-                                     "metadata": {"thumbnailOffset": 2000}}}]}})
-    if err:
-        log("  createPost error:", json.dumps(err)[:300])
-        return False
-    res = (data or {}).get("createPost") or {}
-    if res.get("message"):
-        log("  createPost refused:", res["message"][:200])
-        return False
-    pid = (res.get("post") or {}).get("id")
-    log(f"  QUEUED on {channel['service']} (buffer post {pid})")
-    return True
+    """Queue one video on one channel. Returns True on success.
+    Falls back reel -> plain video post if the network refuses (FB Reels
+    cap at 90s; a long timeline would otherwise be dropped entirely)."""
+    service = (channel.get("service") or "").lower()
+    text = v["caption"]
+    for as_reel in (True, False):
+        data, err = gql(MUTATION, {"i": {
+            "channelId": channel["id"], "text": text,
+            "schedulingType": "automatic", "mode": "addToQueue",
+            "needsApproval": False,
+            "metadata": _meta(service, v, as_reel),
+            "assets": [{"video": {"url": v["video"],
+                                  "metadata": {"thumbnailOffset": 2000}}}]}})
+        if err:
+            log("  createPost error:", json.dumps(err)[:300])
+            return False
+        res = (data or {}).get("createPost") or {}
+        if res.get("message"):
+            log(f"  refused as {'reel' if as_reel else 'post'}:",
+                res["message"][:200])
+            continue
+        pid = (res.get("post") or {}).get("id")
+        log(f"  QUEUED on {service} as {'reel' if as_reel else 'post'}"
+            f" (buffer post {pid})")
+        return True
+    return False
 
 
 def main():
