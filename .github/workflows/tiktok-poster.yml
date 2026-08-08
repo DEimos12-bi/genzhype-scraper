@@ -8,12 +8,23 @@ name: GenZHype TikTok poster
 # Run log tee'd to .social/tt_last_run.log for server-side diagnosis.
 
 on:
-  # r73: RESTORED. Buffer's API does not expose the TikTok channel to our token
-  # (it lists only facebook + instagram), so the direct-publish route is not
-  # available yet and drafts are still the only way TikTok gets anything.
-  schedule:
-    - cron: '30 22 * * *'
-    - cron: '0 2 * * *'
+  # STOOD DOWN 2026-08-08, and only after Buffer was PROVEN to publish:
+  # https://www.tiktok.com/@genzhype0/video/7671760635599834400 went live
+  # from buffer_poster.py (Buffer post status "sent", the new video id
+  # confirmed on the account through TikTok's own video.list). Drafts are
+  # no longer needed — Buffer publishes directly, so no one taps anything.
+  #
+  # The r73 note claiming "Buffer's API does not expose the TikTok channel"
+  # was wrong: the channel was always there as service="tiktok". The real
+  # failure was the vault-token step timing out before Python ever ran
+  # (Hostinger's WAF dropping the runner), which left no log to read.
+  #
+  # TO REVIVE (if Buffer ever breaks): uncomment the two crons below. The
+  # poster itself is untouched and still works — poke .social/tt_poke to
+  # run it by hand at any time.
+  # schedule:
+  #   - cron: '30 22 * * *'
+  #   - cron: '0 2 * * *'
   workflow_dispatch:
   push:
     paths:
