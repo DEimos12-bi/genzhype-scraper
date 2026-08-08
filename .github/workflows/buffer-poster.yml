@@ -1,0 +1,60 @@
+name: GenZHype Buffer poster (FB + IG)
+
+# META COMEBACK ROUTE (2026-08-08): our Meta developer accounts are
+# restricted, so Buffer's own approved Meta app does the publishing. This
+# runner queues each ready video onto the Facebook Page + Instagram
+# channels through Buffer's GraphQL API (free plan). Token comes from the
+# server vault (key "buffer") — repo is public. DORMANT until the vault
+# carries it ("no credentials; skipped"). Manual trigger: date >
+# .social/buffer_poke + push. Log tee'd to .social/buffer_last_run.log.
+
+on:
+  schedule:
+    - cron: '10 15,21 * * *'
+  workflow_dispatch:
+  push:
+    paths:
+      - '.social/buffer_poke'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: buffer-poster
+  cancel-in-progress: false
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Fetch Buffer token from our server vault
+        env:
+          INGEST_TOKEN: ${{ secrets.INGEST_TOKEN }}
+        run: |
+          CREDS=$(curl -s -X POST -H "Content-Type: application/json" \
+            -d "{\"token\":\"$INGEST_TOKEN\",\"want\":[\"buffer\"]}" \
+            https://genzhype.com/api/creds.php)
+          BT=$(echo "$CREDS" | python3 -c "import sys,json;print(json.load(sys.stdin)['creds'].get('buffer',''),end='')")
+          echo "::add-mask::$BT"
+          echo "BUFFER_TOKEN=$BT" >> "$GITHUB_ENV"
+      - name: Queue videos on Buffer
+        env:
+          SOCIAL_BASE: 'https://genzhype.com'
+          INGEST_TOKEN: ${{ secrets.INGEST_TOKEN }}
+        run: |
+          set -o pipefail
+          python buffer_poster.py 2>&1 | sed "s/$INGEST_TOKEN/***/g" | tee .social/buffer_last_run.log
+      - name: Save poster state
+        if: always()
+        run: |
+          git config user.name "genzhype-bot"
+          git config user.email "bot@genzhype.com"
+          git add .social 2>/dev/null || true
+          git commit -m "buffer poster state" 2>/dev/null || echo "no state change"
+          git pull --rebase -q origin main || true
+          git push 2>/dev/null || echo "nothing to push"
