@@ -57,7 +57,7 @@ jobs:
         env:
           SOCIAL_BASE: 'https://genzhype.com'
           INGEST_TOKEN: ${{ secrets.INGEST_TOKEN }}
-          YT_SLOT_HOURS: '21,0,4'
+          YT_SLOT_HOURS: '21,1,5'
         # log tee'd to .social so failures are diagnosable from the server
         # (public API refuses log downloads); token masked defensively.
         run: |

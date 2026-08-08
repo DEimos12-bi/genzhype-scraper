@@ -1,7 +1,9 @@
 name: GenZHype Instagram poster
 on:
   schedule:
-    - cron: '25 21,0,4 * * *'
+    - cron: '17 21 * * *'
+    - cron: '47 0 * * *'
+    - cron: '17 4 * * *'
   workflow_dispatch:
 permissions:
   contents: write
