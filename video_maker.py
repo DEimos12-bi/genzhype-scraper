@@ -6982,10 +6982,20 @@ def date_chip_clip(date_label, start, end, font_path):
         ic = ImageClip(arr, transparent=True).with_start(start).with_end(end)
         y = 250.0                              # under the top-UI safe band
 
-        def _pos(t, w=w, y=y):
+        clip_w = w + 8                    # the rendered image's real width
+
+        def _pos(t, w=w, y=y, cw=clip_w):
             k = 1.0 - (1.0 - min(1.0, t / 0.25)) ** 3   # ease-out cubic
-            # r82c: whole pixels — fractional x offsets crash compose_mask
-            return (int(round(40 - (w + 52) * (1.0 - k))), int(y))
+            x = 40 - (w + 52) * (1.0 - k)
+            # r82e: THE CRASH. On its first frame this chip sat COMPLETELY
+            # off-screen (x = -(w+12)), and a fully-outside clip makes
+            # moviepy's compose_mask build a zero-width slice — the
+            # "shapes (82,0) (82,1076)" encode death; 82 is this chip's
+            # exact height. It only started biting when the coat-to-cloth
+            # cut put a dated event on the FIRST beat. Keep 1px on screen
+            # at all times: the slide looks identical, the encode lives.
+            # (Whole pixels too — fractional offsets are their own trap.)
+            return (int(round(max(1 - cw, x))), int(y))
 
         ic = ic.with_position(_pos)
         try:
