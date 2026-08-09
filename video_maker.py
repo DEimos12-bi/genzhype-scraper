@@ -3395,12 +3395,30 @@ def build_visual_pool(post, page_id):
     # modifiable-licence photos of the subject) through the SAME gates
     # (textish, dedup) as every other candidate.
     if len(pool) < VISUAL_POOL_MIN:
+        # r87 NEVER ASK A PHOTO LIBRARY FOR A PERSON. Openverse indexes
+        # free-licence photography; it holds no pictures of current internet
+        # figures, so a search for one can only return a DIFFERENT human with
+        # a similar name. Page 192 asked it for "Justine Moore" and opened the
+        # video on Justin Moore, the country singer, in a white cowboy hat —
+        # the identity gate below was the last line of defence and it did not
+        # hold, because a vision model cannot recognise a face it has never
+        # been shown. Removing the question is the fix; the gate stays as
+        # defence in depth. Objects and places only, from the title.
         q = ""
-        for entry in (post.get("people") or [])[:1]:
-            q = str(entry.get("name") if isinstance(entry, dict) else entry or "")
-        if not q:
-            q = " ".join(str(post.get("title") or "").split()[:3])
-        for j, u in enumerate(openverse_photos(q, want=VISUAL_POOL_MIN + 2)):
+        people_names = {w for e in (post.get("people") or [])
+                        for w in str(e.get("name") if isinstance(e, dict)
+                                     else e or "").lower().split()}
+        words = [w for w in re.findall(r"[A-Za-z0-9']{3,}",
+                                       str(post.get("title") or ""))
+                 if w.lower() not in SEARCH_STOP
+                 and w.lower() not in people_names][:4]
+        if len(words) < 2:
+            log.info("openverse top-up skipped: nothing left to search for "
+                     "once the people are removed, and a name returns strangers")
+        else:
+            q = " ".join(words)
+        for j, u in enumerate(openverse_photos(q, want=VISUAL_POOL_MIN + 2)
+                              if q else []):
             if len(pool) >= VISUAL_POOL_MIN + 1:
                 break
             if u in seen:
@@ -3421,16 +3439,15 @@ def build_visual_pool(post, page_id):
             # positively show the story's subject; on any doubt it stays out —
             # for UNVERIFIED extras, fail CLOSED, unlike the feed's own
             # site-verified visuals.
-            # r75: identity-only when we know whose photo we asked for; the
-            # story-relevance question is the wrong test for a portrait.
-            if q:
-                _keep = shows_person(p, q)
-            else:
-                _keep = still_is_relevant(p, str(post.get("title", "")),
-                                          strict=True)
-            if not entry["textish"] and not _keep:
-                log.info("openverse candidate rejected (identity/relevance): "
-                         "%s", u[:90])
+            # r87: the query is now always a SUBJECT, never a person, so the
+            # right question is relevance, not identity. And the old "textish"
+            # bypass is gone: a candidate that merely contains text used to
+            # enter the pool with no relevance check at all, which is how an
+            # unverified stranger could reach the screen. An unverified extra
+            # must earn its place or stay out.
+            if not still_is_relevant(p, str(post.get("title", "")), strict=True):
+                log.info("openverse candidate rejected (not this story): %s",
+                         u[:90])
                 continue
             entry["quality"] = image_quality(p)
             try:
