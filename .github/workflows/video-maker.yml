@@ -83,6 +83,15 @@ jobs:
       # all. The cookie-mode footage budgets (12 scenes / 70% of runtime) were
       # already clips-first; supply was the limiter, not the caps.
       VIDEO_CLIP_HUNT_MIN: "5"
+      # r83 CLIPS-FIRST (owner: "full of clips"). Real footage may now carry
+      # up to 85% of the runtime and run 6 scenes before a still accent. The
+      # accents stay on purpose: the judge scores edit_variety, and an
+      # unbroken wall of borrowed footage is exactly what the platforms'
+      # unoriginal-content rules punish.
+      VIDEO_FOOTAGE_FRAC: "0.85"
+      VIDEO_FOOTAGE_MAX_SCENES: "16"
+      VIDEO_FOOTAGE_CONSEC: "6"
+      VIDEO_FOOTAGE_FETCHES: "12"
       # r45: flipped 0 -> 1 on EVIDENCE. The warp-test result shows the unlock is
       # the COOKIES, not WARP: it downloaded successfully with "WARP NOT ACTIVE",
       # and failed 403 only in the warp-only (no cookies) mode. The comment above
