@@ -3815,6 +3815,13 @@ _STORY_CLIPS = []          # r28: this story's harvested platform clip URLs
 # second of the slap). That offset is the most valuable number in the story: it
 # is where the event happens, so it is what the HOOK must show.
 _STORY_CLIP_START = {}
+# r87 PROVENANCE. Clip URLs a reporter EMBEDDED in one of this story's own
+# source articles. Their topicality is established by publication, not by
+# guessing: a journalist writing about this story chose to put this video in
+# the piece. That outranks a vision model's opinion of one sampled frame —
+# which on page 192 threw away BOTH of the story's TikToks as "off-topic" and
+# left a clips-first video with zero footage.
+_STORY_CLIP_SRC = set()
 _HOOK_CLIP = [None]        # (path, src_off) of the clip chosen to open the video
 _CLIP_ARTIFACT_FRAMES = []  # jpgs of each clip beat's REAL video, shipped
                             # with delivery for the carousel (joined by
@@ -5651,7 +5658,17 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
         t_curl = str(sh.get("clip_url") or "").strip()
         if t_curl:
             _tp = fetch_platform_clip(t_curl)
-            if _tp and footage_is_relevant(_tp, title):
+            # r87: a clip a reporter embedded in this story's own article is
+            # topical by publication. The vision gate judges ONE sampled frame,
+            # and a 9:16 TikTok frame is usually a face or a caption card, so
+            # it read both of page 192's clips as "off-topic" and shipped a
+            # clips-first video with no clips in it. Provenance wins; the gate
+            # still guards every clip we merely FOUND.
+            _trusted = t_curl in _STORY_CLIP_SRC
+            if _tp and _trusted:
+                log.info("PROVENANCE: beat %d clip kept without a vision vote "
+                         "(embedded in this story's own coverage)", si + 1)
+            if _tp and (_trusted or footage_is_relevant(_tp, title)):
                 path, typ, textish = _tp, "broll", False
                 # run #237 judge lesson: TikTok clips carry burned-in
                 # captions edge to edge — ANY zoom motion crops them
@@ -8677,7 +8694,7 @@ def make_one(post, font_path):
     # r28: this story's harvested platform clips (Twitch/TikTok/Kick/YouTube) —
     # the scene planner pulls these in as REAL MOVING footage matched to the
     # story, each fetched with its proper method (fetch_platform_clip).
-    global _STORY_CLIPS, _STORY_CLIP_START
+    global _STORY_CLIPS, _STORY_CLIP_START, _STORY_CLIP_SRC
     _HOOK_CLIP[0] = None          # r57: per-story, not per-process
     _CLIP_FRAMES_DONE[0] = False
     _STORY_CLIPS = [c.get("url") for c in (post.get("clips") or [])
@@ -8685,9 +8702,18 @@ def make_one(post, font_path):
     # r45: carry the reporter's own timestamp for each embedded clip. Embedded
     # clips lead the feed list, so _STORY_CLIPS[0] is normally the money moment.
     _STORY_CLIP_START = {}
+    _STORY_CLIP_SRC = set()
     for c in (post.get("clips") or []):
-        if isinstance(c, dict) and c.get("url") and int(c.get("start") or 0) > 0:
+        if not isinstance(c, dict) or not c.get("url"):
+            continue
+        if int(c.get("start") or 0) > 0:
             _STORY_CLIP_START[c["url"]] = int(c["start"])
+        if str(c.get("src") or "").startswith("http"):
+            _STORY_CLIP_SRC.add(c["url"])
+    if _STORY_CLIP_SRC:
+        log.info("PROVENANCE: %d clip(s) were embedded by reporters in this "
+                 "story's own articles; the footage gate cannot veto those",
+                 len(_STORY_CLIP_SRC))
     # r70 CLIP HUNTER — the supply fix, measured: one clip yields 12-20 usable
     # frames of the actual event, an article yields ~1 photo (trafilatura found
     # ZERO images inside a real article body), and generic image search yields
