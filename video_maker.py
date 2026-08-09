@@ -8840,6 +8840,25 @@ def make_one(post, font_path):
                 stripped += len(vis) - len(keep)
                 post["visuals"] = [kv[0] for kv in keep]
                 post["visual_titles"] = [kv[1] for kv in keep]
+            # r87 OUR OWN COVER IS NOT EVIDENCE. The site hero is decoration
+            # chosen by the image engine, and when that engine misses it misses
+            # badly — page 192's hero for an AI-actress story is a photograph
+            # of a hobby robot car, which under a timeline contract would open
+            # the video on an object that has nothing to do with the events.
+            # It is not deleted (on a thin story it may be all we have); it is
+            # demoted behind every real artifact, so evidence always leads.
+            _vis = post.get("visuals") or []
+            _vt = post.get("visual_titles") or []
+            _pairs = [(v, (_vt[i] if i < len(_vt) else ""))
+                      for i, v in enumerate(_vis)]
+            _covers = [p for p in _pairs if "/assets/covers/" in str(p[0])]
+            if _covers and len(_covers) < len(_pairs):
+                _rest = [p for p in _pairs if "/assets/covers/" not in str(p[0])]
+                post["visuals"] = [p[0] for p in _rest + _covers]
+                post["visual_titles"] = [p[1] for p in _rest + _covers]
+                log.info("TIMELINE: site cover demoted behind %d real "
+                         "artifact(s) — the hero is decoration, not evidence",
+                         len(_rest))
             if stripped:
                 log.info("TIMELINE: %d unverified channel thumbnail(s) "
                          "stripped from the job", stripped)
