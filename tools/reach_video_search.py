@@ -157,18 +157,31 @@ def main(feed_path, out_path):
         # rather than searching a meaningless string. Page 244 burned two of
         # its three searches on the literal string "MTAAB".
         named = [p for p in people if anchor_tokens(p)]
-        anchor_all = sorted({t for p in named for t in anchor_tokens(p)})
+        # r86c STRONG vs WEAK identity. A first+last name ("Justine Moore") is
+        # a real public identity: people write it, so demanding it is right.
+        # A bare handle ("@nikqwli") is not — on a MEME story the "people" are
+        # whichever accounts happened to post a video, and nobody writing
+        # about the meme names them. Requiring one rejected all 15 real hits
+        # on page 244 twice. So only strong names gate identity; weak handles
+        # still get searched, but a story with no strong name falls back to
+        # the keyword rule instead of demanding an identity that isn't there.
+        strong = [p for p in named if " " in p]
+        weak = [p for p in named if " " not in p]
+        anchor_all = sorted({t for p in strong for t in anchor_tokens(p)})
+        weak_all = sorted({t for p in weak for t in anchor_tokens(p)})
 
         # progressive relaxation (run #6 lesson: '"Rosa.Adventures" Influencer
         # Backlash' = handle AND both keywords in one tweet -> 0 hits; real
         # tweets describe the story, not the handle). Tightest first, stop
         # early once 3 candidates land.
         queries = []
-        if named:
-            queries.append(f'"{named[0]}" ' + " ".join(kws[:2]))
-            queries.append(f'"{named[0]}"')
+        if strong:
+            queries.append(f'"{strong[0]}" ' + " ".join(kws[:2]))
+            queries.append(f'"{strong[0]}"')
         if kws:
             queries.append(" ".join(kws[:4]))
+        if not strong and weak:
+            queries.append(f'"{weak[0]}"')   # last, not first: it rarely hits
         if not queries:
             print(f"  page {pid}: no searchable person or keyword, skipped")
             pages[str(pid)] = []
@@ -209,10 +222,15 @@ def main(feed_path, out_path):
                 if anchor_all:
                     if not person_hit:
                         drop_anchor += 1
-                        continue  # people-story: identity is the only anchor
-                elif kw_hits < kw_need:
-                    drop_kw += 1
-                    continue  # off-story keyword noise
+                        continue  # named-person story: identity is the anchor
+                else:
+                    # r86c no strong name (meme / trend story): keywords carry
+                    # it, and a matching handle counts as one keyword's worth.
+                    weak_hit = (any(t in tl for t in weak_all)
+                                or author_matches(tw, weak_all))
+                    if kw_hits + (1 if weak_hit else 0) < kw_need:
+                        drop_kw += 1
+                        continue  # off-story keyword noise
                 kept += 1
                 seen.add(tid)
                 cand.append({
