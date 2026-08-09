@@ -450,6 +450,10 @@ DEPTH_GRAIN = 5.0             # film-grain sigma (uint8 space), depth scenes onl
 VIDEO_BATCH = int(os.environ.get("VIDEO_BATCH", "1"))
 
 W, H = 1080, 1920
+# r82d: horizontal safe margin for text overlays. Nothing is drawn closer
+# than this to the frame edge — both for phone-safe legibility and because
+# edge-touching overlays are what crashed moviepy compose_mask.
+SAFE_X = 24
 FPS = int(os.environ.get("VIDEO_FPS", "30"))
 HOOK_FONT = 96
 TAIL_SECONDS = 0.45            # small pad so the last word/audio is not clipped
@@ -7199,23 +7203,31 @@ def chunk_caption_clips(beats, hook_end, duration, font_path, card_windows=None)
                     log.warning("caption render failed (%s); skipped state",
                                 exc)
                     continue
-                # r82b: a caption strip must NEVER exceed the frame. The
-                # coat-to-cloth script made beats longer, chunks wider, and a
-                # 1077px strip popped to 1.22x hung past both edges — where
-                # moviepy's compose_mask edge math crashes with a 0-width
-                # slice ("shapes (82,0) (82,1077)", the first encode crash
-                # this pipeline ever produced). Downscale to fit instead:
-                # slightly smaller text beats a dead render every time.
-                if arr.shape[1] > W - 4:
-                    _sc = (W - 4) / float(arr.shape[1])
+                # r82d: a caption strip is COMPOSITED ONTO A FULL FRAME here,
+                # then placed at (0,0). Three takes proved the partial-overlap
+                # path is the problem, not the numbers going into it: a strip
+                # touching the frame edge makes moviepy's compose_mask produce
+                # a zero-width slice and the whole encode dies
+                # ("shapes (82,0) (82,1077)"). Clamping the width moved the
+                # number (1077 -> 1076) and crashed identically; rounding the
+                # position did too. A frame-sized overlay never overlaps
+                # partially, so that code path is never entered. Cost is one
+                # paste per caption state; correctness is absolute.
+                if arr.shape[1] > W - SAFE_X * 2:
+                    _sc = (W - SAFE_X * 2) / float(arr.shape[1])
                     _im = Image.fromarray(arr)
                     arr = np.asarray(_im.resize(
-                        (W - 4, max(1, int(round(arr.shape[0] * _sc)))),
+                        (W - SAFE_X * 2, max(1, int(round(arr.shape[0] * _sc)))),
                         Image.Resampling.LANCZOS))
-                ic = ImageClip(arr, transparent=True)
-                ic = ic.with_start(s_st).with_end(s_en).with_position(
-                    (int((W - arr.shape[1]) // 2),
-                     int(round(y_center - arr.shape[0] / 2.0))))   # r82c
+                _cx = int((W - arr.shape[1]) // 2)
+                _cy = int(round(y_center - arr.shape[0] / 2.0))
+                _cy = max(0, min(H - arr.shape[0], _cy))
+                _canvas = np.zeros((H, W, 4), dtype=np.uint8)
+                _rgba = arr if arr.shape[2] == 4 else np.dstack(
+                    [arr, np.full(arr.shape[:2], 255, np.uint8)])
+                _canvas[_cy:_cy + _rgba.shape[0], _cx:_cx + _rgba.shape[1]] = _rgba
+                ic = ImageClip(_canvas, transparent=True)
+                ic = ic.with_start(s_st).with_end(s_en).with_position((0, 0))
                 clips.append(ic)
     return clips
 
