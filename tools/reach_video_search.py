@@ -223,6 +223,14 @@ def main(feed_path, out_path):
                     if not person_hit:
                         drop_anchor += 1
                         continue  # named-person story: identity is the anchor
+                    # r86d TOPICALITY. Authorship proves WHO, never WHAT: the
+                    # bare-name query returned 15 genuine Justine Moore posts
+                    # about coding agents and MiniMax, all correctly hers and
+                    # all useless to this story. A candidate must also carry
+                    # one distinctive word from the story.
+                    if kw_hits < 1:
+                        drop_kw += 1
+                        continue
                 else:
                     # r86c no strong name (meme / trend story): keywords carry
                     # it, and a matching handle counts as one keyword's worth.
