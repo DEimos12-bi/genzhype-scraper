@@ -7193,6 +7193,19 @@ def chunk_caption_clips(beats, hook_end, duration, font_path, card_windows=None)
                     log.warning("caption render failed (%s); skipped state",
                                 exc)
                     continue
+                # r82b: a caption strip must NEVER exceed the frame. The
+                # coat-to-cloth script made beats longer, chunks wider, and a
+                # 1077px strip popped to 1.22x hung past both edges — where
+                # moviepy's compose_mask edge math crashes with a 0-width
+                # slice ("shapes (82,0) (82,1077)", the first encode crash
+                # this pipeline ever produced). Downscale to fit instead:
+                # slightly smaller text beats a dead render every time.
+                if arr.shape[1] > W - 4:
+                    _sc = (W - 4) / float(arr.shape[1])
+                    _im = Image.fromarray(arr)
+                    arr = np.asarray(_im.resize(
+                        (W - 4, max(1, int(round(arr.shape[0] * _sc)))),
+                        Image.Resampling.LANCZOS))
                 ic = ImageClip(arr, transparent=True)
                 ic = ic.with_start(s_st).with_end(s_en).with_position(
                     ((W - arr.shape[1]) / 2.0,
