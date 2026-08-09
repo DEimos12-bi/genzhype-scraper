@@ -6980,7 +6980,8 @@ def date_chip_clip(date_label, start, end, font_path):
 
         def _pos(t, w=w, y=y):
             k = 1.0 - (1.0 - min(1.0, t / 0.25)) ** 3   # ease-out cubic
-            return (40 - (w + 52) * (1.0 - k), y)       # slide -w -> x=40
+            # r82c: whole pixels — fractional x offsets crash compose_mask
+            return (int(round(40 - (w + 52) * (1.0 - k))), int(y))
 
         ic = ic.with_position(_pos)
         try:
@@ -7044,12 +7045,17 @@ def hook_clip(text, start, end, font_path):
                     size=(min(W, lw + 2 * pad), lh + 2 * pad))
                 appear = start + min(i * 0.10, dur * 0.3)
                 ltc = ltc.with_start(appear).with_end(start + dur)
-                lx = (W - ltc.w) / 2.0
+                # r82c: WHOLE pixels only. A 1077px hook line centered at
+                # x=1.5 hit moviepy compose_mask's fractional-offset bug —
+                # the deterministic "shapes (82,0) (82,1077)" encode crash
+                # (the caption clamp was innocent; same formula, different
+                # overlay). Every animated position below rounds too.
+                lx = float(int((W - ltc.w) // 2))
                 ly = y_cursor
 
                 def _lpos(t, lx=lx, ly=ly):
                     dy = -26.0 * max(0.0, 1.0 - (t / 0.18))
-                    return (lx, ly + dy)
+                    return (int(lx), int(round(ly + dy)))
 
                 ltc = ltc.with_position(_lpos)
                 fade = min(0.10, dur / 2.0)
@@ -7067,11 +7073,11 @@ def hook_clip(text, start, end, font_path):
         text_align="center", **kwargs
     )
     tc = tc.with_start(start).with_end(start + dur)
-    x_center = (W - tc.w) / 2.0
+    x_center = float(int((W - tc.w) // 2))   # r82c: whole pixels
 
     def _pos(t):
         dy = -20.0 * max(0.0, 1.0 - (t / 0.14))   # slide up over first 0.14s
-        return (x_center, base_y + dy)
+        return (int(x_center), int(round(base_y + dy)))
 
     tc = tc.with_position(_pos)
     fade = min(0.08, dur / 2.0)
@@ -7208,8 +7214,8 @@ def chunk_caption_clips(beats, hook_end, duration, font_path, card_windows=None)
                         Image.Resampling.LANCZOS))
                 ic = ImageClip(arr, transparent=True)
                 ic = ic.with_start(s_st).with_end(s_en).with_position(
-                    ((W - arr.shape[1]) / 2.0,
-                     y_center - arr.shape[0] / 2.0))
+                    (int((W - arr.shape[1]) // 2),
+                     int(round(y_center - arr.shape[0] / 2.0))))   # r82c
                 clips.append(ic)
     return clips
 
