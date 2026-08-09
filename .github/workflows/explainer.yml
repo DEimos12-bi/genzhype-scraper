@@ -1,0 +1,62 @@
+name: explainer
+
+# Renders the owner's explainer video (explainer.py) and drops it on the
+# video-drop branch, the same delivery road the real renders use — Hostinger
+# blackholes POSTs from random runner IPs, but GitHub is always reachable.
+#
+# Triggered by touching .social/explainer-trigger, so it never fires on an
+# ordinary code push.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".social/explainer-trigger"
+  workflow_dispatch:
+
+concurrency:
+  group: explainer
+  cancel-in-progress: false
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install render deps
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install \
+            "moviepy==2.2.1" \
+            "edge-tts==7.2.7" \
+            "Pillow>=10.3" \
+            "numpy>=1.26" \
+            "imageio-ffmpeg>=0.5"
+
+      - name: Fonts
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq fonts-dejavu-core
+
+      - name: Render
+        run: python explainer.py 2>&1 | tee explainer.log
+
+      - name: Drop to video-drop branch
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          [ -s explainer.mp4 ] || { echo "no video produced"; cat explainer.log | tail -30; exit 1; }
+          mkdir -p /tmp/drop && cd /tmp/drop
+          cp "$GITHUB_WORKSPACE/explainer.mp4" .
+          cp "$GITHUB_WORKSPACE/explainer.log" . 2>/dev/null || true
+          git init -q && git checkout -q -b explainer-drop
+          git add -A
+          git -c user.name=explainer -c user.email=bot@genzhype \
+              commit -qm "explainer $(date -u +%FT%TZ)"
+          git push -f "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" explainer-drop
+          echo "pushed explainer.mp4 ($(du -h explainer.mp4 | cut -f1)) to explainer-drop"
