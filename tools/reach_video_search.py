@@ -71,8 +71,15 @@ def anchor_tokens(name):
     characters carry no identity and are dropped — page 244's "MTAAB"
     searched as a person and found nothing, twice.
     """
-    n = re.sub(r"\s+", " ", (name or "")).strip().lower()
+    raw = re.sub(r"\s+", " ", (name or "")).strip()
+    n = raw.lower()
     if len(n.replace(" ", "")) < 4:
+        return []
+    # r86: an ALL-CAPS single token is an acronym, not a person. Page 244
+    # ("TikTok 'Raw Milk' Meme", people_json empty) had "MTAAB" invented by
+    # the people resolver; as an anchor it burned two searches on a string
+    # nobody tweets AND rejected all 15 real hits the keyword search found.
+    if " " not in raw and raw.isupper():
         return []
     toks = {n, n.replace(" ", ""), n.replace(" ", "_")}
     parts = [p for p in n.split(" ") if p]
