@@ -77,6 +77,12 @@ jobs:
       # timed out 4 renders in 2 days, so that one source stays off (flip
       # VIDEO_YT_FETCH to "1" the day a residential proxy exists).
       VIDEO_FOOTAGE_FETCH: "1"
+      # r81 (owner: "I wanna see video with only clips all around, small
+      # amount of imgs"): hunt for up to 5 clips per story instead of stopping
+      # at 3 — the visual director writes 5 event-shaped queries, so use them
+      # all. The cookie-mode footage budgets (12 scenes / 70% of runtime) were
+      # already clips-first; supply was the limiter, not the caps.
+      VIDEO_CLIP_HUNT_MIN: "5"
       # r45: flipped 0 -> 1 on EVIDENCE. The warp-test result shows the unlock is
       # the COOKIES, not WARP: it downloaded successfully with "WARP NOT ACTIVE",
       # and failed 403 only in the warp-only (no cookies) mode. The comment above
