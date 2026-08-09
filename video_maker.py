@@ -3967,6 +3967,48 @@ def _archive_len_s(val):
         return 0.0
 
 
+SEARCH_STOP = {
+    "the", "and", "with", "from", "that", "this", "what", "when", "after",
+    "over", "into", "your", "just", "they", "them", "than", "then", "have",
+    "here", "news", "video", "clip", "full", "says", "new", "his", "her",
+    "its", "world", "game", "games", "gaming", "life", "live", "show",
+    "shows", "story", "stories", "part", "series", "movie", "film", "people",
+    "player", "players", "best", "first", "last", "time", "times", "year",
+    "years", "week", "today", "night", "real", "official", "channel", "watch",
+    "online", "free", "home", "modern", "look", "thing", "things", "universe",
+    "america", "american", "update", "updates", "response", "incident",
+    "rise", "fallout", "drama", "viral", "trend", "trending", "internet",
+    "reaction", "explained", "tiktok", "twitter", "youtube", "instagram",
+}
+
+
+def distinctive_words(*texts):
+    """The rare words that make a title THIS story's and not a coincidence.
+
+    r87: lifted out of archive_org_clips, where it has been earning its keep
+    since the "World of Warcraft" -> "Modern World Of Doctor Who" incident,
+    so the YouTube clip hunt can use the same test. Common long words are
+    stopwords too — a match has to rest on something genuinely rare.
+    """
+    out = set()
+    for t in texts:
+        for w in re.findall(r"[A-Za-z0-9']{3,}", str(t or "")):
+            # "TikTok's" is the stopword tiktok wearing a possessive; strip it
+            # or the apostrophe smuggles a banned word back in as distinctive.
+            lw = re.sub(r"'s$|'$", "", w.lower())
+            if len(lw) >= 4 and lw not in SEARCH_STOP:
+                out.add(lw)
+    return out
+
+
+def title_is_topical(title, distinct):
+    """Whole-word test — "brooke" must not match inside "#brookemonk", which
+    is a different creator entirely (r87, caught on the measured results)."""
+    tl = str(title or "").lower()
+    return any(re.search(r"(?<![a-z0-9])" + re.escape(w) + r"(?![a-z0-9])", tl)
+               for w in distinct)
+
+
 def archive_org_clips(terms, want=3):
     """r33 (owner: a video about the most iconic laugh on the internet that
     contained neither the laugh nor the show). REAL footage from archive.org —
@@ -8639,15 +8681,28 @@ def make_one(post, font_path):
     _vp = post.get("visual_plan") or {}
     if (not _vp.get("skip")) and len(_STORY_CLIPS) < CLIP_HUNT_MIN:
         import shutil as _sh
-        if _sh.which("yt-dlp"):
+        # r87 TOPICALITY GATE. YouTube answers EVERY query with something, so
+        # a search that finds nothing real still returns two videos — and this
+        # hunt used to accept them sight unseen (it did not even ask for the
+        # title). Measured on the AI-actress story: of five director phrases,
+        # one returned the actual video and the rest returned Amanda Bynes,
+        # Paris Hilton and a courtroom clip, all of which would have been
+        # downloaded as this story's footage. A result now has to carry a rare
+        # word from the story in its title, the same test archive.org passes.
+        _hunt_distinct = distinctive_words(
+            post.get("title"),
+            *[str(p.get("name") if isinstance(p, dict) else p or "")
+              for p in (post.get("people") or [])])
+        if _sh.which("yt-dlp") and _hunt_distinct:
             for _q in (_vp.get("clip_queries") or [])[:3]:
                 if len(_STORY_CLIPS) >= CLIP_HUNT_MIN:
                     break
                 try:
                     _r = subprocess.run(
                         ["yt-dlp", "--no-warnings", "--flat-playlist",
-                         "--skip-download", "--print", "%(id)s\t%(duration)s",
-                         f"ytsearch2:{_q}"],
+                         "--skip-download", "--print",
+                         "%(id)s\t%(duration)s\t%(title)s",
+                         f"ytsearch3:{_q}"],
                         capture_output=True, text=True, timeout=45)
                     for _ln in (_r.stdout or "").splitlines():
                         _pp = _ln.split("\t")
@@ -8658,10 +8713,16 @@ def make_one(post, font_path):
                                 continue        # skip full streams
                         except (ValueError, IndexError):
                             pass
+                        _ttl = _pp[2] if len(_pp) > 2 else ""
+                        if not title_is_topical(_ttl, _hunt_distinct):
+                            log.info("CLIP HUNT: dropped %r — no story word "
+                                     "in the title", _ttl[:58])
+                            continue
                         _u = "https://www.youtube.com/watch?v=" + _pp[0]
                         if _u not in _STORY_CLIPS:
                             _STORY_CLIPS.append(_u)
-                            log.info("CLIP HUNT: found %s for %r", _pp[0], _q[:60])
+                            log.info("CLIP HUNT: found %s (%r) for %r",
+                                     _pp[0], _ttl[:44], _q[:44])
                 except Exception as _e:  # noqa: BLE001 — never fatal
                     log.info("clip hunt failed for %r (%s)", _q[:40], str(_e)[:60])
             log.info("CLIP HUNT: story now has %d clip(s)", len(_STORY_CLIPS))
