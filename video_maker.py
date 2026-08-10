@@ -477,8 +477,36 @@ ACCENT = "#FF6A5C"             # GenZHype brand accent — the spoken word pops 
 CHUNK_FONT = int(os.environ.get("VIDEO_CHUNK_FONT", "88"))
 HOT_SCALE = 1.18               # spoken word renders this much larger
 CHUNK_MAX_WORDS = 3
-SAFE_TOP = 220                 # platform UI safe areas (nothing rendered inside)
-SAFE_BOTTOM = 320
+# PLATFORM UI SAFE AREAS (r94, measured against the published 2026 specs).
+# Every platform paints its own furniture over our frame, and the zones differ:
+#   top     TikTok 200 · Shorts 200 · Reels 250   -> take the worst, 250
+#   bottom  TikTok 350 · Shorts 400 · Reels 400   -> take the worst, 400
+#   right   the like/comment/share column, 130-150 on all three
+# The old values (220/320) were both too small AND dead code — nothing read
+# SAFE_BOTTOM at all. They are corrected and now actually enforced by
+# safe_xy(), because a number no code obeys protects nothing: today's layout
+# happens to sit inside these zones, and the next overlay someone adds would
+# have had nothing to stop it.
+SAFE_TOP = 250
+SAFE_BOTTOM = 400
+SAFE_RIGHT = 150
+
+
+def safe_xy(x, y, w=0, h=0):
+    """Clamp a CORNER-ANCHORED overlay into the area no platform covers.
+
+    For badges and chips only — NOT for the captions or the hook. Tested when
+    written: an 880px centred caption fed through this gets shoved 50px left,
+    because the right button column leaves no room for something that wide.
+    Wide centred text is SUPPOSED to run under that column; the buttons are
+    semi-transparent and centred text stays readable. Shifting it would break
+    the centring to solve a problem that does not exist.
+
+    Whole pixels only — fractional offsets are their own encode trap (r82c).
+    """
+    x = min(max(int(round(x)), SAFE_X), max(SAFE_X, W - SAFE_RIGHT - int(w)))
+    y = min(max(int(round(y)), SAFE_TOP), max(SAFE_TOP, H - SAFE_BOTTOM - int(h)))
+    return (x, y)
 CAPTION_CENTER_Y = int(H * 0.62)   # lower-middle band, well inside the safe area
 # v9 (owner round-9): on CARD scenes (receipt/post/promo) captions must never sit
 # on the card's own text. The card anchors top (y=240, below the 220px UI zone)
@@ -7122,7 +7150,10 @@ def date_chip_clip(date_label, start, end, font_path):
         arr = np.array(img)
 
         ic = ImageClip(arr, transparent=True).with_start(start).with_end(end)
-        y = 250.0                              # under the top-UI safe band
+        # r94: was exactly 250 — the Reels top zone boundary, so the chip's
+        # first row sat on the edge of their UI. A little clearance costs
+        # nothing and the chip is the one thing on screen that must be read.
+        y = float(SAFE_TOP + 20)
 
         clip_w = w + 8                    # the rendered image's real width
 
