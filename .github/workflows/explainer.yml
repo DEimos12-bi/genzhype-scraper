@@ -18,6 +18,11 @@ concurrency:
   group: explainer
   cancel-in-progress: false
 
+# The repo's default token is read-only, so the first two runs rendered fine
+# and then died on the push. video-maker.yml has carried this block all along.
+permissions:
+  contents: write
+
 jobs:
   render:
     runs-on: ubuntu-latest
