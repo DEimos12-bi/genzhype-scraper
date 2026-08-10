@@ -1,0 +1,26 @@
+=== METHOD A: our screenshot_articles() ===
+2026-08-10 21:08:24,201 INFO Readability injected from vendor/Readability.js
+2026-08-10 21:08:26,409 INFO screenshot: DEAD PAGE (http 404, title 'Page Not Found (404) - Know Your Meme') — the source itself is gone, not a detection failure: https://trending.knowyourmeme.com/editorials/meme-review/the-weekly-meme-roundup
+  [0] MISS   3475ms  https://trending.knowyourmeme.com/editorials/meme-review/the-wee
+2026-08-10 21:08:26,678 INFO Readability injected from vendor/Readability.js
+2026-08-10 21:08:31,724 INFO crop r30c: 798x984 at 126,468 (col 750, lead-img False) https://www.yahoo.com/entertainment/articles/weekly-meme-rou
+2026-08-10 21:08:32,246 INFO REAL source screenshot: https://www.yahoo.com/entertainment/articles/weekly-meme-roundup-brooke-sullivan-163000129.html
+  [1] OK     5872ms  https://www.yahoo.com/entertainment/articles/weekly-meme-roundup
+2026-08-10 21:08:32,596 INFO Readability injected from vendor/Readability.js
+2026-08-10 21:08:34,518 INFO screenshot: DEAD PAGE (http 404, title 'LinkedIn') — the source itself is gone, not a detection failure: https://www.linkedin.com/posts/martech-ai-newsletter_millions-of-people-remember
+  [2] MISS   2198ms  https://www.linkedin.com/posts/martech-ai-newsletter_millions-of
+2026-08-10 21:08:34,783 INFO Readability injected from vendor/Readability.js
+2026-08-10 21:08:39,563 INFO screenshot: no ON-TOPIC headline (['mrbeast', 'lawsuit', 'beast']) on https://variety.com/2026/digital/news/mrbeast-beast-industries-sued-se; skipping
+  [3] MISS   5074ms  https://variety.com/2026/digital/news/mrbeast-beast-industries-s
+2026-08-10 21:08:39,862 INFO Readability injected from vendor/Readability.js
+2026-08-10 21:08:42,502 INFO screenshot: DEAD PAGE (http 404, title 'Page unavailable | AP News') — the source itself is gone, not a detection failure: https://apnews.com/article/mrbeast-lawsuit-harassment-beast-industries
+  [4] MISS   2936ms  https://apnews.com/article/mrbeast-lawsuit-harassment-beast-indu
+2026-08-10 21:08:42,797 INFO Readability injected from vendor/Readability.js
+2026-08-10 21:08:48,141 INFO screenshot: DEAD PAGE (http 404, title 'Page Not Found') — the source itself is gone, not a detection failure: https://timesofindia.indiatimes.com/technology/social/ethan-kleins-reported-1m-l
+  [5] MISS   5711ms  https://timesofindia.indiatimes.com/technology/social/ethan-klei
+2026-08-10 21:08:48,513 INFO Readability injected from vendor/Readability.js
+2026-08-10 21:08:51,599 INFO screenshot: DEAD PAGE (http 404, title '404 / Page Not Found') — the source itself is gone, not a detection failure: https://www.azfamily.com/2026/07/23/pigeons-dyed-blue-gender-reveal-spotted-salt
+  [6] MISS   3363ms  https://www.azfamily.com/2026/07/23/pigeons-dyed-blue-gender-rev
+=== METHOD B skipped (this round tests the bot-block fix only) ===
+
+SCORE  ours: 1/7   pixelshot: 0/7

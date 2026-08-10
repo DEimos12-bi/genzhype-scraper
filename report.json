@@ -1,0 +1,58 @@
+[
+  {
+    "url": "https://trending.knowyourmeme.com/editorials/meme-review/the-weekly-meme-roundup-brooke-sullivan-sekiro-and-more",
+    "was": "we succeeded",
+    "method": "ours",
+    "ok": false,
+    "ms": 3475,
+    "file": null
+  },
+  {
+    "url": "https://www.yahoo.com/entertainment/articles/weekly-meme-roundup-brooke-sullivan-163000129.html",
+    "was": "we succeeded",
+    "method": "ours",
+    "ok": true,
+    "ms": 5872,
+    "file": "A1.jpg"
+  },
+  {
+    "url": "https://www.linkedin.com/posts/martech-ai-newsletter_millions-of-people-remember-an-actress-activity-7346061117063139328-hqZP",
+    "was": "we skipped it: no headline block",
+    "method": "ours",
+    "ok": false,
+    "ms": 2198,
+    "file": null
+  },
+  {
+    "url": "https://variety.com/2026/digital/news/mrbeast-beast-industries-sued-sexual-harassment-lawsuit/",
+    "was": "live source, MrBeast story",
+    "method": "ours",
+    "ok": false,
+    "ms": 5074,
+    "file": null
+  },
+  {
+    "url": "https://apnews.com/article/mrbeast-lawsuit-harassment-beast-industries",
+    "was": "live source, MrBeast story",
+    "method": "ours",
+    "ok": false,
+    "ms": 2936,
+    "file": null
+  },
+  {
+    "url": "https://timesofindia.indiatimes.com/technology/social/ethan-kleins-reported-1m-lawsuit-against-idubbbz-hit-a-wall-over-the-h3-snark-subreddit/articleshow/126354200.cms",
+    "was": "live source, Ethan Klein story",
+    "method": "ours",
+    "ok": false,
+    "ms": 5711,
+    "file": null
+  },
+  {
+    "url": "https://www.azfamily.com/2026/07/23/pigeons-dyed-blue-gender-reveal-spotted-salt-river/",
+    "was": "live source, dyed pigeons story",
+    "method": "ours",
+    "ok": false,
+    "ms": 3363,
+    "file": null
+  }
+]
