@@ -33,11 +33,22 @@ CASES = [
      "kw": ["brooke", "sullivan", "meme"], "was": "we succeeded"},
     {"url": "https://www.linkedin.com/posts/martech-ai-newsletter_"
             "millions-of-people-remember-an-actress-activity-7346061117063139328-hqZP",
-     "kw": ["brooke", "sullivan", "actress"], "was": "SKIPPED: no headline block"},
-    {"url": "https://www.kotaku.com", "kw": ["kotaku"], "was": "control: homepage"},
-    {"url": "https://gamerant.com", "kw": ["gamerant"], "was": "earlier failure"},
-    {"url": "https://timesofindia.indiatimes.com", "kw": ["times"],
-     "was": "earlier failure"},
+     "kw": ["brooke", "sullivan", "actress"], "was": "we skipped it: no headline block"},
+    # r90b: round one used three HOMEPAGES (kotaku.com, gamerant.com, TOI's
+    # front page). Our screenshotter refuses a homepage on purpose — there is
+    # no single article headline to lock onto — so scoring those as misses
+    # measured nothing. These are real article URLs taken from our own events
+    # table: the exact pages the pipeline screenshots.
+    {"url": "https://variety.com/2026/digital/news/mrbeast-beast-industries-sued-sexual-harassment-lawsuit/",
+     "kw": ["mrbeast", "lawsuit", "beast"], "was": "live source, MrBeast story"},
+    {"url": "https://apnews.com/article/mrbeast-lawsuit-harassment-beast-industries",
+     "kw": ["mrbeast", "lawsuit", "beast"], "was": "live source, MrBeast story"},
+    {"url": "https://timesofindia.indiatimes.com/technology/social/ethan-kleins-"
+            "reported-1m-lawsuit-against-idubbbz-hit-a-wall-over-the-h3-snark-subreddit/"
+            "articleshow/126354200.cms",
+     "kw": ["ethan", "klein", "idubbbz", "lawsuit"], "was": "live source, Ethan Klein story"},
+    {"url": "https://www.azfamily.com/2026/07/23/pigeons-dyed-blue-gender-reveal-spotted-salt-river/",
+     "kw": ["pigeons", "dyed", "gender"], "was": "live source, dyed pigeons story"},
 ]
 
 OUT = "bakeoff_out"

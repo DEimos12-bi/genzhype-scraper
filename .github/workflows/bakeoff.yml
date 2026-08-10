@@ -40,6 +40,18 @@ jobs:
             "opencv-python-headless>=4.9,<5" "playwright>=1.40"
           python -m playwright install --with-deps chromium
 
+      - name: Vendor Readability (parity with production)
+        # Round one handed our method a defeat it had not earned: production
+        # injects Mozilla's Reader Mode engine to find the article body, and
+        # without it the code falls back to a weaker ancestor heuristic. The
+        # log said "Readability.js absent" on all six URLs. A bake-off that
+        # cripples one side measures nothing.
+        run: |
+          mkdir -p vendor
+          curl -sSL --max-time 60 -o vendor/Readability.js \
+            "https://unpkg.com/@mozilla/readability@0.6.0/Readability.js"
+          wc -c vendor/Readability.js
+
       - name: Install pixelshot
         # Its own step, continue-on-error: if PixelRAG will not install on a
         # clean runner, that IS the answer to "can we deploy it", and the rest
