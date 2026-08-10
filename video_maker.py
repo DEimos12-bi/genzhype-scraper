@@ -8859,6 +8859,16 @@ def make_one(post, font_path):
                 log.info("TIMELINE: site cover demoted behind %d real "
                          "artifact(s) — the hero is decoration, not evidence",
                          len(_rest))
+                # r89: the same cover also arrives as post["image"], the HERO,
+                # and that field is read separately — which is why demoting it
+                # inside visuals[] was not enough and page 192 still OPENED on
+                # the robot photo. Clear it only when a real artifact exists to
+                # take its place; on a thin story the cover is still better
+                # than a blank frame.
+                if "/assets/covers/" in str(post.get("image") or ""):
+                    post["image"] = _rest[0][0]
+                    log.info("TIMELINE: hook image switched off the site cover "
+                             "onto a real artifact (%s)", str(_rest[0][0])[:70])
             if stripped:
                 log.info("TIMELINE: %d unverified channel thumbnail(s) "
                          "stripped from the job", stripped)
