@@ -1,12 +1,13 @@
-YT: 6 videos -> {"ok": true, "recorded": 6, "tt_matched": 0}
-  yt/Y2CBmFiHRko: 2 views, 0 likes
-  yt/8DvzdOICbjE: 3 views, 0 likes
-  yt/moSFsvEucgw: 0 views, 0 likes
-  yt/cpGO2nq2G94: 9 views, 0 likes
-  yt/UDCYI3K-lNk: 2 views, 0 likes
-  yt/UhFbUyoIBB8: 3 views, 0 likes
-TT: 4 videos -> {"ok": true, "recorded": 4, "tt_matched": 3}
-  tt/7671803466171338016: 65 views, 3 likes
-  tt/7671760635599834400: 99 views, 1 likes
-  tt/7671480574946610464: 85 views, 1 likes
-  tt/7671480190635167008: 300 views, 2 likes
+  curl 28 on https://genzhype.com/api/metrics_next.php (attempt 1/3)
+  curl 28 on https://genzhype.com/api/metrics_next.php (attempt 2/3)
+  curl 28 on https://genzhype.com/api/metrics_next.php (attempt 3/3)
+Traceback (most recent call last):
+  File "/home/runner/work/genzhype-scraper/genzhype-scraper/metrics_collector.py", line 159, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "/home/runner/work/genzhype-scraper/genzhype-scraper/metrics_collector.py", line 145, in main
+    plan = site(f"{BASE}/api/metrics_next.php?token=" + INGEST)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/work/genzhype-scraper/genzhype-scraper/metrics_collector.py", line 49, in site
+    raise RuntimeError(f"{last} for {url.split('?')[0]}")
+RuntimeError: curl 28 for https://genzhype.com/api/metrics_next.php
