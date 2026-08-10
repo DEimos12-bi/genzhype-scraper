@@ -64,6 +64,8 @@ jobs:
 
       - name: Run bake-off
         continue-on-error: true
+        env:
+          SKIP_PIXELSHOT: "1"
         run: python -u bakeoff_shots.py 2>&1 | tee bakeoff.log
 
       - name: Drop results

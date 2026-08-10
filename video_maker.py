@@ -898,6 +898,12 @@ ANTON_URL = (
 # first, then requests — with retries and a browser UA.
 _BROWSER_UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:130.0) "
                "Gecko/20100101 Firefox/130.0")
+# r91: the SCREENSHOT browser is Chromium, so it must claim Chrome. Keeping
+# _BROWSER_UA (Firefox) for it was self-defeating — curl_cffi impersonates
+# Firefox's TLS so that string is right THERE, and wrong here.
+SHOT_UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+           "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36")
+SHOT_CH_UA = '"Chromium";v="131", "Not_A Brand";v="24", "Google Chrome";v="131"'
 
 
 # ============================================================================
@@ -1984,11 +1990,44 @@ def screenshot_articles(targets, page_id, topic_kw=None):
     deadline = time.time() + SHOT_TOTAL_BUDGET_S
     try:
         with sync_playwright() as pw:
-            browser = pw.chromium.launch(headless=True)
+            # r91 STOP LOOKING LIKE A BOT. Measured in the PixelRAG bake-off:
+            # Variety and Times of India are ALIVE from our own server (HTTP
+            # 200) but served this runner a homepage and a 404. They were not
+            # link rot and not a detection bug — we were being fingerprinted.
+            #
+            # The loudest tell was our own doing: this is CHROMIUM wearing a
+            # FIREFOX user agent. Chromium sends sec-ch-ua client hints and
+            # exposes navigator.userAgentData; Firefox does neither. Claiming
+            # to be Firefox while emitting Chrome signals is a sharper flag
+            # than sending nothing at all. So the screenshot browser now tells
+            # the truth about being Chrome, with matching hints, and drops the
+            # automation markers a real browser does not carry.
+            browser = pw.chromium.launch(
+                headless=True,
+                args=["--disable-blink-features=AutomationControlled",
+                      "--disable-features=IsolateOrigins,site-per-process"])
             ctx = browser.new_context(
                 viewport={"width": SHOT_VIEW_W, "height": SHOT_VIEW_H},
                 device_scale_factor=SHOT_DSF,      # r81: hi-dpi = legible text
-                user_agent=_BROWSER_UA, locale="en-US")
+                user_agent=SHOT_UA, locale="en-US",
+                timezone_id="America/New_York",
+                extra_http_headers={
+                    "Accept-Language": "en-US,en;q=0.9",
+                    "sec-ch-ua": SHOT_CH_UA,
+                    "sec-ch-ua-mobile": "?0",
+                    "sec-ch-ua-platform": '"Windows"',
+                })
+            # navigator.webdriver is true in every automated browser and false
+            # in every real one; it is the single cheapest check a publisher
+            # can run, so it goes before any page script runs.
+            try:
+                ctx.add_init_script(
+                    "Object.defineProperty(navigator,'webdriver',{get:()=>undefined});"
+                    "Object.defineProperty(navigator,'languages',"
+                    "{get:()=>['en-US','en']});"
+                    "window.chrome = window.chrome || {runtime:{}};")
+            except Exception:  # noqa: BLE001 — never fatal
+                pass
             # r32: Readability as an init script — injected through CDP before
             # any page script, so a strict Content-Security-Policy (most news
             # sites) cannot block it the way it would block add_script_tag.
@@ -2031,8 +2070,30 @@ def screenshot_articles(targets, page_id, topic_kw=None):
                         page.route("**/*", _block_ads)
                     except Exception:  # noqa: BLE001 — best-effort
                         pass
-                    page.goto(url, wait_until="domcontentloaded", timeout=15000)
+                    _resp = page.goto(url, wait_until="domcontentloaded",
+                                      timeout=15000)
                     page.wait_for_timeout(1500)
+                    # r91 NAME THE FAILURE. The bake-off showed four of these
+                    # URLs were dead pages and two were bot-blocks served as a
+                    # homepage — all of which reached us as the same vague
+                    # "no headline found". A refusal we cannot explain is a
+                    # refusal we cannot fix, so say which one it is.
+                    try:
+                        _status = _resp.status if _resp else 0
+                        _t = (page.title() or "").lower()
+                        _dead = any(s in _t for s in (
+                            "404", "not found", "page unavailable",
+                            "page not found", "access denied", "forbidden"))
+                        if _status >= 400 or _dead:
+                            log.info("screenshot: DEAD PAGE (http %s, title %r) "
+                                     "— the source itself is gone, not a "
+                                     "detection failure: %s",
+                                     _status, (page.title() or "")[:60], url[:80])
+                            url_shot[url] = None
+                            page.close()
+                            continue
+                    except Exception:  # noqa: BLE001
+                        pass
                     # best-effort cookie-banner dismissal
                     for sel in ("#onetrust-accept-btn-handler",
                                 "button[id*='accept' i]",

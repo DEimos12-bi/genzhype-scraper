@@ -103,6 +103,9 @@ def run_ours():
 
 # ---------------------------------------------------------------- METHOD B
 def run_pixelshot():
+    if os.environ.get("SKIP_PIXELSHOT"):
+        print("=== METHOD B skipped (this round tests the bot-block fix only) ===")
+        return
     print("=== METHOD B: pixelshot ===", flush=True)
     exe = None
     for cand in ("pixelshot", os.path.expanduser("~/.local/bin/pixelshot")):
