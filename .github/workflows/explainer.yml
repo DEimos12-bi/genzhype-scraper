@@ -43,17 +43,25 @@ jobs:
         run: sudo apt-get update -qq && sudo apt-get install -y -qq fonts-dejavu-core
 
       - name: Render
-        run: python explainer.py 2>&1 | tee explainer.log
+        # continue-on-error + explicit tee: the step must not abort the job, or
+        # the log never reaches the drop branch. set -o pipefail is deliberately
+        # NOT used here for the same reason.
+        continue-on-error: true
+        run: python -u explainer.py 2>&1 | tee explainer.log
 
-      - name: Drop to video-drop branch
+      - name: Drop to explainer-drop branch
+        # ALWAYS push, even with no video. The first attempt failed and pushed
+        # nothing at all, so the only evidence of WHY was inside a runner log we
+        # cannot read from the server — the same blindness that cost a day on
+        # the render logs. The log is the point; the video is the bonus.
         if: always()
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          [ -s explainer.mp4 ] || { echo "no video produced"; cat explainer.log | tail -30; exit 1; }
           mkdir -p /tmp/drop && cd /tmp/drop
-          cp "$GITHUB_WORKSPACE/explainer.mp4" .
+          cp "$GITHUB_WORKSPACE/explainer.mp4" . 2>/dev/null || echo "NO VIDEO PRODUCED" > NO-VIDEO.txt
           cp "$GITHUB_WORKSPACE/explainer.log" . 2>/dev/null || true
+          python -c "print(open('/tmp/drop/explainer.log').read()[-4000:])" 2>/dev/null || true
           git init -q && git checkout -q -b explainer-drop
           git add -A
           git -c user.name=explainer -c user.email=bot@genzhype \
