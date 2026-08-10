@@ -1,0 +1,72 @@
+name: bakeoff
+
+# Screenshot bake-off: our article screenshotter vs PixelRAG's pixelshot, on
+# the exact URLs that have failed us. Produces small JPEGs a human can flip
+# through, plus a report. Changes nothing in the pipeline.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".social/bakeoff-trigger"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: bakeoff
+  cancel-in-progress: false
+
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"        # pixelrag requires >=3.12
+
+      - name: Deps for OUR method
+        # The subset video_maker.py imports at module load. Playwright is the
+        # screenshotter itself; the rest keep the import from failing.
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install \
+            "moviepy==2.2.1" "edge-tts==7.2.7" "Pillow>=10.3" "numpy>=1.26" \
+            "requests>=2.31" "imageio-ffmpeg>=0.5" "curl_cffi>=0.7" \
+            "opencv-python-headless>=4.9,<5" "playwright>=1.40"
+          python -m playwright install --with-deps chromium
+
+      - name: Install pixelshot
+        # Its own step, continue-on-error: if PixelRAG will not install on a
+        # clean runner, that IS the answer to "can we deploy it", and the rest
+        # of the bake-off must still run and report it.
+        continue-on-error: true
+        run: |
+          sudo apt-get install -y -qq libturbojpeg0-dev || true
+          python -m pip install "pixelrag[playwright]" 2>&1 | tail -20
+          command -v pixelshot && pixelshot --help | head -20 || echo "pixelshot NOT available"
+
+      - name: Run bake-off
+        continue-on-error: true
+        run: python -u bakeoff_shots.py 2>&1 | tee bakeoff.log
+
+      - name: Drop results
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p /tmp/drop && cd /tmp/drop
+          cp "$GITHUB_WORKSPACE/bakeoff.log" . 2>/dev/null || true
+          cp "$GITHUB_WORKSPACE"/bakeoff_out/*.jpg . 2>/dev/null || true
+          cp "$GITHUB_WORKSPACE"/bakeoff_out/report.json . 2>/dev/null || true
+          ls -la
+          git init -q && git checkout -q -b bakeoff-drop
+          git add -A
+          git -c user.name=bakeoff -c user.email=bot@genzhype \
+              commit -qm "bakeoff $(date -u +%FT%TZ)"
+          git push -f "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" bakeoff-drop
+          echo "pushed to bakeoff-drop"
