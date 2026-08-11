@@ -1,15 +1,22 @@
-cookie-check @ 2026-08-11T20:05:26Z
-SECRET: present — 1046 bytes, 10 lines
+cookie-check @ 2026-08-11T20:15:42Z
+SECRET: present — 3003 bytes, 26 lines
 GATE  : maker needs >100 bytes -> PASS
-DOMAIN: NO youtube.com lines — wrong export? (needs cookies from youtube.com)
+DOMAIN: youtube.com cookies present
+AUTH  : SID found
+AUTH  : HSID found
+AUTH  : SSID found
+AUTH  : APISID found
+AUTH  : SAPISID found
+AUTH  : __Secure-1PSID found
+AUTH  : LOGIN_INFO found
 ffmpeg: /usr/bin/ffmpeg
 yt-dlp: 2026.07.04
 ---- player_client bypass test on story 2z8sHRNhuHc ----
-  [default(web)] fail: ERROR: [youtube] 2z8sHRNhuHc: Sign in to confirm you’re not a bot. Use --cookies-from-br
-  [android] fail: ERROR: [youtube] 2z8sHRNhuHc: Sign in to confirm you’re not a bot. Use --cookies-from-br
-  [ios] fail: ERROR: [youtube] 2z8sHRNhuHc: Sign in to confirm you’re not a bot. Use --cookies-from-br
-  [tv] fail: ERROR: [youtube] 2z8sHRNhuHc: Sign in to confirm you’re not a bot. Use --cookies-from-br
-  [mweb] fail: ERROR: [youtube] 2z8sHRNhuHc: Sign in to confirm you’re not a bot. Use --cookies-from-br
-  [web_safari] fail: ERROR: [youtube] 2z8sHRNhuHc: Sign in to confirm you’re not a bot. Use --cookies-from-br
-  [web_embedded] fail: ERROR: [youtube] 2z8sHRNhuHc: Sign in to confirm you’re not a bot. Use --cookies-from-br
-  [tv_embedded] fail: ERROR: [youtube] 2z8sHRNhuHc: Sign in to confirm you’re not a bot. Use --cookies-from-br
+  [default(web)] fail: ERROR: [youtube] 2z8sHRNhuHc: Requested format is not available. Use --list-formats for a 
+  [android] fail: ERROR: [youtube] 2z8sHRNhuHc: Requested format is not available. Use --list-formats for a 
+  [ios] fail: ERROR: [youtube] 2z8sHRNhuHc: Requested format is not available. Use --list-formats for a 
+  [tv] fail: ERROR: [youtube] 2z8sHRNhuHc: Requested format is not available. Use --list-formats for a 
+  [mweb] fail: ERROR: [youtube] 2z8sHRNhuHc: Requested format is not available. Use --list-formats for a 
+  [web_safari] fail: ERROR: [youtube] 2z8sHRNhuHc: Requested format is not available. Use --list-formats for a 
+  [web_embedded] fail: ERROR: [youtube] 2z8sHRNhuHc: Requested format is not available. Use --list-formats for a 
+  [tv_embedded] fail: ERROR: [youtube] 2z8sHRNhuHc: Requested format is not available. Use --list-formats for a 
