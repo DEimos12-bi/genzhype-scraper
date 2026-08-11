@@ -4383,6 +4383,14 @@ def platform_of(url):
     if "tiktok.com" in u:                       return "tiktok"
     if "youtube.com" in u or "youtu.be" in u:   return "youtube"
     if "x.com" in u or "twitter.com" in u:      return "x"
+    # r97: Facebook downloads fine from a runner — measured on two real story
+    # URLs (8.3MB and 21.6MB). It was simply never recognised here, so every
+    # Facebook clip we held was invisible to the downloader.
+    if "facebook.com" in u or "fb.watch" in u:  return "facebook"
+    # A plain media file (the jwplayer/CDN mp4s articles embed) IS the video —
+    # nothing to extract. These were being bound to beats server-side and then
+    # dropped here for want of a name.
+    if re.search(r"\.(mp4|m4v|mov|webm)(\?|$)", u):  return "file"
     return None
 
 
@@ -4429,6 +4437,14 @@ def fetch_platform_clip(url):
         if plat in ("kick", "twitch", "tiktok"):
             # TLS-fingerprint bypass — the whole trick for these three.
             cmd[1:1] = ["--impersonate", "chrome"]
+        elif plat == "facebook":
+            # r97: measured working with no impersonation and no cookies. The
+            # ONE thing that broke it was --download-sections, which needs
+            # ffmpeg; the plain retry below already covers that.
+            pass
+        elif plat == "file":
+            # a direct media URL: yt-dlp fetches it as-is, no extractor needed
+            pass
         elif plat == "youtube":
             if os.environ.get("VIDEO_YT_FETCH", "0") == "0":
                 _PLATFORM_CLIP_CACHE[url] = None    # r31: walled from CI
