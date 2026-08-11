@@ -329,6 +329,26 @@ jobs:
             echo "YT_COOKIES not set; footage runs cookie-less (stills-first mode)"
           fi
 
+      # r98 INSTAGRAM. Measured 2026-08-11: Instagram answers an anonymous
+      # request with "empty media response — check if this post is accessible
+      # without being logged-in", i.e. it is the YouTube case (needs a login),
+      # NOT the TikTok case (refused outright). Separate file and separate
+      # secret from YouTube: they are different accounts, and one going stale
+      # must never take the other down with it.
+      - name: Write Instagram cookies file (optional)
+        continue-on-error: true
+        env:
+          IG_COOKIES: ${{ secrets.IG_COOKIES }}
+        run: |
+          mkdir -p "$VIDEO_WORKDIR"
+          if [ -n "$IG_COOKIES" ]; then
+            printf '%s' "$IG_COOKIES" > "$VIDEO_WORKDIR/ig_cookies.txt"
+            chmod 600 "$VIDEO_WORKDIR/ig_cookies.txt"
+            echo "instagram cookies written ($(wc -c < "$VIDEO_WORKDIR/ig_cookies.txt") bytes)"
+          else
+            echo "IG_COOKIES not set; instagram clips stay unavailable"
+          fi
+
       # OPTIONAL: extra deps so the driver imports and reuses Turbo's REAL
       # app.services.voice (its top-level imports need loguru/toml/openai).
       # Non-fatal: if this fails, video_maker.py falls back to its faithful

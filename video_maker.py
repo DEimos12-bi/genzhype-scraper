@@ -4392,6 +4392,7 @@ def platform_of(url):
     # URLs (8.3MB and 21.6MB). It was simply never recognised here, so every
     # Facebook clip we held was invisible to the downloader.
     if "facebook.com" in u or "fb.watch" in u:  return "facebook"
+    if "instagram.com" in u:                    return "instagram"
     # A plain media file (the jwplayer/CDN mp4s articles embed) IS the video —
     # nothing to extract. These were being bound to beats server-side and then
     # dropped here for want of a name.
@@ -4442,6 +4443,18 @@ def fetch_platform_clip(url):
         if plat in ("kick", "twitch", "tiktok"):
             # TLS-fingerprint bypass — the whole trick for these three.
             cmd[1:1] = ["--impersonate", "chrome"]
+        elif plat == "instagram":
+            # r98: its own cookie file and its own account. Without them
+            # Instagram returns an empty media response, so there is no point
+            # spawning the download at all — say so once and move on.
+            _ig = os.path.join(WORKDIR, "ig_cookies.txt")
+            if not (os.path.isfile(_ig) and os.path.getsize(_ig) > 100):
+                log.info("CLIP skipped (instagram): no IG_COOKIES — Instagram "
+                         "serves nothing to a logged-out request")
+                _PLATFORM_CLIP_CACHE[url] = None
+                return None
+            cmd[1:1] = ["--cookies", _ig]
+            time.sleep(random.uniform(*FOOTAGE_FETCH_SLEEP_S))
         elif plat == "facebook":
             # r97: measured working with no impersonation and no cookies. The
             # ONE thing that broke it was --download-sections, which needs
