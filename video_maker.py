@@ -7118,6 +7118,19 @@ def broll_scene_clip(video_path, start, end, motion=None, emph_rel=None,
     # described ("small clip from the tiktok, then stop and continue").
     # The frozen frame gets a slow push so it never reads as a dead frame.
     # Any failure keeps the plain full-length clip.
+    # r105: FREEZE ONLY WHEN THERE IS NOTHING LEFT TO PLAY. The freeze edit was
+    # asked for as "play the moment, then stop and continue" — but it fired on
+    # EVERY clip beat over 4 seconds, so a 17-second TikTok played 2.5s and then
+    # sat frozen for 5. Four beats of the AI-actress video did exactly that, and
+    # the judge correctly reported "a static portrait instead of video footage"
+    # on every one. When the source has enough footage to cover the beat, play
+    # it; hold the frame only to cover a clip that runs out.
+    _src_len = float(getattr(src, "duration", 0) or 0)
+    _covers_beat = _src_len >= (dur - 0.25)
+    if _covers_beat and freeze_after:
+        log.info("FREEZE skipped: the clip runs %.1fs and the beat needs "
+                 "%.1fs — playing it through", _src_len, dur)
+        freeze_after = None
     if freeze_after and dur > float(freeze_after) + 1.0:
         try:
             from moviepy import ImageClip as _FreezeIC
