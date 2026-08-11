@@ -621,6 +621,14 @@ SCENE_SPLIT_MAX_PARTS = int(os.environ.get("VIDEO_SPLIT_MAX_PARTS", "4"))
 # to stop upscaling mid-size photos at all (contain on a blurred fill) — until
 # then, an ordinary photo beats no photo.
 MIN_STILL_SHORT_SIDE = int(os.environ.get("VIDEO_MIN_SHORT_SIDE", "400"))
+# r97: a floor for images that exist to be READ. The resolution floor above is
+# skipped for text-heavy visuals, which is backwards — an article screenshot
+# needs MORE pixels than a photo, not fewer, because a photo survives being
+# soft and a headline does not. Page 358 was rejected by the judge for exactly
+# this: "the article screenshot is rendered extremely small, leaving a massive
+# blank area below it, making the text unreadable". At a 1080-wide frame,
+# anything narrower than this arrives as an unreadable floating strip.
+MIN_TEXT_WIDTH = int(os.environ.get("VIDEO_MIN_TEXT_WIDTH", "800"))
 # r55: hard deadline on ONE edge-tts call.
 # r57: 75 -> 45. r55's per-call deadline was correct but never bounded the
 # STAGE: 3 segments x 2 attempts x 75s = 477s, which blows the 420s tts
@@ -3410,6 +3418,16 @@ def build_visual_pool(post, page_id):
                     log.info("CONTAIN MODE: %dx%d needs %.1fx upscale to cover; "
                              "rendering whole on a blurred fill instead",
                              entry["px_w"], entry["px_h"], _need)
+            # r97: text has its own floor, and it is stricter. Something we put
+            # on screen to be read must be legible; a screenshot too small to
+            # read is worse than no screenshot, because it occupies a beat AND
+            # tells the viewer nothing.
+            if (textish and entry["px_w"] and len(pool) >= 1
+                    and entry["px_w"] < MIN_TEXT_WIDTH):
+                log.info("TEXT FLOOR: %dx%d is too small to read at 1080 wide "
+                         "(<%d); dropped rather than shown as a strip: %s",
+                         entry["px_w"], entry["px_h"], MIN_TEXT_WIDTH, u[:80])
+                continue
             _short = min(entry["px_w"], entry["px_h"])
             if (_short and not textish and len(pool) >= 2
                     and _short < MIN_STILL_SHORT_SIDE):
