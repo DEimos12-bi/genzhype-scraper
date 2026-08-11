@@ -8861,13 +8861,27 @@ def post_video(page_id, slug, mp4_path, sheet_path=None):
                        "reason": "staged-before-post"}, f)
     except Exception:  # noqa: BLE001
         pass
+    # r107 THE UPLOAD STALL, FIXED AT THE ARITHMETIC. This loop was 4 attempts
+    # x 2 engines x a 300s timeout plus backoff — up to 41 MINUTES — while the
+    # watchdog kills the 'post' stage at 330 SECONDS. So whenever Hostinger's
+    # WAF blackholed the runner (exactly when this hangs), the kill landed long
+    # before the drop-branch fallback below could run: a finished, judge-passed
+    # video was reported as a failed run and sat on the drop until someone
+    # fetched it by hand. That is the recurring "upload problem".
+    #
+    # A delivery that is going to succeed connects in seconds; a blackholed one
+    # never answers, so a long timeout buys nothing and costs everything. Two
+    # attempts, short timeouts, brief backoff: worst case ~185s, comfortably
+    # inside the 330s cap, so the fallback ALWAYS gets to run.
+    _POST_TIMEOUT = int(os.environ.get("VIDEO_POST_TIMEOUT", "45"))
     last = None
-    for attempt in range(1, 5):
+    for attempt in range(1, 3):
         # engine 1: curl_cffi browser TLS (the pattern that dodges the WAF)
         try:
             from curl_cffi import requests as cffi
             r = cffi.post(RECEIVE_URL, json=body, impersonate="firefox",
-                          timeout=300, headers={"User-Agent": _BROWSER_UA})
+                          timeout=_POST_TIMEOUT,
+                          headers={"User-Agent": _BROWSER_UA})
             if r.status_code == 200 and r.json().get("ok"):
                 log.info("posted video for page_id=%s", page_id)
                 try:
@@ -8880,7 +8894,7 @@ def post_video(page_id, slug, mp4_path, sheet_path=None):
             last = f"curl_cffi: {e}"
         # engine 2: requests JSON
         try:
-            r = requests.post(RECEIVE_URL, json=body, timeout=300,
+            r = requests.post(RECEIVE_URL, json=body, timeout=_POST_TIMEOUT,
                               headers={"User-Agent": _BROWSER_UA})
             ok = r.status_code == 200
             try:
@@ -8897,8 +8911,9 @@ def post_video(page_id, slug, mp4_path, sheet_path=None):
             last = f"requests HTTP {r.status_code} {r.text[:200]}"
         except Exception as e:  # noqa: BLE001
             last = f"requests: {e}"
-        log.warning("post attempt %d/4 failed (%s); retrying", attempt, last)
-        time.sleep(10 * attempt)
+        log.warning("post attempt %d/2 failed (%s); the drop branch is the "
+                    "backstop, so this does not linger", attempt, last)
+        time.sleep(5)
     # r37: a finished, judge-passed video must NEVER be discarded because this
     # runner drew a blackholed IP (run #154 rendered 18 minutes and binned it).
     # Leave the artifact + a meta sidecar in the workdir; the always-on drop
