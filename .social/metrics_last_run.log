@@ -1,13 +1,21 @@
-  curl 28 on https://genzhype.com/api/metrics_next.php (attempt 1/3)
-  curl 28 on https://genzhype.com/api/metrics_next.php (attempt 2/3)
-  curl 28 on https://genzhype.com/api/metrics_next.php (attempt 3/3)
-Traceback (most recent call last):
-  File "/home/runner/work/genzhype-scraper/genzhype-scraper/metrics_collector.py", line 159, in <module>
-    raise SystemExit(main())
-                     ^^^^^^
-  File "/home/runner/work/genzhype-scraper/genzhype-scraper/metrics_collector.py", line 145, in main
-    plan = site(f"{BASE}/api/metrics_next.php?token=" + INGEST)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/runner/work/genzhype-scraper/genzhype-scraper/metrics_collector.py", line 49, in site
-    raise RuntimeError(f"{last} for {url.split('?')[0]}")
-RuntimeError: curl 28 for https://genzhype.com/api/metrics_next.php
+YT: 11 videos -> {"ok": true, "recorded": 11, "tt_matched": 0}
+  yt/avaGo0QcTD0: 0 views, 0 likes
+  yt/XLGDRqzh9nQ: 0 views, 0 likes
+  yt/BfoYFJvz9ew: 5 views, 0 likes
+  yt/5xJLFHCqB6U: 1 views, 0 likes
+  yt/IMDiLJH0uW8: 0 views, 0 likes
+  yt/Y2CBmFiHRko: 5 views, 0 likes
+  yt/8DvzdOICbjE: 7 views, 0 likes
+  yt/moSFsvEucgw: 1 views, 0 likes
+  yt/cpGO2nq2G94: 10 views, 0 likes
+  yt/UDCYI3K-lNk: 3 views, 0 likes
+  yt/UhFbUyoIBB8: 3 views, 0 likes
+TT: 8 videos -> {"ok": true, "recorded": 8, "tt_matched": 4}
+  tt/7672452879675936032: 211 views, 1 likes
+  tt/7672452859870416161: 163 views, 6 likes
+  tt/7672082283725065504: 96 views, 1 likes
+  tt/7672081804706270497: 67 views, 0 likes
+  tt/7671803466171338016: 65 views, 3 likes
+  tt/7671760635599834400: 120 views, 2 likes
+  tt/7671480574946610464: 85 views, 1 likes
+  tt/7671480190635167008: 300 views, 2 likes
