@@ -1,4 +1,4 @@
-cookie-check @ 2026-07-23T14:59:45Z
+cookie-check @ 2026-08-11T01:37:06Z
 SECRET: present — 3457 bytes, 28 lines
 GATE  : maker needs >100 bytes -> PASS
 DOMAIN: youtube.com cookies present
