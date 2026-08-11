@@ -4422,15 +4422,51 @@ def fetch_platform_clip(url):
             cmd[1:1] = ["--impersonate", "chrome"]
             if ck:
                 cmd[1:1] = ["--cookies", ck]
+        # r95: KEEP THE ERROR. stderr went to DEVNULL, so every refusal — a
+        # geo-block, a dead post, a missing impersonation target, a format that
+        # does not exist — arrived as the same blank "fetch failed", and page
+        # 131 lost both its clips without saying why. The message is the only
+        # thing that tells us whether to retry differently or give up.
+        _err = ''
         try:
-            subprocess.run(cmd, timeout=FOOTAGE_FETCH_TIMEOUT + 15,
-                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                           check=False)
+            _p = subprocess.run(cmd, timeout=FOOTAGE_FETCH_TIMEOUT + 15,
+                                stdout=subprocess.DEVNULL,
+                                stderr=subprocess.PIPE, text=True, check=False)
+            _err = (_p.stderr or '').strip()
         except Exception as exc:  # noqa: BLE001 (timeout included)
+            _err = type(exc).__name__
             log.info("CLIP fetch failed (%s: %s)", plat, type(exc).__name__)
         hits = [p for p in glob.glob(os.path.join(WORKDIR, f"{stem}.*"))
                 if p.rsplit(".", 1)[-1] in ("mp4", "webm", "mkv", "mov")
                 and os.path.getsize(p) > 30000]
+        # r95 SECOND CHANCE. Two of the flags we add are the usual suspects:
+        # --download-sections needs the extractor to support ranges, and a
+        # height-capped format may simply not exist on TikTok. If the first
+        # attempt produced nothing, drop both and ask for whatever it has.
+        if not hits and ('--download-sections' in cmd or '-f' in cmd):
+            _plain = ["yt-dlp", "--no-playlist", "--quiet", "--no-warnings",
+                      "--max-filesize", "45M", "-o", outtmpl, url]
+            if plat in ("kick", "twitch", "tiktok", "x"):
+                _plain[1:1] = ["--impersonate", "chrome"]
+            if ck and plat in ("youtube", "x", "tiktok"):
+                _plain[1:1] = ["--cookies", ck]
+            try:
+                _p2 = subprocess.run(_plain, timeout=FOOTAGE_FETCH_TIMEOUT + 15,
+                                     stdout=subprocess.DEVNULL,
+                                     stderr=subprocess.PIPE, text=True, check=False)
+                if (_p2.stderr or '').strip():
+                    _err = (_p2.stderr or '').strip()
+            except Exception as exc:  # noqa: BLE001
+                _err = type(exc).__name__
+            hits = [p for p in glob.glob(os.path.join(WORKDIR, f"{stem}.*"))
+                    if p.rsplit(".", 1)[-1] in ("mp4", "webm", "mkv", "mov")
+                    and os.path.getsize(p) > 30000]
+            if hits:
+                log.info("CLIP %s: plain retry worked where the windowed "
+                         "download did not", plat)
+        if not hits and _err:
+            log.info("CLIP REFUSED (%s): %s | %s", plat,
+                     _err.splitlines()[-1][:180], url[:70])
         if hits:
             path = sorted(hits)[0]
             from moviepy import VideoFileClip

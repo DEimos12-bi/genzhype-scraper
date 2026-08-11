@@ -1,0 +1,67 @@
+name: clip-probe
+
+# Finds out WHY TikTok clip downloads fail and which strategy works, using the
+# real URLs that failed on page 131. Read-only: downloads to a scratch folder,
+# publishes only the report. Triggered by .social/clip-probe-trigger.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".social/clip-probe-trigger"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: clip-probe
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install yt-dlp with browser TLS
+        # curl-cffi is the whole trick for TikTok/Twitch/Kick — it presents a
+        # real browser TLS fingerprint. Without it --impersonate is a no-op.
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -U "yt-dlp[default,curl-cffi]"
+
+      - name: Write cookies if we have them
+        env:
+          YT_COOKIES: ${{ secrets.YT_COOKIES }}
+        run: |
+          if [ -n "$YT_COOKIES" ]; then
+            printf '%s' "$YT_COOKIES" > /tmp/cookies.txt
+            echo "CLIP_COOKIES=/tmp/cookies.txt" >> "$GITHUB_ENV"
+            echo "cookies: $(wc -c < /tmp/cookies.txt) bytes"
+          else
+            echo "no cookie secret; testing without"
+          fi
+
+      - name: Probe
+        continue-on-error: true
+        run: python -u clip_probe.py 2>&1 | tee probe.log
+
+      - name: Publish the report
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p /tmp/drop && cd /tmp/drop
+          cp "$GITHUB_WORKSPACE/probe.log" . 2>/dev/null || true
+          cp "$GITHUB_WORKSPACE/probe_out/report.json" . 2>/dev/null || true
+          git init -q && git checkout -q -b clip-probe-drop
+          git add -A
+          git -c user.name=probe -c user.email=bot@genzhype \
+              commit -qm "clip probe $(date -u +%FT%TZ)"
+          git push -f "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" clip-probe-drop
