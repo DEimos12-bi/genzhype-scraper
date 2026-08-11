@@ -8473,8 +8473,25 @@ def vision_judge(mp4_path, hook, title, total_s, edl=None):
             for s in (edl or []):
                 if s.get("start", 0) <= t < s.get("end", 0):
                     res = s.get("resolved")
-                    if res == "broll" or (res is None
-                                          and s.get("clip_url")):
+                    # r106: when the beat RESOLVED to broll the real clip
+                    # genuinely played — so say so as a FACT instead of asking
+                    # the judge to prove it. A single still taken from a
+                    # person talking to camera is indistinguishable from a
+                    # portrait photo, and the judge cannot see motion, so the
+                    # old wording made it flag four real TikToks as "a static
+                    # portrait photo" on a video whose log shows all four
+                    # playing full length. Asking for something unobservable
+                    # produces confident wrong answers.
+                    if res == "broll":
+                        return (" | THIS FRAME IS A STILL TAKEN FROM THE REAL "
+                                "VIDEO CLIP for this moment — the pipeline "
+                                "played it. Do NOT call it a portrait or an "
+                                "artifact_miss; a frame of someone talking on "
+                                "camera looks exactly like a photo. Judge only "
+                                "whether this footage BELONGS to these words")
+                    # a clip was ordered and did NOT arrive: a photo stands in
+                    # its place, and that IS the miss the law exists to catch
+                    if res is None and s.get("clip_url"):
                         return (" | EXPECTED ARTIFACT: REAL VIDEO FOOTAGE of "
                                 "this moment (a portrait photo here = "
                                 "artifact_miss)")
