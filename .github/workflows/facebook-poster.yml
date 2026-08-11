@@ -1,9 +1,8 @@
 name: GenZHype Facebook poster
 on:
   schedule:
-    - cron: '27 21 * * *'
-    - cron: '55 0 * * *'
-    - cron: '36 4 * * *'
+    - cron: '0 13 * * *'
+    - cron: '0 22 * * *'
   workflow_dispatch:
 permissions:
   contents: write

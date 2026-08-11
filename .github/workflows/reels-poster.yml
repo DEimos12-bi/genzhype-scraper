@@ -12,11 +12,8 @@ name: GenZHype Reels poster
 
 on:
   schedule:
-    - cron: '20 21 * * *'
-    - cron: '35 22 * * *'
-    - cron: '50 23 * * *'
-    - cron: '5 1 * * *'
-    - cron: '20 2 * * *'
+    - cron: '35 16 * * *'
+    - cron: '20 23 * * *'
   workflow_dispatch:
 
 permissions:

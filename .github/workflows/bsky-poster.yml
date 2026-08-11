@@ -1,11 +1,8 @@
 name: GenZHype Bluesky poster
 on:
   schedule:
-    - cron: '25 21 * * *'
-    - cron: '40 22 * * *'
-    - cron: '55 23 * * *'
-    - cron: '10 1 * * *'
-    - cron: '25 2 * * *'
+    - cron: '25 16 * * *'
+    - cron: '25 23 * * *'
   workflow_dispatch:
 permissions:
   contents: write

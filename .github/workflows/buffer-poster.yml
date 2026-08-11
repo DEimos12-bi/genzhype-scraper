@@ -10,11 +10,8 @@ name: GenZHype Buffer poster (FB + IG)
 
 on:
   schedule:
-    - cron: '15 21 * * *'
-    - cron: '45 0 * * *'
-    - cron: '30 1 * * *'
-    - cron: '15 4 * * *'
-    - cron: '0 5 * * *'
+    - cron: '20 16 * * *'
+    - cron: '40 23 * * *'
   workflow_dispatch:
   push:
     paths:
