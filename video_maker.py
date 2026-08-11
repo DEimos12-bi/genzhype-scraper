@@ -4427,7 +4427,16 @@ def fetch_platform_clip(url):
         stem = f"clip-{plat}-{hashlib.md5(url.encode()).hexdigest()[:12]}"
         outtmpl = os.path.join(WORKDIR, f"{stem}.%(ext)s")
         cmd = ["yt-dlp", "--no-playlist", "--quiet", "--no-warnings",
-               "-f", "b[height<=720]/b", "--max-filesize", "45M",
+               # r99: "b" means a SINGLE file carrying both video and audio,
+               # and YouTube mostly stopped serving those above 360p — the
+               # streams are separate now. Asking only for a combined file is
+               # how you get "Requested format is not available" on a video
+               # that is sitting right there. Ask for video+audio and let
+               # ffmpeg merge (it is installed on the runner), then fall back
+               # to a combined file, then to anything at all.
+               "-f", ("bv*[height<=720]+ba/b[height<=720]/bv*+ba/b"),
+               "--merge-output-format", "mp4",
+               "--max-filesize", "45M",
                "-o", outtmpl, url]
         # r45 MONEY MOMENT: when the reporter embedded this clip at a timestamp,
         # download the window AROUND that second rather than the video's opening
