@@ -1,0 +1,79 @@
+[
+  {
+    "url": "https://www.facebook.com/thriftingmomof1/videos/cake-gate-cake-by-kaity-is-calling-out-another-creator-over-an-alleged-recipe-th/1004449218855230/",
+    "strategy": "as the maker does now",
+    "ok": false,
+    "kb": 0,
+    "err": "ERROR: You have requested downloading the video partially, but ffmpeg is not installed. Aborting"
+  },
+  {
+    "url": "https://www.facebook.com/thriftingmomof1/videos/cake-gate-cake-by-kaity-is-calling-out-another-creator-over-an-alleged-recipe-th/1004449218855230/",
+    "strategy": "no section window",
+    "ok": true,
+    "kb": 8339,
+    "err": ""
+  },
+  {
+    "url": "https://www.facebook.com/OfficialOffTopicShow/videos/black-womans-viral-tiktok-rant-pleads-to-leave-america-amidst-ice-raids-and-poli/1462050688301001/",
+    "strategy": "as the maker does now",
+    "ok": false,
+    "kb": 0,
+    "err": "ERROR: You have requested downloading the video partially, but ffmpeg is not installed. Aborting"
+  },
+  {
+    "url": "https://www.facebook.com/OfficialOffTopicShow/videos/black-womans-viral-tiktok-rant-pleads-to-leave-america-amidst-ice-raids-and-poli/1462050688301001/",
+    "strategy": "no section window",
+    "ok": true,
+    "kb": 21645,
+    "err": ""
+  },
+  {
+    "url": "https://www.instagram.com/reel/DMYqNJ1Rvbk/",
+    "strategy": "as the maker does now",
+    "ok": false,
+    "kb": 0,
+    "err": "ERROR: [Instagram] DMYqNJ1Rvbk: Instagram sent an empty media response. Check if this post is accessible in your browser without being logged-in. If i"
+  },
+  {
+    "url": "https://www.instagram.com/reel/DMYqNJ1Rvbk/",
+    "strategy": "no section window",
+    "ok": false,
+    "kb": 0,
+    "err": "ERROR: [Instagram] DMYqNJ1Rvbk: Instagram sent an empty media response. Check if this post is accessible in your browser without being logged-in. If i"
+  },
+  {
+    "url": "https://www.instagram.com/reel/DMYqNJ1Rvbk/",
+    "strategy": "no format constraint",
+    "ok": false,
+    "kb": 0,
+    "err": "ERROR: [Instagram] DMYqNJ1Rvbk: Instagram sent an empty media response. Check if this post is accessible in your browser without being logged-in. If i"
+  },
+  {
+    "url": "https://www.instagram.com/reel/DMYqNJ1Rvbk/",
+    "strategy": "no impersonation",
+    "ok": false,
+    "kb": 0,
+    "err": "ERROR: [Instagram] DMYqNJ1Rvbk: Instagram sent an empty media response. Check if this post is accessible in your browser without being logged-in. If i"
+  },
+  {
+    "url": "https://www.instagram.com/reel/DMYqNJ1Rvbk/",
+    "strategy": "impersonate safari",
+    "ok": false,
+    "kb": 0,
+    "err": "ERROR: [Instagram] DMYqNJ1Rvbk: Instagram sent an empty media response. Check if this post is accessible in your browser without being logged-in. If i"
+  },
+  {
+    "url": "https://www.instagram.com/reel/DMYqNJ1Rvbk/",
+    "strategy": "mobile api extractor",
+    "ok": false,
+    "kb": 0,
+    "err": "ERROR: [Instagram] DMYqNJ1Rvbk: Instagram sent an empty media response. Check if this post is accessible in your browser without being logged-in. If i"
+  },
+  {
+    "url": "https://www.instagram.com/reel/DMYqNJ1Rvbk/",
+    "strategy": "chrome + cookies",
+    "ok": false,
+    "kb": 0,
+    "err": "ERROR: [Instagram] DMYqNJ1Rvbk: Instagram sent an empty media response. Check if this post is accessible in your browser without being logged-in. If i"
+  }
+]

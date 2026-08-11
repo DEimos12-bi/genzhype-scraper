@@ -1,0 +1,23 @@
+yt-dlp: 2026.07.04
+installing yt-dlp nightly...
+now: 2026.08.04.234419
+impersonation targets available: True
+
+=== https://www.facebook.com/thriftingmomof1/videos/cake-gate-cake-by-kaity-is-calling-out-another-creator-over-an-alleged-recipe-th/1004449218855230/
+  FAIL as the maker does now      1965ms  ERROR: You have requested downloading the video partially, but ffmpeg is not installed. Aborting
+  OK   no section window          2574ms  8339KB
+
+=== https://www.facebook.com/OfficialOffTopicShow/videos/black-womans-viral-tiktok-rant-pleads-to-leave-america-amidst-ice-raids-and-poli/1462050688301001/
+  FAIL as the maker does now      2569ms  ERROR: You have requested downloading the video partially, but ffmpeg is not installed. Aborting
+  OK   no section window          2860ms  21645KB
+
+=== https://www.instagram.com/reel/DMYqNJ1Rvbk/
+  FAIL as the maker does now      2223ms  ERROR: [Instagram] DMYqNJ1Rvbk: Instagram sent an empty media response. Check if this post is accessible in your browser without being logged-in. If i
+  FAIL no section window          1947ms  ERROR: [Instagram] DMYqNJ1Rvbk: Instagram sent an empty media response. Check if this post is accessible in your browser without being logged-in. If i
+  FAIL no format constraint       1977ms  ERROR: [Instagram] DMYqNJ1Rvbk: Instagram sent an empty media response. Check if this post is accessible in your browser without being logged-in. If i
+  FAIL no impersonation           1959ms  ERROR: [Instagram] DMYqNJ1Rvbk: Instagram sent an empty media response. Check if this post is accessible in your browser without being logged-in. If i
+  FAIL impersonate safari         1939ms  ERROR: [Instagram] DMYqNJ1Rvbk: Instagram sent an empty media response. Check if this post is accessible in your browser without being logged-in. If i
+  FAIL mobile api extractor       1943ms  ERROR: [Instagram] DMYqNJ1Rvbk: Instagram sent an empty media response. Check if this post is accessible in your browser without being logged-in. If i
+  FAIL chrome + cookies           2040ms  ERROR: [Instagram] DMYqNJ1Rvbk: Instagram sent an empty media response. Check if this post is accessible in your browser without being logged-in. If i
+
+WINNERS: {'no section window': 2}
