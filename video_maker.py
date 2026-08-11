@@ -828,12 +828,20 @@ EDGE_FADE_S = 0.15             # tiny fade on video START/END only (hard cuts in
 # --- v4: sound engine (Laws 12-19) ---
 SFX_DIR = os.environ.get("VIDEO_SFX_DIR", ".social/sfx")
 VO_TARGET_DBFS = -16.0         # VO normalization anchor before the final pass
-BED_DB_VS_VO = -18.0           # Law 13: music bed sits -18dB under the voice
+# r110: the bed drops another 4dB. It was never the loud part, but with the
+# effects tamed it is the remaining thing you notice, and on a talking-head
+# clip a bed you can pick out is a bed that is too loud.
+BED_DB_VS_VO = float(os.environ.get("VIDEO_BGM_DB", "-22"))
 DUCK_EXTRA_DB = -4.0           # 'duck' music state: extra reduction
-WHOOSH_DB_VS_VO = -6.0         # Law 14: ~50-60% of VO, floor 6dB below
-IMPACT_DB_VS_VO = -6.0
-POP_DB_VS_VO = -8.0
-RISER_DB_VS_VO = -8.0
+# r110 QUIETER EFFECTS. These sat 6-8dB under the voice — roughly half its
+# loudness — and fired on every cut, which is what made the audio tiring
+# rather than punchy. An effect should be felt, not announced; -14/-16 is
+# still clearly audible under speech but stops competing with it. Tunable by
+# env so this can be dialled without a code change.
+WHOOSH_DB_VS_VO = float(os.environ.get("VIDEO_SFX_WHOOSH_DB", "-15"))
+IMPACT_DB_VS_VO = float(os.environ.get("VIDEO_SFX_IMPACT_DB", "-12"))
+POP_DB_VS_VO = float(os.environ.get("VIDEO_SFX_POP_DB", "-17"))
+RISER_DB_VS_VO = float(os.environ.get("VIDEO_SFX_RISER_DB", "-15"))
 RISER_MAX_S = 3.0              # risers keep their LAST <=3s (they peak at the end)
 SILENCE_LEAD_S = 0.30          # music cut this much BEFORE a 'silence' shot
 SEAM_FADE_MS = 30              # Law 19: fade at every music seam (click kill)
