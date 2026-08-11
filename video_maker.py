@@ -4400,11 +4400,29 @@ def platform_of(url):
     return None
 
 
+def _feed_local_clip(url):
+    """r104: a clip the SERVER already downloaded and staged into the feed
+    branch (feed/clips/<sha1(url)>.mp4). TikTok refuses this runner from every
+    angle, but a resolver hands the server a working link, so the file arrives
+    the same way our images do — already here, nothing to fetch."""
+    if not (FEED_DIR and url):
+        return None
+    p = os.path.join(FEED_DIR, "clips",
+                     hashlib.sha1(url.encode("utf-8")).hexdigest() + ".mp4")
+    return p if os.path.isfile(p) and os.path.getsize(p) > 100000 else None
+
+
 def fetch_platform_clip(url):
     """r28: download a short clip from ANY supported platform with the RIGHT
     method (proven by platform-check). Returns a local video path or None.
     Cached per URL per run; counts toward the run fetch cap; never raises."""
     global _FOOTAGE_FETCHES
+    _staged = _feed_local_clip(url)
+    if _staged:
+        log.info("CLIP staged by the server: %s (%s)",
+                 os.path.basename(_staged), url[:60])
+        _PLATFORM_CLIP_CACHE[url] = _staged
+        return _staged
     if url in _PLATFORM_CLIP_CACHE:
         return _PLATFORM_CLIP_CACHE[url]
     plat = platform_of(url)
