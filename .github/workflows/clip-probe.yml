@@ -48,6 +48,9 @@ jobs:
             echo "no cookie secret; testing without"
           fi
 
+      - name: Syntax-check the maker
+        run: python -m py_compile video_maker.py && echo "video_maker.py compiles clean"
+
       - name: Probe
         continue-on-error: true
         env:
