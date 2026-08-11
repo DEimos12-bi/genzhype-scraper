@@ -4436,7 +4436,7 @@ def fetch_platform_clip(url):
                # to a combined file, then to anything at all.
                "-f", ("bv*[height<=720]+ba/b[height<=720]/bv*+ba/b"),
                "--merge-output-format", "mp4",
-               "--max-filesize", "45M",
+               "--max-filesize", "200M",
                "-o", outtmpl, url]
         # r45 MONEY MOMENT: when the reporter embedded this clip at a timestamp,
         # download the window AROUND that second rather than the video's opening
@@ -4449,6 +4449,17 @@ def fetch_platform_clip(url):
                         "--force-keyframes-at-cuts"]
             log.info("CLIP window: %s at t=%ds (reporter's timestamp)",
                      plat, _st)
+        elif plat in ("youtube", "facebook", "twitch", "kick"):
+            # r100 THE 45MB TRAP. Without a timestamp we asked for the WHOLE
+            # video and capped it at 45MB — and a full YouTube upload has no
+            # format that small, so yt-dlp filtered every one of them out and
+            # answered "Requested format is not available". It read like a
+            # missing format; it was us rejecting all of them on size. Page
+            # 358 lost all four clips to this AFTER the auth wall was beaten.
+            # A beat is a few seconds long, so take the opening slice: small
+            # whatever the video's length, and no cap can bite.
+            cmd[1:1] = ["--download-sections", "*0-45",
+                        "--force-keyframes-at-cuts"]
         if plat in ("kick", "twitch", "tiktok"):
             # TLS-fingerprint bypass — the whole trick for these three.
             cmd[1:1] = ["--impersonate", "chrome"]
@@ -4505,8 +4516,11 @@ def fetch_platform_clip(url):
         # height-capped format may simply not exist on TikTok. If the first
         # attempt produced nothing, drop both and ask for whatever it has.
         if not hits and ('--download-sections' in cmd or '-f' in cmd):
+            # r100: the retry drops the format selector AND the size cap —
+            # the cap was itself a cause of "format is not available", so
+            # carrying it into the rescue attempt defeated the rescue.
             _plain = ["yt-dlp", "--no-playlist", "--quiet", "--no-warnings",
-                      "--max-filesize", "45M", "-o", outtmpl, url]
+                      "--max-filesize", "200M", "-o", outtmpl, url]
             if plat in ("kick", "twitch", "tiktok", "x"):
                 _plain[1:1] = ["--impersonate", "chrome"]
             if ck and plat in ("youtube", "x", "tiktok"):
