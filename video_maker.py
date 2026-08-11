@@ -902,7 +902,12 @@ FOOTAGE_CK_MAX_CONSEC = int(os.environ.get("VIDEO_FOOTAGE_CONSEC", "4"))
                                    # a still accent (real story footage is NOT
                                    # the generic-stock 2-in-a-row cap; that cap
                                    # still bounds stock b-roll separately)
-FOOTAGE_FETCH_SLEEP_S = (2.0, 4.0)  # polite sleep between spawns w/ cookies
+# r98: yt-dlp's own wiki asks for 5-10s between downloads on an authenticated
+# session; we were at 2-4. Our volume is nowhere near the limit anyway (~8
+# fetches per render against a documented ~2000/hour for an account), so the
+# extra seconds cost one render nothing and remove the one behaviour that
+# actually looks automated.
+FOOTAGE_FETCH_SLEEP_S = (5.0, 9.0)  # polite sleep between spawns w/ cookies
 
 # --- v4: house grade (Law 22 — one look over every visual) ---
 GRADE_CONTRAST = 1.06
