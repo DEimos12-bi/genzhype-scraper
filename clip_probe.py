@@ -42,6 +42,17 @@ report = []
 
 print("yt-dlp:", subprocess.run(["yt-dlp", "--version"], capture_output=True,
                                 text=True).stdout.strip(), flush=True)
+
+# r95b: every strategy failed with the SAME parse error in under a second —
+# not a block, a broken extractor. TikTok changes its page constantly and the
+# fix lands in nightly long before the stable release. If nightly reads the
+# page, the answer is simply which build we install.
+if os.environ.get("PROBE_NIGHTLY") == "1":
+    print("installing yt-dlp nightly...", flush=True)
+    subprocess.run([sys.executable, "-m", "pip", "install", "-q", "-U", "--pre",
+                    "yt-dlp[default,curl-cffi]"], check=False)
+    print("now:", subprocess.run(["yt-dlp", "--version"], capture_output=True,
+                                 text=True).stdout.strip(), flush=True)
 imp = subprocess.run(["yt-dlp", "--list-impersonate-targets"],
                      capture_output=True, text=True).stdout
 print("impersonation targets available:", "chrome" in imp.lower(), flush=True)

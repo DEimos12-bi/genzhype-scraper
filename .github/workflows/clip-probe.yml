@@ -50,6 +50,8 @@ jobs:
 
       - name: Probe
         continue-on-error: true
+        env:
+          PROBE_NIGHTLY: "1"
         run: python -u clip_probe.py 2>&1 | tee probe.log
 
       - name: Publish the report
