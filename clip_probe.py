@@ -15,9 +15,12 @@ import sys
 import time
 
 URLS = [
-    "https://www.tiktok.com/@fathercooper/video/7628249946763857182",
-    "https://www.tiktok.com/@alixearle/video/7476649042777247006",
-    "https://www.tiktok.com/@thebravomom/video/7626790279734971662",
+    # r97: does Instagram/Facebook behave like YouTube (wants a login)
+    # or like TikTok (refuses us outright)? Measured, not assumed — the
+    # "instagram is ungettable" line in the picker was a guess of mine.
+    "https://www.facebook.com/thriftingmomof1/videos/cake-gate-cake-by-kaity-is-calling-out-another-creator-over-an-alleged-recipe-th/1004449218855230/",
+    "https://www.facebook.com/OfficialOffTopicShow/videos/black-womans-viral-tiktok-rant-pleads-to-leave-america-amidst-ice-raids-and-poli/1462050688301001/",
+    "https://www.instagram.com/reel/DMYqNJ1Rvbk/",
 ]
 CK = os.environ.get("CLIP_COOKIES", "")
 
