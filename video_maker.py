@@ -6016,9 +6016,12 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                          sh.get("receipt_i"))
             elif path:
                 typ, textish = "receipt", True
-                if sfx == "none":            # v4.5: receipt slam default
-                    sfx = "pop"
-                    emph_t = sh["start"]     # slam lands AT t_in
+                # r113: the "receipt slam" used to add a pop to EVERY card
+                # scene whose beat asked for silence — so r110's "no effect
+                # unless it marks something" was overruled on exactly the
+                # card-heavy videos, and page 259 came back with six sounds
+                # where the script had ordered three. The beat decides now;
+                # silence means silence.
             else:
                 log.info("receipt %s missing/unresolved; subject photo "
                          "fallback", sh.get("receipt_i"))
