@@ -680,6 +680,10 @@ POOL_NO_REPEAT_WINDOW_BASE = 3
 BGM_DIR = os.environ.get("VIDEO_BGM_DIR", ".social/bgm")
 BGM_VOLUME = float(os.environ.get("VIDEO_BGM_VOLUME", "0.10"))
 
+# r113: the channel's ONE bed (see pick_bgm). 2 = "Fright Night", film-score
+# tension. Grave stories still take the ambient bed; nothing else varies.
+SIGNATURE_BGM = int(os.environ.get("VIDEO_BGM_SIGNATURE", "2"))
+
 # --- v3: real b-roll (Pexels/Pixabay stock video; Turbo material.py port) ---
 PEXELS_API_KEY = os.environ.get("PEXELS_API_KEY", "").strip()
 PIXABAY_API_KEY = os.environ.get("PIXABAY_API_KEY", "").strip()
@@ -1034,18 +1038,27 @@ def _post_diag(page_id, name, img_path):
         body = {"token": INGEST_TOKEN, "action": "diag",
                 "page_id": int(page_id), "name": str(name)[:60],
                 "img_b64": b64}
-        # delivery-grade timeout (an image is not an 8s heartbeat) on the same
-        # browser-TLS path everything else uses to get past the WAF.
+        # r113: 25s, not 120s+fallback. On 2026-08-12 this diagnostic hung for
+        # SIX MINUTES against an unreachable host (120s cffi, then requests
+        # retrying), ate the judge stage's whole stall budget, and the watchdog
+        # force-exited a render whose video was already finished and passing.
+        # A diagnostic that can kill the render it is diagnosing is a bug.
         try:
             from curl_cffi import requests as cffi
             r = cffi.post(RECEIVE_URL, json=body, impersonate="firefox",
-                          timeout=120, headers={"User-Agent": _BROWSER_UA})
+                          timeout=25, headers={"User-Agent": _BROWSER_UA})
         except Exception:  # noqa: BLE001
-            r = requests.post(RECEIVE_URL, json=body, timeout=120,
+            r = requests.post(RECEIVE_URL, json=body, timeout=25,
                               headers={"User-Agent": _BROWSER_UA})
         log.info("DIAG %s -> HTTP %s", name, getattr(r, "status_code", "?"))
     except Exception as exc:  # noqa: BLE001
         log.info("DIAG %s failed: %s", name, str(exc)[:90])
+    finally:
+        # ...and it must not spend the RENDER's clock either: whatever this
+        # cost, give the stage its time back before the watchdog reads it.
+        global _STAGE_SINCE
+        if _STAGE not in ("boot", "done"):
+            _STAGE_SINCE = time.time()
 
 
 def _heartbeat_loop(start_ts):
@@ -7572,11 +7585,28 @@ def chunk_caption_clips(beats, hook_end, duration, font_path, card_windows=None)
 # Background music (optional, deterministic, non-fatal)
 # ============================================================================
 def pick_bgm(page_id, grave=False):
-    # r65: the STYLE owns the bed (energetic vs dark ambient) — it is one of
-    # the things being A/B tested. Grave stories still override everything.
-    if STYLE_BGM and not grave:
-        _p = os.path.join(BGM_DIR, f"bgm_{STYLE_BGM}.mp3")
+    # r113 SIGNATURE BED. Until now the STYLE owned the bed, and the style is
+    # rolled per video (r65 A/B test) — so the channel played three different
+    # musics and sounded like three different channels. That is backwards from
+    # how the job is actually done: the bed is a CHANNEL decision made once
+    # (viewers should know it is us within two seconds), and the STORY only
+    # decides the effects — the turn, the build, the reveal.
+    #
+    # One bed, every video: bgm_2 "Fright Night" (film-score tension) — our
+    # whole format is a tension timeline, and a score sits under a voice
+    # without fighting it the way the trap bed did.
+    #
+    # Two exceptions survive, both deliberate:
+    #   - grave stories (death, assault) fall through to the ambient bed below;
+    #     a tension score under a death story is the wrong sound.
+    #   - VIDEO_BGM_FILE overrides everything, so the signature can be changed
+    #     in one place without a code edit.
+    if not grave:
+        _p = os.environ.get("VIDEO_BGM_FILE", "").strip() \
+            or os.path.join(BGM_DIR, f"bgm_{SIGNATURE_BGM}.mp3")
         if os.path.exists(_p):
+            log.info("bgm: SIGNATURE bed %s (same on every video, by design)",
+                     os.path.basename(_p))
             return _p
     """Deterministically pick a track from BGM_DIR by page_id hash. The folder
     must contain ONLY CC0/royalty-free .mp3 files. Missing/empty -> None.
