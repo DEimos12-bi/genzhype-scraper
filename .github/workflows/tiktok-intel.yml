@@ -40,13 +40,14 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install TikTokApi
           python -m playwright install --with-deps chromium
+          sudo apt-get install -y -qq xvfb   # a VISIBLE browser needs a display
 
       - name: Observe rivals
         continue-on-error: true
         env:
           ms_token: ${{ secrets.TIKTOK_MS_TOKEN }}
           TIKTOK_RIVALS: ${{ vars.TIKTOK_RIVALS }}
-        run: python -u tiktok_intel.py 2>&1 | tee tiktok_intel.log
+        run: xvfb-run -a python -u tiktok_intel.py 2>&1 | tee tiktok_intel.log
 
       - name: Publish what it saw
         if: always()
