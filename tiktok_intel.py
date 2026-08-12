@@ -32,9 +32,13 @@ import time
 
 # Rivals worth learning from: drama/commentary accounts in our exact lane.
 # Handles only — the library resolves them.
-RIVALS = [s.strip() for s in os.environ.get(
-    "TIKTOK_RIVALS",
-    "dramaalert,defnoodles,spillsesh,tiktokroom,popcrave,dexerto"
+# r112b: read the env var but fall back when it is EMPTY, not merely absent.
+# The workflow passes ${{ vars.TIKTOK_RIVALS }}, which resolves to an empty
+# string when the variable does not exist — and os.environ.get() treats "" as
+# a real value, so the first run observed nobody at all.
+RIVALS = [s.strip() for s in (
+    os.environ.get("TIKTOK_RIVALS")
+    or "dramaalert,defnoodles,spillsesh,tiktokroom,popcrave,dexerto"
 ).split(",") if s.strip()]
 
 PER_RIVAL = int(os.environ.get("TIKTOK_RIVAL_POSTS", "20"))
