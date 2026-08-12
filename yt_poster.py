@@ -45,6 +45,7 @@ CID = os.environ.get("YT_CLIENT_ID", "")
 SEC = os.environ.get("YT_CLIENT_SECRET", "")
 STATE = ".social"
 DONE = f"{STATE}/yt_posted.txt"
+POLICY = {}          # r114: filled from the queue endpoint's "policy" block
 
 
 def log(*a):
@@ -164,6 +165,8 @@ def main():
     q = site_get(f"{BASE}/api/video_social_next.php?token="
                  + urllib.parse.quote(INGEST))
     vids = q.get("videos", [])
+    global POLICY
+    POLICY = q.get("policy") or {}          # r114: learned posting policy
     if not vids:
         log("queue empty")
         return 0
@@ -178,6 +181,19 @@ def main():
     # where freshness is an official ranking factor and waiting costs reach.
     hour = time.gmtime().tm_hour
     slots = [int(h) for h in os.environ.get("YT_SLOT_HOURS", "16,23").split(",")]
+    # r114: the intelligence engine measures which hours this lane actually
+    # publishes in, and the site serves that as policy.slot_hours next to the
+    # copy. It is ADDITIVE (the engine adds at most one well-evidenced rival
+    # hour to ours) and it never shrinks our windows — so a bad or empty rule
+    # can only ever leave the hardcoded slots exactly as they were.
+    learned = [int(h) for h in (POLICY.get("slot_hours") or [])
+               if isinstance(h, int) or str(h).isdigit()]
+    if learned:
+        merged = sorted(set(slots) | set(h for h in learned if 0 <= h <= 23))
+        if merged != sorted(set(slots)):
+            log(f"YT: slots {sorted(set(slots))} + learned {sorted(set(learned) - set(slots))}"
+                f" -> {merged}")
+        slots = merged
     hot = [v for v in todo if v.get("hot")]
     if hour in slots:
         todo = hot + [v for v in todo if not v.get("hot")]
