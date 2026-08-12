@@ -837,6 +837,14 @@ VO_TARGET_DBFS = -16.0         # VO normalization anchor before the final pass
 # clip a bed you can pick out is a bed that is too loud.
 BED_DB_VS_VO = float(os.environ.get("VIDEO_BGM_DB", "-22"))
 DUCK_EXTRA_DB = -4.0           # 'duck' music state: extra reduction
+# r113 SWELL (see _apply_swells): how far the bed climbs under the build, and
+# how long it takes to get out of the way after the reveal lands. +5dB is a
+# clear lift from a bed sitting 22dB under the voice without ever competing
+# with it; the decay is long enough to feel like a release, not a cut.
+SWELL_DB = float(os.environ.get("VIDEO_BGM_SWELL_DB", "5"))
+SWELL_DECAY_MS = int(os.environ.get("VIDEO_BGM_SWELL_DECAY_MS", "1800"))
+SWELL_MIN_MS = 600             # a build shorter than this does not read as one
+SWELL_MAX = 2                  # at most two swells; more and nothing is big
 # r110 QUIETER EFFECTS. These sat 6-8dB under the voice — roughly half its
 # loudness — and fired on every cut, which is what made the audio tiring
 # rather than punchy. An effect should be felt, not announced; -14/-16 is
@@ -7707,6 +7715,56 @@ def _music_intervals(scenes, total_ms):
     return out
 
 
+def _apply_swells(bed, scenes, total_ms):
+    """r113 SWELL: the bed RISES into the reveal instead of sitting flat.
+
+    Until now the bed had exactly three volumes (normal / ducked / gone), so
+    the biggest moment in the video sounded the same as the setup. Editors do
+    the opposite: the music grows under the build and is at its loudest the
+    instant the reveal lands, then gets out of the way again.
+
+    Where the build is, is already known — the Director marks it. The shot it
+    puts a `riser` on IS the build, and the shot after it is the reveal. So:
+
+        riser shot  ..............  reveal shot
+        |<-- bed ramps 0 -> +5dB -->|<-- decays +5 -> 0 over ~1.8s
+
+    Shaped BEFORE the bed is cut into duck/silence intervals, so a swell and
+    a duck can coexist and a `silence` reveal still means silence.
+    """
+    if not SWELL_DB or bed is None:
+        return bed, 0
+    done = 0
+    for i, sc in enumerate(scenes):
+        if done >= SWELL_MAX or (sc.get("sfx") or "none") != "riser":
+            continue
+        if i + 1 >= len(scenes):
+            continue                       # no reveal to rise into
+        nxt = scenes[i + 1]
+        if (nxt.get("music") or "bed") == "silence":
+            continue                       # the reveal is a music DROP; leave it
+        a = int(float(sc["start"]) * 1000)
+        peak = int(float(nxt["start"]) * 1000)
+        if peak - a < SWELL_MIN_MS or peak >= total_ms:
+            continue                       # too short to read as a build
+        decay = min(SWELL_DECAY_MS, total_ms - peak)
+        if decay < 200:
+            continue
+        try:
+            bed = bed.fade(from_gain=0.0, to_gain=SWELL_DB,
+                           start=a, duration=peak - a)
+            bed = bed.fade(from_gain=SWELL_DB, to_gain=0.0,
+                           start=peak, duration=decay)
+        except Exception as exc:           # noqa: BLE001
+            log.info("swell skipped (%s)", str(exc)[:70])
+            continue
+        log.info("sound: SWELL +%.0fdB over %.1fs into the reveal at %.1fs, "
+                 "decaying %.1fs", SWELL_DB, (peak - a) / 1000.0,
+                 peak / 1000.0, decay / 1000.0)
+        done += 1
+    return bed, done
+
+
 def build_sound_mix(mp3_path, scenes, total, page_id, out_wav,
                     extra_sfx=None):
     """The full v4 mix: normalized VO + stateful music bed + placed SFX +
@@ -7734,6 +7792,9 @@ def build_sound_mix(mp3_path, scenes, total, page_id, out_wav,
                 bed = bed + bed
             bed = bed[:total_ms]
             bed = bed.apply_gain((vo_db + BED_DB_VS_VO) - bed.dBFS)
+            # r113: shape the bed (swell into the reveal) BEFORE it is cut into
+            # duck/silence intervals, so both survive.
+            bed, _swells = _apply_swells(bed, scenes, total_ms)
             intervals = _music_intervals(scenes, total_ms)
             for k, (a, b, extra_db) in enumerate(intervals):
                 piece = bed[a:b]
@@ -7745,8 +7806,8 @@ def build_sound_mix(mp3_path, scenes, total, page_id, out_wav,
                 half = max(1, len(piece) // 2)
                 piece = piece.fade_in(min(fi, half)).fade_out(min(fo, half))
                 mix = mix.overlay(piece, position=a)
-            log.info("sound: bed %s over %d interval(s)",
-                     os.path.basename(bed_file), len(intervals))
+            log.info("sound: bed %s over %d interval(s), %d swell(s)",
+                     os.path.basename(bed_file), len(intervals), _swells)
         else:
             log.info("sound: no music bed (folder empty/undecodable)")
 
