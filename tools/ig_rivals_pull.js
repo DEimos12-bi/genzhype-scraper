@@ -30,12 +30,16 @@
  */
 'use strict';
 
-const { execFileSync } = require('child_process');
+const { execFileSync, execSync } = require('child_process');
 const https = require('https');
 
 const ENDPOINT = process.env.GENZHYPE_ENDPOINT
   || 'https://genzhype.com/api/ig_rivals_ingest.php';
-const TOKEN = process.env.GENZHYPE_TOKEN || '';
+// .trim() is not cosmetic. On Windows, `set VAR=value && node ...` captures
+// the space BEFORE the && into the value, so the token arrives with a
+// trailing space and the server rejects it as "forbidden" — which reads like
+// a wrong token when it is the right one.
+const TOKEN = (process.env.GENZHYPE_TOKEN || '').trim();
 const LIMIT = process.env.IG_LIMIT || '24';
 
 // Drama/commentary accounts in our exact lane. Override by passing handles.
@@ -65,14 +69,18 @@ function safeHandle(h) {
 function pull(rawHandle) {
   const handle = safeHandle(rawHandle);
   if (!handle) { log(`  ${rawHandle}: not a usable handle`); return null; }
+  const opts = { encoding: 'utf8', timeout: 120000,
+                 maxBuffer: 32 * 1024 * 1024, windowsHide: true };
   let out;
   try {
-    out = execFileSync(
-      IS_WIN ? 'opencli.cmd' : 'opencli',
-      ['instagram', 'user', handle, '--limit', String(LIMIT), '-f', 'json'],
-      { encoding: 'utf8', timeout: 120000, maxBuffer: 32 * 1024 * 1024,
-        shell: IS_WIN, windowsHide: true }
-    );
+    out = IS_WIN
+      // One command string, because passing an args array WITH shell:true is
+      // deprecated in Node (the args are concatenated, not escaped). The
+      // handle is already restricted to [A-Za-z0-9._] above, so there is
+      // nothing left in it for cmd.exe to interpret.
+      ? execSync(`opencli.cmd instagram user ${handle} --limit ${Number(LIMIT) || 24} -f json`, opts)
+      : execFileSync('opencli',
+          ['instagram', 'user', handle, '--limit', String(LIMIT), '-f', 'json'], opts);
   } catch (e) {
     const msg = String(e.message).split('\n')[0].slice(0, 140);
     log(`  ${handle}: opencli failed — ${msg}`);
