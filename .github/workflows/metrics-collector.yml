@@ -38,6 +38,22 @@ jobs:
         run: |
           set -o pipefail
           python metrics_collector.py 2>&1 | sed "s/$INGEST_TOKEN/***/g" | tee .social/metrics_last_run.log
+
+      # r115: Instagram and Facebook were 10 posts each with ZERO measured,
+      # because the Meta app behind our own tokens has been deleted. Buffer
+      # already publishes to all three accounts and its API answers from our
+      # server, so the collector for those platforms is server-side PHP — it
+      # only needs a daily heartbeat, which this job already is. Non-fatal:
+      # the YouTube collection above must never fail because of it.
+      - name: Pull IG/FB/TikTok numbers from Buffer
+        continue-on-error: true
+        env:
+          INGEST_TOKEN: ${{ secrets.INGEST_TOKEN }}
+        run: |
+          curl -s --max-time 120 \
+            "https://genzhype.com/api/social_metrics_pull.php?token=$INGEST_TOKEN" \
+            | sed "s/$INGEST_TOKEN/***/g" | tee -a .social/metrics_last_run.log
+
       - name: Save log
         if: always()
         run: |
