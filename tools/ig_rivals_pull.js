@@ -47,17 +47,39 @@ const rivals = process.argv.slice(2).length ? process.argv.slice(2) : DEFAULT_RI
 
 function log(...a) { console.log(...a); }
 
-/** Ask OpenCLI for one account. Returns an array of posts, or null. */
-function pull(handle) {
+const IS_WIN = process.platform === 'win32';
+
+/** Handles are the only thing that reaches the command line, and on Windows
+ *  it goes through cmd.exe (see below), so restrict them to what an Instagram
+ *  handle can actually contain rather than trusting the caller. */
+function safeHandle(h) {
+  return String(h).trim().replace(/^@/, '').replace(/[^A-Za-z0-9._]/g, '');
+}
+
+/** Ask OpenCLI for one account. Returns an array of posts, or null.
+ *
+ *  WINDOWS NOTE. opencli installs as opencli.cmd, and since Node's fix for
+ *  CVE-2024-27980 a .cmd cannot be spawned without a shell — it fails with
+ *  EINVAL, which reads like "opencli is broken" when it is installed fine.
+ *  So Windows runs it through the shell; every other platform does not. */
+function pull(rawHandle) {
+  const handle = safeHandle(rawHandle);
+  if (!handle) { log(`  ${rawHandle}: not a usable handle`); return null; }
   let out;
   try {
     out = execFileSync(
-      process.platform === 'win32' ? 'opencli.cmd' : 'opencli',
+      IS_WIN ? 'opencli.cmd' : 'opencli',
       ['instagram', 'user', handle, '--limit', String(LIMIT), '-f', 'json'],
-      { encoding: 'utf8', timeout: 120000, maxBuffer: 32 * 1024 * 1024 }
+      { encoding: 'utf8', timeout: 120000, maxBuffer: 32 * 1024 * 1024,
+        shell: IS_WIN, windowsHide: true }
     );
   } catch (e) {
-    log(`  ${handle}: opencli failed — ${String(e.message).split('\n')[0].slice(0, 120)}`);
+    const msg = String(e.message).split('\n')[0].slice(0, 140);
+    log(`  ${handle}: opencli failed — ${msg}`);
+    // stdout/stderr carry the real reason (not logged in, extension asleep,
+    // unknown subcommand); without them the next step is pure guesswork.
+    const extra = [e.stdout, e.stderr].map((b) => (b ? String(b).trim() : '')).filter(Boolean);
+    if (extra.length) { log(`     said: ${extra.join(' | ').slice(0, 300)}`); }
     return null;
   }
 
