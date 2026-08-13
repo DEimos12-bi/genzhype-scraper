@@ -140,15 +140,27 @@ function send(payload) {
   }
   log(`pulling ${rivals.length} rival(s): ${rivals.join(', ')}`);
   let last = null;
+  let shownFields = false;
+  let first = true;
   for (const handle of rivals) {
+    // Wait BETWEEN accounts, always — previously the pause only happened
+    // after a successful send, so a failure made the next request immediate.
+    // The 5th account was the one Instagram kept refusing.
+    if (!first) { await new Promise((r) => setTimeout(r, 6000)); }
+    first = false;
     const posts = pull(handle);
     if (!posts || !posts.length) { log(`  ${handle}: 0 posts`); continue; }
     const res = await send({ token: TOKEN, rival: handle, posts });
     if (res.error) { log(`  ${handle}: ${posts.length} posts, send FAILED — ${res.error}`); continue; }
     log(`  ${handle}: ${posts.length} posts -> stored ${res.stored ?? '?'}`
         + (res.skipped ? ` (skipped ${res.skipped})` : ''));
+    if (res.fields && res.fields.length && !shownFields) {
+      // Print once: this is what tells us whether the server read the right
+      // columns or is quietly storing zeros.
+      log(`     fields seen: ${res.fields.join(', ')}`);
+      shownFields = true;
+    }
     last = res;
-    await new Promise((r) => setTimeout(r, 3000));   // be a guest, not a crawler
   }
   if (last) {
     log(`\ntotal stored: ${last.total_posts} post(s) from ${last.rivals} rival(s)`);
