@@ -43,30 +43,26 @@ STATE = ".social"
 # Facebook/Instagram are deliberately NOT here — the native reels/facebook
 # posters own those, and having both queue to them is what pushed IG and FB to
 # 8 posts/day earlier.
-WANTED = {"tiktok": "tt", "facebook": "fb", "instagram": "ig"}
-# Posts per channel per DAY. The workflow checks 5x/day so a fresh video
-# goes out soon after it renders — but without this cap those 5 checks
-# would drain a 10-video backlog at 5 posts/channel/day, which is what
-# caused the 8-a-day flood the first time fb/ig were on Buffer.
-# r121 THE AGREED CADENCE. The owner's standing order is 5 TikTok / 5
-# Instagram / 3 Facebook a day (with 5 YouTube and 3 Bluesky in their own
-# posters) — and at some point a retime quietly knocked everything back to 2,
-# while the yt workflow's own r59 comment still said FIVE. This restores the
-# agreement and makes the caps per-service so it cannot silently regress to
-# one global number again.
+# r122: TIKTOK ONLY — and this time the code matches the comment. Two
+# sessions merged badly here: one wrote the comment above (fb/ig belong to
+# the native reels/facebook posters), the other's per-service dict survived
+# underneath it still listing fb+ig, so Buffer kept queueing both ON TOP of
+# the native posters — the double-posting the comment claims was fixed.
+WANTED = {"tiktok": "tt"}
+
+# Buffer's role in the division of labor: the AUTO-publish TikTok lane
+# (Buffer is an approved TikTok partner, so its posts go live directly,
+# unlike the native tiktok-poster whose uploads land as inbox drafts the
+# owner must tap). Two direct posts a day, night grid, booked to the slots
+# below; the native poster carries the other five as drafts.
 DAILY_CAPS = {
-    "tt": int(os.environ.get("BUFFER_DAILY_CAP_TT", "5")),
-    "ig": int(os.environ.get("BUFFER_DAILY_CAP_IG", "5")),
-    "fb": int(os.environ.get("BUFFER_DAILY_CAP_FB", "3")),
+    "tt": int(os.environ.get("BUFFER_DAILY_CAP_TT", "2")),
 }
 
-# Per-service slot grids, all US-audience hours (the r59 spine: 8am, 12pm,
-# 4pm, 7pm, 10pm ET for the 5-a-day platforms; FB keeps its midday/evening
-# peaks). Same-minute stagger across services is applied in next_slot.
+# Slots sit ~30min after each workflow cron (21:50 -> 22:20, 01:50 -> 02:20),
+# inside the same 21:00-05:00 UTC window every other poster now uses.
 SERVICE_SLOTS = {
-    "tiktok":    os.environ.get("BUFFER_SLOTS_TT", "2:20,12:20,16:20,20:20,23:20"),
-    "instagram": os.environ.get("BUFFER_SLOTS_IG", "2:20,12:20,16:20,20:20,23:20"),
-    "facebook":  os.environ.get("BUFFER_SLOTS_FB", "13:00,17:00,22:00"),
+    "tiktok": os.environ.get("BUFFER_SLOTS_TT", "22:20,2:20"),
 }
 
 

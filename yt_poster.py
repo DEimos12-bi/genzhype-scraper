@@ -205,7 +205,17 @@ def main():
     learned = [int(h) for h in (POLICY.get("slot_hours") or [])
                if isinstance(h, int) or str(h).isdigit()]
     if learned:
-        merged = sorted(set(slots) | set(h for h in learned if 0 <= h <= 23))
+        # r122: the learned hour must still respect the posting window. The
+        # channel moved to a 21:00-05:00 UTC night grid, and the engine's
+        # measured rival hour (19 UTC) predates that decision — merging it
+        # unfiltered would quietly re-open the dead zone the grid exists to
+        # avoid. Inside the window the learning still applies.
+        in_window = [h for h in learned
+                     if 0 <= h <= 23 and (h >= 21 or h <= 5)]
+        dropped = sorted(set(learned) - set(in_window))
+        if dropped:
+            log(f"YT: learned hour(s) {dropped} outside the 21:00-05:00 window; ignored")
+        merged = sorted(set(slots) | set(in_window))
         if merged != sorted(set(slots)):
             log(f"YT: slots {sorted(set(slots))} + learned {sorted(set(learned) - set(slots))}"
                 f" -> {merged}")

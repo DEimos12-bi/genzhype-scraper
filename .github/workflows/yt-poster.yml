@@ -9,12 +9,15 @@ name: GenZHype YouTube poster
 # the run log prints the returned privacyStatus so the unlock is visible.
 
 on:
-  # Hourly, but the poster only publishes inside YT_SLOT_HOURS. r59: raised to
-  # FIVE US-audience slots/day (12,16,20,23,02 UTC = 8am,12pm,4pm,7pm,10pm ET).
-  # (was 16:40 and
-  # 23:40 UTC = US lunch + evening peak, per the 2026 Shorts rulebook) —
-  # except for stories under 12h old, which publish on sight because
-  # freshness is an official ranking factor for news content.
+  # Hourly, but the poster only publishes inside YT_SLOT_HOURS — currently
+  # FOUR night-grid slots (21,23,01,04 UTC = 5pm-midnight ET), the same
+  # 21:00-05:00 window every poster moved to. Stories under 12h old still
+  # publish on sight (freshness is an official ranking factor for news).
+  # History, kept because stale comments here have already caused one
+  # relitigated dispute: r59 ran five US-day slots (12,16,20,23,02), r121
+  # briefly restored that spine, and the night-grid session replaced it.
+  # If you change YT_SLOT_HOURS below, change THIS comment in the same
+  # commit — the config is the truth, the comment is the witness.
   schedule:
     - cron: '40 * * * *'
   workflow_dispatch:
@@ -57,7 +60,7 @@ jobs:
         env:
           SOCIAL_BASE: 'https://genzhype.com'
           INGEST_TOKEN: ${{ secrets.INGEST_TOKEN }}
-          YT_SLOT_HOURS: '21,23,1,4'   # r121: restore the agreed FIVE slots (r59 spine)
+          YT_SLOT_HOURS: '21,23,1,4'   # 4 night-grid slots (see the history note at the top of this file)
         # log tee'd to .social so failures are diagnosable from the server
         # (public API refuses log downloads); token masked defensively.
         run: |
