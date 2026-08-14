@@ -172,6 +172,22 @@ def main():
         return 0
     done = set(l.strip() for l in open(DONE)) if os.path.exists(DONE) else set()
     todo = [v for v in vids if str(v["page_id"]) not in done]
+
+    # r120 LANE GATE. The channel averaged 5 views a Short because it mixes
+    # celeb + gaming + memes and YouTube's 2026 watch-history clusters cannot
+    # classify it; the one breakout (88 views) was the Asmongold/Twitch story,
+    # and the celeb-gossip giants we track are literally single-digit-subs ON
+    # YOUTUBE (Pop Crave 480, popbase 1) while DramaAlert/Dexerto own the
+    # streamer lane. So this channel posts ONLY lane-fit stories, decided
+    # server-side (yt_fit). Posting off-lane would actively un-classify the
+    # channel, so an empty fit-list means we WAIT, not fall back.
+    # Kill switch: YT_LANE_GATE=0. Payloads without the field pass (old feed).
+    if os.environ.get("YT_LANE_GATE", "1") != "0":
+        fit = [v for v in todo if v.get("yt_fit", True)]
+        if len(fit) != len(todo):
+            log(f"YT lane gate: {len(todo) - len(fit)} off-lane story(ies) held back,"
+                f" {len(fit)} fit")
+        todo = fit
     if not todo:
         log("YT: nothing new")
         return 0
