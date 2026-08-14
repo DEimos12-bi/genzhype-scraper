@@ -40,11 +40,31 @@ const ENDPOINT = process.env.GENZHYPE_ENDPOINT
 // trailing space and the server rejects it as "forbidden" — which reads like
 // a wrong token when it is the right one.
 const TOKEN = (process.env.GENZHYPE_TOKEN || '').trim();
-const LIMIT = process.env.IG_LIMIT || '24';
+// Asked for 24 last run and OpenCLI returned 12 for every account, so 12
+// looks like its page size rather than our ceiling. Asking for more is
+// free; the real depth comes from running this weekly, since the table
+// dedups on (rival, post) and each run adds whatever is new.
+const LIMIT = process.env.IG_LIMIT || '36';
 
-// Drama/commentary accounts in our exact lane. Override by passing handles.
+// The rival bench. Nothing here is discovered — it is a chosen list, and the
+// quality of every rule downstream is capped by how well it matches our lane.
+//
+// PROVEN (returned real posts and real counts on the 2026-08-13 pull):
+//   dexerto, defnoodles, popcrave
+// ADDED from published follower counts in the same lane — drama, celebrity
+// and internet-culture news that posts dated stories the way we do:
+//   theshaderoom, deuxmoi, commentsbycelebs, hollywoodunlocked, popbase,
+//   dailyloud, nojumper, thepopnote, pubity, ladbible
+// DROPPED: thespillsesh (returned 3 posts, all zero likes — noise), and
+//   thehollywoodfix (refused on every attempt while others in the same run
+//   succeeded, so it is that handle and not the login).
+//
+// A handle that fails costs one skipped account and nothing else, so a wrong
+// guess here is cheap; a MISSING rival is what actually costs us.
 const DEFAULT_RIVALS = [
-  'thespillsesh', 'defnoodles', 'popcrave', 'dexerto', 'thehollywoodfix',
+  'dexerto', 'defnoodles', 'popcrave',
+  'theshaderoom', 'deuxmoi', 'commentsbycelebs', 'hollywoodunlocked',
+  'popbase', 'dailyloud', 'nojumper', 'thepopnote', 'pubity', 'ladbible',
 ];
 
 const rivals = process.argv.slice(2).length ? process.argv.slice(2) : DEFAULT_RIVALS;
