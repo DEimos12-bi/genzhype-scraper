@@ -48,7 +48,26 @@ WANTED = {"tiktok": "tt", "facebook": "fb", "instagram": "ig"}
 # goes out soon after it renders — but without this cap those 5 checks
 # would drain a 10-video backlog at 5 posts/channel/day, which is what
 # caused the 8-a-day flood the first time fb/ig were on Buffer.
-DAILY_CAP = int(os.environ.get("BUFFER_DAILY_CAP", "2"))
+# r121 THE AGREED CADENCE. The owner's standing order is 5 TikTok / 5
+# Instagram / 3 Facebook a day (with 5 YouTube and 3 Bluesky in their own
+# posters) — and at some point a retime quietly knocked everything back to 2,
+# while the yt workflow's own r59 comment still said FIVE. This restores the
+# agreement and makes the caps per-service so it cannot silently regress to
+# one global number again.
+DAILY_CAPS = {
+    "tt": int(os.environ.get("BUFFER_DAILY_CAP_TT", "5")),
+    "ig": int(os.environ.get("BUFFER_DAILY_CAP_IG", "5")),
+    "fb": int(os.environ.get("BUFFER_DAILY_CAP_FB", "3")),
+}
+
+# Per-service slot grids, all US-audience hours (the r59 spine: 8am, 12pm,
+# 4pm, 7pm, 10pm ET for the 5-a-day platforms; FB keeps its midday/evening
+# peaks). Same-minute stagger across services is applied in next_slot.
+SERVICE_SLOTS = {
+    "tiktok":    os.environ.get("BUFFER_SLOTS_TT", "2:20,12:20,16:20,20:20,23:20"),
+    "instagram": os.environ.get("BUFFER_SLOTS_IG", "2:20,12:20,16:20,20:20,23:20"),
+    "facebook":  os.environ.get("BUFFER_SLOTS_FB", "13:00,17:00,22:00"),
+}
 
 
 def log(*a):
@@ -107,18 +126,64 @@ def next_slot(service=""):
     # same minute is a pattern platforms read as automation, and every
     # rulebook warns against duplicate-looking simultaneous posts.
     offset = {"tiktok": 0, "instagram": 7, "facebook": 14}.get(service, 0)
-    slots = os.environ.get("BUFFER_SLOTS_UTC", "17:15,23:15").split(",")
+    slots = SERVICE_SLOTS.get(service,
+                              os.environ.get("BUFFER_SLOTS_UTC", "17:15,23:15")).split(",")
+    # r121: the workflow now runs 8x/day to feed 5-slot grids, so two runs can
+    # see the same upcoming slot. A slot is used ONCE: booked ones (per UTC
+    # day, per service) are skipped, otherwise back-to-back runs would both
+    # schedule into e.g. 16:20 and the day would burn its cap in one hour.
+    booked = _booked_slots(service)
     now = time.gmtime()
     mins_now = now.tm_hour * 60 + now.tm_min
     for s in slots:
+        if s in booked:
+            continue
         h, m = (int(x) for x in s.split(":"))
         t = h * 60 + m + offset
         if t > mins_now + 10:                   # not in the past / too soon
+            _book_slot(service, s)
             return time.strftime(f"%Y-%m-%dT{t // 60:02d}:{t % 60:02d}:00.000Z", now)
-    h, m = (int(x) for x in slots[0].split(":"))   # tomorrow's first slot
-    t = h * 60 + m + offset
-    tmr = time.gmtime(time.time() + 86400)
-    return time.strftime(f"%Y-%m-%dT{t // 60:02d}:{t % 60:02d}:00.000Z", tmr)
+    for s in slots:                             # tomorrow's first free slot
+        if s in _booked_slots(service, tomorrow=True):
+            continue
+        h, m = (int(x) for x in s.split(":"))
+        t = h * 60 + m + offset
+        _book_slot(service, s, tomorrow=True)
+        tmr = time.gmtime(time.time() + 86400)
+        return time.strftime(f"%Y-%m-%dT{t // 60:02d}:{t % 60:02d}:00.000Z", tmr)
+    return None                                 # every slot spoken for
+
+
+def _booked_path(service):
+    return f"{STATE}/buffer_slots_{service}.json"
+
+
+def _slot_day(tomorrow=False):
+    return time.strftime("%Y-%m-%d", time.gmtime(time.time() + (86400 if tomorrow else 0)))
+
+
+def _booked_slots(service, tomorrow=False):
+    try:
+        with open(_booked_path(service)) as fh:
+            d = json.load(fh)
+        return set(d.get(_slot_day(tomorrow), []))
+    except Exception:
+        return set()
+
+
+def _book_slot(service, slot, tomorrow=False):
+    day = _slot_day(tomorrow)
+    try:
+        with open(_booked_path(service)) as fh:
+            d = json.load(fh)
+    except Exception:
+        d = {}
+    d = {k: v for k, v in d.items() if k >= _slot_day()}   # drop past days
+    d.setdefault(day, [])
+    if slot not in d[day]:
+        d[day].append(slot)
+    with open(_booked_path(service), "w") as fh:
+        json.dump(d, fh)
 
 
 def rate_path(code):
@@ -243,6 +308,9 @@ def post(channel, v):
                "tiktok": "tt_caption"}.get(service)
     text = (v.get(cap_key) if cap_key else None) or v["caption"]
     due = next_slot(service)
+    if due is None:
+        log(f"{service}: every slot today and tomorrow is already booked; skipping")
+        return False
     for as_reel in (True, False):
         data, err = gql(MUTATION, {"i": {
             "channelId": channel["id"], "text": text,
@@ -296,8 +364,9 @@ def main():
         if not code:
             continue
         n = sent_today(code)
-        if n >= DAILY_CAP:
-            log(f"{code}: daily cap reached ({n}/{DAILY_CAP}) - skipping")
+        cap = DAILY_CAPS.get(code, 2)
+        if n >= cap:
+            log(f"{code}: daily cap reached ({n}/{cap}) - skipping")
             continue
         done = load_done(code, posted)
         todo = [v for v in vids if str(v["page_id"]) not in done]

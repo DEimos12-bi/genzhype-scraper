@@ -2,6 +2,7 @@ name: GenZHype Bluesky poster
 on:
   schedule:
     - cron: '25 16 * * *'
+    - cron: '25 20 * * *'   # r121: third daily post per the agreed cadence
     - cron: '25 23 * * *'
   workflow_dispatch:
 permissions:
