@@ -67,7 +67,8 @@ const DEFAULT_RIVALS = [
   'popbase', 'dailyloud', 'nojumper', 'thepopnote', 'pubity', 'ladbible',
 ];
 
-const rivals = process.argv.slice(2).length ? process.argv.slice(2) : DEFAULT_RIVALS;
+const argRivals = process.argv.slice(2).filter((a) => !a.startsWith("--") && !a.endsWith(".json"));
+const rivals = argRivals.length ? argRivals : DEFAULT_RIVALS;
 
 function log(...a) { console.log(...a); }
 
@@ -153,11 +154,52 @@ function send(payload) {
   });
 }
 
+/* r118 --file mode: upload what the browser collected.
+ *
+ * Instagram's CSP allows connections only to its own hosts, so a script
+ * running inside their page cannot POST to us at all ("Refused to connect").
+ * The deep pull therefore saves a file, and this ships it — from Node, where
+ * no page policy applies. */
+async function fromFile(path) {
+  const fs = require('fs');
+  let doc;
+  try {
+    doc = JSON.parse(fs.readFileSync(path, 'utf8'));
+  } catch (e) {
+    log(`cannot read ${path} — ${e.message}`);
+    process.exit(1);
+  }
+  const rivals = doc.rivals || doc;
+  const names = Object.keys(rivals);
+  log(`uploading ${names.length} account(s) from ${path}`);
+  let last = null;
+  for (const handle of names) {
+    const posts = rivals[handle];
+    if (!Array.isArray(posts) || !posts.length) { log(`  ${handle}: empty, skipped`); continue; }
+    // Big accounts arrive as one 200-post array; send in chunks so a slow
+    // request never times out mid-upload and lose the whole account.
+    let stored = 0;
+    for (let i = 0; i < posts.length; i += 50) {
+      const res = await send({ token: TOKEN, rival: handle, posts: posts.slice(i, i + 50) });
+      if (res.error) { log(`  ${handle}: upload failed — ${res.error}`); break; }
+      stored += res.stored || 0;
+      last = res;
+    }
+    log(`  ${handle}: ${posts.length} posts -> stored ${stored}`);
+  }
+  if (last) {
+    log(`\ntotal in the database: ${last.total_posts} posts from ${last.rivals} rivals`);
+    log(last.rule_written ? 'rules rewritten from this data.' : `no rule yet — ${last.need}`);
+  }
+}
+
 (async () => {
   if (!TOKEN) {
     log('GENZHYPE_TOKEN is not set — nothing would be accepted. Set it and re-run.');
     process.exit(1);
   }
+  const fi = process.argv.indexOf('--file');
+  if (fi !== -1) { await fromFile(process.argv[fi + 1]); return; }
   log(`pulling ${rivals.length} rival(s): ${rivals.join(', ')}`);
   let last = null;
   let shownFields = false;
