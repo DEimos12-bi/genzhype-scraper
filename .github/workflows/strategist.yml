@@ -1,0 +1,36 @@
+name: GenZHype strategist
+
+# r123 — the weekly strategy pass. The thinking runs SERVER-SIDE
+# (api/strategist_run.php: one AI call over everything the engine knows);
+# this workflow is only the heartbeat, because the owner's rule is that
+# everything schedules through GitHub and nothing new lands on the
+# Hostinger cron panel.
+
+on:
+  schedule:
+    - cron: '30 20 * * 1'        # Mondays 20:30 UTC, before the night grid opens
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.social/strategist-poke'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: strategist
+  cancel-in-progress: false
+
+jobs:
+  think:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Run the weekly strategy pass
+        env:
+          INGEST_TOKEN: ${{ secrets.INGEST_TOKEN }}
+        run: |
+          curl -s --max-time 200 \
+            "https://genzhype.com/api/strategist_run.php?token=$INGEST_TOKEN" \
+            | sed "s/$INGEST_TOKEN/***/g"
