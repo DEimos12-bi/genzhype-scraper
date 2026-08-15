@@ -1,4 +1,7 @@
-vault unreachable from this runner (attempt 1): curl 28 for https://genzhype.com/api/creds.php
-vault unreachable from this runner (attempt 2): curl 28 for https://genzhype.com/api/creds.php
-vault unreachable from this runner (attempt 3): curl 28 for https://genzhype.com/api/creds.php
-Buffer: no token this run; the next scheduled run will retry
+channels: facebook:Genzhypee, instagram:therealgenzhype_, tiktok:genzhype0
+fb: queueing page 487 (asmongold-mizkif-ad-controversy)
+  SCHEDULED on facebook as reel for 2026-08-16T00:54:00.000Z (buffer post 6a80ee14e6f22a59009780fa)
+ig: queueing page 487 (asmongold-mizkif-ad-controversy)
+  SCHEDULED on instagram as reel for 2026-08-16T22:02:00.000Z (buffer post 6a80ee1589eb644aed8e12db)
+tt: queueing page 470 (el-risitas-passing)
+  SCHEDULED on tiktok as reel for 2026-08-16T21:10:00.000Z (buffer post 6a80ee16e6f22a5900978120)
