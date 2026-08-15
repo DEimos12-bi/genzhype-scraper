@@ -9,8 +9,10 @@ name: GenZHype Buffer poster (FB + IG)
 # .social/buffer_poke + push. Log tee'd to .social/buffer_last_run.log.
 
 on:
-  # r74: Buffer is for TIKTOK ONLY (buffer_poster WANTED={'tiktok'}). It was
-  # duplicating Facebook+Instagram 8x/day on top of their native posters.
+  # r128: Buffer carries IG + FB + TikTok-direct — it is the ONLY working Meta
+  # route (the native posters' tokens answer 'Application has been deleted').
+  # No double-posting: the reels/facebook poster schedules were disabled in
+  # the same commit. If you change WANTED in buffer_poster.py, change THIS.
   schedule:
     # r128: 8 night runs so the booking loop can fill IG's five slots, FB's
     # three and TikTok's two; the per-service caps + booked-slot state make
