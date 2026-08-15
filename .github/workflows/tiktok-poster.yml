@@ -8,12 +8,10 @@ name: GenZHype TikTok poster
 # Run log tee'd to .social/tt_last_run.log for server-side diagnosis.
 
 on:
-  schedule:
-    - cron: '5 21 * * *'
-    - cron: '45 22 * * *'
-    - cron: '25 0 * * *'
-    - cron: '5 2 * * *'
-    - cron: '45 3 * * *'
+    # DISABLED r129: the draft lane needed a human tap per post; all 5 TikTok
+    # posts now publish automatically via Buffer (its measured limit is 25/day).
+    # Manual dispatch kept as a backup lane.
+    # - cron: '5 21 * * *'
   # STOOD DOWN 2026-08-08, and only after Buffer was PROVEN to publish:
   # https://www.tiktok.com/@genzhype0/video/7671760635599834400 went live
   # from buffer_poster.py (Buffer post status "sent", the new video id

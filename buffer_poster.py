@@ -32,31 +32,27 @@ INGEST = os.environ["INGEST_TOKEN"]
 TOKEN = os.environ.get("BUFFER_TOKEN", "")
 API = "https://api.buffer.com"
 STATE = ".social"
-# Buffer's service name -> our platform code + state file
-# r72: Buffer now owns TIKTOK ONLY.
-# Why this matters more than it looks: TikTok's own API only grants us INBOX
-# (draft) mode because our app is not audit-approved, so every video sat waiting
-# for the owner to tap publish — at 5:15am his time for the late-US slots.
-# Buffer IS an approved TikTok partner, so posts it queues publish DIRECTLY.
-# The channel (genzhype0) was already connected in Buffer; this map simply never
-# listed "tiktok", so the code walked straight past it.
-# Facebook/Instagram are deliberately NOT here — the native reels/facebook
-# posters own those, and having both queue to them is what pushed IG and FB to
-# 8 posts/day earlier.
-# r128: BUFFER CARRIES INSTAGRAM AND FACEBOOK AGAIN — because it is the only
-# route left that CAN. The native reels/facebook posters authenticate with
-# Meta Graph tokens, and both answer, verified live 2026-08-15:
-#   "Error validating application. Application has been deleted."
-# (the banned Meta developer account took the app with it). Those posters
-# fail every run forever; their schedules are disabled in the same commit,
-# so the r122 double-posting cannot return — there is exactly ONE route per
-# platform: Buffer for IG/FB/TikTok-direct, native tiktok-poster for drafts.
+# Buffer's service name -> our platform code + state file.
+# r128/r129 — BUFFER IS THE ONLY POSTING ROUTE for all three platforms, and
+# the history matters because stale comments here have already misled us once:
+#   - IG/FB: the native reels/facebook posters authenticate with Meta Graph
+#     tokens that answer "Application has been deleted" (verified live
+#     2026-08-15; the banned Meta developer account took the app). They can
+#     never succeed; their schedules are disabled.
+#   - TikTok: our own app is not audit-approved, so its API only allows INBOX
+#     DRAFTS the owner must tap — and untapped drafts are posts that never
+#     happened. Buffer is an approved TikTok partner and publishes directly.
+# One route per platform = the r122 double-posting cannot return.
+# If you change this map, update THIS comment in the same commit.
 WANTED = {"tiktok": "tt", "instagram": "ig", "facebook": "fb"}
 
-# The agreed cadence on the night grid: IG 5, FB 3, TikTok 2 direct (the
-# native poster carries TikTok's other five as inbox drafts).
+# r129: ALL FIVE TikTok posts are Buffer-direct now — fully automatic, zero
+# owner taps. Buffer's own measured ceiling is 25/day (dailyPostingLimits,
+# 2026-08-14), so 5 is comfortable. The native tiktok-poster's inbox-draft
+# lane is schedule-disabled: drafts depended on the owner tapping publish
+# every night, and unpublished drafts are posts that never happened.
 DAILY_CAPS = {
-    "tt": int(os.environ.get("BUFFER_DAILY_CAP_TT", "2")),
+    "tt": int(os.environ.get("BUFFER_DAILY_CAP_TT", "5")),
     "ig": int(os.environ.get("BUFFER_DAILY_CAP_IG", "5")),
     "fb": int(os.environ.get("BUFFER_DAILY_CAP_FB", "3")),
 }
@@ -66,7 +62,7 @@ DAILY_CAPS = {
 # state makes double-booking impossible), and the caps above stop each
 # channel at its agreed count.
 SERVICE_SLOTS = {
-    "tiktok":    os.environ.get("BUFFER_SLOTS_TT", "22:20,2:20"),
+    "tiktok":    os.environ.get("BUFFER_SLOTS_TT", "21:10,22:20,23:50,2:20,4:10"),
     "instagram": os.environ.get("BUFFER_SLOTS_IG", "21:55,23:25,0:55,2:25,3:55"),
     "facebook":  os.environ.get("BUFFER_SLOTS_FB", "22:40,0:40,3:40"),
 }
