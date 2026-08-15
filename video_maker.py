@@ -456,6 +456,7 @@ W, H = 1080, 1920
 SAFE_X = 24
 FPS = int(os.environ.get("VIDEO_FPS", "30"))
 HOOK_FONT = 96
+HOOK_TEXT_MAX_S = float(os.environ.get("VIDEO_HOOK_TEXT_MAX_S", "2.2"))   # r126: opener text clears fast
 TAIL_SECONDS = 0.45            # small pad so the last word/audio is not clipped
 TTS_OUTER_RETRIES = 4          # outer retries around the whole TTS call (403 risk)
 
@@ -5943,9 +5944,16 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
         # at a timestamp (?start=182 = the slap); fetch_platform_clip cuts that
         # exact window. If we land it, scene 1 opens on it — outranking receipts,
         # portraits and every pinned still. Failure changes nothing downstream.
-        if si == 0 and clip_pool and _HOOK_CLIP[0] is None \
-                and not _TIMELINE_MODE[0]:
-            _money = next((u for u in clip_pool if _STORY_CLIP_START.get(u)), None)
+        # r126 HOOK STUDY: this branch was excluded from timeline mode — the
+        # only mode we ship — so every video opened on a frozen still while
+        # the measured exodus happened at 0:01. The first frame is the
+        # thumbnail on TikTok; it must MOVE. Timeline videos now open on a
+        # story clip too, and when no reporter-timestamped money clip exists,
+        # any identity-vetted clip from the pool qualifies (they all passed
+        # the author gate before reaching the feed).
+        if si == 0 and clip_pool and _HOOK_CLIP[0] is None:
+            _money = next((u for u in clip_pool if _STORY_CLIP_START.get(u)),
+                          None) or clip_pool[0]
             if _money:
                 _hp = fetch_platform_clip(_money)
                 if _hp and footage_is_relevant(_hp, title):
@@ -5959,8 +5967,11 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                     motion, footage = "punch_build", True
                     foot_n += 1
                     foot_s += need_s
-                    log.info("HOOK = MONEY MOMENT: opening on %s (t=%ds)",
-                             os.path.basename(_hp), _STORY_CLIP_START[_money])
+                    # r126: _money may be a plain pool clip now (no reporter
+                    # timestamp) — direct indexing raised KeyError for those.
+                    log.info("HOOK = OPENING CLIP: %s (t=%ds)",
+                             os.path.basename(_hp),
+                             _STORY_CLIP_START.get(_money, 0))
                 else:
                     log.info("HOOK: money clip unavailable (%s); normal opener",
                              "off-topic" if _hp else "fetch failed")
@@ -8336,7 +8347,11 @@ def compose_video(pool, broll_terms, mp3_path, hook, script, word_timings,
     layers.append(make_vignette(total))      # v4 house look, both modes
     layers.append(make_scrim(total))
 
-    hc = hook_clip(hook.upper(), 0.0, hook_end, font_path)
+    # r126 HOOK STUDY: the overlay held 3-4s while viewers left at 0:01. The
+    # text is now 4-8 words (readable in ~1s per TikTok's own 5-10 words/sec
+    # guidance), so it needs at most ~2.2s on screen — then it clears and the
+    # opening clip carries the frame while the voice finishes the loop.
+    hc = hook_clip(hook.upper(), 0.0, min(hook_end, HOOK_TEXT_MAX_S), font_path)
     if hc is not None:
         # treatment v2: the kinetic hook returns one clip PER LINE
         layers.extend(hc if isinstance(hc, list) else [hc])
