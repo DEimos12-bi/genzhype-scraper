@@ -11,12 +11,11 @@ name: GenZHype Reels poster
 # — poster logs "no credentials; skipped" harmlessly until then).
 
 on:
-  schedule:
-    - cron: '15 21 * * *'
-    - cron: '55 22 * * *'
-    - cron: '35 0 * * *'
-    - cron: '15 2 * * *'
-    - cron: '55 3 * * *'
+    # DISABLED r128: this poster's Meta token answers "Application has been
+    # deleted" (verified live 2026-08-15) — it can never succeed until a new Meta
+    # app exists. IG/FB ship via Buffer. Manual dispatch kept for the day Meta
+    # access returns.
+    # - cron: '15 21 * * *'
   workflow_dispatch:
 
 permissions:

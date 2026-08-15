@@ -12,8 +12,10 @@ on:
   # r74: Buffer is for TIKTOK ONLY (buffer_poster WANTED={'tiktok'}). It was
   # duplicating Facebook+Instagram 8x/day on top of their native posters.
   schedule:
-    - cron: '50 21 * * *'
-    - cron: '50 1 * * *'
+    # r128: 8 night runs so the booking loop can fill IG's five slots, FB's
+    # three and TikTok's two; the per-service caps + booked-slot state make
+    # extra runs harmless (they log 'cap reached' and exit).
+    - cron: '35 21,22,23,0,1,2,3,4 * * *'
   workflow_dispatch:
   push:
     paths:

@@ -1,9 +1,10 @@
 name: GenZHype Facebook poster
 on:
-  schedule:
-    - cron: '45 21 * * *'
-    - cron: '30 0 * * *'
-    - cron: '30 3 * * *'
+    # DISABLED r128: this poster's Meta token answers "Application has been
+    # deleted" (verified live 2026-08-15) — it can never succeed until a new Meta
+    # app exists. IG/FB ship via Buffer. Manual dispatch kept for the day Meta
+    # access returns.
+    # - cron: '45 21 * * *'
   workflow_dispatch:
 permissions:
   contents: write

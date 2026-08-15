@@ -43,26 +43,32 @@ STATE = ".social"
 # Facebook/Instagram are deliberately NOT here — the native reels/facebook
 # posters own those, and having both queue to them is what pushed IG and FB to
 # 8 posts/day earlier.
-# r122: TIKTOK ONLY — and this time the code matches the comment. Two
-# sessions merged badly here: one wrote the comment above (fb/ig belong to
-# the native reels/facebook posters), the other's per-service dict survived
-# underneath it still listing fb+ig, so Buffer kept queueing both ON TOP of
-# the native posters — the double-posting the comment claims was fixed.
-WANTED = {"tiktok": "tt"}
+# r128: BUFFER CARRIES INSTAGRAM AND FACEBOOK AGAIN — because it is the only
+# route left that CAN. The native reels/facebook posters authenticate with
+# Meta Graph tokens, and both answer, verified live 2026-08-15:
+#   "Error validating application. Application has been deleted."
+# (the banned Meta developer account took the app with it). Those posters
+# fail every run forever; their schedules are disabled in the same commit,
+# so the r122 double-posting cannot return — there is exactly ONE route per
+# platform: Buffer for IG/FB/TikTok-direct, native tiktok-poster for drafts.
+WANTED = {"tiktok": "tt", "instagram": "ig", "facebook": "fb"}
 
-# Buffer's role in the division of labor: the AUTO-publish TikTok lane
-# (Buffer is an approved TikTok partner, so its posts go live directly,
-# unlike the native tiktok-poster whose uploads land as inbox drafts the
-# owner must tap). Two direct posts a day, night grid, booked to the slots
-# below; the native poster carries the other five as drafts.
+# The agreed cadence on the night grid: IG 5, FB 3, TikTok 2 direct (the
+# native poster carries TikTok's other five as inbox drafts).
 DAILY_CAPS = {
     "tt": int(os.environ.get("BUFFER_DAILY_CAP_TT", "2")),
+    "ig": int(os.environ.get("BUFFER_DAILY_CAP_IG", "5")),
+    "fb": int(os.environ.get("BUFFER_DAILY_CAP_FB", "3")),
 }
 
-# Slots sit ~30min after each workflow cron (21:50 -> 22:20, 01:50 -> 02:20),
-# inside the same 21:00-05:00 UTC window every other poster now uses.
+# All inside the 21:00-05:00 UTC window like every poster. The workflow runs
+# 8x/night; each run books the next FREE slot per channel (the booked-slots
+# state makes double-booking impossible), and the caps above stop each
+# channel at its agreed count.
 SERVICE_SLOTS = {
-    "tiktok": os.environ.get("BUFFER_SLOTS_TT", "22:20,2:20"),
+    "tiktok":    os.environ.get("BUFFER_SLOTS_TT", "22:20,2:20"),
+    "instagram": os.environ.get("BUFFER_SLOTS_IG", "21:55,23:25,0:55,2:25,3:55"),
+    "facebook":  os.environ.get("BUFFER_SLOTS_FB", "22:40,0:40,3:40"),
 }
 
 
