@@ -5952,9 +5952,15 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
         # any identity-vetted clip from the pool qualifies (they all passed
         # the author gate before reaching the feed).
         if si == 0 and clip_pool and _HOOK_CLIP[0] is None:
-            _money = next((u for u in clip_pool if _STORY_CLIP_START.get(u)),
-                          None) or clip_pool[0]
-            if _money:
+            # r126b: try candidates in order until one actually FETCHES.
+            # The single-shot version bet everything on clip_pool[0], which
+            # on the first live run was a TikTok URL the runner cannot
+            # download — one predictable failure and the whole opener fix
+            # silently reverted to the frozen still it exists to replace.
+            # Money-moment clips (reporter timestamp) still rank first.
+            _cands = ([u for u in clip_pool if _STORY_CLIP_START.get(u)]
+                      + [u for u in clip_pool if not _STORY_CLIP_START.get(u)])
+            for _money in _cands[:3]:
                 _hp = fetch_platform_clip(_money)
                 if _hp and footage_is_relevant(_hp, title):
                     _HOOK_CLIP[0] = _hp
@@ -5967,14 +5973,14 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                     motion, footage = "punch_build", True
                     foot_n += 1
                     foot_s += need_s
-                    # r126: _money may be a plain pool clip now (no reporter
-                    # timestamp) — direct indexing raised KeyError for those.
                     log.info("HOOK = OPENING CLIP: %s (t=%ds)",
                              os.path.basename(_hp),
                              _STORY_CLIP_START.get(_money, 0))
-                else:
-                    log.info("HOOK: money clip unavailable (%s); normal opener",
-                             "off-topic" if _hp else "fetch failed")
+                    break
+                log.info("HOOK: candidate unavailable (%s); trying next",
+                         "off-topic" if _hp else "fetch failed")
+            if _HOOK_CLIP[0] is None:
+                log.info("HOOK: no fetchable clip; normal opener")
         # r57 SUPPLY HARVEST — the money-moment branch above is the ONLY thing
         # that ever called the frame harvest, and it needs a YouTube clip with
         # the reporter's ?start= timestamp. Most stories have neither. But we
