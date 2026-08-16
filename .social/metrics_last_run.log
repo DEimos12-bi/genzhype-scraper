@@ -1,18 +1,21 @@
-YT: 22 videos -> {"ok": true, "recorded": 22, "tt_matched": 0}
-  yt/tKdx4BX980s: 1 views, 0 likes
-  yt/545c_RalJPY: 3 views, 0 likes
-  yt/wT1E2fWBptQ: 17 views, 0 likes
-  yt/4kWopBvpiK4: 2 views, 0 likes
-  yt/-ZAXo3j9g10: 2 views, 0 likes
-  yt/Kqe15NAgCds: 3 views, 0 likes
-  yt/wLRVCv0RBmI: 4 views, 0 likes
+YT: 25 videos -> {"ok": true, "recorded": 25, "tt_matched": 0}
+  yt/FsHyqvJ1Fr0: 4 views, 0 likes
+  yt/0DPD89gV1-4: 1 views, 0 likes
+  yt/7iLyS-1hjeA: 0 views, 0 likes
+  yt/tKdx4BX980s: 2 views, 0 likes
+  yt/545c_RalJPY: 7 views, 0 likes
+  yt/wT1E2fWBptQ: 24 views, 0 likes
+  yt/4kWopBvpiK4: 4 views, 0 likes
+  yt/-ZAXo3j9g10: 3 views, 0 likes
+  yt/Kqe15NAgCds: 6 views, 0 likes
+  yt/wLRVCv0RBmI: 11 views, 0 likes
   yt/o3hEbwMWChc: 8 views, 0 likes
   yt/cRo4JB_aBHw: 2 views, 0 likes
-  yt/R-JLWGlCjbo: 89 views, 0 likes
+  yt/R-JLWGlCjbo: 88 views, 0 likes
   yt/9mK7g3zqwhM: 3 views, 0 likes
   yt/avaGo0QcTD0: 0 views, 0 likes
   yt/XLGDRqzh9nQ: 0 views, 0 likes
-  yt/BfoYFJvz9ew: 15 views, 0 likes
+  yt/BfoYFJvz9ew: 23 views, 0 likes
   yt/5xJLFHCqB6U: 1 views, 0 likes
   yt/IMDiLJH0uW8: 0 views, 0 likes
   yt/Y2CBmFiHRko: 6 views, 0 likes
@@ -21,19 +24,23 @@ YT: 22 videos -> {"ok": true, "recorded": 22, "tt_matched": 0}
   yt/cpGO2nq2G94: 11 views, 0 likes
   yt/UDCYI3K-lNk: 4 views, 0 likes
   yt/UhFbUyoIBB8: 3 views, 0 likes
-TT: 14 videos -> {"ok": true, "recorded": 14, "tt_matched": 2}
-  tt/7674029913040522529: 250 views, 3 likes
-  tt/7673937211087211809: 748 views, 8 likes
-  tt/7673658824917667104: 831 views, 1 likes
-  tt/7673287796550946081: 254 views, 0 likes
-  tt/7672823983611464992: 408 views, 2 likes
+TT: 18 videos -> {"ok": true, "recorded": 18, "tt_matched": 4}
+  tt/7674476957672721697: 601 views, 0 likes
+  tt/7674448626357259553: 741 views, 5 likes
+  tt/7674410057689287969: 275 views, 19 likes
+  tt/7674386839029026081: 231 views, 5 likes
+  tt/7674029913040522529: 265 views, 4 likes
+  tt/7673937211087211809: 749 views, 8 likes
+  tt/7673658824917667104: 867 views, 1 likes
+  tt/7673287796550946081: 255 views, 0 likes
+  tt/7672823983611464992: 441 views, 2 likes
   tt/7672823915856547105: 707 views, 32 likes
   tt/7672452879675936032: 215 views, 1 likes
-  tt/7672452859870416161: 224 views, 6 likes
-  tt/7672082283725065504: 107 views, 1 likes
+  tt/7672452859870416161: 228 views, 6 likes
+  tt/7672082283725065504: 108 views, 1 likes
   tt/7672081804706270497: 69 views, 0 likes
   tt/7671803466171338016: 65 views, 3 likes
-  tt/7671760635599834400: 137 views, 2 likes
+  tt/7671760635599834400: 138 views, 2 likes
   tt/7671480574946610464: 85 views, 1 likes
   tt/7671480190635167008: 300 views, 2 likes
-{"ok":true,"seen":0,"matched":0,"stored":0,"best":"tt","retention_rows":12,"spike_alerts":1}
+{"ok":true,"seen":49,"matched":32,"stored":20,"best":"tt","retention_rows":15,"spike_alerts":0}{"ok":true,"repaired":24,"pages_indexed":1,"left":68}
