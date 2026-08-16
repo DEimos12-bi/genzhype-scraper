@@ -54,6 +54,18 @@ jobs:
             "https://genzhype.com/api/social_metrics_pull.php?token=$INGEST_TOKEN" \
             | sed "s/$INGEST_TOKEN/***/g" | tee -a .social/metrics_last_run.log
 
+      # r131: daily defamation-shield repair — rewrites unframed claims on
+      # unconfirmed drama events; pages whose gate turns green earn their
+      # index back on the spot (the owner's "fix and earn" decision).
+      - name: Repair alleged-framing (fix and earn)
+        continue-on-error: true
+        env:
+          INGEST_TOKEN: ${{ secrets.INGEST_TOKEN }}
+        run: |
+          curl -s --max-time 280 \
+            "https://genzhype.com/api/framing_repair.php?token=$INGEST_TOKEN&cap=30" \
+            | sed "s/$INGEST_TOKEN/***/g" | tee -a .social/metrics_last_run.log
+
       - name: Save log
         if: always()
         run: |
