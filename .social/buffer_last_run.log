@@ -1,25 +1,7 @@
-Traceback (most recent call last):
-  File "/home/runner/work/genzhype-scraper/genzhype-scraper/buffer_poster.py", line 387, in <module>
-    raise SystemExit(main())
-                     ^^^^^^
-  File "/home/runner/work/genzhype-scraper/genzhype-scraper/buffer_poster.py", line 354, in main
-    chans = channels()
-            ^^^^^^^^^^
-  File "/home/runner/work/genzhype-scraper/genzhype-scraper/buffer_poster.py", line 246, in channels
-    data, err = gql("query { account { organizations { id name } } }")
-                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/runner/work/genzhype-scraper/genzhype-scraper/buffer_poster.py", line 112, in gql
-    res = curl_json(API, {"query": query, "variables": variables or {}},
-          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/runner/work/genzhype-scraper/genzhype-scraper/buffer_poster.py", line 84, in curl_json
-    return json.loads(r.stdout or b"{}")
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/opt/hostedtoolcache/Python/3.12.13/x64/lib/python3.12/json/__init__.py", line 346, in loads
-    return _default_decoder.decode(s)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/opt/hostedtoolcache/Python/3.12.13/x64/lib/python3.12/json/decoder.py", line 338, in decode
-    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/opt/hostedtoolcache/Python/3.12.13/x64/lib/python3.12/json/decoder.py", line 356, in raw_decode
-    raise JSONDecodeError("Expecting value", s, err.value) from None
-json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+channels: facebook:Genzhypee, tiktok:genzhype0, instagram:therealgenzhype_
+fb: queueing page 437 (sony-files-second-lawsuit-against-ai-music-generator-udio-for-copyright-infringement)
+  SCHEDULED on facebook as reel for 2026-08-18T22:54:00.000Z (buffer post 6a828c83e34598f4815e56b1)
+tt: queueing page 296 (internet-creators-help-uncover-65-million-elder-fraud-scheme)
+  SCHEDULED on tiktok as reel for 2026-08-18T21:10:00.000Z (buffer post 6a828c84a506cb19dd640f0b)
+ig: queueing page 322 (influencer-obscenity-allegations-timeline)
+  SCHEDULED on instagram as reel for 2026-08-18T22:02:00.000Z (buffer post 6a828c86e34598f4815e56df)
