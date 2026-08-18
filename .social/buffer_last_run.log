@@ -1,4 +1,6 @@
-vault unreachable from this runner (attempt 1): curl 28 for https://genzhype.com/api/creds.php
-vault unreachable from this runner (attempt 2): curl 28 for https://genzhype.com/api/creds.php
-vault unreachable from this runner (attempt 3): curl 28 for https://genzhype.com/api/creds.php
-Buffer: no token this run; the next scheduled run will retry
+channels: instagram:therealgenzhype_, tiktok:genzhype0, facebook:Genzhypee
+ig: queueing page 218 (youtubers-beni-marmol-and-pato-perrotta-arrested-at-world-cup-match)
+  SCHEDULED on instagram as reel for 2026-08-19T01:02:00.000Z (buffer post 6a84d46d7aefb36015592815)
+tt: queueing page 202 (tiktok-creator-shows-how-public-clues-can-reveal-real-world-locations)
+  SCHEDULED on tiktok as reel for 2026-08-19T23:50:00.000Z (buffer post 6a84d46e7aefb3601559283b)
+fb: daily cap reached (3/3) - skipping
