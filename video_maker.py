@@ -466,6 +466,18 @@ if BROLL_CACHE_DIR:
 _ACTIVE_VOICE = ["en-US-AndrewMultilingualNeural"]   # set per video in make_one
 
 
+def _looks_like_mp4(path):
+    """True when the file starts like a real mp4 (ftyp box in the first 64
+    bytes) and is big enough to be footage rather than an error page."""
+    try:
+        if os.path.getsize(path) < 65536:
+            return False
+        with open(path, "rb") as fh:
+            return b"ftyp" in fh.read(64)
+    except OSError:
+        return False
+
+
 def pick_voice(page_id, grave=False):
     """The voice for this video: explicit override > grave register > pool
     rotation by page_id (stable across re-renders of the same story)."""
@@ -5027,11 +5039,23 @@ class BrollFetcher:
         # for the same file.
         if BROLL_CACHE_DIR:
             cached = os.path.join(BROLL_CACHE_DIR, f"broll-{key}.mp4")
-            if os.path.isfile(cached) and os.path.getsize(cached) > 65536:
+            if os.path.isfile(cached) and _looks_like_mp4(cached):
                 log.info("broll cache HIT: %s", os.path.basename(cached))
                 self.downloads[key] = cached
                 return cached
             got = self._stream_to(url, cached)
+            # r132b (MoneyPrinterTurbo detects Cloudflare challenge pages on
+            # its API calls; same disease, our weakest point): a CDN error or
+            # challenge page saved as .mp4 would live FOREVER in the
+            # persistent cache and poison every future render that hits it.
+            # Nothing enters the cache without the mp4 magic bytes.
+            if got and not _looks_like_mp4(got):
+                log.info("broll download is not an mp4 (challenge/error page); discarded")
+                try:
+                    os.remove(got)
+                except OSError:
+                    pass
+                got = None
             self.downloads[key] = got
             return got
         dest = os.path.join(WORKDIR, f"broll-{key}.mp4")

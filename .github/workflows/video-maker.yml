@@ -62,6 +62,11 @@ jobs:
       VIDEO_BATCH: ${{ github.event.inputs.batch || '1' }}
       VIDEO_WORKDIR: build
       VIDEO_BROLL_CACHE_DIR: broll-cache   # r132: persisted by actions/cache
+      # r132b: ubuntu-latest runners have 4 vCPUs; the old threads=2 default
+      # left half the encode power idle (spotted while reading MPT's encoder
+      # config — their hardware-codec ladder itself is useless here: runners
+      # have no GPU, so libx264 stays; more threads is the honest win).
+      VIDEO_THREADS: '4'
       VIDEO_STATE_FILE: .social/video_done.txt
       # r25: YouTube bot-walls video downloads from CI IPs (all clients fail
       # even with valid cookies). Skip the doomed yt-dlp spawns (fast renders)
