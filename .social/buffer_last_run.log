@@ -1,7 +1,4 @@
-channels: instagram:therealgenzhype_, tiktok:genzhype0, facebook:Genzhypee
-ig: queueing page 219 (dine-and-dash-incidents-spark-viral-backlash-in-chicago-and-hong-kong)
-  SCHEDULED on instagram as reel for 2026-08-19T23:32:00.000Z (buffer post 6a83dd042485bd5f3f011f9a)
-tt: queueing page 204 (tiktok-mom-s-3-500-benefits-day-sparks-online-debate)
-  SCHEDULED on tiktok as reel for 2026-08-19T22:20:00.000Z (buffer post 6a83dd052485bd5f3f011fc0)
-fb: queueing page 309 (ayzia-j-toledo-rise-tragedy-and-legacy)
-  SCHEDULED on facebook as reel for 2026-08-19T00:54:00.000Z (buffer post 6a83dd0633ec6735e9120f58)
+vault unreachable from this runner (attempt 1): curl 28 for https://genzhype.com/api/creds.php
+vault unreachable from this runner (attempt 2): curl 28 for https://genzhype.com/api/creds.php
+vault unreachable from this runner (attempt 3): curl 28 for https://genzhype.com/api/creds.php
+Buffer: no token this run; the next scheduled run will retry
