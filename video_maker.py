@@ -431,7 +431,51 @@ WORKDIR = os.environ.get("VIDEO_WORKDIR", "build")
 
 # v3: 2024-gen natural voice (the Multilingual family: Andrew/Brian/Emma/Ava).
 # Aria is the 2019-gen voice the owner heard as "2022". Env-overridable.
-VOICE = os.environ.get("VIDEO_VOICE", "en-US-AndrewMultilingualNeural")
+# r132 VOICE ROTATION (idea from MoneyPrinterTurbo's multi-voice service).
+# One voice on every video is a monotony signal both to returning viewers and
+# to the platforms' variety heuristics. The pool rotates deterministically by
+# page_id — same video re-rendered keeps its voice — and VIDEO_VOICE still
+# overrides everything with a single fixed voice when set.
+# Grave stories always take the first (calmest-read) pool voice.
+VOICE_POOL = [v.strip() for v in os.environ.get(
+    "VIDEO_VOICE_POOL",
+    "en-US-AndrewMultilingualNeural,en-US-BrianMultilingualNeural,"
+    "en-US-AvaMultilingualNeural").split(",") if v.strip()]
+VOICE = os.environ.get("VIDEO_VOICE", "")     # explicit override only
+
+# The broll cache dir the workflow persists across runs (r132); empty = the
+# old per-run behavior, so a missing actions/cache step changes nothing.
+BROLL_CACHE_DIR = os.environ.get("VIDEO_BROLL_CACHE_DIR", "").strip()
+if BROLL_CACHE_DIR:
+    try:
+        os.makedirs(BROLL_CACHE_DIR, exist_ok=True)
+        # Prune to the newest ~40 files (~1.2GB worst case) so the cache the
+        # workflow uploads stays far under GitHub's 10GB repo quota.
+        _bc = sorted((os.path.join(BROLL_CACHE_DIR, x)
+                      for x in os.listdir(BROLL_CACHE_DIR)),
+                     key=os.path.getmtime, reverse=True)
+        for _old in _bc[40:]:
+            try:
+                os.remove(_old)
+            except OSError:
+                pass
+    except OSError:
+        BROLL_CACHE_DIR = ""
+
+
+_ACTIVE_VOICE = ["en-US-AndrewMultilingualNeural"]   # set per video in make_one
+
+
+def pick_voice(page_id, grave=False):
+    """The voice for this video: explicit override > grave register > pool
+    rotation by page_id (stable across re-renders of the same story)."""
+    if VOICE:
+        return VOICE
+    if not VOICE_POOL:
+        return "en-US-AndrewMultilingualNeural"
+    if grave:
+        return VOICE_POOL[0]
+    return VOICE_POOL[int(page_id) % len(VOICE_POOL)]
 VOICE_RATE = float(os.environ.get("VIDEO_VOICE_RATE", "1.05"))
 VOICE_VOLUME = float(os.environ.get("VIDEO_VOICE_VOLUME", "1.0"))
 
@@ -1307,12 +1351,12 @@ def synthesize(script, out_mp3):
             break
         try:
             log.info("TTS attempt %d/%d voice=%s rate=%s (%.0fs budget left)",
-                     attempt, TTS_OUTER_RETRIES, VOICE, rate_str,
+                     attempt, TTS_OUTER_RETRIES, _ACTIVE_VOICE[0], rate_str,
                      max(tts_left(), 0))
             if mpt_voice is not None:
                 sub = mpt_voice.tts(
                     text=script,
-                    voice_name=mpt_voice.parse_voice_name(VOICE),
+                    voice_name=mpt_voice.parse_voice_name(_ACTIVE_VOICE[0]),
                     voice_rate=VOICE_RATE,
                     voice_file=out_mp3,
                     voice_volume=VOICE_VOLUME,
@@ -1321,7 +1365,7 @@ def synthesize(script, out_mp3):
                     raise RuntimeError("voice.tts() returned None")
                 duration = float(mpt_voice.get_audio_duration(sub) or 0)
             else:
-                sub = _edge_tts_synthesize(script, VOICE, rate_str, out_mp3)
+                sub = _edge_tts_synthesize(script, _ACTIVE_VOICE[0], rate_str, out_mp3)
                 duration = 0.0
 
             timings = _explode_multiword(_cues_to_word_timings(sub))
@@ -1428,7 +1472,7 @@ def synthesize_expressive(script, out_mp3, grave=False):
             # what burned 477s and got the render force-killed before any
             # fallback could run. First stall here = abandon expressive.
             try:
-                sub = _edge_tts_synthesize(text, VOICE, rate_str, seg_mp3,
+                sub = _edge_tts_synthesize(text, _ACTIVE_VOICE[0], rate_str, seg_mp3,
                                            pitch_str=pitch)
             except Exception as exc:  # noqa: BLE001
                 raise RuntimeError(f"segment {si} TTS failed: {exc}") from exc
@@ -4905,9 +4949,14 @@ def search_broll_pixabay(term):
                 best = url
                 thumb = str(f.get("thumbnail") or "")
                 break
-            if best is None and max(w, h) >= 1080:
-                best = url
-                thumb = str(f.get("thumbnail") or "")
+            # r132 (from MoneyPrinterTurbo's current material.py): landscape
+            # is REJECTED, not kept as fallback. Their hard-learned rule —
+            # "unverifiable/mismatched orientation mixes landscape into
+            # portrait tasks and produces black bars" — matches our own
+            # physics: a 1920x1080 clip cover-cropped to 9:16 needs 1.78x
+            # upscale, past our COVER_MAX_UPSCALE sharpness ceiling, so it
+            # rendered as letterboxed filler anyway. Photos are the better
+            # fallback we already have.
         if best and dur > 0:
             items.append({"url": best, "duration": dur,
                           "provider": "pixabay",
@@ -4969,6 +5018,22 @@ class BrollFetcher:
         key = hashlib.md5(url.split("?")[0].encode()).hexdigest()
         if key in self.downloads:
             return self.downloads[key]
+        # r132 (MoneyPrinterTurbo's material_cache, adapted for an ephemeral
+        # runner): their cache assumes a persistent server; ours dies with
+        # every workflow run. BROLL_CACHE_DIR points at a directory the
+        # workflow persists via actions/cache, so a stock clip downloaded for
+        # one video is free for every later video that searches similar terms
+        # — Pexels/Pixabay quota and runner bandwidth stop being paid twice
+        # for the same file.
+        if BROLL_CACHE_DIR:
+            cached = os.path.join(BROLL_CACHE_DIR, f"broll-{key}.mp4")
+            if os.path.isfile(cached) and os.path.getsize(cached) > 65536:
+                log.info("broll cache HIT: %s", os.path.basename(cached))
+                self.downloads[key] = cached
+                return cached
+            got = self._stream_to(url, cached)
+            self.downloads[key] = got
+            return got
         dest = os.path.join(WORKDIR, f"broll-{key}.mp4")
         self.downloads[key] = self._stream_to(url, dest)
         return self.downloads[key]
@@ -9079,6 +9144,8 @@ def make_one(post, font_path):
 
     os.makedirs(WORKDIR, exist_ok=True)
     apply_style(pick_style(page_id))   # r65: this video's A/B treatment
+    _ACTIVE_VOICE[0] = pick_voice(page_id, grave)   # r132: per-video voice
+    log.info("voice: %s%s", _ACTIVE_VOICE[0], " (grave register)" if grave else "")
     _set_stage("visuals", pid=page_id)
     # r28: this story's harvested platform clips (Twitch/TikTok/Kick/YouTube) —
     # the scene planner pulls these in as REAL MOVING footage matched to the

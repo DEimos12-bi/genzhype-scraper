@@ -61,6 +61,7 @@ jobs:
       INGEST_TOKEN: ${{ secrets.INGEST_TOKEN }}
       VIDEO_BATCH: ${{ github.event.inputs.batch || '1' }}
       VIDEO_WORKDIR: build
+      VIDEO_BROLL_CACHE_DIR: broll-cache   # r132: persisted by actions/cache
       VIDEO_STATE_FILE: .social/video_done.txt
       # r25: YouTube bot-walls video downloads from CI IPs (all clients fail
       # even with valid cookies). Skip the doomed yt-dlp spawns (fast renders)
@@ -190,6 +191,18 @@ jobs:
             echo "WARNING: no ffmpeg from any layer; moviepy falls back to imageio-ffmpeg's bundled binary"
           fi
           fc-list | grep -iE "dejavu|liberation" | head || true
+
+      # r132 (pattern from MoneyPrinterTurbo's material cache, adapted to an
+      # ephemeral runner): stock b-roll downloaded once is reused by every
+      # later render. The maker prunes the dir to ~40 newest files, so this
+      # stays a rounding error against GitHub's 10GB cache quota.
+      - name: Restore b-roll cache
+        uses: actions/cache@v4
+        with:
+          path: broll-cache
+          key: broll-cache-v1-${{ github.run_id }}
+          restore-keys: |
+            broll-cache-v1-
 
       - name: Set up Python
         uses: actions/setup-python@v5
