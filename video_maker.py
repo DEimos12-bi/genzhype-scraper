@@ -948,6 +948,15 @@ FOOTAGE_PLANNED_SCENE_MAX_S = 4.5
 FOOTAGE_PLANNED_MAX_SCENES = 4
 FOOTAGE_PLANNED_MAX_TOTAL_S = 12.0
 
+# r135 HOLD CAP (owner watch session): a still on screen 8-12s reads as a
+# frozen video — the "Yes!!!!!!!!" tweet on page 259 sat 12 seconds while
+# three sentences played over it. Any still-backed EDL shot longer than this
+# is split at word boundaries in build_edl; the first segment keeps the
+# pinned evidence (receipt slam intact), continuations drop the pin so the
+# planner's LRU serves fresh visuals. Clip-backed shots keep their length —
+# motion is not the problem.
+MAX_STILL_HOLD_S = float(os.environ.get("VIDEO_MAX_STILL_HOLD_S", "4.2"))
+
 # --- r24: FOOTAGE-FIRST (the cookies unlock). The workflow writes the
 # YT_COOKIES secret (a logged-in secondary account's cookies.txt) to
 # <WORKDIR>/yt_cookies.txt; with it yt-dlp survives YouTube's cloud-IP bot
@@ -5286,6 +5295,30 @@ def _is_sentence_end(word):
     return True
 
 
+# r135 EMOJI STRIP (owner watch session, page 259): a quoted tweet's emojis
+# ("!!" + folded-hands) reached the spoken script, and the caption font has
+# no emoji glyphs — the published video showed tofu boxes on screen. Emojis
+# are stripped once at ingest in make_one, so TTS, forced alignment and the
+# captions all inherit clean text from the same place.
+_EMOJI_RX = re.compile(
+    "["
+    "\\U0001F000-\\U0001FAFF"        # emoticons, symbols, transport, extended
+    "\\U0001FB00-\\U0001FBFF"
+    "\\U0001F1E6-\\U0001F1FF"        # regional-indicator flags
+    "\\u2600-\\u27BF"                # misc symbols + dingbats
+    "\\u2B00-\\u2BFF"                # more symbols (stars, votes)
+    "\\u2190-\\u21FF"                # arrows
+    "\\u203C\\u2049\\u2122\\u2139"   # bang-bang, interrobang, tm, info
+    "\\uFE00-\\uFE0F"                # variation selectors
+    "\\u200D"                        # zero-width joiner
+    "]+")
+
+
+def strip_emoji(text):
+    t = _EMOJI_RX.sub(" ", str(text or ""))
+    return re.sub(r"[ \t]{2,}", " ", t).strip()
+
+
 def split_beats(script, timings):
     """Group word timings into sentence beats. edge-tts cues usually STRIP
     punctuation, so when the cues themselves carry none we detect sentence
@@ -5611,6 +5644,65 @@ def build_edl(shotlist, script, timings, total):
             merged.append(sh)
         if merged and merged[0]["start"] > 0:
             merged[0]["start"] = 0.0
+
+        # r135 HOLD CAP: split still-backed shots longer than
+        # MAX_STILL_HOLD_S at word boundaries (see the constant's comment).
+        # The final shot is never split — it rides the outro card and the
+        # audio tail, and a random pool photo AFTER the brand card would be
+        # worse than the hold.
+        split = []
+        for si, sh in enumerate(merged):
+            dur = sh["end"] - sh["start"]
+            has_motion = (sh.get("clip") or sh.get("clip_url")
+                          or sh["shot_class"] == "broll")
+            if (has_motion or si == len(merged) - 1
+                    or dur <= MAX_STILL_HOLD_S * 1.35):
+                split.append(sh)
+                continue
+            n_seg = max(2, int(math.ceil(dur / MAX_STILL_HOLD_S)))
+            cuts = []                       # (word index, boundary time)
+            prev_b = sh["start"]
+            for ci in range(1, n_seg):
+                tgt = sh["start"] + dur * ci / n_seg
+                wi = min(range(sh["w_in"] + 1,
+                               min(sh["w_out"], n_tok - 1) + 1),
+                         key=lambda w: abs(spans[w][0] - tgt),
+                         default=None)
+                if wi is None:
+                    break
+                b = spans[wi][0] - VISUAL_LEAD_S
+                if (b < prev_b + 1.2 or b > sh["end"] - 1.2
+                        or (cuts and wi <= cuts[-1][0])):
+                    continue
+                cuts.append((wi, b))
+                prev_b = b
+            if not cuts:
+                split.append(sh)
+                continue
+            bounds = [sh["start"]] + [b for _, b in cuts] + [sh["end"]]
+            w_starts = [sh["w_in"]] + [wi for wi, _ in cuts]
+            for gi in range(len(bounds) - 1):
+                seg = dict(sh)
+                seg["start"], seg["end"] = bounds[gi], bounds[gi + 1]
+                seg["w_in"] = w_starts[gi]
+                seg["w_out"] = (w_starts[gi + 1] - 1
+                                if gi + 1 < len(w_starts) else sh["w_out"])
+                seg["w_out"] = max(seg["w_in"], seg["w_out"])
+                seg["phrase"] = " ".join(
+                    tokens[seg["w_in"]:seg["w_out"] + 1])
+                if sh.get("emph_t") is not None and not (
+                        seg["start"] <= sh["emph_t"] < seg["end"]):
+                    seg["emph_t"] = None
+                if gi > 0:                  # continuation: unpin, no re-slam
+                    seg["shot_class"] = "subject"
+                    seg["receipt_i"] = None
+                    seg["visual_i"] = None
+                    seg["sfx"] = "none"
+                split.append(seg)
+            log.info("HOLD CAP: %.1fs %s shot -> %d segments",
+                     dur, sh["shot_class"], len(bounds) - 1)
+        merged = split
+
         log.info("EDL: %d shot(s) from %d directed (words=%d)",
                  len(merged), len(raw), n_tok)
         return merged
@@ -7553,19 +7645,51 @@ def hook_clip(text, start, end, font_path):
     return tc
 
 
+# r135: words that must never END a caption chunk — a chunk ending "...AT
+# NO." strands its object in the next pop and reads as gibberish on mute
+# (owner watch session: "100 AT NO.", "A PAUSE ON", "STREAMER OF THE").
+_CHUNK_GLUE = {
+    "a", "an", "the", "to", "of", "at", "on", "in", "and", "or", "nor",
+    "but", "for", "with", "per", "by", "from", "as", "into", "over",
+    "under", "vs", "no", "is", "was", "are", "were", "be", "been", "being",
+    "has", "have", "had", "its", "his", "her", "their", "our", "your",
+    "my", "that", "this", "these", "those", "than", "so", "if", "while",
+    "after", "before", "about", "against", "between", "during", "not",
+}
+
+
 def _chunk_words(beat_words):
-    """Split one beat's words into caption chunks of 2-3 words (a leftover
-    group of 4 becomes 2+2 so no chunk gets overlong)."""
-    chunks, i, n = [], 0, len(beat_words)
-    while i < n:
-        rem = n - i
-        take = CHUNK_MAX_WORDS
-        if rem == 4:
-            take = 2
-        elif rem < CHUNK_MAX_WORDS:
-            take = rem
-        chunks.append(beat_words[i:i + take])
-        i += take
+    """Split one beat's words into caption chunks of 2-4 words that end on
+    PHRASE boundaries (r135): break early at punctuation, never break right
+    after a glue word (a/the/at/of/No. ...). The old fixed 2-3 word window
+    cut wherever the count landed, so half the pops were mid-phrase
+    fragments — and most feed viewers watch muted and READ the captions."""
+    hard_max = CHUNK_MAX_WORDS + 1     # one word of slack to finish a phrase
+
+    def _bare(w):
+        return w.strip().strip('"\'“”').rstrip(".,!?;:").lower()
+
+    def _punct_end(w):
+        w = w.strip().strip('"\'“”')
+        # "No.", "vs." etc. are abbreviations, not sentence ends.
+        return bool(w) and w[-1] in ".,!?;:" and _bare(w) not in _CHUNK_GLUE
+
+    chunks, cur = [], []
+    for wt in beat_words:
+        cur.append(wt)
+        w = wt[0]
+        if len(cur) >= 2 and _punct_end(w):
+            chunks.append(cur)
+            cur = []
+        elif len(cur) >= CHUNK_MAX_WORDS and (
+                _bare(w) not in _CHUNK_GLUE or len(cur) >= hard_max):
+            chunks.append(cur)
+            cur = []
+    if cur:
+        if len(cur) == 1 and chunks:   # a lone trailing pop reads as a stray
+            chunks[-1].extend(cur)
+        else:
+            chunks.append(cur)
     return chunks
 
 
@@ -8417,12 +8541,22 @@ def compose_video(pool, broll_terms, mp3_path, hook, script, word_timings,
 
     # TIMELINE CONTRACT: date chips — one per dated beat, sliding in at the
     # beat's start. Above the scene image, below vignette/hook/captions.
+    # r135: the HOLD CAP splits one beat into several contiguous scenes that
+    # all carry the same date; adjacent same-date windows are merged here so
+    # the chip slides in ONCE per beat instead of re-popping every segment.
+    chip_windows = []
     for sc in scenes:
-        if sc.get("date"):
-            chip = date_chip_clip(sc["date"], sc["start"], sc["end"],
-                                  font_path)
-            if chip is not None:
-                layers.append(chip)
+        if not sc.get("date"):
+            continue
+        if (chip_windows and chip_windows[-1][0] == sc["date"]
+                and abs(chip_windows[-1][2] - sc["start"]) < 0.25):
+            chip_windows[-1][2] = sc["end"]
+        else:
+            chip_windows.append([sc["date"], sc["start"], sc["end"]])
+    for label, c_st, c_en in chip_windows:
+        chip = date_chip_clip(label, c_st, c_en, font_path)
+        if chip is not None:
+            layers.append(chip)
 
     # --- r12 produced energy: whoosh-boundary transitions + the pattern
     # interrupt overlay. Both sit BELOW vignette/scrim/hook/captions so the
@@ -9154,8 +9288,10 @@ def post_video(page_id, slug, mp4_path, sheet_path=None):
 def make_one(post, font_path):
     page_id = int(post["page_id"])
     slug = post.get("slug", "")
-    hook = (post.get("hook") or "").strip()
-    script = (post.get("script") or "").strip()
+    # r135: emojis out BEFORE anything reads these — the caption font has no
+    # emoji glyphs (page 259 shipped tofu boxes) and TTS can't speak them.
+    hook = strip_emoji((post.get("hook") or "").strip())
+    script = strip_emoji((post.get("script") or "").strip())
     gravity = str(post.get("gravity") or "standard").strip().lower()
     grave = gravity == "grave"   # r16: tragedy register (calm bgm/sfx/tts)
     if grave:
