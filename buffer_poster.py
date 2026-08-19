@@ -266,6 +266,13 @@ MUTATION = ("mutation($i:CreatePostInput!){ createPost(input:$i){"
             " ... on MutationError { message } } }")
 
 
+# r133 COVER FIX (owner: IG/FB grids were BLACK tiles): thumbnailOffset was 0
+# and every video fades in from black, so frame zero IS black. 2200ms lands
+# after the fade with the hook text + opening clip on screen — an actual
+# cover. Buffer's schema confirms the unit: 'Offset ... in ms'.
+COVER_OFFSET_MS = int(os.environ.get("BUFFER_COVER_OFFSET_MS", "2200"))
+
+
 def _meta(service, v, as_reel=True):
     """Per-network options (schema-introspected 2026-08-08).
     NOTE: firstComment is a PAID Buffer feature — the free plan rejects the
@@ -320,7 +327,7 @@ def post(channel, v):
             # and defaults to 0; 2000 would have grabbed a mid-hook frame.
             # Covers barely affect reach (Mosseri) but decide grid CTR.
             "assets": [{"video": {"url": v["video"],
-                                  "metadata": {"thumbnailOffset": 0}}}]}})
+                                  "metadata": {"thumbnailOffset": COVER_OFFSET_MS}}}]}})
         if err:
             log("  createPost error:", json.dumps(err)[:300])
             return False
