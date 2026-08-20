@@ -1,4 +1,4 @@
-channels: facebook:Genzhypee, tiktok:genzhype0, instagram:therealgenzhype_
-fb: daily cap reached (3/3) - skipping
-tt: daily cap reached (5/5) - skipping
-ig: daily cap reached (5/5) - skipping
+vault unreachable from this runner (attempt 1): curl 28 for https://genzhype.com/api/creds.php
+vault unreachable from this runner (attempt 2): curl 28 for https://genzhype.com/api/creds.php
+vault unreachable from this runner (attempt 3): curl 28 for https://genzhype.com/api/creds.php
+Buffer: no token this run; the next scheduled run will retry
