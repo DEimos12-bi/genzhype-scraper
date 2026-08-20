@@ -1,4 +1,7 @@
-vault unreachable from this runner (attempt 1): curl 28 for https://genzhype.com/api/creds.php
-vault unreachable from this runner (attempt 2): curl 28 for https://genzhype.com/api/creds.php
-vault unreachable from this runner (attempt 3): curl 28 for https://genzhype.com/api/creds.php
-Buffer: no token this run; the next scheduled run will retry
+channels: tiktok:genzhype0, facebook:Genzhypee, instagram:therealgenzhype_
+tt: queueing page 125 (lego-youtuber-ben-schneider-s-arrest-and-police-fallout)
+  SCHEDULED on tiktok as reel for 2026-08-20T04:10:00.000Z (buffer post 6a8674025bebcc0cdc28f112)
+fb: queueing page 225 (google-engineer-charged-with-insider-trading-on-polymarket)
+  SCHEDULED on facebook as reel for 2026-08-20T03:54:00.000Z (buffer post 6a8674034a4d2574b5c78ed4)
+ig: queueing page 127 (alicia-brown-and-big-tigger-abuse-allegations-and-public-denials)
+  SCHEDULED on instagram as reel for 2026-08-20T04:02:00.000Z (buffer post 6a867404c823b06c48409f77)
