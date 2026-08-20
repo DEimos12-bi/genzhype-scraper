@@ -66,6 +66,20 @@ jobs:
             "https://genzhype.com/api/framing_repair.php?token=$INGEST_TOKEN&cap=30" \
             | sed "s/$INGEST_TOKEN/***/g" | tee -a .social/metrics_last_run.log
 
+      # THE PRODUCER (2026-08-20): the daily budget meeting. Runs AFTER the
+      # metrics pull above, so it scores with today's numbers and its own
+      # self-review sees fresh results. Picks 5 topics across ALL lanes and
+      # queues their renders. Non-fatal: a failed meeting must never break the
+      # metrics job, and the site simply keeps yesterday's queue.
+      - name: Producer — daily greenlight (5 topics, all lanes)
+        continue-on-error: true
+        env:
+          INGEST_TOKEN: ${{ secrets.INGEST_TOKEN }}
+        run: |
+          curl -s --max-time 280 \
+            "https://genzhype.com/api/producer_run.php?token=$INGEST_TOKEN&review=1" \
+            | sed "s/$INGEST_TOKEN/***/g" | tee -a .social/metrics_last_run.log
+
       - name: Save log
         if: always()
         run: |
