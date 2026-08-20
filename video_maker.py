@@ -5529,7 +5529,7 @@ def map_tokens_to_spans(script, timings):
     return fixed
 
 
-def build_edl(shotlist, script, timings, total):
+def build_edl(shotlist, script, timings, total, pool_n=None):
     """Director shot list -> absolute-time EDL. Each shot runs from
     word[w_in].start - 300ms (Law 9 visual lead; clamped monotonic; first
     shot at 0) to the NEXT shot's t_in (hard-cut boundary = cut ON the word,
@@ -5650,6 +5650,18 @@ def build_edl(shotlist, script, timings, total):
         # The final shot is never split — it rides the outro card and the
         # audio tail, and a random pool photo AFTER the brand card would be
         # worse than the hold.
+        # r135b (run #247 judge reject): the first version unpinned EVERY
+        # continuation to the photo pool — 5 splits drained page 116's
+        # 8-still pool and one stage photo carried 3 frames (repetition
+        # fail). Now: a receipt continuation KEEPS its card and re-cuts it
+        # as a punch-in (zero pool cost — the pro "zoom into the document"
+        # move), and photo-pool continuations are budgeted against the
+        # actual pool headroom so a thin story keeps its longer holds
+        # instead of recycling images.
+        n_subj_base = sum(1 for x in merged if x["shot_class"] == "subject"
+                          and not (x.get("clip") or x.get("clip_url")))
+        photo_budget = (max(0, int(pool_n) - n_subj_base - 1)
+                        if pool_n is not None else 99)
         split = []
         for si, sh in enumerate(merged):
             dur = sh["end"] - sh["start"]
@@ -5659,7 +5671,20 @@ def build_edl(shotlist, script, timings, total):
                     or dur <= MAX_STILL_HOLD_S * 1.35):
                 split.append(sh)
                 continue
+            is_receipt = (sh["shot_class"] == "receipt"
+                          and sh.get("receipt_i") is not None)
             n_seg = max(2, int(math.ceil(dur / MAX_STILL_HOLD_S)))
+            if is_receipt:
+                # card + one punch-in are free; segments beyond 2 need pool
+                n_seg = min(n_seg, 2 + photo_budget)
+            else:
+                if n_seg - 1 > photo_budget:
+                    n_seg = 1 + photo_budget
+                if n_seg < 2:
+                    log.info("HOLD CAP: %.1fs subject shot kept whole "
+                             "(pool has no headroom)", dur)
+                    split.append(sh)
+                    continue
             cuts = []                       # (word index, boundary time)
             prev_b = sh["start"]
             for ci in range(1, n_seg):
@@ -5693,14 +5718,20 @@ def build_edl(shotlist, script, timings, total):
                 if sh.get("emph_t") is not None and not (
                         seg["start"] <= sh["emph_t"] < seg["end"]):
                     seg["emph_t"] = None
-                if gi > 0:                  # continuation: unpin, no re-slam
-                    seg["shot_class"] = "subject"
-                    seg["receipt_i"] = None
-                    seg["visual_i"] = None
-                    seg["sfx"] = "none"
+                if gi > 0:
+                    seg["sfx"] = "none"     # no re-slam mid-beat
+                    if is_receipt and gi == 1:
+                        # same evidence, deeper cut — planner honors this
+                        seg["card_hold"] = True
+                    else:                   # photo continuation: fresh LRU
+                        seg["shot_class"] = "subject"
+                        seg["receipt_i"] = None
+                        seg["visual_i"] = None
+                        photo_budget -= 1
                 split.append(seg)
-            log.info("HOLD CAP: %.1fs %s shot -> %d segments",
-                     dur, sh["shot_class"], len(bounds) - 1)
+            log.info("HOLD CAP: %.1fs %s shot -> %d segments%s",
+                     dur, sh["shot_class"], len(bounds) - 1,
+                     " (card punch-in)" if is_receipt else "")
         merged = split
 
         log.info("EDL: %d shot(s) from %d directed (words=%d)",
@@ -6198,7 +6229,14 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
             # article screenshot still carried 3 scenes via receipt_i reuse —
             # the per-index cap has an index-reuse loophole). Any single
             # evidence image backs at most 2 SCENES, full stop.
-            if path and evidence_scene_uses.get(path, 0) >= EVIDENCE_MAX_SCENES:
+            # r135b card_hold: the hold-cap split's punch-in continuation is
+            # the SAME card on purpose (deeper cut of the evidence, zero pool
+            # cost) — the repeat vetoes below would turn it back into the
+            # pool drain that failed run #247, so it passes them.
+            if path and sh.get("card_hold"):
+                log.info("receipt %s continues as punch-in (hold-cap split)",
+                         sh.get("receipt_i"))
+            elif path and evidence_scene_uses.get(path, 0) >= EVIDENCE_MAX_SCENES:
                 log.info("receipt image already in 2 scenes; subject photo "
                          "for variety")
                 path = None
@@ -6570,6 +6608,7 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
             "contain": contain_here,   # r57: contain-render without card rules
             "src_off": FOOTAGE_SUB_OFF_S if footage else None,
             "date": str(sh.get("date") or ""),   # timeline beat's date chip
+            "card_hold": bool(sh.get("card_hold")),  # r135b punch-in segment
             # freeze-frame edit: timeline clip beats longer than ~4s play
             # 2.5s of real motion then hold the frame under the narration
             "freeze_after": 2.5 if (planned_here and need_s > 4.0) else None,
@@ -7154,7 +7193,8 @@ def scene_clip(image_path, start, end, motion, emph_rel=None, xfade=None,
     return clip
 
 
-def contain_scene_clip(image_path, start, end, xfade=None, card=False):
+def contain_scene_clip(image_path, start, end, xfade=None, card=False,
+                       punch=False):
     """v3 text-heavy renderer: the WHOLE image fits inside the frame
     ('contain') over a blurred darkened fill of itself — no cover-crop, no
     Ken-Burns zoom, only a gentle <=2% horizontal drift so the scene is not
@@ -7167,6 +7207,13 @@ def contain_scene_clip(image_path, start, end, xfade=None, card=False):
         xfade = XFADE
     dur = max(end - start, 0.2)
     drift = max(2, int(W * TEXTISH_DRIFT))
+    # r135b PUNCH-IN CONTINUATION: the hold-cap split re-cuts the SAME card
+    # as a second scene. It must read as a new shot without ever cutting
+    # text (containment law): the drift reverses direction and the push-in
+    # starts 55% into its travel — so it opens visibly tighter than the
+    # previous scene ended, yet still ENDS at the legal 0.94*W.
+    z0 = 0.55 if punch else 0.0
+    drift_px = -drift if punch else drift   # canvas oversize stays positive
     pil = Image.open(image_path).convert("RGB")
 
     canvas_w = W + drift                       # oversize -> room to drift
@@ -7241,21 +7288,21 @@ def contain_scene_clip(image_path, start, end, xfade=None, card=False):
             cx_p = (canvas_w - fg.width) / 2.0
             fy_p = float(fg_y)
 
-            def _bpos(t, d=dur, px=float(drift)):
-                sb = 1.0 + CARD_ZOOM * 0.5 * (t / d)
+            def _bpos(t, d=dur, px=float(drift_px)):
+                sb = 1.0 + CARD_ZOOM * 0.5 * (z0 + (1 - z0) * t / d)
                 return ((W - cw * sb) / 2.0 + 0.35 * px * (0.5 - t / d),
                         (H - ch * sb) / 2.0)
 
             def _bscale(t, d=dur):
-                return 1.0 + CARD_ZOOM * 0.5 * (t / d)
+                return 1.0 + CARD_ZOOM * 0.5 * (z0 + (1 - z0) * t / d)
 
-            def _fpos(t, d=dur, px=float(drift)):
-                s = 1.0 + CARD_ZOOM * (t / d)
+            def _fpos(t, d=dur, px=float(drift_px)):
+                s = 1.0 + CARD_ZOOM * (z0 + (1 - z0) * t / d)
                 return ((W - cw * s) / 2.0 + px * (0.5 - t / d) + cx_p * s,
                         (H - ch * s) / 2.0 + fy_p * s)
 
             def _fscale(t, d=dur):
-                return 1.0 + CARD_ZOOM * (t / d)
+                return 1.0 + CARD_ZOOM * (z0 + (1 - z0) * t / d)
 
             pil.close()
             clip = CompositeVideoClip(
@@ -7276,10 +7323,10 @@ def contain_scene_clip(image_path, start, end, xfade=None, card=False):
     base = ImageClip(grade_frame(np.array(canvas))).with_duration(dur)
 
     def _cscale(t, d=dur):
-        return 1.0 + CARD_ZOOM * (t / d)
+        return 1.0 + CARD_ZOOM * (z0 + (1 - z0) * t / d)
 
-    def _pos(t, d=dur, cw=cw, ch=ch, px=float(drift)):
-        s = 1.0 + CARD_ZOOM * (t / d)
+    def _pos(t, d=dur, cw=cw, ch=ch, px=float(drift_px)):
+        s = 1.0 + CARD_ZOOM * (z0 + (1 - z0) * t / d)
         x = (W - cw * s) / 2.0 + px * (0.5 - t / d)   # center + slow drift
         y = (H - ch * s) / 2.0
         return (x, y)
@@ -8346,7 +8393,12 @@ def compose_video(pool, broll_terms, mp3_path, hook, script, word_timings,
     fetcher = BrollFetcher(broll_terms)
 
     # --- v4 EDL mode when the Director sent a usable shotlist ---
-    edl = build_edl(shotlist, script, word_timings, total) \
+    # r135b: the hold-cap split budgets its photo continuations against the
+    # pool this planner will actually see (timeline mode strips yt thumbs).
+    _pool_n = len({e.get("path") for e in (pool or []) if e.get("path")
+                   and not (_TIMELINE_MODE[0]
+                            and "ytimg.com/vi" in (e.get("url") or ""))})
+    edl = build_edl(shotlist, script, word_timings, total, pool_n=_pool_n) \
         if shotlist else None
     v4_mode = edl is not None
     LAST_EDL = edl if v4_mode else None   # r16: the judge pairs frames<->phrases from this
@@ -8519,7 +8571,8 @@ def compose_video(pool, broll_terms, mp3_path, hook, script, word_timings,
         elif sc["textish"] or sc.get("contain"):
             clip = contain_scene_clip(sc["path"], sc["start"],
                                       sc["end"], xfade=xfade,
-                                      card=(sc["type"] == "receipt"))
+                                      card=(sc["type"] == "receipt"),
+                                      punch=bool(sc.get("card_hold")))
             layers.append(clip)
             scene_clips.append(clip)
         else:
