@@ -6233,9 +6233,20 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
             # the SAME card on purpose (deeper cut of the evidence, zero pool
             # cost) — the repeat vetoes below would turn it back into the
             # pool drain that failed run #247, so it passes them.
+            # r135c: ONLY when its own base segment actually showed this card.
+            # Run #248 proved the hole: the Director pinned one article on TWO
+            # beats; beat 2's base was correctly vetoed to a photo (2-scene
+            # cap), but its punch-in still bypassed the cap — same document in
+            # 3 frames, the judge's exact fail pattern.
             if path and sh.get("card_hold"):
-                log.info("receipt %s continues as punch-in (hold-cap split)",
-                         sh.get("receipt_i"))
+                if scenes and scenes[-1].get("path") == path:
+                    log.info("receipt %s continues as punch-in (hold-cap "
+                             "split)", sh.get("receipt_i"))
+                else:
+                    log.info("receipt %s punch-in dropped (base segment did "
+                             "not carry this card); subject photo",
+                             sh.get("receipt_i"))
+                    path = None
             elif path and evidence_scene_uses.get(path, 0) >= EVIDENCE_MAX_SCENES:
                 log.info("receipt image already in 2 scenes; subject photo "
                          "for variety")
