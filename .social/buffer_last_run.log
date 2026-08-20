@@ -1,4 +1,6 @@
-vault unreachable from this runner (attempt 1): curl 28 for https://genzhype.com/api/creds.php
-vault unreachable from this runner (attempt 2): curl 28 for https://genzhype.com/api/creds.php
-vault unreachable from this runner (attempt 3): curl 28 for https://genzhype.com/api/creds.php
-Buffer: no token this run; the next scheduled run will retry
+channels: instagram:therealgenzhype_, tiktok:genzhype0, facebook:Genzhypee
+ig: queueing page 205 (xqc-s-recent-public-disagreements-and-health-concerns)
+  SCHEDULED on instagram as reel for 2026-08-21T02:32:00.000Z (buffer post 6a8793e4d9b0b836e20e52c0)
+tt: queueing page 134 (ksi-discusses-mental-health-after-leaving-sidemen)
+  SCHEDULED on tiktok as reel for 2026-08-21T02:20:00.000Z (buffer post 6a8793e7d9b0b836e20e52f6)
+fb: daily cap reached (3/3) - skipping
