@@ -1,6 +1,4 @@
-channels: facebook:Genzhypee, instagram:therealgenzhype_, tiktok:genzhype0
-fb: daily cap reached (3/3) - skipping
-ig: queueing page 117 (qtcinderella-announces-streamer-awards-2026-return)
-  SCHEDULED on instagram as reel for 2026-08-21T01:02:00.000Z (buffer post 6a87783b3120534163bd8c14)
-tt: queueing page 109 (pranit-more-rs-370-biryani-clip-sparks-backlash-and-apology-fallout)
-  SCHEDULED on tiktok as reel for 2026-08-21T23:50:00.000Z (buffer post 6a87783c2349d54dc9c193d0)
+vault unreachable from this runner (attempt 1): curl 28 for https://genzhype.com/api/creds.php
+vault unreachable from this runner (attempt 2): curl 28 for https://genzhype.com/api/creds.php
+vault unreachable from this runner (attempt 3): curl 28 for https://genzhype.com/api/creds.php
+Buffer: no token this run; the next scheduled run will retry
