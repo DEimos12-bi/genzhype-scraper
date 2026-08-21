@@ -61,10 +61,17 @@ DAILY_CAPS = {
 # 8x/night; each run books the next FREE slot per channel (the booked-slots
 # state makes double-booking impossible), and the caps above stop each
 # channel at its agreed count.
+# r136 WINNER WINDOW (2026-08-20). Our own competitor engine measured when
+# rival outliers actually publish: top hours are 19:00 and 20:00 UTC (19 -> 5
+# outliers, 20 -> 3), while our grid started at 21:10 and ran to 04:10 — we
+# were posting AROUND the best window, never inside it. The grids now open at
+# 19:xx and still hold 5 TikTok / 5 Instagram / 3 Facebook slots. Post-midnight
+# slots book as "tomorrow" by design (see next_slot) — that is still the same
+# US evening.
 SERVICE_SLOTS = {
-    "tiktok":    os.environ.get("BUFFER_SLOTS_TT", "21:10,22:20,23:50,2:20,4:10"),
-    "instagram": os.environ.get("BUFFER_SLOTS_IG", "21:55,23:25,0:55,2:25,3:55"),
-    "facebook":  os.environ.get("BUFFER_SLOTS_FB", "22:40,0:40,3:40"),
+    "tiktok":    os.environ.get("BUFFER_SLOTS_TT", "19:10,20:20,21:40,23:10,0:40"),
+    "instagram": os.environ.get("BUFFER_SLOTS_IG", "19:35,20:50,22:10,23:40,1:10"),
+    "facebook":  os.environ.get("BUFFER_SLOTS_FB", "19:50,21:20,23:00"),
 }
 
 
