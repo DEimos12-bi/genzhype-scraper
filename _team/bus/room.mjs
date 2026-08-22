@@ -27,10 +27,18 @@ const PORT  = Number(process.env.TEAM_PORT || 7777);
 const TOKEN = randomBytes(18).toString('hex');   // new every run
 const MAX_BODY = 16 * 1024;
 
-const isLoopbackHost = (h = '') => {
-  const host = h.split(':')[0].toLowerCase();
-  return host === 'localhost' || host === '127.0.0.1' || host === '[::1]' || host === '::1';
+const isLoopbackName = (host = '') => {
+  const h = host.toLowerCase().replace(/^\[|\]$/g, '');
+  return h === 'localhost' || h === '::1' || /^127\.\d+\.\d+\.\d+$/.test(h);
 };
+
+const isLoopbackHost = (h = '') =>
+  isLoopbackName(h.replace(/:\d+$/, ''));      // strip :port, keep [::1] intact
+
+function isLoopbackOrigin(origin) {
+  try { return isLoopbackName(new URL(origin).hostname); }
+  catch { return false; }                       // "null", garbage -> refuse
+}
 
 function page(note = '', nonce = '') {
   return renderDashboard(loadState(), { interactive: true, csrf: TOKEN, note, nonce });
@@ -117,8 +125,12 @@ createServer((req, res) => {
   }
 
   if (req.method === 'POST' && req.url === '/act') {
+    // Belt-and-braces only — the per-run CSRF token below is the real control.
+    // Parse the origin properly instead of pattern-matching a string: browsers
+    // spell loopback several ways (localhost, 127.x.x.x, [::1]) and a too-clever
+    // regex here refused a legitimate form post from the owner's own page.
     const origin = req.headers.origin;
-    if (origin && !/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
+    if (origin && !isLoopbackOrigin(origin)) {
       return send(res, 403, 'Cross-origin POST refused.', 'text/plain');
     }
     let body = '', tooBig = false;
@@ -131,7 +143,13 @@ createServer((req, res) => {
       let note;
       try {
         const f = new URLSearchParams(body);
-        if (f.get('_t') !== TOKEN) return send(res, 403, 'Stale page — reload localhost:' + PORT, 'text/plain');
+        if (f.get('_t') !== TOKEN) {
+          // The room was restarted while this page sat open. Don't dead-end him
+          // on a bare 403 — bounce back to a fresh page and say what happened.
+          res.writeHead(303, { location: '/?n=' + encodeURIComponent(
+            'The room was restarted, so that did not send. The page is fresh now — try again.') });
+          return res.end();
+        }
         note = applyAction(f);
       } catch (e) {
         note = `Refused: ${e.message}`;
