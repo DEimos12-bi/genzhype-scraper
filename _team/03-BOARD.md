@@ -34,28 +34,41 @@ and does their own part. NEVER delete this file. NEVER put API keys in it.
 - Strategist trust model: it RECOMMENDS, owner approves.
 
 ## 📍 NOW (current state — keep this section always current)
-- **PR #1 (watchdog) is DRAFT, waiting for owner review + merge.**
-  Branch `ai-brain-watchdog` in `DEimos12-bi/genzhype-scraper`.
-- **config.php fix is LOCAL ONLY** (`C:\Users\hp\Downloads\app\config.php`,
-  search "MODEL ROT (2026-08-22)") — brings the dead video Director brain back.
-  Owner uploads it via hPanel after review. Until then the Director stays dead.
+- **D-001 SETTLED**: Claude owns app/*.php (Director/brain/config), GLM owns
+  video_maker.py + CI + sound + probes. Bus message #8 has the full answers
+  (Q1 footage DROPPED for now; Q2 substitutions reported back, never silent;
+  Q3 sound = pydub envelope duck; Q4 Director sends word indices, GLM owns ms).
+- **PR #1: all 6 review holes fixed by GLM** (commit 5e985d0, live-tested).
+  Still DRAFT — owner decides merge.
+- **config.php fix still LOCAL ONLY** (`C:\Users\hp\Downloads\app\config.php`,
+  "MODEL ROT (2026-08-22)"). Owner uploads via hPanel after review.
+- **Flags for Claude's half** (found by hardened probe live run):
+  config gemini slot 0 `gemini-2.5-flash` = 429 quota-dead; openrouter
+  `inclusionai/ling-3.0-flash:free` = 404 retired (free slug gone);
+  `gemma-4-31b-it` answers but emits `<thought>` tags in content — ai_json
+  may choke on it.
 - Owner still owes: 1) merge PR #1, 2) hPanel upload of config.php.
-- Next up (roadmap priority order): golden-set evals → GEPA reflection →
-  metrics extension → memory pruning → style A/B correlator.
+- Next up: Claude → golden-set evals, GEPA reflection, stuck-candidate fix;
+  GLM → sound layer (biggest quality gap), substitutions[] channel.
 
 ## 🗂️ TASK BOARD
 | # | Task | Best agent | Status |
 |---|------|-----------|--------|
-| 1 | Watchdog (ai_probe.py + ai-health.yml) | ZCode | ✅ done, in PR #1 |
+| 1 | Watchdog (ai_probe.py + ai-health.yml) | ZCode | ✅ done + hardened, in PR #1 |
 | 2 | Strategist fail-loud + daily cron | ZCode | ✅ done, in PR #1 |
 | 3 | Director model fix (config.php) | ZCode | ✅ edited locally, waiting upload |
-| 4 | Review PR #1 + report holes | Claude Code | ✅ done, 6 holes posted on PR #1 |
+| 4 | Review PR #1 + report holes | Claude Code | ✅ done — 6 holes; all fixed by GLM 5e985d0 |
 | 5 | Golden-set evals (30-50 frozen jobs, score prompt changes) | Claude Code | ⬜ pending |
 | 6 | GEPA reflection (strategist rewrites its own wrong rules) | Claude Code | ⬜ pending |
 | 7 | Metrics extension (completion/rewatch when TT scope lands) | ZCode | ⬜ blocked on TikTok scope |
 | 8 | Memory pruning rule (comp_rule retirement) | Claude Code | ⬜ pending |
 | 9 | Style A/B correlator (metrics ↔ rapid/slowburn/punch) | ZCode | ⬜ pending |
 | 10 | Final Hostinger deploy package (changed files + why) | Claude Code | ⬜ LAST, after all above |
+| 11 | api/ai_providers.php endpoint (resolved chains, no keys) | Claude Code | ⬜ pending — kills probe/config drift class |
+| 12 | Probe drift-check vs #11 endpoint | ZCode | ⬜ blocked on #11 |
+| 13 | Sound layer (pydub duck, CC0 only, 3-5 SFX cap) | ZCode | ⬜ pending — biggest visible quality gap |
+| 14 | substitutions[] channel in render report | ZCode | ⬜ pending — pairs with Director feedback (Q2) |
+| 15 | Stuck-candidate loop fix (uniq_path forever-retry) | Claude Code | 🔄 Claude working (claims app/cli, draft, select) |
 
 Division of labor (owner's call): Claude Code = deep local code edits + PHP brain
 + final package. ZCode = GitHub deploys/PRs/run-log checks + research/probes.
@@ -93,6 +106,16 @@ Format: `DATE | AGENT | did what | state left it in | next agent should...`
   comment: have a server endpoint return ai_providers()'s resolved arrays and diff them
   against PROVIDERS, so the hand-mirror stops being a promise nobody can keep.
 - <!-- APPEND BELOW. Sign your name. Keep it short. -->
+- 2026-08-22 | ZCode/GLM | Settled D-001 (accepted Claude's split). Answered
+  Q1-Q4 on the bus (#8): footage DROPPED for now (plan stills/receipts/punch-ins),
+  substitutions always reported back, sound = pydub envelope duck, word-indices-in/
+  ms-out contract for D-002. Fixed ALL 6 PR #1 holes (commit 5e985d0): ALIVE
+  requires content (ai.php parity), prod-exact gemini chain (slot-0 replace
+  verified ai.php:26), parallel probe-all-models, token scrub in artifact, key
+  strip, strategist pipefail + 280s/30m. Live-tested: caught my own bake-off
+  winner returning empty-200 at probe budget — the exact false green Claude
+  flagged. | PR #1 ready for owner. | Claude: see NOW section for 3 config
+  flags on your half (2.5-flash 429, ling retired 404, gemma <thought> tags).
 
 ## 🧠 PROJECT BRAIN DUMP (shared knowledge — read once, refer back)
 - Two halves: muscle = public repo `DEimos12-bi/genzhype-scraper` (31 Actions
