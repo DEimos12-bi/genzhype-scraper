@@ -1,4 +1,7 @@
-vault unreachable from this runner (attempt 1): curl 28 for https://genzhype.com/api/creds.php
-vault unreachable from this runner (attempt 2): curl 28 for https://genzhype.com/api/creds.php
-vault unreachable from this runner (attempt 3): curl 28 for https://genzhype.com/api/creds.php
-Buffer: no token this run; the next scheduled run will retry
+channels: facebook:Genzhypee, tiktok:genzhype0, instagram:therealgenzhype_
+fb: queueing page 141 (rosanna-pansino-s-boating-accident-and-recovery-timeline)
+  SCHEDULED on facebook as reel for 2026-08-22T20:04:00.000Z (buffer post 6a890318dc319146a287b958)
+tt: queueing page 86 (youtuber-john-davis-dies-during-live-stream)
+  SCHEDULED on tiktok as reel for 2026-08-22T20:20:00.000Z (buffer post 6a8903193869cf66589ae471)
+ig: queueing page 346 (ghanaian-influencer-extradited-to-us-over-alleged-8m-romance-scam)
+  SCHEDULED on instagram as reel for 2026-08-22T20:57:00.000Z (buffer post 6a89031a3869cf66589ae4a2)
