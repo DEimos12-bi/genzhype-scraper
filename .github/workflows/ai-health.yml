@@ -33,7 +33,11 @@ concurrency:
 jobs:
   probe:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # 15m covers the hardened probe's worst case: all 4 providers in parallel,
+    # each sequential over its full chain (gemini = 4 models x 2 attempts x 60s
+    # + backoff ~= 9 min alone). The old 10m could starve nvidia_director —
+    # the one provider whose death must fail this job — behind a gemini hang.
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

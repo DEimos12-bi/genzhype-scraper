@@ -38,13 +38,17 @@ concurrency:
 jobs:
   think:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # 30m so a slow-but-alive server ladder is waited out, not turned into a
+    # red herring; 280s curl cap under it. The old 10m job + 200s curl were
+    # shorter than the server's own worst-case ladder (review hole #6).
+    timeout-minutes: 30
     steps:
       - name: Run the daily strategy pass
         env:
           INGEST_TOKEN: ${{ secrets.INGEST_TOKEN }}
         run: |
-          RESP=$(curl -s --max-time 200 \
+          set -o pipefail
+          RESP=$(curl -s --max-time 280 \
             "https://genzhype.com/api/strategist_run.php?token=$INGEST_TOKEN" \
             | sed "s/$INGEST_TOKEN/***/g")
           echo "$RESP"
