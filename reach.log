@@ -1,0 +1,23 @@
+twitter-cli install exit=0
+rdt-cli install exit=0
+From https://github.com/DEimos12-bi/genzhype-scraper
+ * branch            video-feed -> FETCH_HEAD
+ * [new branch]      video-feed -> origin/video-feed
+video feed bytes=32532
+    -> 15 raw hit(s), 13 kept (dropped: 0 not-this-person, 2 off-topic)
+  page 16: 13 candidate(s) from 1 search(es)
+    -> 5 raw hit(s), 0 kept (dropped: 0 not-this-person, 5 off-topic)
+  page 96: 0 candidate(s) from 1 search(es)
+  search "'malding' took": 0 hits, raw='{\n  "ok": true,\n  "schema_version": "1",\n  "data": []\n}\n'
+  page 119: 0 candidate(s) from 1 search(es)
+    -> 9 raw hit(s), 8 kept (dropped: 0 not-this-person, 1 off-topic)
+  page 76: 8 candidate(s) from 1 search(es)
+  search '"Rick Astley" \'rickroll\' took': 0 hits, raw='{\n  "ok": true,\n  "schema_version": "1",\n  "data": []\n}\n'
+    -> 15 raw hit(s), 0 kept (dropped: 0 not-this-person, 15 off-topic)
+  search "'rickroll' took": 0 hits, raw='{\n  "ok": true,\n  "schema_version": "1",\n  "data": []\n}\n'
+  page 110: 0 candidate(s) from 3 search(es)
+  search '"Ethan Klein" Files Defamation': 0 hits, raw='{\n  "ok": true,\n  "schema_version": "1",\n  "data": []\n}\n'
+    -> 15 raw hit(s), 8 kept (dropped: 0 not-this-person, 7 off-topic)
+  page 6: 8 candidate(s) from 2 search(es)
+x-pages: 6 page(s), 9 search(es) used
+x-pages exit=0 bytes=9480
