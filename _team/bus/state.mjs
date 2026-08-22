@@ -197,6 +197,20 @@ export function renderDashboard(s, { interactive = false, csrf = '', note = '', 
   const open = s.decisions.filter(d => d.status === 'open');
   const bossUnread = s.messages.filter(m => m.from === BOSS && !m.read_by.length);
 
+  // WHO NEEDS A POKE. Neither app can wake the other, so the last job left with
+  // Youness is remembering whose turn it is. Work it out for him instead.
+  const unreadFor = (n) => s.messages.filter(m => m.to === n && !m.read_by.includes(n)).length;
+  const waiting = AGENTS.filter(a => unreadFor(a) > 0);
+  const pokeLine = (() => {
+    if (!waiting.length) {
+      const busy = AGENTS.filter(a => (s.agents[a] || {}).status === 'working');
+      if (busy.length) return { quiet: true, html: `${busy.join(' and ')} ${busy.length > 1 ? 'are' : 'is'} working. Nothing for you to do.` };
+      return { quiet: true, html: 'Nobody is waiting on you. Send a message below to start something.' };
+    }
+    const who = waiting.map(a => `<b>${esc(a)}</b> (${unreadFor(a)} unread)`).join(' and ');
+    return { quiet: false, html: `Tell ${who} to go. Say: <code>check the team bus and continue</code>` };
+  })();
+
   const agentCard = (name) => {
     const a = s.agents[name] || {};
     const unread = s.messages.filter(m => m.to === name && !m.read_by.includes(name)).length;
@@ -293,6 +307,15 @@ export function renderDashboard(s, { interactive = false, csrf = '', note = '', 
   .empty{color:var(--dim);font-size:14px;font-style:italic}
   .flash{background:var(--card);border:1px solid var(--ok);border-left:3px solid var(--ok);
          border-radius:8px;padding:11px 14px;margin-bottom:12px;font-size:14px}
+  .poke{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--accent);
+        border-radius:8px;padding:12px 15px;margin-bottom:14px;display:flex;
+        align-items:center;gap:12px;flex-wrap:wrap}
+  .poke .lbl{font-size:11px;text-transform:uppercase;letter-spacing:.09em;
+             color:var(--accent);font-weight:600}
+  .poke .txt{font-size:15px;flex:1;min-width:200px}
+  .poke .quiet{color:var(--dim);font-weight:400}
+  .poke code{font-size:12px}
+  .poke button{white-space:nowrap}
   .foot{margin-top:36px;padding-top:14px;border-top:1px solid var(--line);
         color:var(--dim);font-size:12px;line-height:1.6}
 </style></head><body><div class="wrap">
@@ -301,6 +324,11 @@ export function renderDashboard(s, { interactive = false, csrf = '', note = '', 
       interactive ? ' · live — updates when they act, and never while you are typing' : ' · read-only snapshot'}</div>
 
   ${note ? `<div class="flash">${esc(note)}</div>` : ''}
+  ${interactive ? `<div class="poke">
+      <span class="lbl">${pokeLine.quiet ? 'Status' : 'Your move'}</span>
+      <span class="txt ${pokeLine.quiet ? 'quiet' : ''}">${pokeLine.html}</span>
+      ${pokeLine.quiet ? '' : `<button type="button" id="copygo">Copy that line</button>`}
+    </div>` : ''}
   ${boss.length ? boss.map(bossBlock).join('') : ''}
   ${bossUnread.length ? `<div class="card" style="margin-bottom:10px">
       <div class="meta" style="margin:0;padding:0;border:0">You have ${bossUnread.length}
@@ -343,6 +371,9 @@ export function renderDashboard(s, { interactive = false, csrf = '', note = '', 
 ${interactive && nonce ? `<script nonce="${esc(nonce)}">
 (function () {
   var seq = ${JSON.stringify(String(s.updated_at || ''))};
+  var TITLE = document.title, pending = false, blink = null;
+
+  // Never reload out from under him mid-sentence.
   function busy() {
     var el = document.activeElement;
     if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')) return true;
@@ -350,13 +381,54 @@ ${interactive && nonce ? `<script nonce="${esc(nonce)}">
     for (var i = 0; i < ins.length; i++) if (ins[i].value.trim()) return true;
     return false;
   }
+
+  function startBlink() {
+    if (blink) return;
+    var on = false;
+    blink = setInterval(function () {
+      on = !on;
+      document.title = on ? '\\u25CF something happened' : TITLE;
+    }, 1200);
+  }
+  function stopBlink() {
+    if (blink) { clearInterval(blink); blink = null; }
+    document.title = TITLE;
+  }
+
+  function refreshNow() { stopBlink(); location.replace('/'); }
+
   setInterval(function () {
     if (busy()) return;
     fetch('/seq', { cache: 'no-store' })
       .then(function (r) { return r.json(); })
-      .then(function (d) { if (d.updated_at !== seq && !busy()) location.replace('/'); })
+      .then(function (d) {
+        if (d.updated_at === seq) return;
+        // Looking at it and not typing -> just refresh. Looking away -> flash
+        // the tab and wait, so he can leave this open and go do something else.
+        if (document.hasFocus() && !document.hidden && !busy()) refreshNow();
+        else { pending = true; startBlink(); }
+      })
       .catch(function () {});
   }, 5000);
+
+  window.addEventListener('focus', function () { if (pending && !busy()) refreshNow(); });
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden && pending && !busy()) refreshNow();
+  });
+
+  var cg = document.getElementById('copygo');
+  if (cg) cg.addEventListener('click', function () {
+    var t = 'check the team bus and continue';
+    var done = function () { cg.textContent = 'Copied'; setTimeout(function () { cg.textContent = 'Copy that line'; }, 1600); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(t).then(done, function () { cg.textContent = 'Copy failed'; });
+    } else {
+      var ta = document.createElement('textarea');
+      ta.value = t; document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy'); done(); } catch (e) { cg.textContent = 'Copy failed'; }
+      document.body.removeChild(ta);
+    }
+  });
 })();
 </script>` : ''}
 </body></html>`;
