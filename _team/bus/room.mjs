@@ -20,7 +20,6 @@
 
 import { createServer } from 'node:http';
 import { randomBytes } from 'node:crypto';
-import { spawn } from 'node:child_process';
 import { loadState, mutate, pushLog, pushMessage, renderDashboard,
          assertNoSecrets, AGENTS, BOSS, STATE, now } from './state.mjs';
 
@@ -170,13 +169,10 @@ createServer((req, res) => {
   console.log('');
   console.log('  Leave this window open while you work. Ctrl+C to stop.');
   console.log('');
-  // Open the browser only once we are actually listening — opening it first
-  // (as the .cmd used to) raced the server and showed "can't connect".
-  // Opt-in so `node room.mjs` on its own never surprises anyone.
-  if (process.env.TEAM_OPEN === '1') {
-    spawn('cmd', ['/c', 'start', '', `http://localhost:${PORT}`],
-          { detached: true, stdio: 'ignore', windowsHide: true }).unref();
-  }
+  // NOTE: this deliberately does NOT open a browser. It used to, and on a
+  // machine where Chrome was closed that launched Chrome, which restored the
+  // owner's entire previous session — unrelated tabs and all. Never take over
+  // someone's browser to save them one click. Print the address; they open it.
 });
 
 // Last-resort net: log and keep serving rather than dying silently.

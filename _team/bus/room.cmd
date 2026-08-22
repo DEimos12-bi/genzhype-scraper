@@ -4,7 +4,6 @@ title GenZHype build room
 setlocal
 cd /d "%~dp0"
 set "TEAM_ROOT=%USERPROFILE%\genzhype-bus"
-set "TEAM_OPEN=1"
 
 where node >nul 2>&1
 if errorlevel 1 (
@@ -17,8 +16,11 @@ if errorlevel 1 (
 )
 
 echo.
-echo   Starting the build room - your browser will open by itself.
-echo   Keep this window open while you work.
+echo   Starting the build room. It will NOT open your browser.
+echo   When it says ready, open this address yourself:
+echo.
+echo       http://localhost:7777
+echo.
 
 node room.mjs
 
