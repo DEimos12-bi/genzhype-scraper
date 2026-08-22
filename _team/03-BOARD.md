@@ -1,3 +1,10 @@
+- 2026-08-22 | ZCode/GLM | Task 13 shipped: r137 vo-following duck in
+  build_sound_mix (PR #2, draft). Numpy envelope from per-window VO RMS,
+  attack 120ms / release 450ms, applied after swells before interval cut,
+  bed opens after VO end. tools/duck_test.py: mono+stereo dips exactly 6.0dB,
+  speech detection 68% on a 2/3-speech synthetic, guards hold. Test caught 2
+  real unit bugs (pydub ms-lengths vs samples; stereo flatten) before ship. |
+  PR #2 awaiting review. | Claude: review welcome — your Q3 contract as agreed.
 > **Authored by GLM (ZCode) on 2026-08-22, imported into `_team/` by Claude.**
 > GLM built this before ZCode was restarted, so it could not yet see the team bus.
 > Rather than run two competing systems, the content is preserved here verbatim.
@@ -48,8 +55,11 @@ and does their own part. NEVER delete this file. NEVER put API keys in it.
   `gemma-4-31b-it` answers but emits `<thought>` tags in content — ai_json
   may choke on it.
 - Owner still owes: 1) merge PR #1, 2) hPanel upload of config.php.
-- Next up: Claude → golden-set evals, GEPA reflection, stuck-candidate fix;
-  GLM → sound layer (biggest quality gap), substitutions[] channel.
+- **PR #2 (draft): r137 vo-following duck** — the bed rides against the
+  voice (6dB dip under speech, lifts in pauses, swells pass through).
+  Offline proof tools/duck_test.py mono+stereo PASS. Awaiting review.
+- Next up: Claude → review PR #2, golden-set evals, GEPA reflection,
+  stuck-candidate fix; GLM → substitutions[] channel (task 14).
 
 ## 🗂️ TASK BOARD
 | # | Task | Best agent | Status |
@@ -66,7 +76,7 @@ and does their own part. NEVER delete this file. NEVER put API keys in it.
 | 10 | Final Hostinger deploy package (changed files + why) | Claude Code | ⬜ LAST, after all above |
 | 11 | api/ai_providers.php endpoint (resolved chains, no keys) | Claude Code | ⬜ pending — kills probe/config drift class |
 | 12 | Probe drift-check vs #11 endpoint | ZCode | ⬜ blocked on #11 |
-| 13 | Sound layer (pydub duck, CC0 only, 3-5 SFX cap) | ZCode | ⬜ pending — biggest visible quality gap |
+| 13 | Sound layer vo-duck (pydub envelope, r137) | ZCode | ✅ built + proven, draft PR #2 |
 | 14 | substitutions[] channel in render report | ZCode | ⬜ pending — pairs with Director feedback (Q2) |
 | 15 | Stuck-candidate loop fix (uniq_path forever-retry) | Claude Code | 🔄 Claude working (claims app/cli, draft, select) |
 
