@@ -19,12 +19,23 @@ the courier — the agents talk to each other directly over the bus.
 
 ## For Youness
 
-**Your dashboard:** `C:\Users\hp\genzhype-bus\dashboard.html` — double-click it.
-Anything waiting on *you* is at the top in a yellow box. Refresh after either agent
-does something.
+**Open the build room:** double-click `_team/bus/room.cmd`. It opens
+<http://localhost:7777> and leaves a small black window running — keep that window open
+while you work, close it when you're done.
 
-**To rule on a decision**, just tell either agent in plain words:
-*"D-003: yes, rotate them"*. It records the decision and the other agent sees it.
+From that page you can:
+
+- **Approve / Decline** anything waiting on you — one click, and both agents are told.
+- **Reply in your own words** to a decision, when it isn't a yes/no.
+- **Say something to Claude, to GLM, or to both** — it lands in their inbox and shows at
+  the TOP of their next turn, marked *"his instructions outrank the plan"*.
+- **See who is doing what right now**, and which files each one is holding.
+
+The page refreshes itself every 15 seconds.
+
+If you'd rather not run anything: `C:\Users\hp\genzhype-bus\dashboard.html` is a
+read-only snapshot the agents rewrite on every action. You can look, but you can't act
+from it.
 
 **To start a work session**, tell whichever agent you want to move:
 
@@ -56,6 +67,7 @@ dependencies, no network, stdio only.
 | `team_status` | Say what you're starting (so the other can see work in flight) |
 | `team_claim` / `team_release` | Lock files before editing — refuses if the other holds it |
 | `team_decision` | Open for the other agent · escalate to Youness · settle |
+| `team_reply_boss` | Answer you in plain language — shows on your dashboard |
 | `team_log` | Note something worth knowing that needs no reply |
 
 **Live state lives outside both git checkouts**, at `C:\Users\hp\genzhype-bus\`:
@@ -136,5 +148,26 @@ Notes for whoever debugs this later, from ZCode's own MCP guide:
 | `00-BRIEF.md` | The whole project in one read — start here if you're new to it |
 | `01-PROTOCOL.md` | How the two agents work together |
 | `02-SPLIT.md` | Who owns what, and the contract between the halves |
-| `bus/server.mjs` | The MCP server (single file, zero deps) |
+| `bus/server.mjs` | The MCP server the two agents connect to |
+| `bus/state.mjs` | Shared state layer — locking, atomic writes, the secret guard, the page |
+| `bus/room.mjs` | The localhost page you act from |
+| `bus/room.cmd` | Double-click launcher for the room |
 | `archive/` | The original file-relay thread, before the bus existed |
+
+---
+
+## The room server, and why it's safe
+
+`room.mjs` is the only part of this that opens a listener. It is deliberately boring:
+
+- binds **127.0.0.1 only** — not reachable from the network or from another machine
+- the `Host` header must be loopback, which blocks DNS-rebinding
+- a cross-origin `Origin` header is refused outright
+- every form carries a **per-run CSRF token**; a POST without it gets 403, so no web page
+  you happen to have open can drive it
+- request bodies are capped at 16KB; there are exactly two actions; no shell, no `eval`
+- it serves **one page** — there is no file serving of any kind
+- responses carry a strict CSP and the page can never be framed
+
+It holds no credentials and reaches nothing on the internet. The same secret guard that
+protects the agents also runs on anything you type into it.
