@@ -1,10 +1,27 @@
 @echo off
-REM GenZHype build room - double-click this, then open http://localhost:7777
+REM GenZHype build room. Double-click this file.
 title GenZHype build room
-set TEAM_ROOT=C:\Users\hp\genzhype-bus
+setlocal
 cd /d "%~dp0"
-start "" http://localhost:7777
-node room.mjs
+set "TEAM_ROOT=%USERPROFILE%\genzhype-bus"
+set "TEAM_OPEN=1"
+
+where node >nul 2>&1
+if errorlevel 1 (
+  echo.
+  echo   Node.js was not found on this PC.
+  echo   Install it from https://nodejs.org then run this again.
+  echo.
+  pause
+  exit /b 1
+)
+
 echo.
-echo The build room stopped. Press any key to close.
-pause >nul
+echo   Starting the build room - your browser will open by itself.
+echo   Keep this window open while you work.
+
+node room.mjs
+
+echo.
+echo   The build room has stopped.
+pause
