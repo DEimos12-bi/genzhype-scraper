@@ -913,6 +913,23 @@ POP_DB_VS_VO = float(os.environ.get("VIDEO_SFX_POP_DB", "-17"))
 RISER_DB_VS_VO = float(os.environ.get("VIDEO_SFX_RISER_DB", "-15"))
 RISER_MAX_S = 3.0              # risers keep their LAST <=3s (they peak at the end)
 SILENCE_LEAD_S = 0.30          # music cut this much BEFORE a 'silence' shot
+# r137 VO-FOLLOWING DUCK (Q3 contract, D-001: GLM's half). The bed was a
+# STATIC -22dB whether the voice was speaking or not — so during VO pauses it
+# stayed buried (no lift = dead air feels empty) and during dense hook speech
+# it had the same level it has under a calm line. Real mixers ride the bed
+# against the voice. Envelope duck, pydub+numpy only: per-window VO RMS
+# decides speech/pause, an attack/release ramp smooths the step (no clicks,
+# no sidechain compressor "character" we cannot reason about), and the whole
+# thing is one deterministic pure function. Swells pass through the duck, so
+# a swell under speech still dips and only fully opens in the pause — which
+# is exactly when a swell should be heard. VIDEO_BGM_DUCK=0 kills it.
+DUCK_ENABLE = os.environ.get("VIDEO_BGM_DUCK", "1") != "0"
+DUCK_DB = float(os.environ.get("VIDEO_BGM_DUCK_DB", "6"))
+DUCK_ATTACK_MS = int(os.environ.get("VIDEO_BGM_DUCK_ATTACK_MS", "120"))
+DUCK_RELEASE_MS = int(os.environ.get("VIDEO_BGM_DUCK_RELEASE_MS", "450"))
+DUCK_WINDOW_MS = int(os.environ.get("VIDEO_BGM_DUCK_WINDOW_MS", "25"))
+DUCK_SPEECH_FLOOR_DBFS = -45.0  # below this a window is silence, not speech
+DUCK_SPEECH_VS_PEAK_DB = 20.0   # and within 20dB of the loudest window
 SEAM_FADE_MS = 30              # Law 19: fade at every music seam (click kill)
 BED_MASTER_FADE_MS = 500       # 0.5s fade in/out on the whole bed
 MIX_TARGET_DBFS = -14.0        # final loudness anchor (approx -14 LUFS)
@@ -8053,6 +8070,76 @@ def _apply_swells(bed, scenes, total_ms):
     return bed, done
 
 
+def _duck_to_vo(bed, vo):
+    """r137: ride the music bed against the voice (Q3 contract). Returns
+    (bed', speech_fraction). Pure function: numpy envelope from per-window
+    VO RMS, one attack/release ramp, sample-accurate multiply — no ffmpeg
+    filter chains, no compressor artifacts, deterministic for the same
+    inputs. Beyond the voice's end the envelope fully opens (outro bed)."""
+    import array
+
+    def _mono_samples(seg):
+        if seg.channels == 1:
+            raw = seg.get_array_of_samples()
+        else:  # average channel pairs (set_channels(1) resamples; we just mix)
+            raw = seg.get_array_of_samples()
+            raw = array.array(raw.typecode,
+                              ((raw[i] + raw[i + 1]) // 2
+                               for i in range(0, len(raw) - 1, 2)))
+        return np.asarray(raw, dtype=np.float64)
+
+    win_ms = max(1, int(DUCK_WINDOW_MS))
+    win_n = max(1, int(vo.frame_rate * win_ms / 1000))  # samples per window
+    vo_ms = min(len(bed), len(vo))          # duck only where a voice exists
+    vo_samples = int(vo_ms * vo.frame_rate / 1000)
+    n_win = vo_samples // win_n
+    if n_win < 4:                            # under four windows = no speech
+        return bed, 0.0
+    s = _mono_samples(vo[:vo_ms])[:vo_samples]
+    win_rms = np.sqrt(
+        np.square(s[: n_win * win_n].reshape(n_win, win_n)).mean(axis=1))
+    peak = float(win_rms.max()) if win_rms.size else 0.0
+    if peak <= 0:
+        return bed, 0.0
+    speech_thr = max(10.0 ** (DUCK_SPEECH_FLOOR_DBFS / 20.0),
+                     peak * 10.0 ** (-DUCK_SPEECH_VS_PEAK_DB / 20.0))
+    is_speech = win_rms > speech_thr
+
+    # one pass of attack/release on the gain in dB (fast dip, slow recover —
+    # the bed falls out of the way the moment the voice starts and creeps
+    # back during pauses rather than popping)
+    att = DUCK_DB * win_ms / max(1, DUCK_ATTACK_MS)
+    rel = DUCK_DB * win_ms / max(1, DUCK_RELEASE_MS)
+    db_env = np.empty(n_win)
+    g = 0.0
+    for i, sp in enumerate(is_speech):
+        target = -DUCK_DB if sp else 0.0
+        step = att if target < g else rel
+        g += max(-step, min(step, target - g))
+        db_env[i] = g
+
+    # window envelope -> per-sample linear gain, applied to every bed channel
+    env = np.ones(vo_samples)
+    env[: n_win * win_n] = np.repeat(np.power(10.0, db_env / 20.0), win_n)
+    out = bed[:vo_ms]
+    raw = out.get_array_of_samples()
+    vals = np.asarray(raw, dtype=np.float64)
+    if out.channels > 1:
+        vals = vals.reshape(-1, out.channels) * env[:, None]
+    else:
+        vals = vals * env
+    vals = np.clip(vals, -(2 ** (8 * out.sample_width - 1)),
+                   2 ** (8 * out.sample_width - 1) - 1)
+    raw = array.array(raw.typecode,
+                      vals.reshape(-1).astype(raw.typecode).tolist())
+    from pydub import AudioSegment
+    ducked = AudioSegment(data=raw.tobytes(), sample_width=out.sample_width,
+                          frame_rate=out.frame_rate, channels=out.channels)
+    if vo_ms < len(bed):                   # after the voice: bed plays open
+        ducked = ducked.append(bed[vo_ms:], crossfade=0)
+    return ducked, float(is_speech.mean())
+
+
 def build_sound_mix(mp3_path, scenes, total, page_id, out_wav,
                     extra_sfx=None):
     """The full v4 mix: normalized VO + stateful music bed + placed SFX +
@@ -8083,6 +8170,14 @@ def build_sound_mix(mp3_path, scenes, total, page_id, out_wav,
             # r113: shape the bed (swell into the reveal) BEFORE it is cut into
             # duck/silence intervals, so both survive.
             bed, _swells = _apply_swells(bed, scenes, total_ms)
+            # r137: then ride it against the voice (Q3). Duck BEFORE the
+            # interval cut so a swell still opens fully in a real pause —
+            # the cut only mutes 'silence' spans; the duck handles speech.
+            if DUCK_ENABLE:
+                bed, _sp_frac = _duck_to_vo(bed, vo)
+                log.info("sound: vo-duck on (speech %.0f%% of bed span, "
+                         "-%.0fdB, %d/%dms ramps)", _sp_frac * 100, DUCK_DB,
+                         DUCK_ATTACK_MS, DUCK_RELEASE_MS)
             intervals = _music_intervals(scenes, total_ms)
             for k, (a, b, extra_db) in enumerate(intervals):
                 piece = bed[a:b]
