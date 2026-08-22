@@ -1,0 +1,29 @@
+2026-08-22 13:04:51,435 INFO caption font: /usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf
+2026-08-22 13:04:51,436 INFO job feed from repo branch (generated 2026-08-22T13:00:07+00:00)
+2026-08-22 13:04:51,436 INFO FORCED re-render job for page 16
+2026-08-22 13:04:51,436 INFO job from static feed (generated 2026-08-22T13:00:07+00:00)
+2026-08-22 13:04:51,437 INFO processing page_id=16 slug=delulu
+2026-08-22 13:04:51,437 INFO STYLE rapid: lead=receipts cuts~1.0s xfade=0.00 zoom=0.20 punch=1.22 bgm_2 evidence_cap=3 footage_consec=2
+2026-08-22 13:04:51,437 INFO voice: en-US-BrianMultilingualNeural
+2026-08-22 13:04:51,437 INFO STAGE: visuals
+2026-08-22 13:04:51,437 INFO CLIP HUNT: story now has 0 clip(s)
+2026-08-22 13:05:12,869 INFO archive.org clip: when you delulu the grab animation (twitch-clips-CourteousCogentWerewolfM4xHeh-q1vOD7ZpIHjwKrDm, 14s, 15.3MB)
+2026-08-22 13:05:15,282 INFO story clips available: 1 (archive)
+2026-08-22 13:05:15,283 INFO person photos from feed (site-resolved): Delulu x4
+2026-08-22 13:05:15,300 INFO trimmed letterbox (1280, 720) -> (1214, 720): https://i.ytimg.com/vi/oZ6ke7ph-h4/maxresdefault.jpg
+2026-08-22 13:05:15,311 INFO CONTAIN MODE: 1214x720 needs 2.7x upscale to cover; rendering whole on a blurred fill instead
+2026-08-22 13:05:15,363 INFO face detected in vis-16-0: 49x67 at (513,333)
+2026-08-22 13:05:55,496 INFO vision still-relevance: gemini-3.5-flash-lite failed (HTTPSConnectionPool(host='generativelanguage.googleapis.com', port=443): Read timed out. (read timeout=40))
+2026-08-22 13:06:19,295 INFO CONTAIN MODE: 1280x720 needs 2.7x upscale to cover; rendering whole on a blurred fill instead
+2026-08-22 13:06:19,309 INFO face detected in vis-16-1: 68x97 at (561,293)
+2026-08-22 13:06:43,003 INFO vision rotation: still-relevance served by gemini-3.5-flash-lite
+2026-08-22 13:06:43,026 INFO CONTAIN MODE: 1280x720 needs 2.7x upscale to cover; rendering whole on a blurred fill instead
+2026-08-22 13:06:43,040 INFO face detected in vis-16-2: 140x192 at (181,59)
+2026-08-22 13:06:44,071 INFO vision rotation: still-relevance served by gemini-3.5-flash-lite
+2026-08-22 13:06:44,072 INFO STILL GATE: off-topic stock dropped: https://i.ytimg.com/vi/S2Wqpni-ULw/maxresdefault.jpg
+2026-08-22 13:06:44,084 INFO CONTAIN MODE: 1280x720 needs 2.7x upscale to cover; rendering whole on a blurred fill instead
+2026-08-22 13:06:44,097 INFO face detected in vis-16-3: 74x100 at (545,252)
+2026-08-22 13:06:56,610 INFO vision rotation: still-relevance served by gemini-3.5-flash-lite
+2026-08-22 13:06:56,651 INFO CONTAIN MODE: 1000x667 needs 2.9x upscale to cover; rendering whole on a blurred fill instead
+2026-08-22 13:07:36,943 INFO vision still-relevance: gemini-3.5-flash-lite failed (HTTPSConnectionPool(host='generativelanguage.googleapis.com', port=443): Read timed out. (read timeout=40))
+2026-08-22 13:07:52,705 ERROR WATCHDOG: stage 'visuals' stalled past its cap — force-exit
