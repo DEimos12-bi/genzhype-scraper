@@ -1,6 +1,4 @@
-channels: instagram:therealgenzhype_, tiktok:genzhype0, facebook:Genzhypee
-ig: queueing page 307 (american-influencer-jumps-from-hotel-balcony-into-lake-como)
-  SCHEDULED on instagram as reel for 2026-08-23T20:57:00.000Z (buffer post 6a8a2823dc319146a29a7e59)
-tt: queueing page 304 (tiktoker-s-conspiracy-theory)
-  SCHEDULED on tiktok as reel for 2026-08-23T20:20:00.000Z (buffer post 6a8a2824deb4b57dfeabb644)
-fb: daily cap reached (3/3) - skipping
+vault unreachable from this runner (attempt 1): curl 28 for https://genzhype.com/api/creds.php
+vault unreachable from this runner (attempt 2): curl 28 for https://genzhype.com/api/creds.php
+vault unreachable from this runner (attempt 3): curl 28 for https://genzhype.com/api/creds.php
+Buffer: no token this run; the next scheduled run will retry
