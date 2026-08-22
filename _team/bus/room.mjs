@@ -125,13 +125,20 @@ createServer((req, res) => {
   }
 
   if (req.method === 'POST' && req.url === '/act') {
-    // Belt-and-braces only — the per-run CSRF token below is the real control.
-    // Parse the origin properly instead of pattern-matching a string: browsers
-    // spell loopback several ways (localhost, 127.x.x.x, [::1]) and a too-clever
-    // regex here refused a legitimate form post from the owner's own page.
+    // NO ORIGIN GATE. It refused the owner's own page twice — his browser sends
+    // something that is not a plain loopback URL (a privacy extension rewriting
+    // or dropping the header is the likely cause), and a guard that blocks the
+    // only legitimate user while adding nothing is worse than no guard.
+    //
+    // The per-run CSRF token below IS the protection, and it is sufficient on
+    // its own: a page on another origin cannot read this page, so it cannot
+    // learn the token, so it cannot forge a request. The token is random per
+    // run and never leaves the machine. Host is still pinned to loopback above,
+    // and the socket is bound to 127.0.0.1, so nothing off this PC can reach it.
     const origin = req.headers.origin;
     if (origin && !isLoopbackOrigin(origin)) {
-      return send(res, 403, 'Cross-origin POST refused.', 'text/plain');
+      console.log(`note: POST carried an unusual Origin (${origin}) — allowed on ` +
+                  `the token. If you did not expect that, tell Claude.`);
     }
     let body = '', tooBig = false;
     req.on('data', (c) => {
