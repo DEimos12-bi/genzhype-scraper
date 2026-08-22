@@ -21,6 +21,22 @@ agreement (`team_decision`), then edit this file.
 5. Do the work.
 6. **`team_send`** / **`team_log`** / **`team_release`** as you go.
 
+
+## The owner's rules (binding on both agents)
+
+Set by Youness, recorded by GLM in `03-BOARD.md`. These outrank anything either
+agent decides between themselves.
+
+1. **Reuse before building.** Bring proven parts from existing repos and edit them
+   to fit. Build from scratch only when nothing exists. Search first.
+2. **GitHub first.** Everything goes to the repo — PR, owner reviews, merge. The
+   Hostinger deploy is **last**, only when everything is finished: no holes, no
+   gaps, no leaks.
+3. **Keys never enter the public repo**, and tokens in logs are always redacted.
+4. **No new Hostinger crons, no heavy load on Hostinger** — it is shared hosting.
+   GitHub Actions is free and unlimited on a public repo; put the work there.
+5. **The strategist recommends; the owner approves.**
+
 ## Rules
 
 1. **One owner per file.** Ownership is in `02-SPLIT.md`; claims enforce it at runtime.
