@@ -5,10 +5,23 @@ name: GenZHype strategist
 # this workflow is only the heartbeat, because the owner's rule is that
 # everything schedules through GitHub and nothing new lands on the
 # Hostinger cron panel.
+#
+# 2026-08-22, TWO CHANGES after the empty-response post-mortem:
+# 1) FAIL LOUD. The 2026-08-17 pass returned an EMPTY body (every AI
+#    provider in the chain was dead — see the MODEL ROT note in ai.php)
+#    and the job still showed green, so nobody knew the brain had said
+#    nothing for a week. The run step now treats an empty body as an
+#    error, so the red X + GitHub's failure email arrive the same day.
+# 2) DAILY instead of weekly (owner: "learning day and night"). Same
+#    one-AI-call pass, just 7 runs/week instead of 1 — server load stays
+#    seconds per run and the autopilot already ticks every 20 min. The
+#    server stores one report per day (uq_reco is made_on+title), and the
+#    email subject still says WEEKLY — revert this cron line alone if the
+#    daily mail turns out to be noise.
 
 on:
   schedule:
-    - cron: '30 20 * * 1'        # Mondays 20:30 UTC, before the night grid opens
+    - cron: '30 20 * * *'        # daily 20:30 UTC, before the night grid opens
   workflow_dispatch:
   push:
     branches: [main]
@@ -27,10 +40,20 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Run the weekly strategy pass
+      - name: Run the daily strategy pass
         env:
           INGEST_TOKEN: ${{ secrets.INGEST_TOKEN }}
         run: |
-          curl -s --max-time 200 \
+          RESP=$(curl -s --max-time 200 \
             "https://genzhype.com/api/strategist_run.php?token=$INGEST_TOKEN" \
-            | sed "s/$INGEST_TOKEN/***/g"
+            | sed "s/$INGEST_TOKEN/***/g")
+          echo "$RESP"
+          if [ -z "$RESP" ]; then
+            echo "::error::strategist_run returned an EMPTY body — the brain said nothing (dead AI chain?). See the ai-health workflow's latest probe."
+            exit 1
+          fi
+          case "$RESP" in
+            *'"ok":false'*|*'"ok": false'*|*'"error"'*)
+              echo "::error::strategist_run reported an error — see body above."
+              exit 1 ;;
+          esac
