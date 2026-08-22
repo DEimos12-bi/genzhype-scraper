@@ -1,0 +1,58 @@
+name: GenZHype brain health
+
+# THE IMMUNE SYSTEM (2026-08-22): every publishing blackout we have had was a
+# free AI provider dying QUIETLY (Gemini model rot, OpenRouter free-tier
+# retirements, NVIDIA HTTP 0 — see the MODEL ROT note in the site's ai.php
+# and draft-fail lines in cron.log). ai_chat()'s fallback chain hides single
+# deaths, which is right, but the LAST death was invisible: the strategist
+# returned an empty body, this repo showed green, and nothing learned for
+# days. This probe (ai_probe.py, adapted from llm-down, MIT) pings every
+# provider/model in the live chains directly from the runner:
+#   - Hostinger load: ZERO. The probe never talks to genzhype.com.
+#   - red X = default chain fully dead OR the director brain dead; GitHub
+#     emails the owner on scheduled-run failures, so silence is impossible.
+# Keys live in repo secrets (AI_PROBE_*), never in this public repo.
+# Manual trigger: workflow_dispatch, or edit any line of ai_probe.py.
+
+on:
+  schedule:
+    - cron: '47 */6 * * *'   # every 6h, off the :17/:30/:41 grid of the others
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'ai_probe.py'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ai-health
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Probe every AI provider/model in the brain's chains
+        env:
+          AI_PROBE_GEMINI: ${{ secrets.AI_PROBE_GEMINI }}
+          AI_PROBE_OPENROUTER: ${{ secrets.AI_PROBE_OPENROUTER }}
+          AI_PROBE_NVIDIA: ${{ secrets.AI_PROBE_NVIDIA }}
+          AI_PROBE_NVIDIA_DIRECTOR: ${{ secrets.AI_PROBE_NVIDIA_DIRECTOR }}
+        run: python ai_probe.py
+
+      # llm-down's result-archiving habit, kept: the JSON snapshot makes a
+      # death visible with its exact HTTP codes when debugging the rotation.
+      - name: Archive health snapshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-health-${{ github.run_id }}
+          path: ai-health.json
+          retention-days: 30
