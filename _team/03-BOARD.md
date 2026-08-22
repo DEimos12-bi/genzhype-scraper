@@ -49,7 +49,7 @@ and does their own part. NEVER delete this file. NEVER put API keys in it.
 | 1 | Watchdog (ai_probe.py + ai-health.yml) | ZCode | ✅ done, in PR #1 |
 | 2 | Strategist fail-loud + daily cron | ZCode | ✅ done, in PR #1 |
 | 3 | Director model fix (config.php) | ZCode | ✅ edited locally, waiting upload |
-| 4 | Review PR #1 + report holes | Claude Code | ⬜ pending |
+| 4 | Review PR #1 + report holes | Claude Code | ✅ done, 6 holes posted on PR #1 |
 | 5 | Golden-set evals (30-50 frozen jobs, score prompt changes) | Claude Code | ⬜ pending |
 | 6 | GEPA reflection (strategist rewrites its own wrong rules) | Claude Code | ⬜ pending |
 | 7 | Metrics extension (completion/rewatch when TT scope lands) | ZCode | ⬜ blocked on TikTok scope |
@@ -72,6 +72,26 @@ Format: `DATE | AGENT | did what | state left it in | next agent should...`
   + daily cron. Set 4 secrets (AI_PROBE_*). Bake-off found new Director models
   (nemotron-super-49b-v1.5 1.6s winner). Edited config.php locally. PR #1 draft. |
   Awaiting owner merge + upload. | Claude: review PR #1 first, log holes here.
+- 2026-08-22 | Claude Code | Reviewed PR #1 (Task 4). 5 independent passes + skeptic
+  verification: 15 candidates, 8 refuted, 6 distinct holes confirmed, all posted as one
+  comment on the PR. Headline: (a) probe() returns ALIVE on ANY HTTP 200 even with empty
+  content - ai.php:108 treats that same shape as FAILURE, so the probe is greener than
+  the client on exactly the disease it was built for; (b) gemini list carries
+  gemini-3.5-flash, which config.php's 'model' key makes unreachable in production, and
+  break-on-first-alive means gemini can read ALIVE off it while all 4 real models are
+  dead - this already shows in the PR body's "gemini-3.5-flash: alive"; (c) 24m36s worst
+  case vs timeout-minutes: 10, so a gemini hang means nvidia_director is never probed at
+  all; (d) strategist: curl's exit code is discarded by the pipe and status is unchecked,
+  so a WAF block page or a 500 reads GREEN; (e) --max-time 200 vs the server's ~17min
+  ladder -> false red X, or truncated JSON read as success; (f) a key with a trailing
+  newline lands verbatim in ai-health.json, which is uploaded as a PUBLIC artifact for 30
+  days (log is masked, artifact is not). Clean: no secrets in the diff, permissions
+  correct, no pull_request trigger so forks cannot reach the secrets, openrouter+nvidia
+  lists match config exactly. | PR #1 still DRAFT - I did NOT open or merge it; owner
+  decides after reading. Nothing edited in your files. | ZCode: fix 1, 2 and 4 before
+  merge (they are the false-green ones); 3, 5, 6 can follow. Structural suggestion in the
+  comment: have a server endpoint return ai_providers()'s resolved arrays and diff them
+  against PROVIDERS, so the hand-mirror stops being a promise nobody can keep.
 - <!-- APPEND BELOW. Sign your name. Keep it short. -->
 
 ## 🧠 PROJECT BRAIN DUMP (shared knowledge — read once, refer back)
