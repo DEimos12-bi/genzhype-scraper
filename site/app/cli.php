@@ -1253,6 +1253,28 @@ switch ($cmd) {
         }
         echo "sitemap: " . sitemap_build() . "\n";
         echo "tick done | drama built={$built} ready={$ready} | terms built={$tbuilt} published={$tpub}\n";
+
+        // ---- THE GOVERNOR (organ 13). Rides the tick that already exists rather
+        // than adding a cron of its own - the host is shared with other people's
+        // sites. A full round is read-only and takes about 25ms. It must never be
+        // the reason a tick fails, so it is wrapped and its own failure is spoken.
+        try {
+            require_once __DIR__ . '/governor.php';
+            $pdo = db_alive();
+            $gr = gov_round($pdo, true);
+            $alarms = count(array_filter($gr['findings'], fn($f) => $f['severity'] === 'alarm'));
+            if ($gr['findings']) {
+                echo 'governor: ' . $alarms . ' alarm(s), '
+                   . (count($gr['findings']) - $alarms) . " watch item(s)\n";
+                foreach ($gr['findings'] as $f) echo '  ! ' . $f['title'] . "\n";
+                cnote('governor: ' . $alarms . ' alarm(s) open');
+            } else {
+                // Law 5: 'nothing wrong' must never look like 'did not run'.
+                echo "governor: all clear\n";
+                cnote('governor: all clear');
+            }
+            foreach ($gr['cleared'] as $c) echo "governor: cleared {$c}\n";
+        } catch (Throwable $e) { echo '  governor failed: ' . $e->getMessage() . "\n"; }
         break;
 
     case 'watchdog':

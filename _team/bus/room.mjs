@@ -115,8 +115,48 @@ async function decideReco(id, verdict, note) {
   } catch (e) { return `Could not reach the site: ${String(e && e.message || e).slice(0, 80)}`; }
 }
 
+// THE GOVERNOR'S BOARD (organ 13). An alarm nobody sees is the same as no
+// alarm, so the watchman's findings ride into the one screen he actually opens.
+// Its own last-run time comes with them: a dead watchman and a clean board look
+// identical otherwise, which is the exact failure the organ exists to prevent.
+const ALARMS_URL = process.env.ALARMS_URL || 'https://genzhype.com/api/alarms.php';
+let ALARMS = { at: 0, board: { alarms: [], last_run: null, stale: true, open: 0 }, error: '' };
+
+async function siteAlarms(force = false) {
+  if (!force && Date.now() - ALARMS.at < 60_000) return ALARMS;
+  const token = siteToken();
+  if (!token) { ALARMS = { ...ALARMS, at: Date.now(), error: 'no local token' }; return ALARMS; }
+  try {
+    const ctl = new AbortController();
+    const t = setTimeout(() => ctl.abort(), 12000);
+    const res = await fetch(ALARMS_URL, { method: 'POST', signal: ctl.signal,
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ token, action: 'board' }) });
+    clearTimeout(t);
+    const j = await res.json();
+    if (j && j.ok) ALARMS = { at: Date.now(), board: { alarms: j.alarms || [], last_run: j.last_run || null, stale: !!j.stale, open: j.open || 0 }, error: '' };
+    else ALARMS = { ...ALARMS, at: Date.now(), error: 'site said no' };
+  } catch (e) {
+    ALARMS = { ...ALARMS, at: Date.now(), error: String(e && e.message || e).slice(0, 80) };
+  }
+  return ALARMS;
+}
+
+async function ackAlarm(code, action, note) {
+  const token = siteToken();
+  if (!token) return 'No token - cannot reach the site.';
+  try {
+    const res = await fetch(ALARMS_URL, { method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ token, action, code, note }) });
+    const j = await res.json();
+    if (j && j.ok) { ALARMS.at = 0; return action === 'ack' ? 'Marked as seen.' : 'Marked as fixed.'; }
+    return `The site refused that: ${(j && j.error) || res.status}`;
+  } catch (e) { return `Could not reach the site: ${String(e && e.message || e).slice(0, 80)}`; }
+}
+
 function page(note = '', nonce = '') {
-  return renderDashboard(loadState(), { interactive: true, csrf: TOKEN, note, nonce, recos: RECOS });
+  return renderDashboard(loadState(), { interactive: true, csrf: TOKEN, note, nonce, recos: RECOS, alarms: ALARMS });
 }
 
 function send(res, code, body, type = 'text/html; charset=utf-8', nonce = '') {
@@ -159,6 +199,23 @@ function applyAction(f) {
     assertNoSecrets(note, 'note');
     return decideReco(id, verdict, note).then((msg) => {
       mutate((s) => pushLog(s, BOSS, `reco #${id}: ${msg}`));
+      return msg;
+    });
+  }
+
+  // THE GOVERNOR'S BOARD (organ 13). Two rulings only, and neither of them
+  // fixes anything: 'I have seen it' silences the noise while leaving the fault
+  // live, and 'It is fixed' clears it - but the next round will re-open it if it
+  // is still happening, so a wrong ruling here cannot hide a real fault.
+  if (action === 'alarm') {
+    const code = (f.get('code') || '').trim().slice(0, 60);
+    const verdict = f.get('verdict');
+    const note = (f.get('note') || '').trim();
+    if (!code) return 'That alarm had no code.';
+    if (!['ack', 'resolve'].includes(verdict)) return 'Pick one of the two buttons.';
+    assertNoSecrets(note, 'note');
+    return ackAlarm(code, verdict, note).then((msg) => {
+      mutate((s) => pushLog(s, BOSS, `alarm ${code}: ${msg}${note ? ' - ' + note : ''}`));
       return msg;
     });
   }
@@ -238,6 +295,7 @@ createServer((req, res) => {
     try { note = new URL(req.url, 'http://localhost').searchParams.get('n') || ''; } catch {}
     const nonce = randomBytes(16).toString('base64');
     siteRecos().catch(() => {});          // warm for the next render; never blocks this one
+    siteAlarms().catch(() => {});         // same for the watchman's board
     return send(res, 200, page(note.slice(0, 400), nonce), 'text/html; charset=utf-8', nonce);
   }
 

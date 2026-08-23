@@ -223,7 +223,7 @@ export function pushMessage(s, from, to, re, body, asks = '') {
 export const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-export function renderDashboard(s, { interactive = false, csrf = '', note = '', nonce = '', recos = null } = {}) {
+export function renderDashboard(s, { interactive = false, csrf = '', note = '', nonce = '', recos = null, alarms = null } = {}) {
   const hidden = csrf ? `<input type="hidden" name="_t" value="${esc(csrf)}">` : '';
   const boss = s.decisions.filter(d => d.status === 'boss');
   const open = s.decisions.filter(d => d.status === 'open');
@@ -348,6 +348,18 @@ export function renderDashboard(s, { interactive = false, csrf = '', note = '', 
   .poke .quiet{color:var(--dim);font-weight:400}
   .poke code{font-size:12px}
   .poke button{white-space:nowrap}
+  .alarm{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--warn);
+         border-radius:0 8px 8px 0;padding:13px 16px;margin-bottom:8px}
+  .alarm.watch{border-left-color:var(--dim)}
+  .alarm .t{font-weight:600;font-size:15px;margin-bottom:5px}
+  .alarm .d{font-size:14px;color:var(--fg);line-height:1.55;margin-bottom:5px}
+  .alarm .ev{font:12px var(--mono);color:var(--dim);word-break:break-word}
+  .alarm form{display:flex;gap:7px;margin-top:10px;flex-wrap:wrap;align-items:center}
+  .alarm input[type=text]{flex:1;min-width:170px}
+  .allclear{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--ok,#3fb950);
+            border-radius:0 8px 8px 0;padding:13px 16px;margin-bottom:10px;font-size:14px}
+  .watchman{font:12px var(--mono);color:var(--dim);margin:-4px 0 10px}
+  .watchman.stale{color:var(--warn)}
   .reco{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--accent);
         border-radius:0 8px 8px 0;padding:14px 16px;margin-bottom:10px}
   .reco .kind{font:500 11px var(--mono);letter-spacing:.09em;text-transform:uppercase;
@@ -390,6 +402,35 @@ export function renderDashboard(s, { interactive = false, csrf = '', note = '', 
       <div class="meta" style="margin:0;padding:0;border:0">You have ${bossUnread.length}
       message(s) the agents have not picked up yet — they will see them on their next turn.</div>
     </div>` : ''}
+
+  ${interactive && alarms ? (() => {
+      const b = alarms.board || {};
+      const list = b.alarms || [];
+      // Law 4: the watchman's own liveness ships with its findings. A dead
+      // watchman and a clean board must never look the same.
+      const ran = b.last_run
+        ? `the machine last checked itself at ${esc(b.last_run)} UTC`
+        : 'the machine has never checked itself';
+      const stale = b.stale || !b.last_run;
+      const head = `<div class=\"watchman${stale ? ' stale' : ''}\">${esc(ran)}${stale ? ' - that is old, the watchman itself may be down' : ''}</div>`;
+      if (alarms.error) return `<h2>What is broken</h2>${head}<div class=\"empty\">Could not reach the site: ${esc(alarms.error)}</div>`;
+      // Law 5: 'nothing wrong' must not look like 'did not run'.
+      if (!list.length) return `<h2>What is broken</h2>${head}<div class=\"allclear\">Nothing is broken. Every check ran and found nothing.</div>`;
+      const alarmCount = list.filter(a => a.severity === 'alarm').length;
+      return `<h2>What is broken (${alarmCount})</h2>${head}` + list.map(a => `<div class=\"alarm ${a.severity === 'alarm' ? '' : 'watch'}\">
+          <div class=\"t\">${esc(a.title)}</div>
+          ${a.detail ? `<div class=\"d\">${esc(a.detail)}</div>` : ''}
+          ${a.evidence ? `<div class=\"ev\">${esc(a.evidence)}</div>` : ''}
+          <form method=\"POST\" action=\"/\">
+            <input type=\"hidden\" name=\"csrf\" value=\"${esc(csrf)}\">
+            <input type=\"hidden\" name=\"action\" value=\"alarm\">
+            <input type=\"hidden\" name=\"code\" value=\"${esc(a.code)}\">
+            <input type=\"text\" name=\"note\" placeholder=\"a note, if you want one\">
+            <button type=\"submit\" name=\"verdict\" value=\"ack\">I have seen it</button>
+            <button type=\"submit\" name=\"verdict\" value=\"resolve\">It is fixed</button>
+          </form>
+        </div>`).join('');
+    })() : ''}
 
   ${interactive && recos ? (() => {
       const list = recos.list || [];
