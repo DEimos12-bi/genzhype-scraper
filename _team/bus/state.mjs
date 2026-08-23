@@ -356,6 +356,13 @@ export function renderDashboard(s, { interactive = false, csrf = '', note = '', 
   .reco .w{font-size:14px;color:var(--fg);margin-bottom:6px;line-height:1.55}
   .reco .ev{font-size:13px;color:var(--dim);margin-bottom:4px}
   .reco .rk{font-size:13px;color:var(--warn)}
+  .proof{margin-top:9px;padding:9px 12px;border-radius:6px;font-size:13.5px;line-height:1.5}
+  .proof b{font-family:var(--mono);font-size:11px;letter-spacing:.09em;text-transform:uppercase}
+  .proof.no{background:var(--warnbg);color:var(--fg);border:1px solid var(--warn)}
+  .proof.no b{color:var(--accent)}
+  .proof.yes{background:var(--card);border:1px solid var(--ok)}
+  .proof.yes b{color:var(--ok)}
+  .proof.meh{background:var(--card);border:1px dashed var(--line);color:var(--dim)}
   .reco form{display:flex;gap:7px;margin-top:11px;flex-wrap:wrap;align-items:center}
   .reco input[type=text]{flex:1;min-width:180px}
   .vrow{display:flex;gap:8px;flex-wrap:wrap;margin:4px 0}
@@ -397,6 +404,16 @@ export function renderDashboard(s, { interactive = false, csrf = '', note = '', 
             ${r.evidence ? `<div class="ev">Evidence: ${esc(r.evidence)}</div>` : ''}
             ${r.record_ids ? `<div class="ev">From videos: ${esc(r.record_ids)}</div>` : ''}
             ${r.risk ? `<div class="rk">Risk: ${esc(r.risk)}</div>` : ''}
+            ${r.proof ? (() => {
+                const v = String(r.proof.verdict || 'UNTESTED');
+                const cls = v === 'CONTRADICTED' ? 'no' : (v === 'SUPPORTED' ? 'yes' : 'meh');
+                const head = v === 'CONTRADICTED' ? 'Your own videos say NO'
+                           : v === 'SUPPORTED' ? 'Your own videos back this'
+                           : 'Cannot be tested yet';
+                return `<div class="proof ${cls}"><b>${esc(head)}</b>` +
+                       (r.proof.tested_on ? ` &middot; checked against ${esc(r.proof.tested_on)} posted videos` : '') +
+                       `<br>${esc(r.proof.why || '')}</div>`;
+              })() : ''}
             <form method="POST" action="/act">${hidden}
               <input type="hidden" name="action" value="reco">
               <input type="hidden" name="id" value="${esc(r.id)}">
