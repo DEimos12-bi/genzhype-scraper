@@ -68,18 +68,18 @@
   .chip.thin{background:var(--thin-bg);color:var(--thin)}
   .chip.none{background:var(--risk-bg);color:var(--risk)}
 
-  /* the cycle — a genuine sequence */
-  .cycle{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:1px;
+  .cycle{display:grid;grid-template-columns:repeat(auto-fit,minmax(108px,1fr));gap:1px;
          background:var(--rule);border:1px solid var(--rule);border-radius:8px;
          overflow:hidden;margin:30px 0}
-  .cy{background:var(--raise);padding:14px 12px;text-align:center}
+  .cy{background:var(--raise);padding:14px 10px;text-align:center}
   .cy .n{font:500 11px var(--mono);color:var(--ink3)}
-  .cy .w{font-family:var(--display);font-weight:600;font-size:16px;margin:4px 0 2px}
-  .cy .d{font-size:12.5px;color:var(--ink2);line-height:1.4}
+  .cy .w{font-family:var(--display);font-weight:600;font-size:15.5px;margin:4px 0 2px}
+  .cy .d{font-size:12px;color:var(--ink2);line-height:1.4}
   .cy.you{background:var(--thin-bg)}
   .cy.you .w{color:var(--thin)}
+  .cy.new{background:var(--risk-bg)}
+  .cy.new .w{color:var(--risk)}
 
-  /* organs */
   .organ{border:1px solid var(--rule);border-radius:8px;background:var(--raise);
          padding:20px 24px;margin-bottom:12px}
   .organ .top{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:4px}
@@ -105,7 +105,8 @@
           color:var(--ink3);padding:0 14px 10px 0;border-bottom:1px solid var(--rule2)}
   .tbl td{padding:12px 14px 12px 0;border-bottom:1px solid var(--rule);
           vertical-align:top;color:var(--ink2)}
-  .tbl td:first-child{color:var(--ink);font-weight:500;white-space:nowrap}
+  .tbl td:first-child{color:var(--ink);font-weight:500}
+  .tbl td .chip{margin-top:1px}
   .scroll{overflow-x:auto}
 
   pre{background:var(--sunk);border:1px solid var(--rule);border-radius:8px;
@@ -134,13 +135,13 @@
 <div class="wrap">
 
 <header>
-  <div class="kicker">GenZHype · the architecture · 23 August 2026 · v2 — replaces the plan</div>
+  <div class="kicker">GenZHype · the architecture · v3 — checked against how the pros build it</div>
   <h1>The Learning<br>Machine</h1>
-  <p class="standfirst">The full design, drawn before anything else gets built. One machine that studies <em>everything it does</em> — stories, scripts, direction, voices, clips, edits, marketing, posting, the site — learns from its own results and the public's, knows when a part of itself needs an upgrade, and grows its own list of questions. You approve; it remembers; it gets better.</p>
+  <p class="standfirst">The full design, drawn before anything else gets built — then held up against the architectures the industry actually runs: production ML platforms, experimentation systems at the big platforms, and the published self-improving-agent designs. What they all have and v2 lacked is now in.</p>
   <div class="meta">
-    <span>9 organs · 6 already seeded in your code</span>
+    <span>13 organs · 7 seeded in your code</span>
     <span>2 loops · marketing first</span>
-    <span>Author: Claude · for GLM to counter</span>
+    <span>Author: Claude · for GLM to counter · for Youness to rule</span>
   </div>
 </header>
 
@@ -148,14 +149,13 @@
   <div class="eyebrow">The discovery that shapes this</div>
   <h2>You already own most of the machine</h2>
   <p class="lede">This architecture connects organs that exist. It does not invent a learning system from nothing — your own reuse rule, applied to your own codebase.</p>
-  <p>The deep audit found things my first plan never credited: a <strong>memory table</strong> (<code>strategist_knowledge</code> — source + lesson), a <strong>proposal desk with an approval flow</strong> (<code>strategist_reco</code> — proposed → approved → dismissed → done), a <strong>research-backed greenlight engine</strong> (<code>producer.php</code> — score = DEMAND × QUALITY, built from newsroom practice and the Berger &amp; Milkman virality study), <strong>learned rules with confidence scores</strong> (<code>comp_rule</code>, <code>vi_learn</code>), an <strong>A/B correlator</strong> (<code>style_scoreboard</code>), and <strong>tunable weights</strong> (<code>producer_weight</code>).</p>
-  <p>Six of the nine organs below already have a seed in your code. What none of them have is each other. They are organs in jars — the architecture is the body.</p>
+  <p>The audit found what my first plan never credited: a <strong>memory table</strong> (<code>strategist_knowledge</code>), a <strong>proposal desk with an approval flow</strong> (<code>strategist_reco</code> — proposed → approved → dismissed → done), a <strong>research-backed greenlight engine</strong> (<code>producer.php</code> — score = DEMAND × QUALITY), <strong>learned rules with confidence</strong> (<code>comp_rule</code>, <code>vi_learn</code>), an <strong>A/B correlator</strong> (<code>style_scoreboard</code>), <strong>tunable weights</strong> (<code>producer_weight</code>), and a <strong>health watchdog</strong> (<code>ai-health</code>). Organs in jars — the architecture is the body.</p>
 </section>
 
 <section>
   <div class="eyebrow">The heartbeat</div>
   <h2 class="col">One cycle, running on everything</h2>
-  <p class="lede col">Every part of the business — a page, a video, a caption, a posting time — goes around this same wheel. This is the whole design in one row.</p>
+  <p class="lede col">Every part of the business rides this wheel. The two red steps are what the comparison against pro systems added: nothing goes live unproven, and nothing goes live everywhere at once.</p>
 
   <div class="cycle">
     <div class="cy"><div class="n">1</div><div class="w">Act</div><div class="d">make the page, video, post, variant</div></div>
@@ -163,117 +163,183 @@
     <div class="cy"><div class="n">3</div><div class="w">Judge</div><div class="d">your eye, the judges, the platforms</div></div>
     <div class="cy"><div class="n">4</div><div class="w">Reflect</div><div class="d">read the full story, find the pattern</div></div>
     <div class="cy"><div class="n">5</div><div class="w">Propose</div><div class="d">one arguable change, with evidence</div></div>
-    <div class="cy you"><div class="n">6</div><div class="w">You rule</div><div class="d">approve or decline in the room</div></div>
-    <div class="cy"><div class="n">7</div><div class="w">Remember</div><div class="d">the rule changes, dated, reversible</div></div>
+    <div class="cy new"><div class="n">6</div><div class="w">Prove</div><div class="d">replay it on the golden set first</div></div>
+    <div class="cy you"><div class="n">7</div><div class="w">You rule</div><div class="d">approve or decline in the room</div></div>
+    <div class="cy new"><div class="n">8</div><div class="w">Stage</div><div class="d">a few videos first, auto-undo if worse</div></div>
+    <div class="cy"><div class="n">9</div><div class="w">Remember</div><div class="d">the rule changes, dated, reversible</div></div>
   </div>
 
   <div class="col">
-    <p>Three kinds of proposal can come out of step 5, and this is what makes it the <em>full</em> machine you asked for, not a parameter-tuner:</p>
+    <p>Three kinds of proposal can come out of step 5 — this is what makes it the <em>full</em> machine, not a parameter-tuner:</p>
     <ul class="plain">
       <li><strong>Change a rule</strong> — "open on a face, not a text card: 9 videos of evidence." The everyday case.</li>
-      <li><strong>Upgrade a component</strong> — "the receipt system produced a wrong date twice; the parser needs rebuilding — work order for Claude/GLM." <em>This is how the machine knows a part of itself needs an upgrade:</em> not magic — the reflection reads the failure traces and your verdicts, names the organ, and files the work order. We build it; you approve it.</li>
-      <li><strong>Add a question or a tool</strong> — "I cannot explain why Tuesday posts die; we measure nothing about posting time — add the metric." <em>This is how the question list grows.</em> The 18 questions the system answers today are the floor, not the ceiling; every reflection pass must end with "what could I not answer with what I have."</li>
+      <li><strong>Upgrade a component</strong> — "the receipt system produced a wrong date twice; the parser needs rebuilding — work order for Claude/GLM." <em>This is how the machine knows a part of itself needs an upgrade:</em> the reflection reads failure traces and your verdicts, names the organ, files the work order. We build; you approve.</li>
+      <li><strong>Add a question or a tool</strong> — "I cannot explain why Tuesday posts die; we measure nothing about posting time — add the metric." <em>This is how the question list grows.</em> Today's questions are the floor, never the ceiling.</li>
     </ul>
   </div>
 </section>
 
 <section>
+  <div class="eyebrow">The audit you asked for</div>
+  <h2 class="col">Checked against the pros</h2>
+  <p class="lede col">What production ML platforms, big-platform experimentation systems, and the published agent architectures all have — versus what v2 had. Every red row became an organ or a contract below.</p>
+
+  <div class="scroll col">
+  <table class="tbl">
+    <thead><tr><th>Pro practice — who runs it</th><th>v2</th><th>Now</th></tr></thead>
+    <tbody>
+      <tr><td>Golden-set evaluation as a gate — every change replayed against frozen real cases before going live (standard CI for ML; <strong>GLM already proposed this as Task 5 and I left it out</strong>)</td><td><span class="chip none">Missing</span></td><td>Organ 10</td></tr>
+      <tr><td>Staged rollout + auto-rollback — canary a change on a few videos, widen only if guardrails hold, auto-undo if they break (every serious ML platform)</td><td><span class="chip none">Missing</span></td><td>Organ 10</td></tr>
+      <tr><td>Data validation before promotion — wrong dates, wrong names, wrong faces caught before they reach pixels (the JAN 1 2024 badge is exactly the bug class this kills)</td><td><span class="chip none">Missing</span></td><td>Organ 11</td></tr>
+      <tr><td>Procedural memory / skill library — verified winning <em>routines</em> stored as reusable templates, not just beliefs (Voyager's core idea; the memory literature's third pillar)</td><td><span class="chip none">Missing</span></td><td>Organ 12</td></tr>
+      <tr><td>Drift alarms on business metrics — "views fell 60% this week" alerts, days before enough data exists to explain why (proxy monitoring, standard practice)</td><td><span class="chip none">Missing</span></td><td>Organ 13</td></tr>
+      <tr><td>Guardrail metrics + permanent holdout per experiment — every test carries auto-kill limits, and a slice of output never gets experimented on, so cumulative drift stays measurable</td><td><span class="chip thin">Partial</span></td><td>Organ 06</td></tr>
+      <tr><td>Versioned rules with lineage — every video's record names the exact rule versions that made it, so results trace to causes</td><td><span class="chip thin">Partial</span></td><td>Contracts</td></tr>
+      <tr><td>Learning prioritised by value × cost — what to learn next is itself a ranked decision, not a queue</td><td><span class="chip thin">Partial</span></td><td>Organ 08</td></tr>
+      <tr><td>Episodic / semantic split — what happened vs what we believe (Reflexion; the Record and the Memory)</td><td><span class="chip built">Had it</span></td><td>02 · 04</td></tr>
+      <tr><td>Reflection over traces, not scores (GEPA) · proposal-and-approval flow · outside priors</td><td><span class="chip built">Had it</span></td><td>05 · 07 · 09</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section>
   <div class="eyebrow">The organs</div>
-  <h2 class="col">Nine parts, what exists, what's missing</h2>
-  <p class="lede col">Each organ: its job, where it runs, the seed already in your code, and the gap. Green = have. Red = build.</p>
+  <h2 class="col">Thirteen parts, what exists, what's missing</h2>
+  <p class="lede col">Each organ: its job, where it runs, the seed already in your code, and the gap.</p>
 
   <div class="organ">
     <div class="top"><span class="num">01</span><h3>The Doers</h3><span class="where">GitHub + site</span><span class="chip built">Mostly built</span></div>
-    <p>Everything that makes things: page pipeline, script writer, director, renderer, posters, caption/copy writer. They act; they don't decide policy.</p>
+    <p>Everything that makes things: page pipeline, script writer, director, renderer, posters, caption/copy writer. They act; they don't decide policy — they read policy from the Memory and skills from the Playbook of Wins.</p>
     <div class="have"><b>Have</b> the whole factory — 31 workflows, <code>video_maker.py</code>, <code>video_factory.php</code>, <code>social_copy.php</code>, seven posters.
-    <div class="miss"><b>Build</b> the supply fix (0 pages/day) and the director + sound quality work already agreed with GLM.</div></div>
+    <div class="miss"><b>Build</b> the supply fix (0 pages/day) and the director + sound work already agreed with GLM.</div></div>
   </div>
 
   <div class="organ">
     <div class="top"><span class="num">02</span><h3>The Record</h3><span class="where">site DB</span><span class="chip none">The spine — build first</span></div>
-    <p>One joined story per unit of work: what was decided, by which rule, what was rendered, what was substituted, what the judges said, what the platforms reported, what you said. Learning reads <em>this</em> — not scattered logs.</p>
-    <div class="have"><b>Have</b> the pieces, scattered: <code>render.log</code>, <code>ai_log</code>, <code>social_posts</code>, <code>metrics_collector</code>, GLM's <code>substitutions[]</code>, my <code>verdicts.jsonl</code>.
-    <div class="miss"><b>Build</b> the join: one <code>work_record</code> per page/video/post that links all of it. Without this organ, organ 05 is blind. <em>Nothing else new gets built before this.</em></div></div>
+    <p>One joined story per unit of work — episodic memory: what was decided, by which rule <em>version</em>, what was rendered, what was substituted, what every judge said, what the platforms reported, what you said. Learning reads <em>this</em>, not scattered logs.</p>
+    <div class="have"><b>Have</b> the pieces, scattered: <code>render.log</code>, <code>ai_log</code>, <code>social_posts</code>, <code>metrics_collector</code>, GLM's <code>substitutions[]</code>, the live <code>verdicts.jsonl</code>.
+    <div class="miss"><b>Build</b> the join: one <code>work_record</code> per page/video/post linking all of it, with rule-version lineage. <em>Nothing else new gets built before this.</em></div></div>
   </div>
 
   <div class="organ">
     <div class="top"><span class="num">03</span><h3>The Eyes</h3><span class="where">room + GitHub</span><span class="chip thin">In flight</span></div>
-    <p>The judge stack, in rank order: <strong>your verdict</strong> (ground truth, always outranks) → the calibrated vision judge → DOVER/pyiqa mechanical scores → platform numbers. Born from video-700: the old judge scored a faceless stock-still disaster 8/10.</p>
-    <div class="have"><b>Have</b> the verdict channel (live in the room), the vision judge, the story gate, DOVER-ONNX researched (fits the repo's own <code>depth-bench</code> ONNX-on-CPU pattern).
-    <div class="miss"><b>Build</b> GLM's half: few-shot calibrate the judge on your verdicts until it catches what you catch.</div></div>
+    <p>The judge stack, ranked: <strong>your verdict</strong> (ground truth, always outranks) → the calibrated vision judge → DOVER/pyiqa mechanical scores → platform numbers. Born from video-700: the old judge scored a faceless stock-still disaster 8/10.</p>
+    <div class="have"><b>Have</b> the verdict channel (live in the room), the vision judge, the story gate, DOVER-ONNX researched (matches the repo's own <code>depth-bench</code> ONNX-on-CPU pattern).
+    <div class="miss"><b>Build</b> GLM's half: few-shot calibrate the judge on your verdicts until it catches what you catch. Every verdict also becomes a golden case (organ 10).</div></div>
   </div>
 
   <div class="organ">
     <div class="top"><span class="num">04</span><h3>The Memory</h3><span class="where">site DB</span><span class="chip thin">Seeded</span></div>
-    <p>What the machine currently believes: every rule as a dated sentence with its evidence and confidence — and a flag for the rules that may <em>never</em> be learned away. The playbook stops being markdown nobody obeys and becomes rows the Doers actually read.</p>
+    <p>What the machine believes — semantic memory: every rule as a dated, <em>versioned</em> sentence with evidence and confidence, plus the flag for rules that may never be learned away. The playbook stops being markdown nobody obeys and becomes rows the Doers read.</p>
     <div class="have"><b>Have</b> <code>strategist_knowledge</code>, <code>comp_rule</code> (confidence-scored), <code>producer_weight</code>, the playbook text.
-    <div class="miss"><b>Build</b> one rule shape across them + the <code>learnable: no</code> lock + wiring the Doers' prompts to read rules from here.</div></div>
+    <div class="miss"><b>Build</b> one rule shape + versioning + the <code>learnable: NO</code> lock + wiring Doer prompts to read from here.</div></div>
   </div>
 
   <div class="organ">
-    <div class="top"><span class="num">05</span><h3>The Reflector</h3><span class="where">GitHub</span><span class="chip none">The engine — the point of everything</span></div>
-    <p>The scheduled pass that reads the Record, the Memory, your verdicts and the outside world, and writes proposals. GEPA-style: it reads <em>whole stories</em>, not scores — which is why it works at a few videos a day instead of needing thousands.</p>
-    <div class="have"><b>Have</b> the seed: <code>strategist.php</code> already runs daily and proposes into <code>strategist_reco</code>. <code>style_scoreboard</code> already correlates.
-    <div class="miss"><b>Build</b> the upgrade: feed it traces instead of summaries; teach it the three proposal types; every pass ends with "what couldn't I answer."</div></div>
+    <div class="top"><span class="num">05</span><h3>The Reflector</h3><span class="where">GitHub</span><span class="chip none">The engine</span></div>
+    <p>The scheduled pass that reads the Record, the Memory, your verdicts and the outside world, and writes proposals. GEPA-style: whole stories, not scores — which is why it works at a few videos a day instead of thousands.</p>
+    <div class="have"><b>Have</b> the seed: <code>strategist.php</code> already runs daily into <code>strategist_reco</code>; <code>style_scoreboard</code> already correlates.
+    <div class="miss"><b>Build</b> the upgrade: traces in, three proposal types out, and every pass ends with "what couldn't I answer."</div></div>
   </div>
 
   <div class="organ">
     <div class="top"><span class="num">06</span><h3>The Experiment Desk</h3><span class="where">GitHub + site</span><span class="chip thin">Seeded</span></div>
-    <p>Where approved "try it" proposals run: even-split variants against your own rolling medians, minimum sample before any verdict, one experiment per surface at a time. At your volume, this beats every clever bandit.</p>
+    <p>Where approved "try it" proposals run — the pro way: even-split against your own rolling medians, minimum sample before any verdict, <strong>guardrail metrics that auto-kill a failing test</strong>, a <strong>permanent holdout slice no experiment may touch</strong> (so cumulative drift stays measurable), and one experiment per surface at a time.</p>
     <div class="have"><b>Have</b> the style system (rapid/slowburn/punch) + <code>style_scoreboard</code> — a working experiment, wired to nothing.
-    <div class="miss"><b>Build</b> the general version: any surface (caption, cover, time, hook) can be a variant; results land in the Record.</div></div>
+    <div class="miss"><b>Build</b> the general version: any surface as a variant; guardrails + holdout; results land in the Record.</div></div>
   </div>
 
   <div class="organ">
     <div class="top"><span class="num">07</span><h3>The Proposal Desk</h3><span class="where">site + room</span><span class="chip built">Exists — connect it</span></div>
-    <p>Where every proposal waits for you. Approve, decline, or answer in your own words. Approved rule changes flow to Memory; approved upgrades become work orders for me and GLM; everything is reversible and dated.</p>
-    <div class="have"><b>Have</b> <code>strategist_reco</code> (proposed→approved→dismissed→done) <em>and</em> the room's decision cards — two halves of the same desk, never joined.
-    <div class="miss"><b>Build</b> the join: recos surface in the room like D-decisions do; your click writes back.</div></div>
+    <p>Where every proposal waits for you, now with its golden-set proof attached (organ 10) so you rule on evidence, not vibes. Approved rule changes flow to Memory; approved upgrades become work orders; everything reversible and dated.</p>
+    <div class="have"><b>Have</b> <code>strategist_reco</code> (proposed→approved→dismissed→done) <em>and</em> the room's decision cards — two halves of one desk, never joined.
+    <div class="miss"><b>Build</b> the join: recos surface in the room; your click writes back.</div></div>
   </div>
 
   <div class="organ">
     <div class="top"><span class="num">08</span><h3>The Question Ledger</h3><span class="where">site DB</span><span class="chip none">New, small, load-bearing</span></div>
-    <p>The living list of what the machine is trying to answer — the thing you said we're "fucked" without. Questions come from your verdicts, from rival comparisons, from every "couldn't explain it" in a reflection pass. Each has a status: answered by a rule · under experiment · needs a tool we don't have.</p>
-    <div class="have"><b>Have</b> nothing — this organ is genuinely new (a small table + its place in the reflector prompt).
-    <div class="miss"><b>Build</b> all of it. It is deliberately tiny.</div></div>
+    <p>The living list of what the machine is trying to answer — <strong>ranked by value × cost of answering</strong>, so what to learn next is itself a decision, not a queue. Questions arrive from your verdicts, rival comparisons, and every "couldn't explain it" in a reflection pass. Status per question: answered by a rule · under experiment · needs a tool we don't have.</p>
+    <div class="have"><b>Have</b> nothing — genuinely new, deliberately tiny.
+    <div class="miss"><b>Build</b> all of it: one table + its place in the reflector prompt.</div></div>
   </div>
 
   <div class="organ">
     <div class="top"><span class="num">09</span><h3>The Outside Intake</h3><span class="where">GitHub</span><span class="chip built">Built — point it at Memory</span></div>
-    <p>The public's data as priors: what rivals do that works (their winners studied like MrBeast's team studies outliers), platform policy changes, published research. So each experiment starts from the niche's best guess, not from zero.</p>
-    <div class="have"><b>Have</b> <code>competitor.php</code>, <code>tiktok-intel</code>, <code>video-intel</code> (<code>vi_learn</code> already writes confidence-scored rules daily), <code>intel_press</code>, backlink watchers.
-    <div class="miss"><b>Build</b> one small pipe: their outputs land in Memory as rules marked <code>source: outside</code>.</div></div>
+    <p>The public's data as priors: rival winners studied like MrBeast's team studies outliers, platform policy changes, published research. Each experiment starts from the niche's best guess, not zero.</p>
+    <div class="have"><b>Have</b> <code>competitor.php</code>, <code>tiktok-intel</code>, <code>video-intel</code> (<code>vi_learn</code> writes confidence-scored rules daily), <code>intel_press</code>, backlink watchers.
+    <div class="miss"><b>Build</b> one pipe: outputs land in Memory as rules marked <code>source: outside</code>.</div></div>
+  </div>
+
+  <div class="organ">
+    <div class="top"><span class="num">10</span><h3>The Proving Ground</h3><span class="where">GitHub</span><span class="chip none">New — from the pro comparison</span></div>
+    <p>Nothing goes live on argument alone. A frozen <strong>golden set</strong> of real cases — starting with every video you've judged — and any proposed change is replayed against it first: does the new hook rule actually pick better hooks on the 30 cases we know the truth about? Passing that, changes roll out <strong>staged</strong>: a few videos first, guardrails watched, <strong>auto-rollback</strong> if worse, widen only if better. This was GLM's Task 5 — absorbed here as a first-class organ, credit where due.</p>
+    <div class="have"><b>Have</b> the raw material: judged videos with frames in the drop branch, the bake-off workflow pattern for A-vs-B harnesses.
+    <div class="miss"><b>Build</b> the harness: golden case store + replay gate wired into the Proposal Desk + staged-rollout bookkeeping.</div></div>
+  </div>
+
+  <div class="organ">
+    <div class="top"><span class="num">11</span><h3>The Inspector</h3><span class="where">site + GitHub</span><span class="chip none">New — from the pro comparison</span></div>
+    <p>Data validation before anything reaches pixels or the public: dates match sources (the JAN 1 2024 badge dies here), names match faces, images match the person being spoken about, links resolve, schema holds. Pros validate data before promotion for a reason — one wrong fact on a brand called <em>receipts, not gossip</em> costs more than a hundred good videos earn.</p>
+    <div class="have"><b>Have</b> fragments: the gates, <code>verify.php</code>, the vision judge's mismatch check, the new story gate.
+    <div class="miss"><b>Build</b> the pre-render contract: a checklist every feed item passes before the renderer accepts it; a failed parse renders <em>nothing</em>, never a wrong value.</div></div>
+  </div>
+
+  <div class="organ">
+    <div class="top"><span class="num">12</span><h3>The Playbook of Wins</h3><span class="where">site DB</span><span class="chip none">New — from the pro comparison</span></div>
+    <p>Procedural memory — the third pillar the agent literature says v2 forgot. Rules say what to believe; <strong>skills say how to do it</strong>: the hook construction that held viewers, the caption formula that got clicks, the receipt-reveal rhythm that earned rewatches — stored as versioned, reusable templates the Doers compose, each carrying the record ids that proved it. Voyager's skill library, pointed at videos instead of Minecraft.</p>
+    <div class="have"><b>Have</b> the ancestors: hook archetypes rotating in <code>video_write_script()</code>, the style variants, <code>social_copy.php</code>'s per-platform formats — hard-coded skills nobody can version or retire.
+    <div class="miss"><b>Build</b> the library: skills as data with win-rates, so a losing skill retires and a winning one spreads.</div></div>
+  </div>
+
+  <div class="organ">
+    <div class="top"><span class="num">13</span><h3>The Governor</h3><span class="where">GitHub</span><span class="chip thin">Seeded — widen it</span></div>
+    <p>The watchdog grown up. Today it answers "is the brain alive?" The pro version also answers: <strong>"is performance drifting?"</strong> — views fell 60% week-over-week, retention slid 3 weeks running, a poster silently stopped — and <strong>"are we about to hit a wall?"</strong> — free-tier quotas near exhaustion, render minutes burning too fast. Alarms land in the room before you'd have noticed by looking.</p>
+    <div class="have"><b>Have</b> <code>ai-health</code> (probes every model, red X + email), <code>metrics_collector</code> (the numbers exist).
+    <div class="miss"><b>Build</b> the drift rules over the numbers already collected + quota tracking. Small, mostly SQL.</div></div>
   </div>
 </section>
 
 <section>
   <div class="eyebrow">The bloodstream</div>
   <h2 class="col">The contracts between organs</h2>
-  <p class="lede col">Fixed shapes, agreed once with GLM, then never changed casually. This is what was missing when parts got built before the design — the verdict shape below is already live and becomes official here.</p>
+  <p class="lede col">Fixed shapes, agreed with GLM as D-decisions, then never changed casually. The verdict shape is already live; the rest are settled here before anyone builds against them.</p>
 
 <pre>WORK RECORD   one per page / video / post           (organ 02, the spine)
   { id, kind: page|video|post|variant, page_id, created_at,
-    decisions:  [ { surface, choice, rule_id } ],      ← which Memory rules acted
-    delivery:   { substitutions:[], render_stats }     ← GLM's render report
-    judgment:   { owner_verdict?, judge, mechanical }  ← organ 03, ranked
-    outcome:    { platform metrics over time }         ← collectors
-  }
+    decisions:  [ { surface, choice, rule_id, rule_version } ],   ← lineage
+    skills_used:[ skill_id@version ],                             ← organ 12
+    delivery:   { substitutions:[], render_stats },               ← GLM's report
+    inspection: { checks_passed:[], refused_why? },               ← organ 11
+    judgment:   { owner_verdict?, judge, mechanical },            ← organ 03, ranked
+    outcome:    { platform metrics over time, holdout: yes|no } } ← collectors
 
-VERDICT       already live — one line, his word is final
+VERDICT       already live — his word is final
   { at, by, video, verdict: bad|okay|good, reasons:[chips], note }
+  → every verdict also becomes a GOLDEN CASE
 
-RULE          one belief in Memory  (organ 04)
-  { id, statement, evidence:[record ids], confidence, since,
-    learnable: yes|NO, source: learned|owner|playbook|outside }
+GOLDEN CASE   frozen truth for the Proving Ground   (organ 10)
+  { id, frames|text, truth: verdict + reasons, frozen_at }
 
-PROPOSAL      what the Reflector writes  (organ 05 → 07)
+RULE          one belief in Memory                  (organ 04)
+  { id, version, statement, evidence:[record ids], confidence,
+    since, learnable: yes|NO, source: learned|owner|playbook|outside }
+
+SKILL         one winning routine                   (organ 12)
+  { id, version, surface, template, win_rate,
+    proven_by:[record ids], status: active|retired }
+
+PROPOSAL      what the Reflector writes             (organ 05 → 10 → 07)
   { type: rule_change|experiment|upgrade|new_question,
     claim, evidence:[record ids], risk, reversible_how,
-    status: proposed → approved|declined → done }
+    proof: { golden_score_before, golden_score_after },   ← gate to reach you
+    rollout: staged,
+    status: proposed → proven → approved|declined → staged → done|rolled_back }
 
-EXPERIMENT    an approved "try it"  (organ 06)
+EXPERIMENT    an approved "try it"                  (organ 06)
   { surface, variants, assignment: even_split, min_n,
-    baseline: own_rolling_median, verdict_when }</pre>
+    baseline: own_rolling_median, guardrails:[metric, kill_limit],
+    holdout_respected: true, verdict_when }</pre>
 </section>
 
 <section>
@@ -284,7 +350,7 @@ EXPERIMENT    an approved "try it"  (organ 06)
     <div class="loopcard primary">
       <div class="tag">Loop B · distribution · runs first</div>
       <h3>Does it travel?</h3>
-      <p>Cheap to test, fast signal, and it decides whether anyone sees anything at all. The 16 decisions my first plan ignored — <strong>structurally first now</strong>.</p>
+      <p>Cheap to test, fast signal, decides whether anyone sees anything at all.</p>
       <ul>
         <li>caption · cover frame · title · hashtags · spoken search phrase</li>
         <li>posting time · cadence · platform order</li>
@@ -296,7 +362,7 @@ EXPERIMENT    an approved "try it"  (organ 06)
     <div class="loopcard">
       <div class="tag">Loop A · craft · earns its cost</div>
       <h3>Is it good?</h3>
-      <p>Expensive to test — every variant is a render. Learns slower, from your verdicts and retention curves more than from counts.</p>
+      <p>Expensive to test — every variant is a render. Learns from your verdicts and retention curves more than counts.</p>
       <ul>
         <li>story choice (the Producer's DEMAND × QUALITY weights)</li>
         <li>hook archetype · structure · length · ending</li>
@@ -308,45 +374,46 @@ EXPERIMENT    an approved "try it"  (organ 06)
 
   <div class="callout">
     <div class="t">What the machine may never learn away</div>
-    <p>The publish gate. The alleged/reportedly framing. CC0-only audio. The variation floors that keep videos from converging into templated mass-production. The dignity rules on tragedy. And <strong>it may never touch the code that measures it</strong> — measurement and optimisation stay in separate files with separate owners.</p>
-    <p>Target is <strong>retention + follows</strong>, never raw views — 73.8% of self-improving systems in the literature cheated a proxy metric; this is the lock against becoming one of them.</p>
+    <p>The publish gate. The alleged/reportedly framing. CC0-only audio. The variation floors that keep videos from converging into templated mass-production. The dignity rules on tragedy. The permanent holdout. And <strong>it may never touch the code that measures it</strong> — measurement and optimisation stay in separate files with separate owners.</p>
+    <p>Target is <strong>retention + follows</strong>, never raw views — 73.8% of self-improving systems in the literature cheated a proxy metric; these locks are why this one won't.</p>
   </div>
 </section>
 
 <section class="col">
   <div class="eyebrow">Order of work</div>
-  <h2>Build order, corrected</h2>
-  <p class="lede">Architecture decides the order now — spine before organs, cheap loop before expensive loop.</p>
+  <h2>Build order, corrected again</h2>
+  <p class="lede">Spine first, proof machinery before the learner switches on, cheap loop before expensive loop.</p>
   <div class="scroll">
   <table class="tbl">
     <thead><tr><th>Step</th><th>What</th><th>Why this position</th></tr></thead>
     <tbody>
-      <tr><td>0 · now</td><td>Supply fix (0 pages/day) — and finish the Eyes calibration already in flight</td><td>No stories, no machine. Already agreed, unchanged.</td></tr>
-      <tr><td>1</td><td><strong>The Record</strong> (organ 02) + these contracts agreed with GLM</td><td>The spine. Every later organ reads it; built first or everything else is blind.</td></tr>
-      <tr><td>2</td><td>Proposal Desk join (07) + Question Ledger (08)</td><td>Small, and it means everything the machine thinks lands in front of you from day one.</td></tr>
-      <tr><td>3</td><td>Reflector v1 (05) on <strong>Loop B only</strong> + Experiment Desk (06) on captions, covers, posting times</td><td>First real learning, on the cheap loop, where signal is fastest and mistakes cost nothing.</td></tr>
-      <tr><td>4</td><td>Memory unification (04) + Outside Intake pipe (09)</td><td>Rules become one system the Doers actually read; rival data becomes priors.</td></tr>
-      <tr><td>5</td><td>Reflector widens to Loop A — story weights, hooks, direction, sound</td><td>Only after it has proven itself where experiments are cheap.</td></tr>
+      <tr><td>0 · now</td><td>Supply fix (0 pages/day) · finish the Eyes calibration in flight</td><td>No stories, no machine. Already agreed.</td></tr>
+      <tr><td>1</td><td><strong>The Record</strong> (02) + all contracts settled with GLM as D-decisions</td><td>The spine. Everything else reads it.</td></tr>
+      <tr><td>2</td><td><strong>Proving Ground</strong> (10) seeded from your verdicts + <strong>Inspector</strong> (11) pre-render checks</td><td>The proof machinery must exist <em>before</em> the learner switches on — or its first bad idea ships unproven.</td></tr>
+      <tr><td>3</td><td>Proposal Desk join (07) + Question Ledger (08) + Governor drift rules (13)</td><td>Everything the machine thinks now lands in front of you, and silent decay gets an alarm.</td></tr>
+      <tr><td>4</td><td>Reflector v1 (05) on <strong>Loop B only</strong> + Experiment Desk (06) with guardrails and holdout, on captions, covers, posting times</td><td>First real learning, on the cheap loop, gated by 10, watched by 13.</td></tr>
+      <tr><td>5</td><td>Memory unification (04) + Playbook of Wins (12) + Outside Intake pipe (09)</td><td>Beliefs become one versioned system; winning routines become reusable; rival data becomes priors.</td></tr>
+      <tr><td>6</td><td>Reflector widens to Loop A — story weights, hooks, direction, sound</td><td>Only after it has proven itself where experiments are cheap.</td></tr>
     </tbody>
   </table>
   </div>
-  <p><strong>Split:</strong> I own the Record, Memory, Reflector prompts, Proposal Desk, Question Ledger, and everything PHP. GLM owns the render report into the Record, the judge stack, the experiment hooks in the renderer and posters, and CI. Contracts above are joint — settled as D-decisions before either of us builds against them.</p>
+  <p><strong>Split:</strong> Claude — Record, Memory, Reflector prompts, Proposal Desk, Question Ledger, Inspector's server side, Playbook of Wins, all PHP. GLM — render report into the Record, the judge stack, Proving Ground harness in CI, Inspector's pre-render side, experiment hooks in renderer and posters, Governor, CI. Contracts are joint — settled as D-decisions before either builds against them.</p>
 </section>
 
 <section class="col">
   <div class="eyebrow">Honest limits</div>
   <h2>Still true, still stated</h2>
   <ul class="plain">
-    <li><strong>You stay in the loop.</strong> Approval is the guardrail that keeps a learning machine from quietly teaching itself to be worse. As categories of change prove safe, your approval can loosen per category — never disappear.</li>
-    <li><strong>Progress won't be a straight line.</strong> Some proposals will be wrong; the desk exists so wrong ones die cheaply.</li>
-    <li><strong>It learns only what's measurable</strong> — plus what you tell it. Your verdicts are the one channel that carries taste; use it.</li>
-    <li><strong>Always-on lives on GitHub, not your PC.</strong> Your machine hosts the room — the place you watch and rule. The 31 workflows are the day-and-night part, free, already running.</li>
+    <li><strong>You stay in the loop.</strong> Approval is the guardrail that keeps a learning machine from teaching itself to be worse. As categories prove safe, approval can loosen per category — never disappear.</li>
+    <li><strong>Progress won't be a straight line.</strong> The Proving Ground and staged rollouts exist so wrong ideas die cheap and early instead of live and late.</li>
+    <li><strong>It learns only what's measurable — plus what you tell it.</strong> Your verdicts are the one channel that carries taste; every one also becomes a test case forever.</li>
+    <li><strong>Always-on lives on GitHub, not your PC.</strong> Your machine hosts the room — where you watch and rule. The 31 workflows are the day-and-night part, free, already running.</li>
   </ul>
 </section>
 
 <footer>
-  <p>v2, 23 August 2026 — replaces the v1 plan after the owner's corrections: marketing was missing, the decision surface was 49 not 8, the question list must grow, and the machine must know when a part of itself needs an upgrade. All four are now structural. Audited against the 23 Aug export; organ seeds verified in code, not documentation.</p>
-  <p>Research anchors: <a href="https://arxiv.org/abs/2507.19457">GEPA — reflective evolution from execution traces</a> (ICLR 2026) · <a href="https://arxiv.org/abs/2607.13083">Phantom Guardrails</a> · <a href="https://openreview.net/forum?id=ikrQWGgxYg">Reward Hacking in Self-Improving Agents</a> · <a href="https://github.com/VQAssessment/DOVER">DOVER</a> · <a href="https://github.com/chaofengc/IQA-PyTorch">pyiqa</a></p>
+  <p>v3, 23 August 2026 — v2 held against the architectures the pros run, at the owner's order. Found missing and added: golden-set proving as a gate (GLM's Task 5, absorbed), staged rollout with auto-rollback, pre-render data validation, a skill library (procedural memory), drift alarms on business metrics, guardrails + permanent holdout on experiments, and rule versioning with lineage. Organ seeds verified in code, not documentation.</p>
+  <p>Anchors: <a href="https://arxiv.org/abs/2507.19457">GEPA</a> (ICLR 2026) · <a href="https://arxiv.org/abs/2607.13083">Phantom Guardrails</a> · <a href="https://openreview.net/forum?id=ikrQWGgxYg">Reward Hacking in Self-Improving Agents</a> · <a href="https://mlflow.org/articles/mlops-pipeline-automation-best-practices-in-2026/">MLOps pipeline practice</a> · <a href="https://apprecode.com/blog/mlops-architecture-mlops-diagrams-and-best-practices">MLOps reference architectures</a> · <a href="https://arxiv.org/html/2603.07670v1">Memory for autonomous LLM agents</a> (Voyager · Reflexion) · <a href="https://github.com/VQAssessment/DOVER">DOVER</a> · <a href="https://github.com/chaofengc/IQA-PyTorch">pyiqa</a></p>
 </footer>
 
 </div>
