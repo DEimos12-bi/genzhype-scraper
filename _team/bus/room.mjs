@@ -19,6 +19,7 @@
  */
 
 import { createServer } from 'node:http';
+import { readFileSync } from 'node:fs';
 import { randomBytes } from 'node:crypto';
 import { loadState, mutate, pushLog, pushMessage, renderDashboard, appendVerdict,
          VERDICT_REASONS, assertNoSecrets, AGENTS, BOSS, STATE, now } from './state.mjs';
@@ -38,6 +39,41 @@ const isLoopbackHost = (h = '') =>
 function isLoopbackOrigin(origin) {
   try { return isLoopbackName(new URL(origin).hostname); }
   catch { return false; }                       // "null", garbage -> refuse
+}
+
+
+// THE RECORD (organ 02): every verdict also travels to the site, so the owner's
+// word lands inside the video's story next to the judge and the numbers. The
+// ingest token is read from his LOCAL app/config.php at call time - never
+// stored anywhere else, never logged. Failure is logged and the verdict stays
+// safe in verdicts.jsonl; nothing is lost.
+const SITE_CONFIG = process.env.SITE_CONFIG || 'C:/Users/hp/Downloads/app/config.php';   // forward slashes: Windows accepts them, JS strings do not eat them
+const VERDICT_URL = process.env.VERDICT_URL || 'https://genzhype.com/api/verdict_ingest.php';
+function siteToken() {
+  try {
+    const m = readFileSync(SITE_CONFIG, 'utf8').match(/'ingest_token'\s*=>\s*'([^']+)'/);
+    return m ? m[1] : '';
+  } catch { return ''; }
+}
+async function postVerdictToSite(v) {
+  const token = siteToken();
+  if (!token) return { ok: false, why: 'no ingest token readable from local config.php' };
+  try {
+    const ctl = new AbortController();
+    const t = setTimeout(() => ctl.abort(), 15000);
+    const res = await fetch(VERDICT_URL, {
+      method: 'POST', signal: ctl.signal,
+      headers: { 'content-type': 'application/json', 'user-agent': 'Mozilla/5.0 (genzhype-room)' },
+      body: JSON.stringify({ token, video: v.video, verdict: v.verdict, reasons: v.reasons, note: v.note, at: v.at }),
+    });
+    clearTimeout(t);
+    const body = await res.text();
+    let j = null; try { j = JSON.parse(body); } catch {}
+    if (res.ok && j && j.ok) return { ok: true, page_id: j.page_id, matched_by: j.matched_by };
+    return { ok: false, why: `HTTP ${res.status} ${body.slice(0, 120)}` };
+  } catch (e) {
+    return { ok: false, why: String(e && e.message || e).slice(0, 120) };
+  }
 }
 
 function page(note = '', nonce = '') {
@@ -87,7 +123,13 @@ function applyAction(f) {
     if (!['bad', 'okay', 'good'].includes(verdict)) return 'Pick Disaster, Okay or Good.';
     assertNoSecrets(video, 'video');
     assertNoSecrets(note, 'note');
-    appendVerdict({ at: now(), by: BOSS, video, verdict, reasons, note });
+    const v = { at: now(), by: BOSS, video, verdict, reasons, note };
+    appendVerdict(v);
+    postVerdictToSite(v).then((rs) => {
+      mutate((s) => pushLog(s, 'claude', rs.ok
+        ? `verdict on ${video} reached the site record (page ${rs.page_id}, matched by ${rs.matched_by})`
+        : `verdict on ${video} saved locally but did NOT reach the site: ${rs.why}`));
+    }).catch(() => {});
     mutate((s) => {
       const summary = `OWNER VERDICT on ${video}: ${verdict.toUpperCase()}` +
         (reasons.length ? ` — ${reasons.join(', ')}` : '') + (note ? ` — "${note}"` : '');
