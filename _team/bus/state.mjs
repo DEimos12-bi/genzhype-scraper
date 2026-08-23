@@ -8,7 +8,7 @@
  * Three participants: youness (the boss), claude, glm.
  */
 
-import { readFileSync, writeFileSync, renameSync, existsSync, mkdirSync,
+import { readFileSync, writeFileSync, renameSync, existsSync, mkdirSync, appendFileSync,
          openSync, closeSync, unlinkSync, statSync, writeSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -22,6 +22,36 @@ export const TEAM_ROOT = resolve(process.env.TEAM_ROOT || join(HERE, '..', 'live
 export const STATE     = join(TEAM_ROOT, 'state.json');
 export const LOCK      = join(TEAM_ROOT, '.lock');
 export const DASHBOARD = join(TEAM_ROOT, 'dashboard.html');
+export const VERDICTS  = join(TEAM_ROOT, 'verdicts.jsonl');
+
+// THE EYES — the owner's verdicts are the only honest quality signal we have
+// (the vision judge scored a faceless stock-still video 8/10). Each verdict is
+// one JSONL line; the judge gets calibrated against these until it catches
+// what he catches.
+export const VERDICT_REASONS = [
+  ['hook',     'Hook / first second'],
+  ['story',    'Wrong story choice'],
+  ['faces',    'No real faces'],
+  ['visuals',  'Bad or repeated visuals'],
+  ['captions', 'Captions'],
+  ['voice',    'Voice'],
+  ['pacing',   'Pacing / boring'],
+  ['sound',    'Sound / music'],
+  ['facts',    'Wrong facts or dates'],
+  ['other',    'Something else'],
+];
+
+export function appendVerdict(v) {
+  mkdirSync(dirname(VERDICTS), { recursive: true });
+  appendFileSync(VERDICTS, JSON.stringify(v) + '\n', 'utf8');
+}
+
+export function readVerdicts(n = 3) {
+  try {
+    const lines = readFileSync(VERDICTS, 'utf8').trim().split('\n');
+    return lines.slice(-n).map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
+  } catch { return []; }
+}
 
 export const AGENTS = ['claude', 'glm'];
 export const BOSS   = 'youness';
@@ -316,6 +346,13 @@ export function renderDashboard(s, { interactive = false, csrf = '', note = '', 
   .poke .quiet{color:var(--dim);font-weight:400}
   .poke code{font-size:12px}
   .poke button{white-space:nowrap}
+  .vrow{display:flex;gap:8px;flex-wrap:wrap;margin:4px 0}
+  .vrow label{display:inline-flex;gap:6px;align-items:center;font-size:13px;
+    border:1px solid var(--line);padding:5px 11px;border-radius:6px;cursor:pointer;
+    color:var(--fg)}
+  .vrow label:hover{border-color:var(--dim)}
+  .vpast{font-size:13px;color:var(--dim);margin-top:10px}
+  .vpast b{color:var(--accent)}
   .foot{margin-top:36px;padding-top:14px;border-top:1px solid var(--line);
         color:var(--dim);font-size:12px;line-height:1.6}
 </style></head><body><div class="wrap">
@@ -346,6 +383,27 @@ export function renderDashboard(s, { interactive = false, csrf = '', note = '', 
     <button type="submit" name="to" value="glm">Send to GLM</button>
     <button type="submit" name="to" value="both">Send to both</button>
   </form></div>` : ''}
+
+  ${interactive ? `<h2>Judge a video</h2>
+  <div class="say"><form method="POST" action="/act">${hidden}
+    <input type="hidden" name="action" value="verdict">
+    <input type="text" name="video" placeholder="which video — the number (700) or the TikTok link" required>
+    <div class="vrow">
+      <label><input type="radio" name="verdict" value="bad" required> Disaster</label>
+      <label><input type="radio" name="verdict" value="okay"> Okay</label>
+      <label><input type="radio" name="verdict" value="good"> Good</label>
+    </div>
+    <div class="vrow">
+      ${VERDICT_REASONS.map(([k, label]) =>
+        `<label><input type="checkbox" name="reasons" value="${k}"> ${esc(label)}</label>`).join('')}
+    </div>
+    <input type="text" name="note" placeholder="why — your own words (optional but gold)">
+    <button type="submit">Record verdict</button>
+  </form>
+  ${(() => { const vs = readVerdicts(3); return vs.length ?
+     `<div class="vpast">${vs.map(v =>
+        `<div><b>${esc(v.video)}</b> — ${esc(v.verdict)}${v.reasons?.length ? ' · ' + esc(v.reasons.join(', ')) : ''}${v.note ? ' · “' + esc(v.note) + '”' : ''}</div>`).join('')}</div>` : ''; })()}
+  </div>` : ''}
 
   <h2>Open between the two of them (${open.length})</h2>
   ${open.length ? open.map(d => `<div class="row">

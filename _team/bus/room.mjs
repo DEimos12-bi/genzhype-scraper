@@ -20,8 +20,8 @@
 
 import { createServer } from 'node:http';
 import { randomBytes } from 'node:crypto';
-import { loadState, mutate, pushLog, pushMessage, renderDashboard,
-         assertNoSecrets, AGENTS, BOSS, STATE, now } from './state.mjs';
+import { loadState, mutate, pushLog, pushMessage, renderDashboard, appendVerdict,
+         VERDICT_REASONS, assertNoSecrets, AGENTS, BOSS, STATE, now } from './state.mjs';
 
 const PORT  = Number(process.env.TEAM_PORT || 7777);
 const TOKEN = randomBytes(18).toString('hex');   // new every run
@@ -75,6 +75,30 @@ function applyAction(f) {
       pushLog(s, BOSS, `told ${to === 'both' ? 'both' : to}: ${text.slice(0, 120)}`);
     });
     return `Sent to ${to === 'both' ? 'Claude and GLM' : to}. They will see it on their next turn.`;
+  }
+
+  if (action === 'verdict') {
+    const video   = (f.get('video') || '').trim().slice(0, 120);
+    const verdict = f.get('verdict');
+    const note    = (f.get('note') || '').trim().slice(0, 500);
+    const valid   = new Set(VERDICT_REASONS.map(([k]) => k));
+    const reasons = f.getAll('reasons').filter(x => valid.has(x));
+    if (!video) return 'Say which video — the number (700) or the link.';
+    if (!['bad', 'okay', 'good'].includes(verdict)) return 'Pick Disaster, Okay or Good.';
+    assertNoSecrets(video, 'video');
+    assertNoSecrets(note, 'note');
+    appendVerdict({ at: now(), by: BOSS, video, verdict, reasons, note });
+    mutate((s) => {
+      const summary = `OWNER VERDICT on ${video}: ${verdict.toUpperCase()}` +
+        (reasons.length ? ` — ${reasons.join(', ')}` : '') + (note ? ` — "${note}"` : '');
+      for (const t of AGENTS) {
+        pushMessage(s, BOSS, t, `Verdict: ${video} = ${verdict}`,
+          summary + '\n\nThis is ground truth. It outranks the vision judge. ' +
+          'Trace WHY, and calibrate against it.');
+      }
+      pushLog(s, BOSS, summary.slice(0, 170));
+    });
+    return `Recorded — "${verdict}" on ${video}. Both agents get it on their next turn.`;
   }
 
   if (action === 'decide') {
