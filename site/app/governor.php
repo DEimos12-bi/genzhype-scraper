@@ -415,12 +415,14 @@ function gov_check_reward_hack(PDO $pdo): array {
  */
 function gov_check_quality_drift(PDO $pdo): array {
     $win = function (int $from, int $to) use ($pdo): array {
-        $q = $pdo->prepare("SELECT AVG(passed)*100 pass, COUNT(*) n FROM ai_reviews
+        $q = $pdo->prepare("SELECT AVG(passed)*100 pass, COUNT(*) n, COUNT(DISTINCT page_id) pages
+                            FROM ai_reviews
                             WHERE stage='quality' AND created_at >= UTC_TIMESTAMP() - INTERVAL ? DAY
                               AND created_at < UTC_TIMESTAMP() - INTERVAL ? DAY");
         $q->execute([$from, $to]);
-        $a = $q->fetch(PDO::FETCH_ASSOC) ?: ['pass' => null, 'n' => 0];
-        return ['pass' => $a['pass'] === null ? null : (float)$a['pass'], 'n' => (int)$a['n']];
+        $a = $q->fetch(PDO::FETCH_ASSOC) ?: ['pass' => null, 'n' => 0, 'pages' => 0];
+        return ['pass' => $a['pass'] === null ? null : (float)$a['pass'],
+                'n' => (int)$a['n'], 'pages' => (int)$a['pages']];
     };
     $recent = $win(14, 0);
     $before = $win(28, 14);
@@ -429,17 +431,38 @@ function gov_check_quality_drift(PDO $pdo): array {
     $move = $recent['pass'] - $before['pass'];
     if (abs($move) < 15.0) return [];
 
-    $ev = 'quality pass rate ' . round($before['pass']) . '% (' . $before['n'] . ' reviews) -> '
-        . round($recent['pass']) . '% (' . $recent['n'] . ' reviews), '
-        . ($move > 0 ? '+' : '') . round($move, 1) . 'pp';
+    /* IS IT THE WORK, OR IS IT THE SAMPLE? The first live run reported a 48-point
+     * collapse (76% -> 28%) that read as the machine falling apart. It was not.
+     * The earlier window covered 102 distinct pages; the later one covered 34, and
+     * eight stuck pages accounted for half its reviews — the same held drafts
+     * being re-judged every hour and failing every time. Same judge, same model,
+     * different pool. Acting on the headline would have meant rewriting the
+     * writers to fix a queue. So the size of the pool is now stated alongside the
+     * number, and a shrunken pool downgrades the finding to a watch: a
+     * comparison that is not like-for-like must not be reported as if it were. */
+    $poolShrank = $before['pages'] > 0 && $recent['pages'] < $before['pages'] * 0.6;
+
+    $ev = 'quality pass rate ' . round($before['pass']) . '% (' . $before['n'] . ' reviews over '
+        . $before['pages'] . ' pages) -> ' . round($recent['pass']) . '% (' . $recent['n']
+        . ' reviews over ' . $recent['pages'] . ' pages), ' . ($move > 0 ? '+' : '') . round($move, 1) . 'pp';
 
     if ($move < 0) {
+        if ($poolShrank) {
+            return [['code' => 'quality_drift:down', 'severity' => 'watch',
+                     'title' => 'The quality score dropped, but it is not comparing like with like',
+                     'detail' => 'The pass rate is much lower than a fortnight ago — but it is being '
+                               . 'measured over far fewer pages, so the drop may be the sample rather '
+                               . 'than the writing. Check whether a small group of stuck pages is '
+                               . 'being re-judged over and over before concluding the work got worse.',
+                     'evidence' => $ev]];
+        }
         return [['code' => 'quality_drift:down', 'severity' => 'alarm',
                  'title' => 'The machine is failing its own quality check far more often',
-                 'detail' => 'Work that would have passed a fortnight ago is being rejected now. '
-                           . 'Either the writing genuinely got worse, or something upstream broke '
-                           . 'and the quality judge is the only part of the machine that has '
-                           . 'noticed. Worth finding out which before approving any new rule.',
+                 'detail' => 'Work that would have passed a fortnight ago is being rejected now, '
+                           . 'across a comparable spread of pages. Either the writing genuinely got '
+                           . 'worse, or something upstream broke and the quality judge is the only '
+                           . 'part of the machine that has noticed. Worth finding out which before '
+                           . 'approving any new rule.',
                  'evidence' => $ev]];
     }
     return [['code' => 'quality_drift:up', 'severity' => 'watch',
@@ -448,6 +471,49 @@ function gov_check_quality_drift(PDO $pdo): array {
                        . 'not acting on. It becomes a real problem only if the audience does not '
                        . 'agree — which the reward-hack check tests separately.',
              'evidence' => $ev]];
+}
+
+/**
+ * THE STUCK LOOP. Pages the machine judges again and again and never passes.
+ *
+ * Found by diagnosing the "quality collapse" above rather than by design: eight
+ * pages sat in 'review', were re-judged on almost every tick, and failed every
+ * single time — 30 of the last 65 quality reviews spent on work that had already
+ * been rejected four times. Nothing was counting the repeats, so the loop was
+ * invisible and free-looking. It is neither: every pass costs an AI call, and
+ * the stuck pages crowd fresh stories out of the measurement.
+ *
+ * This is the same failure shape as the draft retry budget (one candidate failed
+ * 29 times before a cap was added). Work that cannot succeed must stop being
+ * retried, and the machine must be the one to notice.
+ */
+function gov_check_stuck_rejudging(PDO $pdo): array {
+    $rows = $pdo->query(
+        "SELECT r.page_id, COUNT(*) times
+           FROM ai_reviews r
+          WHERE r.stage='quality' AND r.page_id IS NOT NULL
+            AND r.created_at >= UTC_TIMESTAMP() - INTERVAL 14 DAY
+          GROUP BY r.page_id
+         HAVING times >= 3 AND SUM(r.passed) = 0
+         ORDER BY times DESC LIMIT 20")->fetchAll(PDO::FETCH_ASSOC);
+    if (count($rows) < 3) return [];
+
+    $wasted = array_sum(array_column($rows, 'times'));
+    $total  = (int)$pdo->query("SELECT COUNT(*) FROM ai_reviews WHERE stage='quality'
+                                AND created_at >= UTC_TIMESTAMP() - INTERVAL 14 DAY")->fetchColumn();
+    $share  = $total > 0 ? round($wasted / $total * 100) : 0;
+    $worst  = array_slice($rows, 0, 4);
+    $ids    = implode(', ', array_map(fn($r) => 'page ' . $r['page_id'] . ' (' . $r['times'] . 'x)', $worst));
+
+    return [['code' => 'stuck_rejudging', 'severity' => 'alarm',
+             'title' => count($rows) . ' pages are being judged over and over and never pass',
+             'detail' => 'These have each been through the quality check at least three times in a '
+                       . 'fortnight and failed every time, and they are still in the queue to be '
+                       . 'judged again. That is ' . $share . '% of all recent quality checks spent on '
+                       . 'work already rejected. It costs a call every time, and it crowds fresh '
+                       . 'stories out of the numbers — which is what made the pass rate look like it '
+                       . 'had collapsed. They need repairing or retiring, not re-judging.',
+             'evidence' => $wasted . ' of ' . $total . ' recent quality checks | worst: ' . $ids]];
 }
 
 /** Work arriving faster than it is consumed. A watch, not an alarm. */
@@ -491,6 +557,7 @@ function gov_round(PDO $pdo, bool $apply = true, string $logPath = ''): array {
         'error_streak'  => fn() => gov_check_error_streak($logPath),
         'dry_lane'      => fn() => gov_check_dry_lane($pdo),
         'quality_drift' => fn() => gov_check_quality_drift($pdo),
+        'stuck_loop'    => fn() => gov_check_stuck_rejudging($pdo),
         'reward_hack'   => fn() => gov_check_reward_hack($pdo),
         'backlog'       => fn() => gov_check_backlog($pdo),
     ];
