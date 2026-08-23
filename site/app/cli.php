@@ -165,8 +165,27 @@ function velocity_drain(PDO $pdo, int &$slots, bool $dry = false): array {
     require_once __DIR__ . '/quality.php';
     $held = $pdo->query("SELECT id, type, path FROM pages WHERE status='review' AND robots='noindex' ORDER BY updated_at ASC LIMIT " . ($slots * 2))->fetchAll();
     $promoted = 0; $archived = 0; $retained = 0;
+    require_once __DIR__ . '/dedupe.php';
     foreach ($held as $h) {
         if ($slots <= 0) break;
+
+        // THE TWIN CHECK, first and free. A page retelling a story the site
+        // already has can never pass the editor's 'intent' score - correctly, since
+        // a second copy cannot answer a search better than the first. Nine such
+        // pages were being re-judged on almost every tick: 31 of 65 recent quality
+        // checks, 48% of the judging budget, spent on work that could not pass.
+        // This costs no AI call and runs before the one that does. It DESTROYS
+        // NOTHING - the page stays held; the 7-day sweep is still the only thing
+        // that archives (owner decision, 2026-08-22). It just stops paying to ask
+        // the same question every hour.
+        $twin = dup_redundant_copy($pdo, (int)$h['id']);
+        if ($twin) {
+            echo "  HELD-DUPLICATE {$h['path']}: {$twin['reason']} as /{$twin['slug']}/ - not re-judged\n";
+            if (!$dry) cnote("HELD-DUPLICATE {$h['path']} -> {$twin['slug']}");
+            $retained++;
+            continue;
+        }
+
         $okPromote = false;
         if ($h['type'] === 'term') {
             require_once __DIR__ . '/gate_quality.php';
@@ -556,6 +575,38 @@ switch ($cmd) {
 ";
         break;
 
+    // Retire held pages whose story is ALREADY LIVE on the site. Read-only
+    // unless 'apply' is passed. Only ever touches pages that are review+noindex
+    // (never public, never indexed, so nothing is lost from search) and that have
+    // a twin which is published RIGHT NOW. Prints the undo line.
+    case 'retire-dupes':
+        require_once __DIR__ . '/dedupe.php';
+        $apply = ($arg === 'apply');
+        $held = $pdo->query("SELECT id, slug FROM pages
+                             WHERE status='review' AND robots='noindex' ORDER BY id")->fetchAll();
+        $todo = [];
+        foreach ($held as $h) {
+            $t = dup_published_twin($pdo, (int)$h['id']);
+            if (!$t) continue;
+            $c = $pdo->prepare("SELECT status FROM pages WHERE id=?");
+            $c->execute([$t['id']]);
+            if ($c->fetchColumn() !== 'published') continue;   // twin must be live now
+            $todo[] = $h + ['twin' => $t];
+        }
+        echo ($apply ? "RETIRING\n" : "DRY RUN - nothing changed (add: apply)\n");
+        foreach ($todo as $x) {
+            echo "  {$x['id']}  {$x['slug']}  -> already live at /{$x['twin']['slug']}/\n";
+            if ($apply) {
+                $pdo->prepare("UPDATE pages SET status='archived' WHERE id=?")->execute([$x['id']]);
+                cnote("RETIRED-DUPLICATE {$x['slug']} -> {$x['twin']['slug']}");
+            }
+        }
+        echo "  " . count($todo) . ($apply ? " retired\n" : " would be retired\n");
+        if ($apply && $todo) {
+            echo "  UNDO: UPDATE pages SET status='review' WHERE id IN (" . implode(',', array_column($todo, 'id')) . ");\n";
+        }
+        break;
+
     case 'prove':
         require_once __DIR__ . '/proving.php';
         if ($arg && ctype_digit((string)$arg)) {
@@ -879,6 +930,26 @@ switch ($cmd) {
                     $rdArch++;
                 }
             }
+            // ONE CONSISTENT RULE FOR EVERY PAGE. The drain's own comment calls the
+            // 7-day sweep 'the only thing that may archive, and it applies one
+            // consistent rule to every page' - but the query above only ever selected
+            // status='draft'. A page that reached 'review' had NO exit at all and was
+            // re-judged forever. That gap is what let nine pages burn an AI call an
+            // hour indefinitely. Held pages now age out on the same rule, bounded so a
+            // backlog can never archive in one go.
+            try {
+                $oldHeld = $pdo->query("SELECT id, slug FROM pages
+                                         WHERE status='review' AND robots='noindex'
+                                           AND created_at < UTC_TIMESTAMP() - INTERVAL 7 DAY
+                                         ORDER BY created_at ASC LIMIT 5")->fetchAll();
+                foreach ($oldHeld as $oh) {
+                    $pdo->prepare("UPDATE pages SET status='archived' WHERE id=?")->execute([$oh['id']]);
+                    echo "  REDRAIN-ARCHIVE {$oh['slug']}: held 7 days without passing\n";
+                    cnote("REDRAIN-ARCHIVE {$oh['slug']}: held 7d");
+                    $rdArch++;
+                }
+            } catch (Throwable $e) { echo "  held-sweep failed: " . $e->getMessage() . "\n"; }
+
             if ($rdChecked) {
                 echo "  draft-redrain: checked {$rdChecked}, moved {$rdMoved} to review, archived {$rdArch}\n";
                 cnote("draft-redrain: checked {$rdChecked}, moved {$rdMoved}, archived {$rdArch}");
