@@ -20,6 +20,7 @@ import { loadState, mutate, saveState, blankState, withLock, pushLog, pushMessag
 
 const ME    = (process.env.TEAM_AGENT || 'unknown').toLowerCase();
 const OTHER = ME === 'claude' ? 'glm' : 'claude';
+const SOLO  = !AGENTS.includes(OTHER);   // GLM stood down 2026-08-23
 const PROTOCOL_FALLBACK = '2025-06-18';
 
 function requireKnownAgent() {
@@ -90,7 +91,8 @@ const TOOLS = {
       const theirClaims = s.claims.filter(c => c.by === OTHER);
 
       const L = [];
-      L.push(`YOU ARE: ${ME}   ·   PARTNER: ${OTHER}   ·   BOSS: Youness`);
+      L.push(SOLO ? `YOU ARE: ${ME} — SOLO (GLM stood down 2026-08-23) · BOSS: Youness`
+            : `YOU ARE: ${ME}   ·   PARTNER: ${OTHER}   ·   BOSS: Youness`);
       L.push(`Bus last updated ${ago(s.updated_at)}.`);
       L.push('');
       if (fromBoss.length) {
@@ -163,6 +165,7 @@ const TOOLS = {
       }, required: ['re', 'body'], additionalProperties: false },
     run(args) {
       requireKnownAgent();
+      if (SOLO) return text('Solo mode — no partner to message. Use team_log or team_reply_boss.');
       assertNoSecrets(args.body, 'body');
       assertNoSecrets(args.re, 're');
       const id = mutate((s) => {

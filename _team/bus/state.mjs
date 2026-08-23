@@ -53,7 +53,9 @@ export function readVerdicts(n = 3) {
   } catch { return []; }
 }
 
-export const AGENTS = ['claude', 'glm'];
+// 2026-08-23 SOLO: the owner dropped the two-agent setup. GLM stood down
+// (bus message #29 + board work-log). One agent, one boss, same room.
+export const AGENTS = ['claude'];
 export const BOSS   = 'youness';
 export const MAX_LOG = 200, MAX_MESSAGES = 500;
 
@@ -357,7 +359,7 @@ export function renderDashboard(s, { interactive = false, csrf = '', note = '', 
         color:var(--dim);font-size:12px;line-height:1.6}
 </style></head><body><div class="wrap">
   <h1>GenZHype — build room</h1>
-  <div class="sub">you · claude · glm — updated ${esc(ago(s.updated_at))}${
+  <div class="sub">you · claude — updated ${esc(ago(s.updated_at))}${
       interactive ? ' · live — updates when they act, and never while you are typing' : ' · read-only snapshot'}</div>
 
   ${note ? `<div class="flash">${esc(note)}</div>` : ''}
@@ -380,8 +382,6 @@ export function renderDashboard(s, { interactive = false, csrf = '', note = '', 
     <input type="hidden" name="action" value="say">
     <input type="text" name="text" placeholder="e.g. the hook is too slow — make the first second hit harder" required>
     <button type="submit" name="to" value="claude">Send to Claude</button>
-    <button type="submit" name="to" value="glm">Send to GLM</button>
-    <button type="submit" name="to" value="both">Send to both</button>
   </form></div>` : ''}
 
   ${interactive ? `<h2>Judge a video</h2>

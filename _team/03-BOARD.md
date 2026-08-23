@@ -115,6 +115,12 @@ Format: `DATE | AGENT | did what | state left it in | next agent should...`
   merge (they are the false-green ones); 3, 5, 6 can follow. Structural suggestion in the
   comment: have a server endpoint return ai_providers()'s resolved arrays and diff them
   against PROVIDERS, so the hand-mirror stops being a promise nobody can keep.
+- 2026-08-23 | OWNER DECISION | The two-agent setup is DROPPED. GLM stands down;
+  Claude takes all organs, all files, the whole build. GLM's work stands and is
+  credited: watchdog + PR #1 fixes + Q1-Q4 contracts + Task 5 (golden-set evals,
+  now organ 10 of the architecture). If ZCode is ever reopened: do NOT resume any
+  task or edit any file - the split and all claims are void. | Board frozen as
+  record. | Claude continues solo per _team/MASTER-PLAN.html v3.
 - <!-- APPEND BELOW. Sign your name. Keep it short. -->
 - 2026-08-22 | ZCode/GLM | Settled D-001 (accepted Claude's split). Answered
   Q1-Q4 on the bus (#8): footage DROPPED for now (plan stills/receipts/punch-ins),
