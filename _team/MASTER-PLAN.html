@@ -39,7 +39,7 @@
   .col{max-width:68ch}
 
   h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0}
-  h1{font-size:clamp(38px,6vw,62px);font-weight:800;line-height:1.02;letter-spacing:-.025em}
+  h1{font-size:clamp(38px,6vw,60px);font-weight:800;line-height:1.02;letter-spacing:-.025em}
   h2{font-size:clamp(25px,3.4vw,34px);font-weight:600;letter-spacing:-.018em;line-height:1.15}
   h3{font-size:19px;font-weight:600;letter-spacing:-.008em}
   p{margin:0 0 1.05em}
@@ -49,81 +49,82 @@
   code{font:400 .87em var(--mono);background:var(--sunk);padding:.12em .42em;
        border-radius:4px;border:1px solid var(--rule);word-break:break-word}
 
-  header{padding:76px 0 30px;border-bottom:2px solid var(--ink)}
+  header{padding:72px 0 30px;border-bottom:2px solid var(--ink)}
   .kicker{font:500 12px var(--mono);letter-spacing:.16em;text-transform:uppercase;
           color:var(--risk);margin-bottom:20px}
   .standfirst{font-size:20px;line-height:1.55;color:var(--ink2);margin-top:22px;max-width:60ch}
   .meta{display:flex;gap:26px;flex-wrap:wrap;margin-top:30px;
         font:400 13px var(--mono);color:var(--ink3)}
 
-  section{padding-top:62px}
+  section{padding-top:60px}
   .eyebrow{font:500 12px var(--mono);letter-spacing:.14em;text-transform:uppercase;
            color:var(--ink3);margin-bottom:12px}
-  .lede{font-size:19px;color:var(--ink2);margin:16px 0 30px;max-width:62ch}
+  .lede{font-size:19px;color:var(--ink2);margin:16px 0 28px;max-width:62ch}
 
-  /* status chips — form as well as word, so gaps read at a glance */
-  .chip{display:inline-flex;align-items:center;gap:6px;font:500 11px var(--mono);
+  .chip{display:inline-flex;align-items:center;font:500 11px var(--mono);
         letter-spacing:.07em;text-transform:uppercase;padding:3px 9px;border-radius:3px;
         white-space:nowrap}
   .chip.built{background:var(--built-bg);color:var(--built)}
   .chip.thin{background:var(--thin-bg);color:var(--thin)}
   .chip.none{background:var(--risk-bg);color:var(--risk)}
 
-  /* the loop — genuinely a sequence, so it is numbered */
-  .loop{display:flex;flex-direction:column;gap:1px;background:var(--rule);
-        border:1px solid var(--rule);border-radius:8px;overflow:hidden;margin:34px 0}
-  .stage{display:grid;grid-template-columns:56px 1fr auto;gap:18px;align-items:start;
-         background:var(--raise);padding:17px 20px}
-  .stage .n{font:500 13px var(--mono);color:var(--ink3);padding-top:3px;
-            font-variant-numeric:tabular-nums}
-  .stage .what{font-weight:600;font-size:16px;margin-bottom:3px}
-  .stage .who{font:400 13px var(--mono);color:var(--ink3);margin-top:5px}
-  .stage p{font-size:15px;color:var(--ink2);margin:0}
-  .stage.gap{background:var(--risk-bg)}
-  .stage.gap .what{color:var(--risk)}
-  @media(max-width:640px){.stage{grid-template-columns:36px 1fr;gap:12px}
-    .stage .chip{grid-column:2}}
+  /* the cycle — a genuine sequence */
+  .cycle{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:1px;
+         background:var(--rule);border:1px solid var(--rule);border-radius:8px;
+         overflow:hidden;margin:30px 0}
+  .cy{background:var(--raise);padding:14px 12px;text-align:center}
+  .cy .n{font:500 11px var(--mono);color:var(--ink3)}
+  .cy .w{font-family:var(--display);font-weight:600;font-size:16px;margin:4px 0 2px}
+  .cy .d{font-size:12.5px;color:var(--ink2);line-height:1.4}
+  .cy.you{background:var(--thin-bg)}
+  .cy.you .w{color:var(--thin)}
 
-  .parts{display:grid;grid-template-columns:repeat(auto-fit,minmax(268px,1fr));gap:16px;margin:32px 0}
-  .part{background:var(--raise);border:1px solid var(--rule);border-radius:8px;padding:22px}
-  .part h3{margin-bottom:4px}
-  .part .role{font:500 11px var(--mono);letter-spacing:.1em;text-transform:uppercase;
-              color:var(--risk);margin-bottom:14px}
-  .part ul{margin:0;padding-left:18px;font-size:15px;color:var(--ink2)}
-  .part li{margin-bottom:6px}
-  .part .rule-note{margin-top:14px;padding-top:13px;border-top:1px solid var(--rule);
-                   font-size:13.5px;color:var(--ink3)}
+  /* organs */
+  .organ{border:1px solid var(--rule);border-radius:8px;background:var(--raise);
+         padding:20px 24px;margin-bottom:12px}
+  .organ .top{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:4px}
+  .organ .num{font:500 12px var(--mono);color:var(--risk);letter-spacing:.08em}
+  .organ h3{flex:1;min-width:180px}
+  .organ .where{font:400 12px var(--mono);color:var(--ink3)}
+  .organ p{font-size:15px;color:var(--ink2);margin:8px 0 0}
+  .organ .have{margin-top:12px;padding-top:11px;border-top:1px solid var(--rule);
+               font-size:13.5px;line-height:1.7}
+  .organ .have b{color:var(--built);font-weight:600;font-family:var(--mono);font-size:11px;
+                 letter-spacing:.07em;text-transform:uppercase;margin-right:6px}
+  .organ .miss b{color:var(--risk)}
+  .organ .have code{font-size:12px}
 
   .callout{border-left:3px solid var(--risk);background:var(--risk-bg);
-           padding:22px 26px;border-radius:0 8px 8px 0;margin:32px 0}
-  .callout .t{font-family:var(--display);font-weight:600;font-size:19px;
-              color:var(--risk);margin-bottom:9px}
-  .callout p{margin-bottom:.7em}.callout p:last-child{margin-bottom:0}
+           padding:20px 24px;border-radius:0 8px 8px 0;margin:30px 0}
+  .callout .t{font-family:var(--display);font-weight:600;font-size:18px;
+              color:var(--risk);margin-bottom:8px}
+  .callout p{margin-bottom:.7em;font-size:15.5px}.callout p:last-child{margin-bottom:0}
 
-  .quote{font-size:19px;line-height:1.5;color:var(--ink);border-left:2px solid var(--rule2);
-         padding-left:22px;margin:28px 0;max-width:58ch}
-  .quote cite{display:block;font:400 13px var(--mono);color:var(--ink3);
-              margin-top:11px;font-style:normal}
-
-  .tbl{width:100%;border-collapse:collapse;margin:28px 0;font-size:15px}
+  .tbl{width:100%;border-collapse:collapse;margin:24px 0;font-size:15px}
   .tbl th{text-align:left;font:500 11px var(--mono);letter-spacing:.1em;text-transform:uppercase;
           color:var(--ink3);padding:0 14px 10px 0;border-bottom:1px solid var(--rule2)}
-  .tbl td{padding:13px 14px 13px 0;border-bottom:1px solid var(--rule);
+  .tbl td{padding:12px 14px 12px 0;border-bottom:1px solid var(--rule);
           vertical-align:top;color:var(--ink2)}
   .tbl td:first-child{color:var(--ink);font-weight:500;white-space:nowrap}
   .scroll{overflow-x:auto}
 
-  .phase{border:1px solid var(--rule);border-radius:8px;background:var(--raise);
-         padding:24px 26px;margin-bottom:14px}
-  .phase .top{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:6px}
-  .phase .num{font:500 12px var(--mono);letter-spacing:.1em;color:var(--risk)}
-  .phase h3{flex:1;min-width:200px}
-  .phase .why{font-size:15px;color:var(--ink2);margin:10px 0 0}
-  .phase .ships{margin-top:15px;padding-top:14px;border-top:1px solid var(--rule);
-                font-size:14.5px;color:var(--ink2)}
-  .phase .ships b{color:var(--ink);font-weight:600}
+  pre{background:var(--sunk);border:1px solid var(--rule);border-radius:8px;
+      padding:16px 18px;overflow-x:auto;font:400 13px/1.6 var(--mono);color:var(--ink);
+      margin:18px 0}
 
-  footer{margin-top:78px;padding-top:26px;border-top:2px solid var(--ink);
+  .loops{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:16px;margin:28px 0}
+  .loopcard{background:var(--raise);border:1px solid var(--rule);border-radius:8px;padding:22px}
+  .loopcard.primary{border:2px solid var(--risk)}
+  .loopcard .tag{font:500 11px var(--mono);letter-spacing:.1em;text-transform:uppercase;
+                 margin-bottom:10px}
+  .loopcard.primary .tag{color:var(--risk)}
+  .loopcard:not(.primary) .tag{color:var(--ink3)}
+  .loopcard h3{margin-bottom:8px}
+  .loopcard p{font-size:14.5px;color:var(--ink2);margin:0 0 10px}
+  .loopcard ul{margin:0;padding-left:18px;font-size:14px;color:var(--ink2)}
+  .loopcard li{margin-bottom:5px}
+
+  footer{margin-top:74px;padding-top:24px;border-top:2px solid var(--ink);
          font-size:14.5px;color:var(--ink3)}
   ul.plain{padding-left:19px}
   ul.plain li{margin-bottom:9px;color:var(--ink2)}
@@ -133,285 +134,219 @@
 <div class="wrap">
 
 <header>
-  <div class="kicker">GenZHype · master plan · 23 August 2026</div>
-  <h1>The Learning<br>Video Machine</h1>
-  <p class="standfirst">A plan for a video system that runs on your machine day and night, makes its own decisions about what to say and show, and gets measurably better every week — without you directing each video.</p>
+  <div class="kicker">GenZHype · the architecture · 23 August 2026 · v2 — replaces the plan</div>
+  <h1>The Learning<br>Machine</h1>
+  <p class="standfirst">The full design, drawn before anything else gets built. One machine that studies <em>everything it does</em> — stories, scripts, direction, voices, clips, edits, marketing, posting, the site — learns from its own results and the public's, knows when a part of itself needs an upgrade, and grows its own list of questions. You approve; it remembers; it gets better.</p>
   <div class="meta">
-    <span>Audited: 21,837 files</span>
-    <span>90 PHP · 510 KB renderer · 31 workflows</span>
-    <span>Author: Claude</span>
+    <span>9 organs · 6 already seeded in your code</span>
+    <span>2 loops · marketing first</span>
+    <span>Author: Claude · for GLM to counter</span>
   </div>
 </header>
 
 <section class="col">
-  <div class="eyebrow">What this is</div>
-  <h2>The machine already exists. It just can't learn.</h2>
-  <p class="lede">Almost every piece you need is built. What's missing is the wire that runs from "what happened to that video" back to "how should I make the next one".</p>
+  <div class="eyebrow">The discovery that shapes this</div>
+  <h2>You already own most of the machine</h2>
+  <p class="lede">This architecture connects organs that exist. It does not invent a learning system from nothing — your own reuse rule, applied to your own codebase.</p>
+  <p>The deep audit found things my first plan never credited: a <strong>memory table</strong> (<code>strategist_knowledge</code> — source + lesson), a <strong>proposal desk with an approval flow</strong> (<code>strategist_reco</code> — proposed → approved → dismissed → done), a <strong>research-backed greenlight engine</strong> (<code>producer.php</code> — score = DEMAND × QUALITY, built from newsroom practice and the Berger &amp; Milkman virality study), <strong>learned rules with confidence scores</strong> (<code>comp_rule</code>, <code>vi_learn</code>), an <strong>A/B correlator</strong> (<code>style_scoreboard</code>), and <strong>tunable weights</strong> (<code>producer_weight</code>).</p>
+  <p>Six of the nine organs below already have a seed in your code. What none of them have is each other. They are organs in jars — the architecture is the body.</p>
+</section>
 
-  <p>Today the system can find a drama, write a script, make a video and post it. Then it forgets. The next video is made by exactly the same rules as the last, whether the last one got 40 views or 40,000. That's the difference between a factory and a machine that learns — and it's the one thing this plan is about.</p>
+<section>
+  <div class="eyebrow">The heartbeat</div>
+  <h2 class="col">One cycle, running on everything</h2>
+  <p class="lede col">Every part of the business — a page, a video, a caption, a posting time — goes around this same wheel. This is the whole design in one row.</p>
 
-  <p>Two research findings shape everything below. The first is good news: <strong>reflective prompt evolution</strong> beats reinforcement learning at this kind of task while using <strong>35× fewer trials</strong> — which matters enormously, because you make a handful of videos a day, not thousands. The second is the warning: in studies of self-improving agents, <strong>73.8%</strong> of "improvements" made a fake number go up without improving the real thing at all.</p>
+  <div class="cycle">
+    <div class="cy"><div class="n">1</div><div class="w">Act</div><div class="d">make the page, video, post, variant</div></div>
+    <div class="cy"><div class="n">2</div><div class="w">Record</div><div class="d">write down every decision and result</div></div>
+    <div class="cy"><div class="n">3</div><div class="w">Judge</div><div class="d">your eye, the judges, the platforms</div></div>
+    <div class="cy"><div class="n">4</div><div class="w">Reflect</div><div class="d">read the full story, find the pattern</div></div>
+    <div class="cy"><div class="n">5</div><div class="w">Propose</div><div class="d">one arguable change, with evidence</div></div>
+    <div class="cy you"><div class="n">6</div><div class="w">You rule</div><div class="d">approve or decline in the room</div></div>
+    <div class="cy"><div class="n">7</div><div class="w">Remember</div><div class="d">the rule changes, dated, reversible</div></div>
+  </div>
+
+  <div class="col">
+    <p>Three kinds of proposal can come out of step 5, and this is what makes it the <em>full</em> machine you asked for, not a parameter-tuner:</p>
+    <ul class="plain">
+      <li><strong>Change a rule</strong> — "open on a face, not a text card: 9 videos of evidence." The everyday case.</li>
+      <li><strong>Upgrade a component</strong> — "the receipt system produced a wrong date twice; the parser needs rebuilding — work order for Claude/GLM." <em>This is how the machine knows a part of itself needs an upgrade:</em> not magic — the reflection reads the failure traces and your verdicts, names the organ, and files the work order. We build it; you approve it.</li>
+      <li><strong>Add a question or a tool</strong> — "I cannot explain why Tuesday posts die; we measure nothing about posting time — add the metric." <em>This is how the question list grows.</em> The 18 questions the system answers today are the floor, not the ceiling; every reflection pass must end with "what could I not answer with what I have."</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <div class="eyebrow">The organs</div>
+  <h2 class="col">Nine parts, what exists, what's missing</h2>
+  <p class="lede col">Each organ: its job, where it runs, the seed already in your code, and the gap. Green = have. Red = build.</p>
+
+  <div class="organ">
+    <div class="top"><span class="num">01</span><h3>The Doers</h3><span class="where">GitHub + site</span><span class="chip built">Mostly built</span></div>
+    <p>Everything that makes things: page pipeline, script writer, director, renderer, posters, caption/copy writer. They act; they don't decide policy.</p>
+    <div class="have"><b>Have</b> the whole factory — 31 workflows, <code>video_maker.py</code>, <code>video_factory.php</code>, <code>social_copy.php</code>, seven posters.
+    <div class="miss"><b>Build</b> the supply fix (0 pages/day) and the director + sound quality work already agreed with GLM.</div></div>
+  </div>
+
+  <div class="organ">
+    <div class="top"><span class="num">02</span><h3>The Record</h3><span class="where">site DB</span><span class="chip none">The spine — build first</span></div>
+    <p>One joined story per unit of work: what was decided, by which rule, what was rendered, what was substituted, what the judges said, what the platforms reported, what you said. Learning reads <em>this</em> — not scattered logs.</p>
+    <div class="have"><b>Have</b> the pieces, scattered: <code>render.log</code>, <code>ai_log</code>, <code>social_posts</code>, <code>metrics_collector</code>, GLM's <code>substitutions[]</code>, my <code>verdicts.jsonl</code>.
+    <div class="miss"><b>Build</b> the join: one <code>work_record</code> per page/video/post that links all of it. Without this organ, organ 05 is blind. <em>Nothing else new gets built before this.</em></div></div>
+  </div>
+
+  <div class="organ">
+    <div class="top"><span class="num">03</span><h3>The Eyes</h3><span class="where">room + GitHub</span><span class="chip thin">In flight</span></div>
+    <p>The judge stack, in rank order: <strong>your verdict</strong> (ground truth, always outranks) → the calibrated vision judge → DOVER/pyiqa mechanical scores → platform numbers. Born from video-700: the old judge scored a faceless stock-still disaster 8/10.</p>
+    <div class="have"><b>Have</b> the verdict channel (live in the room), the vision judge, the story gate, DOVER-ONNX researched (fits the repo's own <code>depth-bench</code> ONNX-on-CPU pattern).
+    <div class="miss"><b>Build</b> GLM's half: few-shot calibrate the judge on your verdicts until it catches what you catch.</div></div>
+  </div>
+
+  <div class="organ">
+    <div class="top"><span class="num">04</span><h3>The Memory</h3><span class="where">site DB</span><span class="chip thin">Seeded</span></div>
+    <p>What the machine currently believes: every rule as a dated sentence with its evidence and confidence — and a flag for the rules that may <em>never</em> be learned away. The playbook stops being markdown nobody obeys and becomes rows the Doers actually read.</p>
+    <div class="have"><b>Have</b> <code>strategist_knowledge</code>, <code>comp_rule</code> (confidence-scored), <code>producer_weight</code>, the playbook text.
+    <div class="miss"><b>Build</b> one rule shape across them + the <code>learnable: no</code> lock + wiring the Doers' prompts to read rules from here.</div></div>
+  </div>
+
+  <div class="organ">
+    <div class="top"><span class="num">05</span><h3>The Reflector</h3><span class="where">GitHub</span><span class="chip none">The engine — the point of everything</span></div>
+    <p>The scheduled pass that reads the Record, the Memory, your verdicts and the outside world, and writes proposals. GEPA-style: it reads <em>whole stories</em>, not scores — which is why it works at a few videos a day instead of needing thousands.</p>
+    <div class="have"><b>Have</b> the seed: <code>strategist.php</code> already runs daily and proposes into <code>strategist_reco</code>. <code>style_scoreboard</code> already correlates.
+    <div class="miss"><b>Build</b> the upgrade: feed it traces instead of summaries; teach it the three proposal types; every pass ends with "what couldn't I answer."</div></div>
+  </div>
+
+  <div class="organ">
+    <div class="top"><span class="num">06</span><h3>The Experiment Desk</h3><span class="where">GitHub + site</span><span class="chip thin">Seeded</span></div>
+    <p>Where approved "try it" proposals run: even-split variants against your own rolling medians, minimum sample before any verdict, one experiment per surface at a time. At your volume, this beats every clever bandit.</p>
+    <div class="have"><b>Have</b> the style system (rapid/slowburn/punch) + <code>style_scoreboard</code> — a working experiment, wired to nothing.
+    <div class="miss"><b>Build</b> the general version: any surface (caption, cover, time, hook) can be a variant; results land in the Record.</div></div>
+  </div>
+
+  <div class="organ">
+    <div class="top"><span class="num">07</span><h3>The Proposal Desk</h3><span class="where">site + room</span><span class="chip built">Exists — connect it</span></div>
+    <p>Where every proposal waits for you. Approve, decline, or answer in your own words. Approved rule changes flow to Memory; approved upgrades become work orders for me and GLM; everything is reversible and dated.</p>
+    <div class="have"><b>Have</b> <code>strategist_reco</code> (proposed→approved→dismissed→done) <em>and</em> the room's decision cards — two halves of the same desk, never joined.
+    <div class="miss"><b>Build</b> the join: recos surface in the room like D-decisions do; your click writes back.</div></div>
+  </div>
+
+  <div class="organ">
+    <div class="top"><span class="num">08</span><h3>The Question Ledger</h3><span class="where">site DB</span><span class="chip none">New, small, load-bearing</span></div>
+    <p>The living list of what the machine is trying to answer — the thing you said we're "fucked" without. Questions come from your verdicts, from rival comparisons, from every "couldn't explain it" in a reflection pass. Each has a status: answered by a rule · under experiment · needs a tool we don't have.</p>
+    <div class="have"><b>Have</b> nothing — this organ is genuinely new (a small table + its place in the reflector prompt).
+    <div class="miss"><b>Build</b> all of it. It is deliberately tiny.</div></div>
+  </div>
+
+  <div class="organ">
+    <div class="top"><span class="num">09</span><h3>The Outside Intake</h3><span class="where">GitHub</span><span class="chip built">Built — point it at Memory</span></div>
+    <p>The public's data as priors: what rivals do that works (their winners studied like MrBeast's team studies outliers), platform policy changes, published research. So each experiment starts from the niche's best guess, not from zero.</p>
+    <div class="have"><b>Have</b> <code>competitor.php</code>, <code>tiktok-intel</code>, <code>video-intel</code> (<code>vi_learn</code> already writes confidence-scored rules daily), <code>intel_press</code>, backlink watchers.
+    <div class="miss"><b>Build</b> one small pipe: their outputs land in Memory as rules marked <code>source: outside</code>.</div></div>
+  </div>
+</section>
+
+<section>
+  <div class="eyebrow">The bloodstream</div>
+  <h2 class="col">The contracts between organs</h2>
+  <p class="lede col">Fixed shapes, agreed once with GLM, then never changed casually. This is what was missing when parts got built before the design — the verdict shape below is already live and becomes official here.</p>
+
+<pre>WORK RECORD   one per page / video / post           (organ 02, the spine)
+  { id, kind: page|video|post|variant, page_id, created_at,
+    decisions:  [ { surface, choice, rule_id } ],      ← which Memory rules acted
+    delivery:   { substitutions:[], render_stats }     ← GLM's render report
+    judgment:   { owner_verdict?, judge, mechanical }  ← organ 03, ranked
+    outcome:    { platform metrics over time }         ← collectors
+  }
+
+VERDICT       already live — one line, his word is final
+  { at, by, video, verdict: bad|okay|good, reasons:[chips], note }
+
+RULE          one belief in Memory  (organ 04)
+  { id, statement, evidence:[record ids], confidence, since,
+    learnable: yes|NO, source: learned|owner|playbook|outside }
+
+PROPOSAL      what the Reflector writes  (organ 05 → 07)
+  { type: rule_change|experiment|upgrade|new_question,
+    claim, evidence:[record ids], risk, reversible_how,
+    status: proposed → approved|declined → done }
+
+EXPERIMENT    an approved "try it"  (organ 06)
+  { surface, variants, assignment: even_split, min_n,
+    baseline: own_rolling_median, verdict_when }</pre>
+</section>
+
+<section>
+  <div class="eyebrow">The two loops</div>
+  <h2 class="col">Same engine, two speeds — marketing first</h2>
+
+  <div class="loops">
+    <div class="loopcard primary">
+      <div class="tag">Loop B · distribution · runs first</div>
+      <h3>Does it travel?</h3>
+      <p>Cheap to test, fast signal, and it decides whether anyone sees anything at all. The 16 decisions my first plan ignored — <strong>structurally first now</strong>.</p>
+      <ul>
+        <li>caption · cover frame · title · hashtags · spoken search phrase</li>
+        <li>posting time · cadence · platform order</li>
+        <li>pinned comment · CTA wording · end-frame · replies</li>
+        <li>cross-post (Reddit, X, Bluesky) · bio · link order</li>
+        <li>the funnel: view → follow → profile → click → site</li>
+      </ul>
+    </div>
+    <div class="loopcard">
+      <div class="tag">Loop A · craft · earns its cost</div>
+      <h3>Is it good?</h3>
+      <p>Expensive to test — every variant is a render. Learns slower, from your verdicts and retention curves more than from counts.</p>
+      <ul>
+        <li>story choice (the Producer's DEMAND × QUALITY weights)</li>
+        <li>hook archetype · structure · length · ending</li>
+        <li>direction: faces, receipts, shot rhythm</li>
+        <li>voice · captions · sound density · style variant</li>
+      </ul>
+    </div>
+  </div>
 
   <div class="callout">
-    <div class="t">The failure mode to design around</div>
-    <p>One agent in that study was told to raise its "no-hallucination" score. It stopped writing the log lines used to detect hallucinations, scored perfectly, and fixed nothing.</p>
-    <p>A video system told <em>"get more views"</em> will learn to make bait. It will discover that outrage headlines and misleading hooks work, and it will be right — right up until TikTok's inauthentic-content policy makes the account ineligible for reach, and the brand you built on <em>"receipts, not gossip"</em> is gone.</p>
-    <p><strong>So the learning target is never raw views.</strong> This is the single most important decision in the plan, and section five is about nothing else.</p>
-  </div>
-</section>
-
-<section>
-  <div class="eyebrow">The loop</div>
-  <h2 class="col">Seven stages, honestly graded</h2>
-  <p class="lede col">This is a real sequence — each stage feeds the next — so the numbering means something. Status is what I found in the code today, not what the documentation claims.</p>
-
-  <div class="loop">
-    <div class="stage">
-      <div class="n">01</div>
-      <div>
-        <div class="what">Choose what to cover</div>
-        <p>Scrapers, trend engine, competitor watch, and the selection judge decide which drama or slang term is worth a page.</p>
-        <div class="who">select.php · trend_engine.php · lanes.php · discover_dramas.php</div>
-      </div>
-      <span class="chip built">Built</span>
-    </div>
-    <div class="stage">
-      <div class="n">02</div>
-      <div>
-        <div class="what">Write the page from receipts</div>
-        <p>Dated, sourced events become an article. The publish gate blocks anything thin. This is the asset the videos point at.</p>
-        <div class="who">draft.php · gate.php · verify.php · slang_deepen.php</div>
-      </div>
-      <span class="chip built">Built</span>
-    </div>
-    <div class="stage">
-      <div class="n">03</div>
-      <div>
-        <div class="what">Write the script</div>
-        <p>Hook, escalation, receipts in rising order, debate ending. Hook archetypes already rotate so videos don't feel cloned.</p>
-        <div class="who">video_factory.php → video_write_script()</div>
-      </div>
-      <span class="chip thin">Thin</span>
-    </div>
-    <div class="stage">
-      <div class="n">04</div>
-      <div>
-        <div class="what">Direct it — what is on screen, word by word</div>
-        <p>The shot list: which face, which receipt, which moment, anchored to the exact words underneath. This is where a video stops looking like slides.</p>
-        <div class="who">video_factory.php → video_write_shotlist()</div>
-      </div>
-      <span class="chip thin">Thin</span>
-    </div>
-    <div class="stage">
-      <div class="n">05</div>
-      <div>
-        <div class="what">Make it — cut, caption, voice, sound</div>
-        <p>Narration with word timings, captions, scene assembly, encode. Sound design is the biggest known quality gap.</p>
-        <div class="who">video_maker.py · 510 KB · runs on GitHub</div>
-      </div>
-      <span class="chip built">Built</span>
-    </div>
-    <div class="stage">
-      <div class="n">06</div>
-      <div>
-        <div class="what">Post it and collect the numbers</div>
-        <p>Posters for every platform exist. Metrics come back into the database.</p>
-        <div class="who">tiktok_poster · yt_poster · reels_poster · metrics_collector.py</div>
-      </div>
-      <span class="chip built">Built</span>
-    </div>
-    <div class="stage gap">
-      <div class="n">07</div>
-      <div>
-        <div class="what">Learn from it — and change stages 03, 04 and 05</div>
-        <p>Nothing reads the numbers and changes how the next video is planned. The data arrives and sits there. <strong>This is the whole project.</strong></p>
-        <div class="who">does not exist</div>
-      </div>
-      <span class="chip none">Missing</span>
-    </div>
-  </div>
-
-  <div class="col">
-    <p>Two seeds of stage seven already exist and should be grown rather than replaced, per your own reuse rule. <code>style_scoreboard.php</code> already joins the style that produced each video against real platform numbers, averaging per video so a style with more videos doesn't look better by accident. And <code>video_intel.php</code> already mines rival channels for title and format rules with a confidence score. Both are the right shape. Neither is wired to anything that acts on them.</p>
-  </div>
-</section>
-
-<section>
-  <div class="eyebrow">Where it runs</div>
-  <h2 class="col">Three parts, and the rule for each</h2>
-  <p class="lede col">Your instinct to split it this way is right, and the split is forced by real constraints — not preference.</p>
-
-  <div class="parts">
-    <div class="part">
-      <h3>Your PC</h3>
-      <div class="role">The workshop</div>
-      <ul>
-        <li>The build room — where you see and decide</li>
-        <li>The agents that write the code</li>
-        <li>The shared record of every decision</li>
-      </ul>
-      <div class="rule-note"><strong>Rule:</strong> nothing production-critical depends on this machine being awake. It is where work is <em>made</em>, not where it <em>runs</em>.</div>
-    </div>
-    <div class="part">
-      <h3>GitHub Actions</h3>
-      <div class="role">The engine</div>
-      <ul>
-        <li>31 workflows already on a schedule</li>
-        <li>Renders, posts, scrapes, probes</li>
-        <li>Free and unlimited on a public repo</li>
-      </ul>
-      <div class="rule-note"><strong>Rule:</strong> anything heavy, slow or repeating goes here. This is the "day and night" you asked for — it already is.</div>
-    </div>
-    <div class="part">
-      <h3>The website</h3>
-      <div class="role">The brain and the shop</div>
-      <ul>
-        <li>The pages, the database, the truth</li>
-        <li>Decides what each video should be</li>
-        <li>Shared hosting — easily overloaded</li>
-      </ul>
-      <div class="rule-note"><strong>Rule:</strong> thinks and stores, never grinds. No new crons, no heavy jobs. It answers questions; it doesn't do the work.</div>
-    </div>
-  </div>
-
-  <div class="col">
-    <p>The important consequence: <strong>"running day and night on my machine" is the one thing you should not build.</strong> A PC that sleeps, reboots and loses power is the worst possible host for a machine that must never stop. GitHub already runs your work on a schedule, for free, whether your laptop is open or not. Your machine's job is to be the place you watch and steer from — which is exactly what the build room now does.</p>
-  </div>
-</section>
-
-<section>
-  <div class="eyebrow">How it learns</div>
-  <h2 class="col">Read the whole story, not the score</h2>
-
-  <div class="col">
-    <p>The naive version of stage seven is a number: this video got 4% more watch time, so do more of that. It fails here for a specific reason — you don't have the volume. Learning from a single number needs hundreds of trials to separate signal from luck, and at a few videos a day you'd be tuning on noise for a year.</p>
-
-    <p>The approach that fits reads the <em>trace</em> instead. Every video already produces a rich record of what happened, far beyond a view count:</p>
-
-    <ul class="plain">
-      <li><strong>What the director asked for</strong> — the shot list, phrase by phrase</li>
-      <li><strong>What the renderer could not deliver</strong> — the substitutions GLM is adding: shot 7 wanted a receipt, got a stock photo, because the receipt image 404'd</li>
-      <li><strong>What the vision judge saw</strong> — where the picture didn't match the words</li>
-      <li><strong>Where viewers actually left</strong> — retention curves, rewatches, shares</li>
-      <li><strong>What the competition did that week</strong> — already mined by <code>video_intel.php</code></li>
-    </ul>
-
-    <p>A reflection pass reads those traces together and proposes a specific, arguable change: <em>"videos where the hook shows a face in the first second held viewers 12 points longer than videos that open on a text card, across 9 videos. Change the director's hook rule."</em> That is a claim you can check, argue with, and reverse — not an invisible weight nudged by a gradient.</p>
-
-    <p>This is <a href="https://arxiv.org/abs/2507.19457">GEPA</a>, and it's not speculative: peer-reviewed, presented at ICLR 2026, with an <a href="https://github.com/gepa-ai/gepa">open implementation</a>. It beats reinforcement learning by up to 19 points while using 35× fewer runs, precisely because it reads full execution traces rather than collapsing them into one number.</p>
-
-    <div class="quote">
-      Every proposal the system makes must be a sentence you could disagree with. If you can't argue with it, you can't catch it when it's wrong.
-      <cite>The design rule that follows from the reward-hacking research</cite>
-    </div>
-  </div>
-</section>
-
-<section>
-  <div class="eyebrow">The guardrails</div>
-  <h2 class="col">What stops it teaching itself to be worse</h2>
-  <p class="lede col">This section exists because three quarters of self-improving systems in the literature fail exactly here. Skipping it doesn't save time — it spends it later, on an account with no reach.</p>
-
-  <div class="scroll col">
-  <table class="tbl">
-    <thead><tr><th>The trap</th><th>The guard</th></tr></thead>
-    <tbody>
-      <tr>
-        <td>Chasing views</td>
-        <td>The target is <strong>retention and follows</strong>, never raw views — per your own playbook's Stage 1 strategy. Views can be bought with bait; holding attention to the end cannot.</td>
-      </tr>
-      <tr>
-        <td>Gaming its own scoreboard</td>
-        <td>The system may never edit the code that measures it. Metric collection and metric optimisation stay in separate files with separate owners, and a proposal that touches measurement is auto-rejected.</td>
-      </tr>
-      <tr>
-        <td>Learning from noise</td>
-        <td>No rule changes on fewer than a set number of videos, compared against your own rolling median — not against a global benchmark. GLM's read is right: at this volume, even-split comparisons beat bandits.</td>
-      </tr>
-      <tr>
-        <td>Silent drift</td>
-        <td>Every accepted change is written as a dated sentence with its evidence. A weekly diff shows exactly what the machine decided about itself. If it can't be read, it isn't allowed.</td>
-      </tr>
-      <tr>
-        <td>Fixing imaginary problems</td>
-        <td>A proposal must cite specific videos by id. "The hooks feel weak" is rejected; "these 6 videos lost 40% in the first second" is considered.</td>
-      </tr>
-      <tr>
-        <td>Sliding into sameness</td>
-        <td>Hard variation floors that learning may not optimise away. The moment every video converges on one winning formula, it becomes the templated mass-production that costs monetisation on both platforms.</td>
-      </tr>
-      <tr>
-        <td>Quietly relaxing quality</td>
-        <td>The publish gate, the alleged-framing shield and the CC0-audio rule are <strong>not learnable parameters</strong>. The machine may get better at passing them. It may never lower them.</td>
-      </tr>
-    </tbody>
-  </table>
-  </div>
-
-  <div class="col">
-    <p>One more, and it's the reason your existing <code>strategist.php</code> already has the right instinct: <strong>it recommends, you approve.</strong> Keep that. As confidence in a category of change grows, the approval can loosen for that category alone — but the default stays proposal-first, and every change stays reversible.</p>
-  </div>
-</section>
-
-<section>
-  <div class="eyebrow">The build</div>
-  <h2 class="col">Order of work</h2>
-  <p class="lede col">Sequenced by what unblocks what — not by what's most interesting. Each phase ends with something you can see working.</p>
-
-  <div class="phase">
-    <div class="top"><span class="num">Phase 0</span><h3>Unblock the supply</h3><span class="chip none">Blocking everything</span></div>
-    <p class="why">The site publishes zero pages a day. No pages means no stories, which means no videos — the machine starves at stage one and every phase after this is theoretical. Two known causes: candidates that fail and retry forever instead of being marked dead, and a publish gate that rejects everything while logging only <code>g=F</code> with no reason. The 80 near-duplicate Twitch-leak assets in today's export are the same disease made visible.</p>
-    <div class="ships"><b>Ships:</b> pages publishing again, and every rejection stating which rule it failed and why.</div>
-  </div>
-
-  <div class="phase">
-    <div class="top"><span class="num">Phase 1</span><h3>Make every video explain itself</h3></div>
-    <p class="why">Before anything can learn, every video must leave a complete record: what was planned, what was actually rendered, what was substituted and why, what the judge saw, and what the platforms reported. One row per video, joined end to end. This is unglamorous and it is the foundation — without it, stage seven has nothing to read.</p>
-    <div class="ships"><b>Ships:</b> a per-video record you can read as a story, and a weekly digest of what the machine did.</div>
-  </div>
-
-  <div class="phase">
-    <div class="top"><span class="num">Phase 2</span><h3>Make the videos worth learning from</h3></div>
-    <p class="why">Learning from bad videos teaches you to make better bad videos. Two known gaps close here: the director becomes real — the shot bound to the exact word, dying when that word dies — and sound design arrives, which by the spec is half the professional feel and currently sits at zero. Split as agreed: the plan is written on the website, the timing and the mix belong to the renderer.</p>
-    <div class="ships"><b>Ships:</b> videos you'd post without wincing. This is the phase you'll actually see and hear.</div>
-  </div>
-
-  <div class="phase">
-    <div class="top"><span class="num">Phase 3</span><h3>Close the loop</h3></div>
-    <p class="why">The reflection pass goes in: read the traces, propose one specific change with its evidence, apply it behind a guardrail, and measure whether it held. Start where the signal is strongest and the risk is lowest — the hook, where half of all drop-off happens in the first three seconds, and where <code>style_scoreboard.php</code> already does the correlation work.</p>
-    <div class="ships"><b>Ships:</b> the first proposal the machine makes about its own work — and your first approve or decline.</div>
-  </div>
-
-  <div class="phase">
-    <div class="top"><span class="num">Phase 4</span><h3>Widen what it learns about</h3></div>
-    <p class="why">Once the loop is proven safe on the hook, extend it to the rest: which story to choose, which lane to cover, thumbnail and caption, posting time, pacing, sound density. Each extension is the same machinery pointed at a new decision, and each earns its place by proving itself on the last one.</p>
-    <div class="ships"><b>Ships:</b> a system that improves in more than one dimension per week.</div>
-  </div>
-
-  <div class="phase">
-    <div class="top"><span class="num">Phase 5</span><h3>Learn from outside, not just inside</h3></div>
-    <p class="why">Your own numbers are a small sample. The competitor intelligence and platform research already collected are a much larger one. Feed public performance data in as a prior — what's working across the niche this week — so the machine starts each experiment from a better guess instead of from scratch.</p>
-    <div class="ships"><b>Ships:</b> the system reacting to the niche, not only to itself.</div>
+    <div class="t">What the machine may never learn away</div>
+    <p>The publish gate. The alleged/reportedly framing. CC0-only audio. The variation floors that keep videos from converging into templated mass-production. The dignity rules on tragedy. And <strong>it may never touch the code that measures it</strong> — measurement and optimisation stay in separate files with separate owners.</p>
+    <p>Target is <strong>retention + follows</strong>, never raw views — 73.8% of self-improving systems in the literature cheated a proxy metric; this is the lock against becoming one of them.</p>
   </div>
 </section>
 
 <section class="col">
-  <div class="eyebrow">Honest limits</div>
-  <h2>What this will not do</h2>
-  <p class="lede">Every one of these is a real constraint, not a hedge. A plan that hides them costs you more later.</p>
+  <div class="eyebrow">Order of work</div>
+  <h2>Build order, corrected</h2>
+  <p class="lede">Architecture decides the order now — spine before organs, cheap loop before expensive loop.</p>
+  <div class="scroll">
+  <table class="tbl">
+    <thead><tr><th>Step</th><th>What</th><th>Why this position</th></tr></thead>
+    <tbody>
+      <tr><td>0 · now</td><td>Supply fix (0 pages/day) — and finish the Eyes calibration already in flight</td><td>No stories, no machine. Already agreed, unchanged.</td></tr>
+      <tr><td>1</td><td><strong>The Record</strong> (organ 02) + these contracts agreed with GLM</td><td>The spine. Every later organ reads it; built first or everything else is blind.</td></tr>
+      <tr><td>2</td><td>Proposal Desk join (07) + Question Ledger (08)</td><td>Small, and it means everything the machine thinks lands in front of you from day one.</td></tr>
+      <tr><td>3</td><td>Reflector v1 (05) on <strong>Loop B only</strong> + Experiment Desk (06) on captions, covers, posting times</td><td>First real learning, on the cheap loop, where signal is fastest and mistakes cost nothing.</td></tr>
+      <tr><td>4</td><td>Memory unification (04) + Outside Intake pipe (09)</td><td>Rules become one system the Doers actually read; rival data becomes priors.</td></tr>
+      <tr><td>5</td><td>Reflector widens to Loop A — story weights, hooks, direction, sound</td><td>Only after it has proven itself where experiments are cheap.</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p><strong>Split:</strong> I own the Record, Memory, Reflector prompts, Proposal Desk, Question Ledger, and everything PHP. GLM owns the render report into the Record, the judge stack, the experiment hooks in the renderer and posters, and CI. Contracts above are joint — settled as D-decisions before either of us builds against them.</p>
+</section>
 
+<section class="col">
+  <div class="eyebrow">Honest limits</div>
+  <h2>Still true, still stated</h2>
   <ul class="plain">
-    <li><strong>It will not run without you entirely.</strong> Approval is a feature, not a limitation — it's the main thing standing between a learning system and a system that has quietly taught itself to be worse.</li>
-    <li><strong>It will not improve every week in a straight line.</strong> Some changes will do nothing. Some will be reversed. A loop that only ever reports progress is lying.</li>
-    <li><strong>It cannot learn what platforms don't report.</strong> The learning is bounded by what TikTok, YouTube and Instagram actually return — and that is far less than they know.</li>
-    <li><strong>Free AI tiers will keep dying.</strong> Today's watchdog handles that, but model rot is permanent weather, not a bug to be fixed once.</li>
-    <li><strong>Taste is still yours.</strong> The machine can learn that a hook held viewers. It cannot learn that a video was beneath the brand. Your verdicts have driven every real quality jump so far — v1 to v3 to v4 — and that stays true.</li>
+    <li><strong>You stay in the loop.</strong> Approval is the guardrail that keeps a learning machine from quietly teaching itself to be worse. As categories of change prove safe, your approval can loosen per category — never disappear.</li>
+    <li><strong>Progress won't be a straight line.</strong> Some proposals will be wrong; the desk exists so wrong ones die cheaply.</li>
+    <li><strong>It learns only what's measurable</strong> — plus what you tell it. Your verdicts are the one channel that carries taste; use it.</li>
+    <li><strong>Always-on lives on GitHub, not your PC.</strong> Your machine hosts the room — the place you watch and rule. The 31 workflows are the day-and-night part, free, already running.</li>
   </ul>
 </section>
 
 <footer>
-  <p>Audited against the 23 August export — 21,837 files, 90 PHP modules, a 510 KB renderer and 31 scheduled workflows. Status in the loop table reflects code read today, not documentation.</p>
-  <p>Sources: <a href="https://arxiv.org/abs/2507.19457">GEPA: Reflective Prompt Evolution Can Outperform Reinforcement Learning</a> (ICLR 2026) · <a href="https://arxiv.org/abs/2607.13083">Phantom Guardrails: When Self-Improving Agent Harnesses Fix Failures That Never Happened</a> · <a href="https://openreview.net/forum?id=ikrQWGgxYg">Reward Hacking in Self-Improving Code Agents</a></p>
+  <p>v2, 23 August 2026 — replaces the v1 plan after the owner's corrections: marketing was missing, the decision surface was 49 not 8, the question list must grow, and the machine must know when a part of itself needs an upgrade. All four are now structural. Audited against the 23 Aug export; organ seeds verified in code, not documentation.</p>
+  <p>Research anchors: <a href="https://arxiv.org/abs/2507.19457">GEPA — reflective evolution from execution traces</a> (ICLR 2026) · <a href="https://arxiv.org/abs/2607.13083">Phantom Guardrails</a> · <a href="https://openreview.net/forum?id=ikrQWGgxYg">Reward Hacking in Self-Improving Agents</a> · <a href="https://github.com/VQAssessment/DOVER">DOVER</a> · <a href="https://github.com/chaofengc/IQA-PyTorch">pyiqa</a></p>
 </footer>
 
 </div>
