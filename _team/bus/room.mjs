@@ -76,8 +76,47 @@ async function postVerdictToSite(v) {
   }
 }
 
+// THE PROPOSAL DESK (organ 07). The Reflector on the site has been writing
+// recommendations into strategist_reco since r123 and nothing ever read them.
+// The room lists them and his click writes the decision back, so the loop
+// act->record->reflect->propose->HE RULES->remember finally closes at his step.
+const RECOS_URL = process.env.RECOS_URL || 'https://genzhype.com/api/recos.php';
+let RECOS = { at: 0, list: [], error: '' };
+
+async function siteRecos(force = false) {
+  if (!force && Date.now() - RECOS.at < 60_000) return RECOS;
+  const token = siteToken();
+  if (!token) { RECOS = { at: Date.now(), list: [], error: 'no local token' }; return RECOS; }
+  try {
+    const ctl = new AbortController();
+    const t = setTimeout(() => ctl.abort(), 12000);
+    const res = await fetch(RECOS_URL, { method: 'POST', signal: ctl.signal,
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ token, action: 'list' }) });
+    clearTimeout(t);
+    const j = await res.json();
+    RECOS = { at: Date.now(), list: (j && j.recos) || [], error: j && j.ok ? '' : 'site said no' };
+  } catch (e) {
+    RECOS = { at: Date.now(), list: RECOS.list, error: String(e && e.message || e).slice(0, 80) };
+  }
+  return RECOS;
+}
+
+async function decideReco(id, verdict, note) {
+  const token = siteToken();
+  if (!token) return 'No token — cannot reach the site.';
+  try {
+    const res = await fetch(RECOS_URL, { method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ token, action: 'decide', id: Number(id), verdict, note }) });
+    const j = await res.json();
+    if (j && j.ok) { RECOS.at = 0; return `${verdict === 'approved' ? 'Approved' : 'Dismissed'}: ${j.title}`; }
+    return `The site refused that: ${(j && j.error) || res.status}`;
+  } catch (e) { return `Could not reach the site: ${String(e && e.message || e).slice(0, 80)}`; }
+}
+
 function page(note = '', nonce = '') {
-  return renderDashboard(loadState(), { interactive: true, csrf: TOKEN, note, nonce });
+  return renderDashboard(loadState(), { interactive: true, csrf: TOKEN, note, nonce, recos: RECOS });
 }
 
 function send(res, code, body, type = 'text/html; charset=utf-8', nonce = '') {
@@ -111,6 +150,17 @@ function applyAction(f) {
       pushLog(s, BOSS, `told ${to === 'both' ? 'both' : to}: ${text.slice(0, 120)}`);
     });
     return `Sent to ${to === 'both' ? 'Claude and GLM' : to}. They will see it on their next turn.`;
+  }
+
+  if (action === 'reco') {
+    const id = f.get('id'), verdict = f.get('verdict');
+    const note = (f.get('note') || '').trim();
+    if (!['approved', 'dismissed'].includes(verdict)) return 'Pick Approve or Decline.';
+    assertNoSecrets(note, 'note');
+    return decideReco(id, verdict, note).then((msg) => {
+      mutate((s) => pushLog(s, BOSS, `reco #${id}: ${msg}`));
+      return msg;
+    });
   }
 
   if (action === 'verdict') {
@@ -187,6 +237,7 @@ createServer((req, res) => {
     let note = '';
     try { note = new URL(req.url, 'http://localhost').searchParams.get('n') || ''; } catch {}
     const nonce = randomBytes(16).toString('base64');
+    siteRecos().catch(() => {});          // warm for the next render; never blocks this one
     return send(res, 200, page(note.slice(0, 400), nonce), 'text/html; charset=utf-8', nonce);
   }
 
@@ -211,7 +262,7 @@ createServer((req, res) => {
       body += c;
       if (body.length > MAX_BODY) { tooBig = true; req.destroy(); }
     });
-    req.on('end', () => {
+    req.on('end', async () => {
       if (tooBig) return send(res, 413, 'Too large.', 'text/plain');
       let note;
       try {
@@ -223,7 +274,7 @@ createServer((req, res) => {
             'The room was restarted, so that did not send. The page is fresh now — try again.') });
           return res.end();
         }
-        note = applyAction(f);
+        note = await applyAction(f);
       } catch (e) {
         note = `Refused: ${e.message}`;
       }

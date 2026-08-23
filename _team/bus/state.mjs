@@ -223,7 +223,7 @@ export function pushMessage(s, from, to, re, body, asks = '') {
 export const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-export function renderDashboard(s, { interactive = false, csrf = '', note = '', nonce = '' } = {}) {
+export function renderDashboard(s, { interactive = false, csrf = '', note = '', nonce = '', recos = null } = {}) {
   const hidden = csrf ? `<input type="hidden" name="_t" value="${esc(csrf)}">` : '';
   const boss = s.decisions.filter(d => d.status === 'boss');
   const open = s.decisions.filter(d => d.status === 'open');
@@ -348,6 +348,16 @@ export function renderDashboard(s, { interactive = false, csrf = '', note = '', 
   .poke .quiet{color:var(--dim);font-weight:400}
   .poke code{font-size:12px}
   .poke button{white-space:nowrap}
+  .reco{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--accent);
+        border-radius:0 8px 8px 0;padding:14px 16px;margin-bottom:10px}
+  .reco .kind{font:500 11px var(--mono);letter-spacing:.09em;text-transform:uppercase;
+              color:var(--accent);margin-bottom:5px}
+  .reco .t{font-weight:600;font-size:15px;margin-bottom:6px}
+  .reco .w{font-size:14px;color:var(--fg);margin-bottom:6px;line-height:1.55}
+  .reco .ev{font-size:13px;color:var(--dim);margin-bottom:4px}
+  .reco .rk{font-size:13px;color:var(--warn)}
+  .reco form{display:flex;gap:7px;margin-top:11px;flex-wrap:wrap;align-items:center}
+  .reco input[type=text]{flex:1;min-width:180px}
   .vrow{display:flex;gap:8px;flex-wrap:wrap;margin:4px 0}
   .vrow label{display:inline-flex;gap:6px;align-items:center;font-size:13px;
     border:1px solid var(--line);padding:5px 11px;border-radius:6px;cursor:pointer;
@@ -373,6 +383,28 @@ export function renderDashboard(s, { interactive = false, csrf = '', note = '', 
       <div class="meta" style="margin:0;padding:0;border:0">You have ${bossUnread.length}
       message(s) the agents have not picked up yet — they will see them on their next turn.</div>
     </div>` : ''}
+
+  ${interactive && recos ? (() => {
+      const list = recos.list || [];
+      if (!list.length && !recos.error) return '';
+      const label = { rule_change: 'Change a rule', upgrade: 'Fix a broken part', question: 'Worth testing', other: 'Proposal' };
+      return `<h2>The machine proposes (${list.length})</h2>` + (recos.error
+        ? `<div class="empty">Could not reach the site: ${esc(recos.error)}</div>`
+        : list.map(r => `<div class="reco">
+            <div class="kind">${esc(label[r.type] || label.other)} · ${esc(r.made_on || '')}</div>
+            <div class="t">${esc(r.title)}</div>
+            <div class="w">${esc(r.why || '')}</div>
+            ${r.evidence ? `<div class="ev">Evidence: ${esc(r.evidence)}</div>` : ''}
+            ${r.record_ids ? `<div class="ev">From videos: ${esc(r.record_ids)}</div>` : ''}
+            ${r.risk ? `<div class="rk">Risk: ${esc(r.risk)}</div>` : ''}
+            <form method="POST" action="/act">${hidden}
+              <input type="hidden" name="action" value="reco">
+              <input type="hidden" name="id" value="${esc(r.id)}">
+              <input type="text" name="note" placeholder="your words (optional)">
+              <button type="submit" name="verdict" value="approved">Approve</button>
+              <button type="submit" name="verdict" value="dismissed">Decline</button>
+            </form></div>`).join(''));
+    })() : ''}
 
   <h2>Agents</h2>
   <div class="grid">${AGENTS.map(agentCard).join('')}</div>
