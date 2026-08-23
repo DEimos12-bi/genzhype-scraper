@@ -501,6 +501,61 @@ switch ($cmd) {
 
     // ORGAN 10: test a proposal against videos whose real outcome we know,
     // BEFORE the owner is asked to approve it.
+    // ---- THE GOVERNOR (organ 13). Is anything still working?
+    case 'watch':          // full round, records what it finds
+    case 'watch-dry':      // reports only, writes nothing at all
+        require_once __DIR__ . '/governor.php';
+        $apply = ($cmd === 'watch');
+        $r = gov_round($pdo, $apply);
+        echo ($apply ? 'governor round' : 'governor DRY round') . ': ' . $r['checks']
+           . ' checks in ' . $r['took_ms'] . "ms
+
+";
+        if (!$r['findings']) {
+            // Law 5: 'nothing wrong' must not look like 'did not run'.
+            echo "  all clear - every check ran and found nothing
+";
+        }
+        foreach ($r['findings'] as $f) {
+            echo '  [' . strtoupper($f['severity']) . '] ' . $f['title'] . "
+";
+            if ($f['detail'])   echo '      ' . $f['detail'] . "
+";
+            if ($f['evidence']) echo '      evidence: ' . $f['evidence'] . "
+";
+            echo "
+";
+        }
+        foreach ($r['cleared'] as $c) echo "  cleared (stopped happening): {$c}
+";
+        break;
+
+    case 'watch-selftest':
+        require_once __DIR__ . '/governor.php';
+        $r = gov_selftest();
+        foreach ($r['notes'] as $n) echo $n . "
+";
+        echo "
+  {$r['pass']} passed, {$r['fail']} failed
+";
+        break;
+
+    case 'alarms':
+        require_once __DIR__ . '/governor.php';
+        $b = gov_board($pdo);
+        echo 'governor last ran: ' . ($b['last_run'] ?: 'NEVER')
+           . ($b['stale'] ? '  <- STALE, the watchman itself may be down' : '') . "
+";
+        echo '  open: ' . $b['open'] . "
+
+";
+        foreach ($b['alarms'] as $a)
+            echo '  [' . strtoupper($a['severity']) . '] ' . $a['title']
+               . ' (seen ' . $a['seen_count'] . "x)
+      " . $a['evidence'] . "
+";
+        break;
+
     case 'prove':
         require_once __DIR__ . '/proving.php';
         if ($arg && ctype_digit((string)$arg)) {
