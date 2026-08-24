@@ -1,6 +1,4 @@
-channels: tiktok:genzhype0, instagram:therealgenzhype_, facebook:Genzhypee
-tt: queueing page 264 (inside-tara-and-zack-woodcox-s-public-divorce-and-social-media-fallout)
-  SCHEDULED on tiktok as reel for 2026-08-25T21:40:00.000Z (buffer post 6a8cb14065d13152436fdee6)
-ig: queueing page 272 (stefon-diggs-and-christopher-blake-griffith-sexual-assault-lawsuit-timeline)
-  SCHEDULED on instagram as reel for 2026-08-25T22:17:00.000Z (buffer post 6a8cb142f3e29401b800104f)
-fb: daily cap reached (3/3) - skipping
+vault unreachable from this runner (attempt 1): curl 28 for https://genzhype.com/api/creds.php
+vault unreachable from this runner (attempt 2): curl 28 for https://genzhype.com/api/creds.php
+vault unreachable from this runner (attempt 3): curl 28 for https://genzhype.com/api/creds.php
+Buffer: no token this run; the next scheduled run will retry
