@@ -211,7 +211,17 @@ function video_write_script(PDO $pdo, array $pick): ?array {
             'TIMELINE OPENER: "The [name] case, from the first report to today." Measured, chronological framing.',
             'CONFIRMED UPDATE: "Here is what is actually confirmed in the [name] story." Sober; separates fact from rumor.',
         ];
+        // THE PLAYBOOK (organ 12). The archetype now comes from the skill library,
+        // which can version and retire one. With every skill active this returns
+        // exactly what the array above returns - proven in pb_selftest, not assumed.
+        // The array stays as the fallback: the library may never be the reason a
+        // video fails to get written.
         $style = $graveHooks[(crc32($pick['slug']) & 0x7fffffff) % 3];
+        try {
+            require_once __DIR__ . '/playbook.php';
+            $sk = pb_pick($pdo, 'grave_hook', (string)$pick['slug'], true);
+            if ($sk) { $style = (string)$sk['body']; pb_record_use($pdo, (string)$sk['skill_key'], (int)($pick['id'] ?? $pick['page_id'] ?? 0)); }
+        } catch (Throwable $e) { error_log('playbook grave: ' . $e->getMessage()); }
         $sys = "You write the voiceover for a {$secs} second VERTICAL news-recap video (TikTok/Reels/Shorts) for a US Gen Z "
              . "internet-culture channel. THIS IS A GRAVE STORY (a death, serious violence or a serious human tragedy is "
              . "involved): the register is a measured, respectful news explainer. No hype, no drama-tease energy, no jokes. "
@@ -249,6 +259,11 @@ function video_write_script(PDO $pdo, array $pick): ?array {
         'STAKES TEASE: lead with the consequence ("This one screenshot might end his career"), then reveal whose',
     ];
     $style = $hookStyles[crc32($pick['slug']) % 3];
+    try {
+        require_once __DIR__ . '/playbook.php';
+        $sk = pb_pick($pdo, 'hook', (string)$pick['slug'], false);
+        if ($sk) { $style = (string)$sk['body']; pb_record_use($pdo, (string)$sk['skill_key'], (int)($pick['id'] ?? $pick['page_id'] ?? 0)); }
+    } catch (Throwable $e) { error_log('playbook hook: ' . $e->getMessage()); }
     // r12 HOOK ARSENAL (DIRECTOR-UPGRADE-RESEARCH.md §2 — MIT-licensed formula corpus,
     // rediumvex/viral-hooks-skill + our validated re-hooks). Rotation is pinned per slug
     // so no two consecutive videos open with the same formula.
@@ -303,7 +318,7 @@ function video_write_script(PDO $pdo, array $pick): ?array {
     // THE MEMORY (organ 04): the owner's approved rules reach the hands here.
     // Empty string when he has approved nothing - behaviour then is exactly
     // what it was before the Memory existed (fail closed).
-    try { require_once __DIR__ . '/memory.php'; $sys .= memory_prompt_block($pdo, 'script', (int)$pick['page_id']); }
+    try { require_once __DIR__ . '/memory.php'; $sys .= memory_prompt_block($pdo, 'script', (int)($pick['id'] ?? $pick['page_id'] ?? 0)); }
     catch (Throwable $e) { error_log('memory block: ' . $e->getMessage()); }
     $res = ai_chat([['role' => 'system', 'content' => $sys], ['role' => 'user', 'content' => $usr]], ['gemini', 'openrouter', 'nvidia'], 0.7);
     if (isset($res['error'])) return null;

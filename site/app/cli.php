@@ -607,6 +607,56 @@ switch ($cmd) {
         }
         break;
 
+    // ---- THE OUTSIDE INTAKE (organ 09). What the world is telling us, and
+    // exactly how it reaches the writers.
+    case 'outside':
+        require_once __DIR__ . '/intake.php';
+        $f = intake_all($pdo);
+        echo count($f) . " readable finding(s)\n\n";
+        foreach ($f as $x) {
+            printf("  [%-6s] %-18s conf=%-3s surface=%s\n", $x['source'], $x['key'], $x['confidence'], $x['surface']);
+            echo "      " . $x['line'] . "\n";
+            echo "      evidence: " . $x['evidence'] . "\n\n";
+        }
+        require_once __DIR__ . '/memory.php';
+        foreach (['hook','script','director','caption'] as $sf) {
+            $b = memory_prompt_block($pdo, $sf);
+            echo "--- what the " . $sf . " writer actually receives ---\n";
+            echo ($b === "" ? "  (nothing - prompt unchanged)" : "  " . trim($b)) . "\n\n";
+        }
+        break;
+
+    // ---- THE PLAYBOOK OF WINS (organ 12). What the machine knows how to DO,
+    // with a win rate against our own median.
+    case 'playbook':
+        require_once __DIR__ . '/playbook.php';
+        echo "seeded " . pb_seed($pdo) . " skill(s)\n";
+        $w = pb_winrates($pdo);
+        echo "our own median views: " . round($w['median']) . "\n\n";
+        printf("  %-26s %-12s %4s %8s %9s %8s %s\n", "skill", "kind", "n", "median", "beats-med", "best", "verdict");
+        foreach ($w['skills'] as $x) {
+            printf("  %-26s %-12s %4d %8s %6d/%-3d %8d %s%s\n",
+                $x['label'], $x['kind'], $x['n'], round((float)$x['median']),
+                $x['above'], $x['n'], $x['best'], $x['verdict'],
+                $x['active'] ? '' : ' (RETIRED)');
+        }
+        $c = pb_retirement_candidates($pdo);
+        echo "\n";
+        if (!$c) {
+            echo "  nothing to retire: no skill is far enough behind on a big enough sample.\n";
+            echo "  (that is the honest answer at this volume, not a failure)\n";
+        } else {
+            echo "  the evidence would support retiring (your call, not the machine's):\n";
+            foreach ($c as $x) echo "    " . $x['label'] . " - " . $x['why'] . "\n";
+        }
+        break;
+
+    case 'retire-skill':
+        require_once __DIR__ . '/playbook.php';
+        if (!$arg) { echo "usage: retire-skill <skill_key>\n"; break; }
+        echo pb_retire($pdo, (string)$arg, "retired by the owner") ? "retired {$arg}\n" : "no active skill {$arg}\n";
+        break;
+
     case 'prove':
         require_once __DIR__ . '/proving.php';
         if ($arg && ctype_digit((string)$arg)) {

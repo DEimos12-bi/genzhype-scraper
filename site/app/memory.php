@@ -120,11 +120,22 @@ function memory_directives(PDO $pdo, string $surface): array {
  */
 function memory_prompt_block(PDO $pdo, string $surface, int $pageId = 0): string {
     $ds = memory_directives($pdo, $surface);
-    if (!$ds) return '';
+
+    // THE OUTSIDE INTAKE (organ 09). Months of mined findings sat in this very
+    // table, under this very scope, and the writers never saw one of them: the
+    // query above filters to owner_directive_%. They arrive BELOW the owner's
+    // rules and clearly labelled, never as instructions - rival data currently
+    // recommends a hook rule our own posted videos have already disproved.
+    $outside = '';
+    try { require_once __DIR__ . '/intake.php'; $outside = intake_prompt_block($pdo, $surface); }
+    catch (Throwable $e) { error_log('intake block: ' . $e->getMessage()); }
+
+    if (!$ds) return $outside;
     $lines = '';
     foreach ($ds as $i => $d) { $lines .= ' ' . ($i + 1) . ') ' . $d['directive']; }
     $block = ' THE OWNER HAS APPROVED THESE STANDING RULES — they outrank your defaults'
            . ' and you must follow every one:' . $lines . ' ';
+    $block .= $outside;
     if (function_exists('social_style_log')) {
         try {
             social_style_log('owner_directives', $pageId,
