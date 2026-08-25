@@ -178,6 +178,30 @@ function velocity_drain(PDO $pdo, int &$slots, bool $dry = false): array {
         // NOTHING - the page stays held; the 7-day sweep is still the only thing
         // that archives (owner decision, 2026-08-22). It just stops paying to ask
         // the same question every hour.
+        // THE RETRY BUDGET. The twin check spares duplicates, but a page that is
+        // genuinely unique and simply cannot pass is just as expensive: pages 633,
+        // 687 and 627 had each been through the AI editor FORTY-FIVE times, 82% of
+        // the whole judging budget spent re-asking a question already answered. It
+        // is the same failure shape as the draft retry budget, where one candidate
+        // failed 29 times before a cap existed.
+        // The count is 'failures SINCE the page last changed', so a repair earns a
+        // fresh hearing automatically - framing-repair runs hourly and does fix
+        // some of these. Nothing is destroyed; it just stops paying to re-ask.
+        try {
+            $tries = $pdo->prepare(
+                "SELECT COUNT(*) FROM ai_reviews r JOIN pages p ON p.id=r.page_id
+                  WHERE r.page_id=? AND r.stage='quality' AND r.passed=0
+                    AND r.created_at >= p.updated_at");
+            $tries->execute([(int)$h['id']]);
+            $failed = (int)$tries->fetchColumn();
+            if ($failed >= 6) {
+                echo "  HELD-EXHAUSTED {$h['path']}: failed the editor {$failed}x since it last changed - not re-judged until it is repaired\n";
+                if (!$dry) cnote("HELD-EXHAUSTED {$h['path']} ({$failed} failures)");
+                $retained++;
+                continue;
+            }
+        } catch (Throwable $e) { /* budget is an optimisation, never a blocker */ }
+
         $twin = dup_redundant_copy($pdo, (int)$h['id']);
         if ($twin) {
             echo "  HELD-DUPLICATE {$h['path']}: {$twin['reason']} as /{$twin['slug']}/ - not re-judged\n";
