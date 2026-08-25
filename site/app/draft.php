@@ -127,9 +127,29 @@ function draft_drama(array $input): array {
 
     $pdo  = db();
     $slug = draft_slugify($j['title']);
-    $dup  = $pdo->prepare("SELECT id FROM pages WHERE slug=?");
+    // WHERE THE DUPLICATES WERE BORN. This used to read:
+    //     if ($dup->fetch()) $slug .= '-' . date('Y');
+    // It saw the collision and worked around it, minting a SECOND page for a
+    // story the site already had. Measured 2026-08-25: 60 of 550 drama pages
+    // were redundant, 16 of them published, and one Twitch story existed 15
+    // times over. Those copies can never pass the editor's 'intent' score - a
+    // second telling cannot answer a search better than the first - so they sat
+    // in review being re-judged every hour forever.
+    // Now it refuses. The wording matters: the tick already retires a candidate
+    // whose error contains 'already exists', so this reuses that path rather
+    // than adding one.
+    $dup  = $pdo->prepare("SELECT id, slug FROM pages WHERE slug=?");
     $dup->execute([$slug]);
-    if ($dup->fetch()) $slug .= '-' . date('Y');
+    if ($hit = $dup->fetch(PDO::FETCH_ASSOC)) {
+        return ['error' => 'a page for slug "' . $slug . '" already exists'];
+    }
+    try {
+        require_once __DIR__ . '/dedupe.php';
+        if ($twin = dup_twin_for_slug($pdo, $slug, 'drama')) {
+            return ['error' => 'near-duplicate of existing page "' . $twin['slug']
+                             . '" (' . $twin['status'] . ') already exists'];
+        }
+    } catch (Throwable $e) { error_log('draft twin check: ' . $e->getMessage()); }
 
     // branded SVG cover is the guaranteed default
     $cover = draft_make_cover($slug, $j['cover_big'] ?? mb_substr($j['title'], 0, 18), $j['cover_sub'] ?? 'the timeline, explained');

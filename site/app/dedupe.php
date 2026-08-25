@@ -128,6 +128,41 @@ function dup_twin(PDO $pdo, int $pageId, array $statuses = ['published'], bool $
     return $best;
 }
 
+/**
+ * THE SAME CHECK, BEFORE THE PAGE EXISTS. draft.php needs to ask 'is this story
+ * already covered?' while it still holds nothing but a proposed slug.
+ *
+ * This is where the duplicates were actually born. The old guard did:
+ *     if (slug is taken) slug .= '-' . date('Y');
+ * It detected the collision and then WORKED AROUND it, minting a second page for
+ * the same story. That single line is how twitch-data-leak became
+ * twitch-data-leak-2026, and how one Twitch story ended up on the site 15 times.
+ *
+ * @return array{id:int, slug:string, status:string, containment:float}|null
+ */
+function dup_twin_for_slug(PDO $pdo, string $slug, string $type = 'drama',
+                           array $statuses = ['published', 'review', 'draft']): ?array {
+    $mine = dup_tokens($slug);
+    if (count($mine) < DUP_MIN_TOKENS) return null;
+    $statuses = array_values(array_filter($statuses, fn($x) => in_array($x, ['published', 'review', 'draft'], true)));
+    if (!$statuses) return null;
+    $in = implode(',', array_fill(0, count($statuses), '?'));
+    $q = $pdo->prepare("SELECT id, slug, status FROM pages WHERE status IN ({$in}) AND type=?");
+    $q->execute(array_merge($statuses, [$type]));
+    $best = null;
+    foreach ($q as $row) {
+        $theirs = dup_tokens((string)$row['slug']);
+        if (count($theirs) < DUP_MIN_TOKENS) continue;
+        $c = dup_containment($mine, $theirs);
+        if ($c < DUP_MIN_CONTAIN) continue;
+        if ($best === null || $c > $best['containment']) {
+            $best = ['id' => (int)$row['id'], 'slug' => (string)$row['slug'],
+                     'status' => (string)$row['status'], 'containment' => round($c, 3)];
+        }
+    }
+    return $best;
+}
+
 /** The already-live page telling this story, if there is one. */
 function dup_published_twin(PDO $pdo, int $pageId): ?array {
     return dup_twin($pdo, $pageId, ['published'], false);

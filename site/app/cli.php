@@ -966,6 +966,12 @@ switch ($cmd) {
         // web timeout, so this uses the full robust provider chain (not the fast path).
         try {
             require_once __DIR__ . '/reddit_radar.php';
+            // The tick is long and every step before this one can spend minutes in
+            // AI or network calls; MySQL's wait_timeout is 300s. Revive before the
+            // step's first query or it dies on a handle that is already closed -
+            // which is exactly what took reddit, framing-repair and redrain out
+            // together on 25 Aug, and with them the day's publishing.
+            $pdo = db_alive();
             reddit_radar_install($pdo);
             $rids = $pdo->query("SELECT id FROM reddit_opps WHERE status='new' AND (draft_comment IS NULL OR draft_comment='') ORDER BY match_score DESC, created_utc DESC LIMIT 4")->fetchAll(PDO::FETCH_COLUMN);
             foreach ($rids as $rid) reddit_draft_comment($pdo, (int)$rid);
@@ -980,6 +986,12 @@ switch ($cmd) {
         // archive drafts >7 days old that still fail (honest-thin stories never rot).
         try {
             require_once __DIR__ . '/verify.php';
+            // The tick is long and every step before this one can spend minutes in
+            // AI or network calls; MySQL's wait_timeout is 300s. Revive before the
+            // step's first query or it dies on a handle that is already closed -
+            // which is exactly what took reddit, framing-repair and redrain out
+            // together on 25 Aug, and with them the day's publishing.
+            $pdo = db_alive();
             require_once __DIR__ . '/gate_term.php';
             // 2026-08-22 REPAIR BEFORE JUDGING. Fresh drama drafts were
             // failing the gate almost entirely on the alleged-framing check,
