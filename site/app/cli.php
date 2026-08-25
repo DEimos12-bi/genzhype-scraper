@@ -657,6 +657,55 @@ switch ($cmd) {
         echo pb_retire($pdo, (string)$arg, "retired by the owner") ? "retired {$arg}\n" : "no active skill {$arg}\n";
         break;
 
+    // ---- THE EXPERIMENT DESK (organ 06).
+    case 'experiments':
+        require_once __DIR__ . '/experiment.php';
+        $b = xp_board($pdo);
+        if (!$b) { echo "no experiments yet.\n"; break; }
+        foreach ($b as $x) {
+            printf("  #%-3s [%-8s] %-9s %s\n", $x['id'], $x['status'], $x['surface'], $x['name']);
+            $r = $x['result'];
+            printf("       %-22s control n=%d median=%s | variant n=%d median=%s\n",
+                $r['verdict'], $r['control']['n'] ?? 0, round((float)($r['control']['median'] ?? 0)),
+                $r['variant']['n'] ?? 0, round((float)($r['variant']['median'] ?? 0)));
+            echo "       " . $r['why'] . "\n\n";
+        }
+        break;
+
+    case 'xp-start':
+        require_once __DIR__ . '/experiment.php';
+        $r = xp_start($pdo, (int)$arg);
+        echo ($r['ok'] ? "ok: " : "refused: ") . $r['why'] . "\n";
+        break;
+
+    case 'xp-stop':
+        require_once __DIR__ . '/experiment.php';
+        echo xp_stop($pdo, (int)$arg, "stopped by the owner") ? "stopped #{$arg}\n" : "not running\n";
+        break;
+
+    // ---- THE EYES (organ 03). Does the machine judge agree with the owner?
+    case 'eyes':
+        require_once __DIR__ . '/eyes.php';
+        $a = eyes_agreement($pdo);
+        echo "judge calibration: " . $a['state'] . "\n";
+        echo "  compared on   : " . $a['n'] . " video(s)\n";
+        if ($a['n']) {
+            echo "  agrees        : " . $a['agree'] . "/" . $a['n'] . " (" . round((float)$a['rate'] * 100) . "%)\n";
+            echo "  MISSED (passed what he rejected): " . $a['missed'] . "  <- the dangerous direction\n";
+            echo "  harsh  (blocked what he liked)  : " . $a['harsh'] . "\n";
+        }
+        echo "  " . $a['why'] . "\n\n";
+        $sh = eyes_shots($pdo);
+        echo "worked examples ready for the judge: " . count($sh) . "\n";
+        foreach ($sh as $s) {
+            printf("  %-42s he said %-5s machine %s\n", mb_substr((string)$s['ref'],0,42),
+                $s['owner'], $s['machine'] === null ? '-' : $s['machine']);
+        }
+        $blk = eyes_calibration_block($pdo);
+        echo "\nwhat the judge would be shown:\n";
+        echo ($blk === "" ? "  (nothing - the judge runs exactly as before)" : "  " . trim($blk)) . "\n";
+        break;
+
     case 'prove':
         require_once __DIR__ . '/proving.php';
         if ($arg && ctype_digit((string)$arg)) {
@@ -1380,6 +1429,12 @@ switch ($cmd) {
         // sites. A full round is read-only and takes about 25ms. It must never be
         // the reason a tick fails, so it is wrapped and its own failure is spoken.
         try {
+            // THE EXPERIMENT DESK (organ 06) guardrail. It may only STOP a test.
+            try {
+                require_once __DIR__ . '/experiment.php';
+                foreach (xp_guard($pdo) as $k)
+                    echo "  EXPERIMENT KILLED #{$k['id']} {$k['name']}: {$k['why']}\n";
+            } catch (Throwable $e) { echo "  guardrail failed: " . $e->getMessage() . "\n"; }
             require_once __DIR__ . '/governor.php';
             $pdo = db_alive();
             $gr = gov_round($pdo, true);

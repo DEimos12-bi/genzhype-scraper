@@ -92,7 +92,15 @@ function video_feed_static_write(PDO $pdo): int {
     }
     $dir = dirname(__DIR__) . '/public_html/media';
     if (!is_dir($dir)) @mkdir($dir, 0755, true);
-    $body = json_encode(['generated' => date('c'), 'posts' => $posts],
+    // THE EYES (organ 03). The judge runs in the Python renderer, so its
+    // calibration travels the way everything else reaches it: on the job feed.
+    // Empty until the owner has judged something, and empty must mean 'behave
+    // exactly as before'.
+    $eyes = [];
+    try { require_once __DIR__ . '/eyes.php'; $eyes = eyes_feed_payload($pdo); }
+    catch (Throwable $e) { error_log('eyes payload: ' . $e->getMessage()); }
+
+    $body = json_encode(['generated' => date('c'), 'eyes' => $eyes, 'posts' => $posts],
         JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     // WAF evidence across all runs: JSON/api-looking requests get 403'd from
     // runner IPs; PNG media downloads have NEVER been blocked once. And the

@@ -130,12 +130,19 @@ function memory_prompt_block(PDO $pdo, string $surface, int $pageId = 0): string
     try { require_once __DIR__ . '/intake.php'; $outside = intake_prompt_block($pdo, $surface); }
     catch (Throwable $e) { error_log('intake block: ' . $e->getMessage()); }
 
-    if (!$ds) return $outside;
+    // THE EXPERIMENT DESK (organ 06). If this surface is under test and this
+    // video is in the variant arm, the instruction rides here. Videos in the
+    // permanent holdout never receive one.
+    $xp = '';
+    try { require_once __DIR__ . '/experiment.php'; $xp = xp_prompt_block($pdo, $surface, $pageId); }
+    catch (Throwable $e) { error_log('xp block: ' . $e->getMessage()); }
+
+    if (!$ds) return $outside . $xp;
     $lines = '';
     foreach ($ds as $i => $d) { $lines .= ' ' . ($i + 1) . ') ' . $d['directive']; }
     $block = ' THE OWNER HAS APPROVED THESE STANDING RULES — they outrank your defaults'
            . ' and you must follow every one:' . $lines . ' ';
-    $block .= $outside;
+    $block .= $outside . $xp;
     if (function_exists('social_style_log')) {
         try {
             social_style_log('owner_directives', $pageId,
