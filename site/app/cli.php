@@ -1338,9 +1338,26 @@ switch ($cmd) {
             $d = draft_term(['term' => $tc['name'], 'lane' => lane_for_cand_type($tc['type']) ?? 'slang']);
             if (isset($d['error'])) {
                 echo "  term skip '{$tc['name']}': {$d['error']}\n";
-                // only retire on permanent errors (dup); transient fetch fails stay queued
-                if (strpos($d['error'], 'already exists') !== false) {
-                    $pdo->prepare("UPDATE candidates SET status='rejected', reject_reason='dup' WHERE id=?")->execute([$tc['id']]);
+                // A PERMANENT VERDICT IS NOT A TRANSIENT FAILURE. The old rule retired
+                // only duplicates and left everything else queued 'in case it was
+                // transient'. But the topical-fit gate saying 'Taylor Swift and Travis
+                // Kelce are not a slang phrase' is a final answer, and it was being
+                // re-asked 485 times. Retire those now; count the rest and let the
+                // budget above retire them at 5.
+                $err = (string)$d['error'];
+                $permanent = strpos($err, 'already exists') !== false
+                          || stripos($err, 'off-lane') !== false
+                          || stripos($err, 'topical-fit gate') !== false;
+                if ($permanent) {
+                    $why = strpos($err, 'already exists') !== false ? 'dup' : 'not a slang/meme term';
+                    $pdo->prepare("UPDATE candidates SET status='rejected', reject_reason=? WHERE id=?")
+                        ->execute([$why, $tc['id']]);
+                    echo "    -> retired ({$why})\n";
+                } else {
+                    $pdo->prepare("UPDATE candidates SET draft_attempts=COALESCE(draft_attempts,0)+1,
+                                   last_error=? WHERE id=?")->execute([mb_substr($err, 0, 255), $tc['id']]);
+                    $try = (int)($tc['tries'] ?? 0) + 1;
+                    echo "    -> attempt {$try} of 5" . ($try >= 5 ? " - retired, it cannot be built" : "") . "\n";
                 }
                 continue;
             }
