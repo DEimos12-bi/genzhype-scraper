@@ -21,6 +21,7 @@ on:
     paths:
       - ".github/workflows/reach-runner.yml"
       - "tools/reach_video_search.py"
+      - "tools/reach_term_usage.py"
   schedule:
     - cron: "41 */6 * * *"
   workflow_dispatch:
@@ -37,7 +38,7 @@ permissions:
 jobs:
   reach:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     env:
       TWITTER_AUTH_TOKEN: ${{ secrets.TWITTER_AUTH_TOKEN }}
       TWITTER_CT0: ${{ secrets.TWITTER_CT0 }}
@@ -132,6 +133,23 @@ jobs:
           timeout 600 python tools/reach_video_search.py feed-video.json drop/x-pages.json >> drop/reach.log 2>&1
           echo "x-pages exit=$? bytes=$(wc -c < drop/x-pages.json 2>/dev/null || echo 0)" | tee -a drop/reach.log
           tail -30 drop/reach.log
+
+      # PER-TERM USAGE (2026-08-29): the reach-feed branch lists terms the
+      # slang/meme/gaming citation gate needs evidence for. Search each on X
+      # (quoted phrase) + Reddit; the server turns real dated posts into
+      # social_post citations — the evidence class the 2026-08-22 owner
+      # decision said "lives on TikTok/Reddit/X, none of which we can
+      # retrieve". Now we retrieve two of the three.
+      - name: per-term usage harvest (citation evidence)
+        run: |
+          set +e
+          git fetch --depth 1 origin reach-feed 2>>drop/reach.log \
+            && git show FETCH_HEAD:terms-wanted.json > terms-wanted.json \
+            || echo '{}' > terms-wanted.json
+          echo "terms feed bytes=$(wc -c < terms-wanted.json)" | tee -a drop/reach.log
+          timeout 600 python tools/reach_term_usage.py terms-wanted.json drop/term-usage.json >> drop/reach.log 2>&1
+          echo "term-usage exit=$? bytes=$(wc -c < drop/term-usage.json 2>/dev/null || echo 0)" | tee -a drop/reach.log
+          tail -20 drop/reach.log
 
       - name: deliver to reach-drop branch
         run: |
