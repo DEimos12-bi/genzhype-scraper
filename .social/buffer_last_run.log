@@ -1,4 +1,7 @@
-vault unreachable from this runner (attempt 1): curl 28 for https://genzhype.com/api/creds.php
-vault unreachable from this runner (attempt 2): curl 28 for https://genzhype.com/api/creds.php
-vault unreachable from this runner (attempt 3): curl 28 for https://genzhype.com/api/creds.php
-Buffer: no token this run; the next scheduled run will retry
+channels: facebook:Genzhypee, instagram:therealgenzhype_, tiktok:genzhype0
+fb: queueing page 815 (angel-victoria-murdock-fake-degree-and-career-timeline)
+  SCHEDULED on facebook as reel for 2026-08-31T20:04:00.000Z (buffer post 6a94c10ec186016cf479645b)
+ig: queueing page 815 (angel-victoria-murdock-fake-degree-and-career-timeline)
+  SCHEDULED on instagram as reel for 2026-08-31T19:42:00.000Z (buffer post 6a94c10f6589057dd5e8a55e)
+tt: queueing page 815 (angel-victoria-murdock-fake-degree-and-career-timeline)
+  SCHEDULED on tiktok as reel for 2026-08-31T19:10:00.000Z (buffer post 6a94c111fab17bbb861b1908)
