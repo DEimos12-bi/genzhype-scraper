@@ -164,7 +164,7 @@ jobs:
           echo "scout exit=$? bytes=$(wc -c < drop/scout-posts.json 2>/dev/null || echo 0)" | tee -a drop/reach.log
           tail -12 drop/reach.log
 
-      # TIKTOK EAR (2026-08-30): Creative Center trends — probe + harvest in
+      # TIKTOK EAR (2026-08-30, cookie secret added by owner): Creative Center trends — probe + harvest in
       # one (anonymous browser-TLS first, owner cookies from TT_CC_COOKIES as
       # fallback when supplied). Empty output is an honest answer, never fatal.
       - name: tiktok trends
