@@ -22,7 +22,11 @@ import subprocess
 import sys
 import time
 
-SUBS = ["teenagers", "GenZ", "memes", "OutOfTheLoop"]
+# 2026-08-30 owner: "grow the circle... gaming needs more of that pipeline" —
+# LivestreamFail + GamingLeaksAndRumours are the gaming lane's ears,
+# youtubedrama + LivestreamFail double as DRAMA discovery input server-side.
+SUBS = ["teenagers", "GenZ", "memes", "OutOfTheLoop",
+        "LivestreamFail", "GamingLeaksAndRumours", "youtubedrama"]
 X_QUERIES = ["new slang", "why is everyone saying", "what does it mean when someone says"]
 
 
@@ -51,6 +55,7 @@ def main():
                     continue
                 posts.append({
                     "platform": "reddit",
+                    "sub": sub,
                     "author": d["author"],
                     "text": text[:500],
                     "permalink": d["permalink"],
