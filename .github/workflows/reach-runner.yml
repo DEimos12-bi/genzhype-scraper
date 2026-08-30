@@ -23,6 +23,7 @@ on:
       - "tools/reach_video_search.py"
       - "tools/reach_term_usage.py"
       - "tools/reach_scout.py"
+      - "tools/reach_tiktok.py"
   schedule:
     - cron: "41 */6 * * *"
   workflow_dispatch:
@@ -162,6 +163,19 @@ jobs:
           timeout 600 python tools/reach_scout.py drop/scout-posts.json >> drop/reach.log 2>&1
           echo "scout exit=$? bytes=$(wc -c < drop/scout-posts.json 2>/dev/null || echo 0)" | tee -a drop/reach.log
           tail -12 drop/reach.log
+
+      # TIKTOK EAR (2026-08-30): Creative Center trends — probe + harvest in
+      # one (anonymous browser-TLS first, owner cookies from TT_CC_COOKIES as
+      # fallback when supplied). Empty output is an honest answer, never fatal.
+      - name: tiktok trends
+        env:
+          TT_CC_COOKIES: ${{ secrets.TT_CC_COOKIES }}
+        run: |
+          set +e
+          pip install --quiet curl_cffi 2>drop/install-cffi.err
+          timeout 180 python tools/reach_tiktok.py drop/tiktok-trends.json >> drop/reach.log 2>&1
+          echo "tiktok exit=$? bytes=$(wc -c < drop/tiktok-trends.json 2>/dev/null || echo 0)" | tee -a drop/reach.log
+          tail -8 drop/reach.log
 
       - name: deliver to reach-drop branch
         run: |
