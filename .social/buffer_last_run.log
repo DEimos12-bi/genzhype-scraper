@@ -1,5 +1,4 @@
-channels: facebook:Genzhypee, tiktok:genzhype0, instagram:therealgenzhype_
-fb: queueing page 186 (tiktok-maga-shirt-confrontation-sparks-nationwide-debate)
-  SCHEDULED on facebook as reel for 2026-08-30T21:34:00.000Z (buffer post 6a938942ba5ed851980a6f9f)
-tt: nothing new
-ig: nothing new
+vault unreachable from this runner (attempt 1): curl 28 for https://genzhype.com/api/creds.php
+vault unreachable from this runner (attempt 2): curl 28 for https://genzhype.com/api/creds.php
+vault unreachable from this runner (attempt 3): curl 28 for https://genzhype.com/api/creds.php
+Buffer: no token this run; the next scheduled run will retry
