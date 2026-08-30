@@ -22,6 +22,7 @@ on:
       - ".github/workflows/reach-runner.yml"
       - "tools/reach_video_search.py"
       - "tools/reach_term_usage.py"
+      - "tools/reach_scout.py"
   schedule:
     - cron: "41 */6 * * *"
   workflow_dispatch:
@@ -150,6 +151,17 @@ jobs:
           timeout 600 python tools/reach_term_usage.py terms-wanted.json drop/term-usage.json >> drop/reach.log 2>&1
           echo "term-usage exit=$? bytes=$(wc -c < drop/term-usage.json 2>/dev/null || echo 0)" | tee -a drop/reach.log
           tail -20 drop/reach.log
+
+      # THE SCOUT (2026-08-30): broad listening harvest — raw posts from the
+      # subs and searches where new slang/memes are BORN. The server's Scout
+      # (app/scout.php) runs burst detection + an AI usage screen over these;
+      # this step only listens and ships.
+      - name: scout listening harvest
+        run: |
+          set +e
+          timeout 600 python tools/reach_scout.py drop/scout-posts.json >> drop/reach.log 2>&1
+          echo "scout exit=$? bytes=$(wc -c < drop/scout-posts.json 2>/dev/null || echo 0)" | tee -a drop/reach.log
+          tail -12 drop/reach.log
 
       - name: deliver to reach-drop branch
         run: |
