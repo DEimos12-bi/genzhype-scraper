@@ -39,7 +39,9 @@ SUBS = [
     # gaming (where players actually talk)
     "gaming", "pcgaming", "Games", "leagueoflegends", "VALORANT", "2007scape",
     # story subs -> drama/gaming discovery, not the word ledger
-    "LivestreamFail", "GamingLeaksAndRumours", "youtubedrama",
+    # GTA6 added 2026-08-31 (owner: "specially there is gta 6 coming off") -
+    # the single biggest game community ahead of launch.
+    "LivestreamFail", "GamingLeaksAndRumours", "youtubedrama", "GTA6",
 ]
 X_QUERIES = ["new slang", "why is everyone saying", "what does it mean when someone says"]
 
