@@ -25,8 +25,22 @@ import time
 # 2026-08-30 owner: "grow the circle... gaming needs more of that pipeline" —
 # LivestreamFail + GamingLeaksAndRumours are the gaming lane's ears,
 # youtubedrama + LivestreamFail double as DRAMA discovery input server-side.
-SUBS = ["teenagers", "GenZ", "memes", "OutOfTheLoop",
-        "LivestreamFail", "GamingLeaksAndRumours", "youtubedrama"]
+# 2026-08-30 owner: "add more gaming and meme sources so they are equal to
+# slang". VOCAB subs feed the word ledger; STORY subs (LivestreamFail,
+# GamingLeaksAndRumours, youtubedrama) are routed to drama/gaming discovery
+# server-side instead. Gaming vocabulary lives in the big game communities
+# (a rework, a nerf, being cracked, getting clapped); meme vocabulary lives
+# in the meme subs, which slang alone was never covering.
+SUBS = [
+    # slang / general Gen Z
+    "teenagers", "GenZ", "OutOfTheLoop",
+    # meme
+    "memes", "dankmemes", "me_irl", "MemeEconomy",
+    # gaming (where players actually talk)
+    "gaming", "pcgaming", "Games", "leagueoflegends", "VALORANT", "2007scape",
+    # story subs -> drama/gaming discovery, not the word ledger
+    "LivestreamFail", "GamingLeaksAndRumours", "youtubedrama",
+]
 X_QUERIES = ["new slang", "why is everyone saying", "what does it mean when someone says"]
 
 
