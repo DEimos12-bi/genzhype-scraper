@@ -1,0 +1,22 @@
+rivals: dramaalert, defnoodles, spillsesh, tiktokroom, popcrave, dexerto
+ms_token: present
+2026-09-05 09:09:45,422 - TikTokApi.tiktok - ERROR - Got an unexpected status code: {'userInfo': {'user': {}, 'stats': {}, 'shareMeta': {}}}
+  dramaalert: 'id'
+  dramaalert: 0 post(s)
+2026-09-05 09:09:47,541 - TikTokApi.tiktok - ERROR - Got an unexpected status code: {'userInfo': {'user': {}, 'stats': {}, 'shareMeta': {}}}
+  defnoodles: 'id'
+  defnoodles: 0 post(s)
+2026-09-05 09:09:49,649 - TikTokApi.tiktok - ERROR - Got an unexpected status code: {'userInfo': {'user': {}, 'stats': {}, 'shareMeta': {}}}
+  spillsesh: 'id'
+  spillsesh: 0 post(s)
+2026-09-05 09:09:51,749 - TikTokApi.tiktok - ERROR - Got an unexpected status code: {'userInfo': {'user': {}, 'stats': {}, 'shareMeta': {}}}
+  tiktokroom: 'id'
+  tiktokroom: 0 post(s)
+2026-09-05 09:09:53,866 - TikTokApi.tiktok - ERROR - Got an unexpected status code: {'userInfo': {'user': {}, 'stats': {}, 'shareMeta': {}}}
+  popcrave: 'id'
+  popcrave: 0 post(s)
+2026-09-05 09:09:55,953 - TikTokApi.tiktok - ERROR - Got an unexpected status code: {'userInfo': {'user': {}, 'stats': {}, 'shareMeta': {}}}
+  dexerto: 'id'
+  dexerto: 0 post(s)
+
+collected 0 post(s) from 0 rival(s)
