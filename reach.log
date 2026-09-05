@@ -1,0 +1,67 @@
+twitter-cli install exit=0
+rdt-cli install exit=0
+From https://github.com/DEimos12-bi/genzhype-scraper
+ * branch            video-feed -> FETCH_HEAD
+ * [new branch]      video-feed -> origin/video-feed
+video feed bytes=29830
+    -> 15 raw hit(s), 0 kept (dropped: 0 not-this-person, 15 off-topic)
+  page 33: 0 candidate(s) from 1 search(es)
+    -> 13 raw hit(s), 0 kept (dropped: 0 not-this-person, 13 off-topic)
+  page 179: 0 candidate(s) from 1 search(es)
+  search 'Twitch Leak Reveals Source': 0 hits, raw='{\n  "ok": true,\n  "schema_version": "1",\n  "data": []\n}\n'
+    -> 2 raw hit(s), 0 kept (dropped: 0 not-this-person, 2 off-topic)
+  page 613: 0 candidate(s) from 2 search(es)
+    -> 6 raw hit(s), 0 kept (dropped: 0 not-this-person, 6 off-topic)
+  page 96: 0 candidate(s) from 1 search(es)
+  search "'malding' took": 0 hits, raw='{\n  "ok": true,\n  "schema_version": "1",\n  "data": []\n}\n'
+  page 119: 0 candidate(s) from 1 search(es)
+    -> 10 raw hit(s), 0 kept (dropped: 0 not-this-person, 10 off-topic)
+  page 76: 0 candidate(s) from 1 search(es)
+x-pages: 6 page(s), 7 search(es) used
+x-pages exit=0 bytes=74
+From https://github.com/DEimos12-bi/genzhype-scraper
+ * branch            reach-feed -> FETCH_HEAD
+ * [new branch]      reach-feed -> origin/reach-feed
+terms feed bytes=1178
+terms wanted: 12
+  loot: x=10 reddit=10
+  boosted: x=10 reddit=10
+  eggchan: x=10 reddit=10
+  roblox evil homer…: x=0 reddit=10
+  why does everyone hate sombr? tiktok meme explained: x=0 reddit=10
+  what are larptubers and who is larpiplier?: x=0 reddit=1
+  folk valley memes: x=4 reddit=10
+  the tragic story of the burger king foot lettuce guy: x=1 reddit=10
+  ohio speed memes: x=1 reddit=10
+  supreme: x=10 reddit=10
+  ankle biter: x=10 reddit=10
+  ted lasso: x=10 reddit=10
+wrote drop/term-usage.json
+term-usage exit=0 bytes=69774
+  r/teenagers: 25 posts
+  r/GenZ: 25 posts
+  r/OutOfTheLoop: 25 posts
+  r/memes: 25 posts
+  r/dankmemes: 25 posts
+  r/me_irl: 25 posts
+  r/MemeEconomy: 25 posts
+  r/gaming: 25 posts
+  r/pcgaming: 25 posts
+  r/Games: 25 posts
+  r/leagueoflegends: 25 posts
+  r/VALORANT: 25 posts
+  r/2007scape: 25 posts
+  r/LivestreamFail: 25 posts
+  r/GamingLeaksAndRumours: 25 posts
+  r/youtubedrama: 25 posts
+  r/GTA6: 25 posts
+  x 'new slang': 20 posts
+  x 'why is everyone saying': 20 posts
+  x 'what does it mean when someone says': 20 posts
+scout harvest: 485 posts -> drop/scout-posts.json
+scout exit=0 bytes=201623
+A api anon: 200, tags=0
+B page anon: 200, 21290 bytes, tags=0
+C api cookies: 200, tags=0
+tiktok ear: method=None hashtags=0
+tiktok exit=0 bytes=345
