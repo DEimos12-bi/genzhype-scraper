@@ -1,0 +1,121 @@
+2026-09-05 15:20:24,531 INFO caption font: /usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf
+2026-09-05 15:20:24,533 INFO job feed from repo branch (generated 2026-09-05T15:20:03+00:00)
+2026-09-05 15:20:24,533 INFO FORCED re-render job for page 33
+2026-09-05 15:20:24,533 INFO job from static feed (generated 2026-09-05T15:20:03+00:00)
+2026-09-05 15:20:24,533 INFO processing page_id=33 slug=skibidi-toilet
+2026-09-05 15:20:24,533 INFO STYLE punch: lead=faces cuts~1.5s xfade=0.08 zoom=0.16 punch=1.17 bgm_3 evidence_cap=2 footage_consec=2
+2026-09-05 15:20:24,533 INFO voice: en-US-AndrewMultilingualNeural
+2026-09-05 15:20:24,533 INFO STAGE: visuals
+2026-09-05 15:20:24,534 INFO CLIP HUNT: story now has 0 clip(s)
+2026-09-05 15:20:25,296 INFO archive.org: 0 items for ["How 'skibidi toilet' took", "How 'skibidi"]
+2026-09-05 15:20:25,510 INFO UPSIZED: https://kotaku.com/app/uploads/2024/06/90ae5d2fc69c29e08afa086c1dc199d1.jpg
+2026-09-05 15:20:25,555 INFO CONTAIN MODE: 1920x1080 needs 1.8x upscale to cover; rendering whole on a blurred fill instead
+2026-09-05 15:20:25,611 INFO face detected in vis-33-0: 317x353 at (1597,0)
+2026-09-05 15:20:48,041 INFO vision still-relevance: gemini-3.5-flash-lite HTTP 503
+2026-09-05 15:21:13,788 INFO vision still-relevance: gemini-flash-latest HTTP 503
+2026-09-05 15:21:53,842 INFO vision still-relevance: gemma-4-31b-it failed (HTTPSConnectionPool(host='generativelanguage.googleapis.com', port=443): Read timed out. (read timeout=40))
+2026-09-05 15:21:55,727 INFO vision rotation: still-relevance served by groq/qwen3.6
+2026-09-05 15:21:56,243 INFO UPSIZED: https://www.yorkshirepost.co.uk/jpim-static/image/2024/08/28/8/45/Skibidi-Toilet.jpg?width=1600&auto=webp&qual
+2026-09-05 15:21:56,275 INFO CONTAIN MODE: 1600x1066 needs 1.8x upscale to cover; rendering whole on a blurred fill instead
+2026-09-05 15:21:56,296 INFO face detected in vis-33-1: 288x389 at (228,476)
+2026-09-05 15:22:04,460 INFO vision rotation: still-relevance served by gemini-3.5-flash-lite
+2026-09-05 15:22:04,485 INFO CONTAIN MODE: 1200x630 needs 3.0x upscale to cover; rendering whole on a blurred fill instead
+2026-09-05 15:22:04,496 INFO face detected in vis-33-2: 95x123 at (705,281)
+2026-09-05 15:22:06,015 INFO vision rotation: still-relevance served by gemini-3.5-flash-lite
+2026-09-05 15:22:06,062 INFO CONTAIN MODE: 1200x675 needs 2.8x upscale to cover; rendering whole on a blurred fill instead
+2026-09-05 15:22:06,077 INFO face detected in vis-33-3: 256x388 at (479,62)
+2026-09-05 15:22:07,568 INFO vision rotation: still-relevance served by gemini-3.5-flash-lite
+2026-09-05 15:22:07,584 INFO text-heavy visual (heuristic) -> contain mode (no crop/zoom): https://genzhype.com/assets/covers/skibidi-toilet-featured.webp
+2026-09-05 15:22:07,603 INFO face detected in vis-33-4: 58x75 at (556,364)
+2026-09-05 15:22:08,247 INFO visual pool: 5 distinct of 5 candidates (0 from people, 0 name(s) mapped: {})
+2026-09-05 15:22:08,248 INFO TIMELINE MODE: deterministic beats, clip opportunism OFF
+2026-09-05 15:22:08,248 INFO TIMELINE: site cover demoted behind 4 real artifact(s) — the hero is decoration, not evidence
+2026-09-05 15:22:08,248 INFO TIMELINE: hook image switched off the site cover onto a real artifact (https://kotaku.com/app/uploads/2024/06/90ae5d2fc69c29e08afa086c1dc199d)
+2026-09-05 15:22:08,248 INFO STAGE: receipts
+2026-09-05 15:22:08,268 INFO receipts: 1 card(s) downloaded of 16 entries (event entries carry no card by design)
+2026-09-05 15:22:08,268 INFO STAGE: screenshots
+2026-09-05 15:22:08,850 INFO Readability injected from vendor/Readability.js
+2026-09-05 15:22:15,515 INFO crop r30c: 1328x1660 at 56,382 (col 1280, lead-img False) https://kotaku.com/overwatch-2-venture-times-square-ad-skibi
+2026-09-05 15:22:17,779 INFO vision rotation: screenshot-clean served by gemini-3.5-flash-lite
+2026-09-05 15:22:17,781 INFO REAL source screenshot: https://kotaku.com/overwatch-2-venture-times-square-ad-skibidi-toilet-meme-1851561388
+2026-09-05 15:22:22,712 INFO crop r30c: 678x837 at 216,462 (col 630, lead-img False) https://www.yorkshirepost.co.uk/lifestyle/family/skibidi-toi
+2026-09-05 15:22:24,435 INFO vision rotation: screenshot-clean served by gemini-3.5-flash-lite
+2026-09-05 15:22:24,436 INFO REAL source screenshot: https://www.yorkshirepost.co.uk/lifestyle/family/skibidi-toilet-what-is-the-deal-explained-4758757
+2026-09-05 15:22:29,089 INFO crop r30c: 832x1040 at 304,2091 (col 784, lead-img False) https://www.mirror.co.uk/tv/tv-news/what-skibidi-toilet-lore
+2026-09-05 15:22:29,093 INFO screenshot failed (Page.screenshot: Clipped area is either empty or outside the resulting image
+Cal): https://www.mirror.co.uk/tv/tv-news/what-skibidi-toilet-lore-explained-33953595.amp
+2026-09-05 15:22:34,235 INFO crop r30c: 832x1040 at 304,2091 (col 784, lead-img False) https://www.mirror.co.uk/tv/tv-news/what-skibidi-toilet-lore
+2026-09-05 15:22:34,239 INFO screenshot failed (Page.screenshot: Clipped area is either empty or outside the resulting image
+Cal): https://www.mirror.co.uk/tv/tv-news/what-skibidi-toilet-lore-explained-33953595.amp
+2026-09-05 15:22:38,680 INFO crop r30c: 832x1040 at 304,2091 (col 784, lead-img False) https://www.mirror.co.uk/tv/tv-news/what-skibidi-toilet-lore
+2026-09-05 15:22:38,684 INFO screenshot failed (Page.screenshot: Clipped area is either empty or outside the resulting image
+Cal): https://www.mirror.co.uk/tv/tv-news/what-skibidi-toilet-lore-explained-33953595.amp
+2026-09-05 15:22:43,649 INFO crop r30c: 899x1124 at 37,1008 (col 851, lead-img False) https://www.gosugamers.net/entertainment/news/74022-skibidi-
+2026-09-05 15:23:09,326 INFO vision screenshot-clean: gemini-3.5-flash-lite HTTP 503
+2026-09-05 15:23:11,434 INFO vision screenshot-clean: gemini-flash-latest HTTP 503
+2026-09-05 15:23:51,234 INFO vision screenshot-clean: gemma-4-31b-it HTTP 503
+2026-09-05 15:23:51,314 INFO vision screenshot-clean: groq HTTP 429
+2026-09-05 15:23:56,219 INFO vision rotation: screenshot-clean served by cloudflare/llama-3.2
+2026-09-05 15:23:56,220 INFO REAL source screenshot: https://www.gosugamers.net/entertainment/news/74022-skibidi-toilet-is-officially-coming-to-fortnite-
+2026-09-05 15:23:56,220 INFO screenshot budget spent; 6 article(s) fall back to og photos/subject
+2026-09-05 15:23:56,344 INFO UPSIZED: https://kotaku.com/app/uploads/2024/06/90ae5d2fc69c29e08afa086c1dc199d1.jpg
+2026-09-05 15:23:56,381 INFO event receipts: 3 clean screenshot(s), 4 og report photo(s); the rest fall back to subject photos
+2026-09-05 15:23:56,382 INFO STAGE: tts
+2026-09-05 15:23:58,593 INFO expressive TTS: segment 1/3 rate=+18% pitch=+2Hz 4.39s 12 cue(s)
+2026-09-05 15:24:07,279 INFO expressive TTS: segment 2/3 rate=+5% pitch=- 18.46s 46 cue(s)
+2026-09-05 15:24:08,669 INFO expressive TTS: segment 3/3 rate=+1% pitch=- 4.82s 10 cue(s)
+2026-09-05 15:24:09,069 INFO expressive TTS ok: 3 segment(s), 27.72s audio, 68 word timings
+2026-09-05 15:24:09,069 INFO STAGE: compose
+2026-09-05 15:24:09,069 INFO bgm: SIGNATURE bed bgm_2.mp3 (same on every video, by design)
+2026-09-05 15:24:09,069 INFO no broll terms in feed; cursor mode off (v4 per-shot queries may still fetch)
+2026-09-05 15:24:09,088 INFO EDL: 6 shot(s) from 6 directed (words=68)
+2026-09-05 15:24:09,088 INFO footage: cookies active
+2026-09-05 15:24:09,088 INFO receipt 2 og social-card excluded under timeline contract; person-photo fallback
+2026-09-05 15:24:09,088 INFO receipt 2 missing/unresolved; subject photo fallback
+2026-09-05 15:24:09,088 INFO receipt 2 og social-card excluded under timeline contract; person-photo fallback
+2026-09-05 15:24:09,088 INFO receipt 2 missing/unresolved; subject photo fallback
+2026-09-05 15:24:09,088 INFO receipt image already in 2 scenes; subject photo for variety
+2026-09-05 15:24:09,088 INFO receipt 2 missing/unresolved; subject photo fallback
+2026-09-05 15:24:09,088 INFO receipt 10 og social-card excluded under timeline contract; person-photo fallback
+2026-09-05 15:24:09,089 INFO receipt 10 missing/unresolved; subject photo fallback
+2026-09-05 15:24:09,089 INFO PACING: 6 scenes -> 12 beats (target 1.5s/image, avg 2.35s)
+2026-09-05 15:24:09,089 INFO RENDER REPORT: {"style": "punch", "ck_mode": true, "cookie_bytes": 3003, "story_vids": 0, "scenes": 12, "runtime_s": 28.2, "footage_scenes": 0, "gap_fill_scenes": 0, "opportunistic_footage": 0, "still_photo_scenes": 11, "card_scenes": 1, "frozen_stills": 0, "footage_fetches": 0, "seq": "sssssssssssc"}
+2026-09-05 15:24:09,089 INFO CLIP verify disabled (VIDEO_CLIP_VERIFY=0)
+2026-09-05 15:24:09,089 INFO scene plan (v4 EDL): 12 scene(s) (1 receipt, 0 b-roll), pool=5
+2026-09-05 15:24:09,089 INFO   scene 1: 0.00-2.09s type=photo motion=punch_build sfx=none music=bed visual=vis-33-0
+2026-09-05 15:24:09,089 INFO   scene 2: 2.09-4.18s type=photo motion=zoom_out sfx=None music=bed visual=vis-33-1
+2026-09-05 15:24:09,089 INFO   scene 3: 4.18-6.20s type=photo motion=zoom_out sfx=none music=bed visual=vis-33-1
+2026-09-05 15:24:09,089 INFO   scene 4: 6.20-8.22s type=photo motion=zoom_out sfx=None music=bed visual=vis-33-2
+2026-09-05 15:24:09,089 INFO   scene 5: 8.22-10.09s type=photo motion=punch_build sfx=whoosh music=bed visual=vis-33-2
+2026-09-05 15:24:09,089 INFO   scene 6: 10.09-11.95s type=photo motion=zoom_out sfx=None music=bed visual=vis-33-3
+2026-09-05 15:24:09,089 INFO   scene 7: 11.95-13.84s type=photo motion=zoom_out sfx=riser music=silence visual=vis-33-3
+2026-09-05 15:24:09,089 INFO   scene 8: 13.84-15.72s type=photo motion=zoom_out sfx=None music=silence visual=vis-33-1
+2026-09-05 15:24:09,089 INFO   scene 9: 15.72-17.39s type=photo motion=punch_build sfx=impact music=duck visual=vis-33-0
+2026-09-05 15:24:09,089 INFO   scene 10: 17.39-19.05s type=photo motion=zoom_out sfx=None music=duck visual=vis-33-2
+2026-09-05 15:24:09,089 INFO   scene 11: 19.05-20.71s type=photo motion=zoom_in sfx=None music=duck visual=vis-33-3
+2026-09-05 15:24:09,089 INFO   scene 12: 20.71-28.17s type=receipt motion=contain sfx=whoosh music=bed visual=receipt-33-15.png
+2026-09-05 15:24:09,090 INFO VARIETY: 5 distinct stills, top visual carries 3/12 (25%)
+2026-09-05 15:24:09,090 INFO SELFCHECK: repeats=0 short_scenes=none caption_cov=99% (window=3, assets=13)
+2026-09-05 15:24:09,090 WARNING SELFCHECK: 3 near-repeat(s) within the 3-scene window (small pool; each reappears with different motion) — non-fatal
+2026-09-05 15:24:13,542 INFO transition 1/3: whip at 8.22s (beat change)
+2026-09-05 15:24:14,198 INFO transition 2/3: crosszoom at 20.71s (beat change)
+2026-09-05 15:24:16,096 INFO bgm: SIGNATURE bed bgm_2.mp3 (same on every video, by design)
+2026-09-05 15:24:16,564 INFO sound: bed bgm_2.mp3 over 3 interval(s), 0 swell(s)
+2026-09-05 15:24:16,993 INFO sound: 4 SFX placed
+2026-09-05 15:24:17,027 INFO sound: final -17.6 dBFS avg / -1.5 dBFS peak
+2026-09-05 15:28:26,842 INFO STAGE: judge
+2026-09-05 15:29:53,550 INFO vision rotation: JUDGE served by gemini-3.5-flash-lite
+2026-09-05 15:29:53,551 INFO vision judge: pass=False weird=[{'frame': 1, 'issue': 'c. REPETITION: underlying Skibidi Toilet visual reused across multiple frames (frames 1, 3, 4, and split screens repeat assets)'}, {'frame': 3, 'issue': 'c. REPETITION: same underlying Skibidi Toilet source image/video clip reused excessively'}] mismatches=[{'frame': 5, 'words': 'Fortnite officially adds Skibidi Toilet to the game, per GosuGamers.', 'what_shown': 'An Overwatch/Skibidi meme animation clip in New York city instead of Fortnite gameplay or GosuGamers article'}] artifact_misses=[] scores={'readability': 8, 'framing': 7, 'variety': 3, 'edit_variety': 4, 'completeness': 5} issues=['Repetition of the same core Skibidi Toilet visual asset across multiple frames violates checklist rule c', 'Visual mismatch on frame 5 where Fortnite mention is accompanied by general meme footage rather than Fortnite or GosuGamers proof']
+2026-09-05 15:30:00,208 INFO caption font: /usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf
+2026-09-05 15:30:00,405 INFO filmstrip built: build/reject-33.jpg
+2026-09-05 15:30:01,843 INFO DIAG reject-sheet -> HTTP 200
+2026-09-05 15:30:02,933 INFO DIAG shot-33-0 -> HTTP 200
+2026-09-05 15:30:04,003 INFO DIAG shot-33-3 -> HTTP 200
+2026-09-05 15:30:05,451 INFO DIAG shot-33-8 -> HTTP 200
+2026-09-05 15:30:05,855 ERROR failed to make video for 33: vision judge rejected page 33 (attempt 1/1): weird=[{'frame': 1, 'issue': 'c. REPETITION: underlying Skibidi Toilet visual reused across multiple frames (frames 1, 3, 4, and split screens repeat assets)'}, {'frame': 3, 'issue': 'c. REPETITION: same underlying Skibidi Toilet source image/video clip reused excessively'}] mism=[{'frame': 5, 'words': 'Fortnite officially adds Skibidi Toilet to the game, per GosuGamers.', 'what_shown': 'An Overwatch/Skibidi meme animation clip in New York city instead of Fortnite gameplay or GosuGamers article'}] issues=['Repetition of the same core Skibidi Toilet visual asset across multiple frames violates checklist rule c', 'Visual mismatch on frame 5 where Fortnite mention is accompanied by general meme footage rather than Fortnite or GosuGamers proof']
+Traceback (most recent call last):
+  File "/home/runner/work/genzhype-scraper/genzhype-scraper/video_maker.py", line 9803, in main
+    make_one(post, font_path)
+  File "/home/runner/work/genzhype-scraper/genzhype-scraper/video_maker.py", line 9760, in make_one
+    raise JudgeRejected(
+JudgeRejected: vision judge rejected page 33 (attempt 1/1): weird=[{'frame': 1, 'issue': 'c. REPETITION: underlying Skibidi Toilet visual reused across multiple frames (frames 1, 3, 4, and split screens repeat assets)'}, {'frame': 3, 'issue': 'c. REPETITION: same underlying Skibidi Toilet source image/video clip reused excessively'}] mism=[{'frame': 5, 'words': 'Fortnite officially adds Skibidi Toilet to the game, per GosuGamers.', 'what_shown': 'An Overwatch/Skibidi meme animation clip in New York city instead of Fortnite gameplay or GosuGamers article'}] issues=['Repetition of the same core Skibidi Toilet visual asset across multiple frames violates checklist rule c', 'Visual mismatch on frame 5 where Fortnite mention is accompanied by general meme footage rather than Fortnite or GosuGamers proof']
