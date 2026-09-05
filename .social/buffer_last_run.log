@@ -1,7 +1,4 @@
-channels: tiktok:genzhype0, instagram:therealgenzhype_, facebook:Genzhypee
-tt: queueing page 29 (italian-brainrot)
-  SCHEDULED on tiktok as reel for 2026-09-05T19:10:00.000Z (buffer post 6a9bb3a29ca05109bed057ad)
-ig: queueing page 29 (italian-brainrot)
-  SCHEDULED on instagram as reel for 2026-09-05T19:42:00.000Z (buffer post 6a9bb3a39ca05109bed057d6)
-fb: queueing page 29 (italian-brainrot)
-  SCHEDULED on facebook as reel for 2026-09-05T20:04:00.000Z (buffer post 6a9bb3a4720c7a42cca5527b)
+vault unreachable from this runner (attempt 1): curl 28 for https://genzhype.com/api/creds.php
+vault unreachable from this runner (attempt 2): curl 28 for https://genzhype.com/api/creds.php
+vault unreachable from this runner (attempt 3): curl 28 for https://genzhype.com/api/creds.php
+Buffer: no token this run; the next scheduled run will retry
