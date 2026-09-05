@@ -1,4 +1,7 @@
-vault unreachable from this runner (attempt 1): curl 28 for https://genzhype.com/api/creds.php
-vault unreachable from this runner (attempt 2): curl 28 for https://genzhype.com/api/creds.php
-vault unreachable from this runner (attempt 3): curl 28 for https://genzhype.com/api/creds.php
-Buffer: no token this run; the next scheduled run will retry
+channels: tiktok:genzhype0, instagram:therealgenzhype_, facebook:Genzhypee
+tt: queueing page 41 (canon-event)
+  SCHEDULED on tiktok as reel for 2026-09-06T19:10:00.000Z (buffer post 6a9ca1ee85ccb3a22c0c192d)
+ig: queueing page 41 (canon-event)
+  SCHEDULED on instagram as reel for 2026-09-05T23:47:00.000Z (buffer post 6a9ca1efe6524401a65f311f)
+fb: queueing page 41 (canon-event)
+  SCHEDULED on facebook as reel for 2026-09-06T20:04:00.000Z (buffer post 6a9ca1ef85ccb3a22c0c196f)
