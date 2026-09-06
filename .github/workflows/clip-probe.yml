@@ -1,41 +1,52 @@
 name: clip-probe
-
-# Finds out WHY TikTok clip downloads fail and which strategy works, using the
-# real URLs that failed on page 131. Read-only: downloads to a scratch folder,
-# publishes only the report. Triggered by .social/clip-probe-trigger.
-
+# CLIP DOWNLOAD PROBE. r95 measured why TikTok refused the runner. r142
+# (2026-09-06) turns it into the PO-TOKEN test for YouTube: the official
+# bgutil provider (HTTP server mode) + every player client the yt-dlp PO Token
+# Guide lists, against REAL story videos. The verdict is POSTed to the server's
+# heartbeat log (stage=POT_PROBE) and the report lands on branch
+# clip-probe-drop. Triggered by .social/clip-probe-trigger.
 on:
   push:
     branches: [main]
     paths:
       - ".social/clip-probe-trigger"
   workflow_dispatch:
-
 permissions:
   contents: write
-
 concurrency:
   group: clip-probe
   cancel-in-progress: false
-
 jobs:
   probe:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-
-      - name: Install yt-dlp with browser TLS
-        # curl-cffi is the whole trick for TikTok/Twitch/Kick — it presents a
-        # real browser TLS fingerprint. Without it --impersonate is a no-op.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install yt-dlp (nightly), browser TLS, and the token provider plugin
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -U "yt-dlp[default,curl-cffi]"
-
+          python -m pip install -U --pre "yt-dlp[default,curl-cffi]"
+          python -m pip install -U bgutil-ytdlp-pot-provider
+          python -m pip show bgutil-ytdlp-pot-provider | grep -i version || true
+      - name: Start the token provider server (bgutil, HTTP mode)
+        run: |
+          git clone --depth 1 https://github.com/Brainicism/bgutil-ytdlp-pot-provider.git /tmp/bgutil
+          cd /tmp/bgutil/server
+          npm ci
+          npx tsc
+          (node build/main.js > /tmp/bgutil.log 2>&1 &)
+          for i in $(seq 1 20); do
+            if curl -s --max-time 2 http://127.0.0.1:4416/ping >/dev/null; then echo "provider up after ${i}s"; break; fi
+            sleep 1
+          done
+          curl -s --max-time 5 http://127.0.0.1:4416/ping || echo "provider NOT answering"
+          tail -5 /tmp/bgutil.log || true
       - name: Write cookies if we have them
         env:
           YT_COOKIES: ${{ secrets.YT_COOKIES }}
@@ -47,16 +58,11 @@ jobs:
           else
             echo "no cookie secret; testing without"
           fi
-
-      - name: Syntax-check the maker
-        run: python -m py_compile video_maker.py && echo "video_maker.py compiles clean"
-
       - name: Probe
         continue-on-error: true
         env:
-          PROBE_NIGHTLY: "1"
-        run: python -u clip_probe.py 2>&1 | tee probe.log
-
+          INGEST_TOKEN: ${{ secrets.INGEST_TOKEN }}
+        run: python -u pot_probe.py 2>&1 | tee probe.log
       - name: Publish the report
         if: always()
         env:
@@ -65,8 +71,9 @@ jobs:
           mkdir -p /tmp/drop && cd /tmp/drop
           cp "$GITHUB_WORKSPACE/probe.log" . 2>/dev/null || true
           cp "$GITHUB_WORKSPACE/probe_out/report.json" . 2>/dev/null || true
+          cp /tmp/bgutil.log . 2>/dev/null || true
           git init -q && git checkout -q -b clip-probe-drop
           git add -A
           git -c user.name=probe -c user.email=bot@genzhype \
-              commit -qm "clip probe $(date -u +%FT%TZ)"
+              commit -qm "pot probe $(date -u +%FT%TZ)"
           git push -f "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" clip-probe-drop
