@@ -403,6 +403,16 @@ jobs:
             git --work-tree=feeddir checkout FETCH_HEAD -- . 2>/dev/null || true
             ls -la feeddir/ || true
             echo "VIDEO_FEED_DIR=$GITHUB_WORKSPACE/feeddir" >> "$GITHUB_ENV"
+            # r143 THE BRAIN: numeric levers the server's Executive set travel in
+            # feed/levers.env. Whitelisted VIDEO_* keys with numeric values only,
+            # so nothing but a bounded number can ever reach the maker from here.
+            if [ -f feeddir/levers.env ]; then
+              while IFS= read -r line; do
+                if printf '%s' "$line" | grep -Eq '^VIDEO_(FOOTAGE_FRAC|FOOTAGE_MAX_SCENES|FOOTAGE_CONSEC|CLIP_HUNT_MIN)=[0-9]+(\.[0-9]+)?$'; then
+                  echo "$line" >> "$GITHUB_ENV"; echo "lever: $line"
+                fi
+              done < feeddir/levers.env
+            fi
           else
             echo "no video-feed branch; HTTP feed only"
           fi
