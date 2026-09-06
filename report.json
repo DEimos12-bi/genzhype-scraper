@@ -1,0 +1,262 @@
+{
+ "at": "2026-09-06T12:21:36Z",
+ "results": [
+  {
+   "video": "jZgG4CvcZso",
+   "strategy": "plain (no token)",
+   "ok": false,
+   "kb": 0,
+   "ms": 1312,
+   "err": "ERROR: [youtube] jZgG4CvcZso: Sign in to confirm you\u2019re not a bot. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dl"
+  },
+  {
+   "video": "jZgG4CvcZso",
+   "strategy": "token, default clients",
+   "ok": false,
+   "kb": 0,
+   "ms": 1319,
+   "err": "ERROR: [youtube] jZgG4CvcZso: Sign in to confirm you\u2019re not a bot. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dl"
+  },
+  {
+   "video": "jZgG4CvcZso",
+   "strategy": "token + mweb",
+   "ok": false,
+   "kb": 0,
+   "ms": 1563,
+   "err": "ERROR: [youtube] jZgG4CvcZso: Sign in to confirm you\u2019re not a bot. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dl"
+  },
+  {
+   "video": "jZgG4CvcZso",
+   "strategy": "token + tv",
+   "ok": false,
+   "kb": 0,
+   "ms": 1369,
+   "err": "ERROR: [youtube] jZgG4CvcZso: Sign in to confirm you\u2019re not a bot. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dl"
+  },
+  {
+   "video": "jZgG4CvcZso",
+   "strategy": "token + web_safari",
+   "ok": false,
+   "kb": 0,
+   "ms": 1717,
+   "err": "ERROR: [youtube] jZgG4CvcZso: Sign in to confirm you\u2019re not a bot. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dl"
+  },
+  {
+   "video": "jZgG4CvcZso",
+   "strategy": "token + web",
+   "ok": false,
+   "kb": 0,
+   "ms": 1278,
+   "err": "ERROR: [youtube] jZgG4CvcZso: Sign in to confirm you\u2019re not a bot. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dl"
+  },
+  {
+   "video": "jZgG4CvcZso",
+   "strategy": "android_vr (no token)",
+   "ok": false,
+   "kb": 0,
+   "ms": 1136,
+   "err": "ERROR: [youtube] jZgG4CvcZso: Sign in to confirm you\u2019re not a bot. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dl"
+  },
+  {
+   "video": "jZgG4CvcZso",
+   "strategy": "token + tv + cookies",
+   "ok": false,
+   "kb": 0,
+   "ms": 1577,
+   "err": "ERROR: [youtube] jZgG4CvcZso: Sign in to confirm you\u2019re not a bot. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dl"
+  },
+  {
+   "video": "jZgG4CvcZso",
+   "strategy": "token + web + cookies",
+   "ok": false,
+   "kb": 0,
+   "ms": 1153,
+   "err": "ERROR: [youtube] jZgG4CvcZso: Sign in to confirm you\u2019re not a bot. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dl"
+  },
+  {
+   "video": "tzD9OxAHtzU",
+   "strategy": "plain (no token)",
+   "ok": false,
+   "kb": 0,
+   "ms": 1399,
+   "err": "ERROR: [youtube] tzD9OxAHtzU: Sign in to confirm you\u2019re not a bot. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dl"
+  },
+  {
+   "video": "tzD9OxAHtzU",
+   "strategy": "token, default clients",
+   "ok": false,
+   "kb": 0,
+   "ms": 1336,
+   "err": "ERROR: [youtube] tzD9OxAHtzU: Sign in to confirm you\u2019re not a bot. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dl"
+  },
+  {
+   "video": "tzD9OxAHtzU",
+   "strategy": "token + mweb",
+   "ok": false,
+   "kb": 0,
+   "ms": 1442,
+   "err": "ERROR: [youtube] tzD9OxAHtzU: Sign in to confirm you\u2019re not a bot. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dl"
+  },
+  {
+   "video": "tzD9OxAHtzU",
+   "strategy": "token + tv",
+   "ok": false,
+   "kb": 0,
+   "ms": 1465,
+   "err": "ERROR: [youtube] tzD9OxAHtzU: Sign in to confirm you\u2019re not a bot. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dl"
+  },
+  {
+   "video": "tzD9OxAHtzU",
+   "strategy": "token + web_safari",
+   "ok": false,
+   "kb": 0,
+   "ms": 1689,
+   "err": "ERROR: [youtube] tzD9OxAHtzU: Sign in to confirm you\u2019re not a bot. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dl"
+  },
+  {
+   "video": "tzD9OxAHtzU",
+   "strategy": "token + web",
+   "ok": false,
+   "kb": 0,
+   "ms": 1316,
+   "err": "ERROR: [youtube] tzD9OxAHtzU: Sign in to confirm you\u2019re not a bot. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dl"
+  },
+  {
+   "video": "tzD9OxAHtzU",
+   "strategy": "android_vr (no token)",
+   "ok": false,
+   "kb": 0,
+   "ms": 1383,
+   "err": "ERROR: [youtube] tzD9OxAHtzU: Sign in to confirm you\u2019re not a bot. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dl"
+  },
+  {
+   "video": "tzD9OxAHtzU",
+   "strategy": "token + tv + cookies",
+   "ok": false,
+   "kb": 0,
+   "ms": 1517,
+   "err": "ERROR: [youtube] tzD9OxAHtzU: Sign in to confirm you\u2019re not a bot. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dl"
+  },
+  {
+   "video": "tzD9OxAHtzU",
+   "strategy": "token + web + cookies",
+   "ok": false,
+   "kb": 0,
+   "ms": 1075,
+   "err": "ERROR: [youtube] tzD9OxAHtzU: Sign in to confirm you\u2019re not a bot. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dl"
+  },
+  {
+   "video": "y5ggehpY6bQ",
+   "strategy": "plain (no token)",
+   "ok": false,
+   "kb": 0,
+   "ms": 1221,
+   "err": "ERROR: [youtube] y5ggehpY6bQ: Sign in to confirm you\u2019re not a bot. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dl"
+  },
+  {
+   "video": "y5ggehpY6bQ",
+   "strategy": "token, default clients",
+   "ok": false,
+   "kb": 0,
+   "ms": 1278,
+   "err": "ERROR: [youtube] y5ggehpY6bQ: Sign in to confirm you\u2019re not a bot. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dl"
+  },
+  {
+   "video": "y5ggehpY6bQ",
+   "strategy": "token + mweb",
+   "ok": false,
+   "kb": 0,
+   "ms": 1664,
+   "err": "ERROR: [youtube] y5ggehpY6bQ: Sign in to confirm you\u2019re not a bot. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dl"
+  },
+  {
+   "video": "y5ggehpY6bQ",
+   "strategy": "token + tv",
+   "ok": false,
+   "kb": 0,
+   "ms": 1416,
+   "err": "ERROR: [youtube] y5ggehpY6bQ: Sign in to confirm you\u2019re not a bot. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dl"
+  },
+  {
+   "video": "y5ggehpY6bQ",
+   "strategy": "token + web_safari",
+   "ok": false,
+   "kb": 0,
+   "ms": 1658,
+   "err": "ERROR: [youtube] y5ggehpY6bQ: Sign in to confirm you\u2019re not a bot. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dl"
+  },
+  {
+   "video": "y5ggehpY6bQ",
+   "strategy": "token + web",
+   "ok": false,
+   "kb": 0,
+   "ms": 1268,
+   "err": "ERROR: [youtube] y5ggehpY6bQ: Sign in to confirm you\u2019re not a bot. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dl"
+  },
+  {
+   "video": "y5ggehpY6bQ",
+   "strategy": "android_vr (no token)",
+   "ok": false,
+   "kb": 0,
+   "ms": 1225,
+   "err": "ERROR: [youtube] y5ggehpY6bQ: Sign in to confirm you\u2019re not a bot. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dl"
+  },
+  {
+   "video": "y5ggehpY6bQ",
+   "strategy": "token + tv + cookies",
+   "ok": false,
+   "kb": 0,
+   "ms": 1584,
+   "err": "ERROR: [youtube] y5ggehpY6bQ: Sign in to confirm you\u2019re not a bot. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dl"
+  },
+  {
+   "video": "y5ggehpY6bQ",
+   "strategy": "token + web + cookies",
+   "ok": false,
+   "kb": 0,
+   "ms": 1099,
+   "err": "ERROR: [youtube] y5ggehpY6bQ: Sign in to confirm you\u2019re not a bot. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dl"
+  }
+ ],
+ "wins": [],
+ "yt_dlp": "2026.08.30.232658",
+ "pot_ping": "{\"server_uptime\":2.976761686,\"version\":\"1.3.2\"}",
+ "summary": {
+  "plain (no token)": [
+   0,
+   3
+  ],
+  "token, default clients": [
+   0,
+   3
+  ],
+  "token + mweb": [
+   0,
+   3
+  ],
+  "token + tv": [
+   0,
+   3
+  ],
+  "token + web_safari": [
+   0,
+   3
+  ],
+  "token + web": [
+   0,
+   3
+  ],
+  "android_vr (no token)": [
+   0,
+   3
+  ],
+  "token + tv + cookies": [
+   0,
+   3
+  ],
+  "token + web + cookies": [
+   0,
+   3
+  ]
+ }
+}

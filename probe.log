@@ -1,0 +1,33 @@
+yt-dlp: 2026.08.30.232658
+token provider: {"server_uptime":2.976761686,"version":"1.3.2"}
+=== https://www.youtube.com/watch?v=jZgG4CvcZso
+  FAIL plain (no token)             1312ms  ERROR: [youtube] jZgG4CvcZso: Sign in to confirm you’re not a bot. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dl
+  FAIL token, default clients       1319ms  ERROR: [youtube] jZgG4CvcZso: Sign in to confirm you’re not a bot. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dl
+  FAIL token + mweb                 1563ms  ERROR: [youtube] jZgG4CvcZso: Sign in to confirm you’re not a bot. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dl
+  FAIL token + tv                   1369ms  ERROR: [youtube] jZgG4CvcZso: Sign in to confirm you’re not a bot. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dl
+  FAIL token + web_safari           1717ms  ERROR: [youtube] jZgG4CvcZso: Sign in to confirm you’re not a bot. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dl
+  FAIL token + web                  1278ms  ERROR: [youtube] jZgG4CvcZso: Sign in to confirm you’re not a bot. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dl
+  FAIL android_vr (no token)        1136ms  ERROR: [youtube] jZgG4CvcZso: Sign in to confirm you’re not a bot. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dl
+  FAIL token + tv + cookies         1577ms  ERROR: [youtube] jZgG4CvcZso: Sign in to confirm you’re not a bot. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dl
+  FAIL token + web + cookies        1153ms  ERROR: [youtube] jZgG4CvcZso: Sign in to confirm you’re not a bot. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dl
+=== https://www.youtube.com/watch?v=tzD9OxAHtzU
+  FAIL plain (no token)             1399ms  ERROR: [youtube] tzD9OxAHtzU: Sign in to confirm you’re not a bot. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dl
+  FAIL token, default clients       1336ms  ERROR: [youtube] tzD9OxAHtzU: Sign in to confirm you’re not a bot. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dl
+  FAIL token + mweb                 1442ms  ERROR: [youtube] tzD9OxAHtzU: Sign in to confirm you’re not a bot. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dl
+  FAIL token + tv                   1465ms  ERROR: [youtube] tzD9OxAHtzU: Sign in to confirm you’re not a bot. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dl
+  FAIL token + web_safari           1689ms  ERROR: [youtube] tzD9OxAHtzU: Sign in to confirm you’re not a bot. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dl
+  FAIL token + web                  1316ms  ERROR: [youtube] tzD9OxAHtzU: Sign in to confirm you’re not a bot. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dl
+  FAIL android_vr (no token)        1383ms  ERROR: [youtube] tzD9OxAHtzU: Sign in to confirm you’re not a bot. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dl
+  FAIL token + tv + cookies         1517ms  ERROR: [youtube] tzD9OxAHtzU: Sign in to confirm you’re not a bot. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dl
+  FAIL token + web + cookies        1075ms  ERROR: [youtube] tzD9OxAHtzU: Sign in to confirm you’re not a bot. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dl
+=== https://www.youtube.com/watch?v=y5ggehpY6bQ
+  FAIL plain (no token)             1221ms  ERROR: [youtube] y5ggehpY6bQ: Sign in to confirm you’re not a bot. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dl
+  FAIL token, default clients       1278ms  ERROR: [youtube] y5ggehpY6bQ: Sign in to confirm you’re not a bot. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dl
+  FAIL token + mweb                 1664ms  ERROR: [youtube] y5ggehpY6bQ: Sign in to confirm you’re not a bot. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dl
+  FAIL token + tv                   1416ms  ERROR: [youtube] y5ggehpY6bQ: Sign in to confirm you’re not a bot. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dl
+  FAIL token + web_safari           1658ms  ERROR: [youtube] y5ggehpY6bQ: Sign in to confirm you’re not a bot. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dl
+  FAIL token + web                  1268ms  ERROR: [youtube] y5ggehpY6bQ: Sign in to confirm you’re not a bot. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dl
+  FAIL android_vr (no token)        1225ms  ERROR: [youtube] y5ggehpY6bQ: Sign in to confirm you’re not a bot. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dl
+  FAIL token + tv + cookies         1584ms  ERROR: [youtube] y5ggehpY6bQ: Sign in to confirm you’re not a bot. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dl
+  FAIL token + web + cookies        1099ms  ERROR: [youtube] y5ggehpY6bQ: Sign in to confirm you’re not a bot. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dl
+SUMMARY: plain (no token)=0/3 | token, default clients=0/3 | token + mweb=0/3 | token + tv=0/3 | token + web_safari=0/3 | token + web=0/3 | android_vr (no token)=0/3 | token + tv + cookies=0/3 | token + web + cookies=0/3
