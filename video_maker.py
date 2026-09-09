@@ -9109,6 +9109,9 @@ def _get_json(url, params):
     raise RuntimeError(f"fetch_next failed after retries: {last}")
 
 
+_MADE_THIS_RUN = set()      # r149: page ids already rendered by THIS process
+
+
 def fetch_next(done_ids):
     """PRIMARY: the static /media/ job feed — a plain JSON asset, indistinguishable
     from the media files the WAF lets this runner download every day (the /api/
@@ -9155,6 +9158,13 @@ def fetch_next(done_ids):
         if data is None:
             raise RuntimeError("no static feed candidate parsed")
         for post in data.get("posts") or []:
+            # r149: force means "ignore the PERSISTENT done-list", never "render me
+            # again inside the same run". With VIDEO_BATCH>1 every iteration re-picked
+            # the first forced post: a judging batch of 4 rendered ONE story four times
+            # (identical render reports at 00:41, 00:47, 00:53, 00:58) while the other
+            # three never ran. The per-run set is the only thing force may not override.
+            if str(post.get("page_id")) in _MADE_THIS_RUN:
+                continue
             # r19: force=true = the SERVER requeued this story for a re-render —
             # the local done-list must not veto it (no more diary editing).
             if post.get("force") or str(post.get("page_id")) not in done_set:
@@ -9799,6 +9809,7 @@ def main():
             break
         log.info("processing page_id=%s slug=%s", post.get("page_id"),
                  post.get("slug"))
+        _MADE_THIS_RUN.add(str(post.get("page_id")))   # r149: taken, never twice
         try:
             make_one(post, font_path)
             made += 1
