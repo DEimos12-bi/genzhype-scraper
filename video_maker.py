@@ -9790,6 +9790,7 @@ def main():
     _start_heartbeat()          # r29: server-side stage tracing for hang diagnosis
     font_path = resolve_font()
     made = 0
+    failed = 0
     for _ in range(VIDEO_BATCH):
         done = read_done()
         try:
@@ -9836,9 +9837,15 @@ def main():
             except Exception:  # noqa: BLE001
                 pass
             # Do NOT mark done on failure — it will be retried next run.
-            return 1
-    log.info("done. made %d video(s)", made)
-    return 0
+            # r149: but do NOT abandon the rest of the batch either. Page 76 was
+            # rejected by the vision judge (a caption cropped at the bottom edge —
+            # the gate working correctly) and that single refusal took page 110 down
+            # with it, leaving a judging batch of three with one video. One bad
+            # story is one bad story; the run continues and reports at the end.
+            failed += 1
+            continue
+    log.info("done. made %d video(s), %d failed", made, failed)
+    return 0 if made or not failed else 1
 
 
 if __name__ == "__main__":
