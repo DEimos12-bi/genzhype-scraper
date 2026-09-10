@@ -468,7 +468,15 @@ jobs:
           # r149 ON-DEMAND BATCH: the push trigger cannot carry a workflow input, so
           # the server asks for a bigger batch by committing a digit into
           # .social/render-batch. Absent (the normal state) = 1 video per run.
-          B=$(tr -cd '0-9' < .social/render-batch 2>/dev/null | head -c 1)
+          # NEVER let this read fail the step. GitHub runs `run:` under `bash -e`,
+          # so a redirection from a file that does not exist aborts the whole step
+          # BEFORE python starts. Deleting the batch file after the judging batch
+          # silently killed 7 consecutive scheduled renders (09-09 04:49 -> 09-10
+          # 16:29) — every run failed at this line with no render log to show why.
+          B=""
+          if [ -f .social/render-batch ]; then
+            B=$(tr -cd '0-9' < .social/render-batch | head -c 1 || true)
+          fi
           if [ -n "$B" ] && [ "$B" -ge 1 ] && [ "$B" -le 5 ]; then
             export VIDEO_BATCH="$B"
             echo "render-batch file asks for $B video(s) this run"
