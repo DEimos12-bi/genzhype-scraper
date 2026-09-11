@@ -68,6 +68,10 @@ SITE = (os.environ.get("SITE_BASE") or "").strip().rstrip("/") or "https://genzh
 TOKEN = (os.environ.get("INGEST_TOKEN") or "").strip()
 BUDGET_S = _env_int("PROOFS_BUDGET_S", 840, 30, 3600)
 MAX_JOBS = _env_int("PROOFS_MAX", 25, 1, 40)
+# r155 GIT BUS: the host firewall answers GitHub runner IPs with a 403 page (first two runs), so the job
+# list arrives as a file (proof-feed branch) and captures leave as files (proof-drop branch) when set.
+JOBS_FILE = (os.environ.get("PROOFS_JOBS_FILE") or "").strip()
+DROP_DIR = (os.environ.get("PROOFS_DROP_DIR") or "").strip()
 
 # The same Chrome identity video_maker's screenshot browser uses (its r91 note:
 # a Chromium that claims to be Firefox is a sharper bot flag than no claim).
@@ -767,11 +771,15 @@ def load_video_maker():
 
 # ------------------------------------------------------------------------ main
 def fetch_jobs():
-    r = http_get(SITE + "/api/proofjobs.php", params={"token": TOKEN, "limit": MAX_JOBS},
-                 timeout=45)
-    if r.status != 200:
-        raise RuntimeError("job queue HTTP %d: %s" % (r.status, short(r.text, 120)))
-    data = r.json()
+    if JOBS_FILE:                               # r155 git bus
+        with open(JOBS_FILE, encoding="utf-8") as fh:
+            data = json.load(fh)
+    else:
+        r = http_get(SITE + "/api/proofjobs.php", params={"token": TOKEN, "limit": MAX_JOBS},
+                     timeout=45)
+        if r.status != 200:
+            raise RuntimeError("job queue HTTP %d: %s" % (r.status, short(r.text, 120)))
+        data = r.json()
     jobs, seen = [], set()
     for job in data.get("jobs") or []:
         if not isinstance(job, dict):
@@ -832,6 +840,29 @@ def run_job(job, vm, vm_err, browser, stats):
         if bad:
             reason = bad
     warn = "" if proof_key(url) == key else "key mismatch; "
+    if DROP_DIR:                                # r155 git bus: exactly one manifest per attempted job
+        try:
+            os.makedirs(DROP_DIR, exist_ok=True)
+            if upload:
+                credit = build_credit(platform, job, info)
+                fname = key + "." + ext
+                with open(os.path.join(DROP_DIR, fname), "wb") as fh:
+                    fh.write(upload)
+                manifest = {"key": key, "url": url, "platform": platform, "kind": kind,
+                            "credit": credit, "file": fname}
+                outcome, nbytes = "posted", len(upload)
+                detail = "%s%dx%d %s | %s (to drop)" % (warn, w, h, kind, credit)
+            else:
+                error = short(reason or "capture failed", ERROR_MAX)
+                manifest = {"key": key, "url": url, "failed": "1", "error": error}
+                outcome, nbytes, detail = "failed", 0, warn + error
+            with open(os.path.join(DROP_DIR, key + ".json"), "w", encoding="utf-8") as fh:
+                json.dump(manifest, fh, ensure_ascii=False)
+        except Exception as exc:  # noqa: BLE001
+            outcome, nbytes, detail = "post-error", 0, warn + short(exc, 160)
+        stats[outcome] += 1
+        _line(key, platform, outcome, nbytes, time.monotonic() - t0, detail)
+        return
     ingest = SITE + "/api/proofingest.php"
     try:                                        # exactly one POST per attempted job
         if upload:
@@ -860,7 +891,7 @@ def run_job(job, vm, vm_err, browser, stats):
 
 def main():
     start = time.monotonic()
-    if not TOKEN:
+    if not TOKEN and not (JOBS_FILE and DROP_DIR):
         print("INGEST_TOKEN is not set; nothing to do", flush=True)
         return 2
     vm, vm_err = load_video_maker()             # before any HTTP (IPv4 filter)

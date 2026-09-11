@@ -1,10 +1,13 @@
 # GenZHype | proofs worker (r155). Captures one proof image per source URL cited
 # by a timeline event on a published story page (articles through video_maker's
 # hardened article crop; X, Reddit, TikTok and Instagram embeds in one Chromium
-# session; YouTube thumbnails) and POSTs each one to /api/proofingest.php. Files
-# land in assets/proofs/pending/; the hourly server run safety-checks and
-# promotes them.
-# Secrets: INGEST_TOKEN and SITE_BASE, the same names receipts.yml uses.
+# session; YouTube thumbnails).
+# r155 GIT BUS: the host firewall answers GitHub runner IPs with a 403 page
+# (measured on the first two runs, no request reached PHP), so the job list comes
+# from the proof-feed branch (pushed by the server's ~/genzhype-proofs-bridge.sh)
+# and the captures go back on the proof-drop branch, where the same bridge
+# ingests them with the api/proofingest.php checks. Same pattern as video-feed /
+# video-drop.
 # On demand: push a change to .social/proofs-trigger on main, or run it by hand.
 name: proofs
 
@@ -22,7 +25,7 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: read
+  contents: write                # to push the captures to the proof-drop branch
 
 jobs:
   proofs:
@@ -73,11 +76,37 @@ jobs:
             fi
           done
 
-      - name: Capture + post proofs
+      - name: Job list from the proof-feed branch
+        run: |
+          rm -rf proof-feed && mkdir proof-feed
+          if git fetch --depth 1 origin proof-feed; then
+            git --work-tree=proof-feed checkout FETCH_HEAD -- .
+            ls -la proof-feed
+            echo "PROOFS_JOBS_FILE=$GITHUB_WORKSPACE/proof-feed/jobs.json" >> "$GITHUB_ENV"
+          else
+            echo "::error title=proofs worker::no proof-feed branch yet (the server bridge publishes it)"
+            exit 1
+          fi
+
+      - name: Capture proofs
         timeout-minutes: 20
         env:
-          SITE_BASE: ${{ secrets.SITE_BASE || 'https://genzhype.com' }}
-          INGEST_TOKEN: ${{ secrets.INGEST_TOKEN }}
+          PROOFS_DROP_DIR: /tmp/proof-drop
           PROOFS_BUDGET_S: "840"
           PROOFS_MAX: "25"
         run: python proofs-worker/proofs.py
+
+      - name: Push captures to the proof-drop branch
+        if: always()
+        run: |
+          if [ -z "$(ls -A /tmp/proof-drop 2>/dev/null)" ]; then echo "nothing to drop"; exit 0; fi
+          cd /tmp/proof-drop
+          git init -q
+          git checkout -q -b proof-drop
+          git add -A
+          git -c user.name=proofs-worker -c user.email=bot@genzhype \
+              commit -qm "proofs from run ${GITHUB_RUN_NUMBER} ($(date -u +%FT%TZ))"
+          git push -f "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" proof-drop
+          echo "dropped $(ls | wc -l) file(s) to branch proof-drop"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
