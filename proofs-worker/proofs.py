@@ -870,6 +870,8 @@ def main():
         jobs, remaining = fetch_jobs()
     except Exception as exc:  # noqa: BLE001
         print("job queue unavailable: %s" % short(exc, 200), flush=True)
+        # r155: GitHub run logs need a login; an ::error:: line becomes a public annotation the server can read
+        print("::error title=proofs worker::job queue unavailable: %s" % short(scrub(str(exc)), 200).replace("\n", " "), flush=True)
         return 1
     jobs.sort(key=lambda j: GROUP_ORDER.get(str(j.get("platform") or ""), 3))   # stable
     counts = {}
