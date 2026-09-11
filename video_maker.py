@@ -569,10 +569,24 @@ CAPTION_CENTER_Y = int(H * 0.62)   # lower-middle band, well inside the safe are
 # on the card's own text. The card anchors top (y=240, below the 220px UI zone)
 # and is capped so its bottom lands <=1350; captions on those scenes drop to the
 # cleared band below it, centered here (band ~1420-1540, above the y1600 bottom UI).
-CARD_TOP_Y       = 190     # r25: cards (screenshots/posts) start higher and
+# r153 (2026-09-11). Judge on page 110, frame 3: "headline at top 'News of 'Rickroll'
+# meme death greatly' is cut off by the dark date box overlaying it". At 190 the card's
+# top-left corner, where a screenshot's headline sits, lay under the date chip (badge
+# rows 274-348), and the frame-centred push-in lifted it another 7% toward the top
+# (y 170 by the end of a scene, inside the top platform-UI band). 400 is the smallest
+# top that clears the chip at the END of the push-in:
+#     (1 + CARD_ZOOM) * top - CARD_ZOOM * H / 2 >= 348 + 12
+# Cost: a 4:5 screenshot shows at 832x1040 instead of 948x1185. Wide cards keep their
+# size and only sit lower.
+CARD_TOP_Y       = 400     # r25: cards (screenshots/posts) start higher and
 CARD_MAX_BOTTOM  = 1440     # extend lower so a real proof FILLS the phone
 CARD_CAPTION_Y   = 1500     # (owner: "not fitting the phone"); caption band
                             # sits just below the enlarged card, no overlap
+# r153: article screenshots are viewport captures and post cards clip their caption,
+# so a card's last line of text ends mid-sentence at its bottom edge. Judge on page
+# 76, frame 7: "bottom caption text box is cropped or cut off at the bottom edge by
+# the frame". The bottom 14% of every card now fades into the card's own page colour.
+CARD_FADE_FRAC   = 0.14
 
 # --- v2: people photos (Wikidata, image_engine.py's proven flow) ---
 # r11: 8 -> 16. The server now floods the feed with real story imagery
@@ -7265,6 +7279,20 @@ def contain_scene_clip(image_path, start, end, xfade=None, card=False,
             scale = min(want, fit_w / w * COVER_MAX_UPSCALE)
     fg = pil.resize((max(1, int(w * scale)), max(1, int(h * scale))),
                     Image.Resampling.LANCZOS)
+    if card:
+        # r153: fade the cut bottom edge (see CARD_FADE_FRAC). Done on fg, which
+        # both card paths (parallax panel and flat canvas) are built from.
+        try:
+            _rgb = np.asarray(fg, dtype=np.float32).copy()
+            _band = max(8, int(_rgb.shape[0] * CARD_FADE_FRAC))
+            if _rgb.shape[0] > _band * 2:
+                # median, not mean: dark text pixels must not tint the page colour
+                _edge = np.median(_rgb[-6:].reshape(-1, 3), axis=0)
+                _ramp = (np.linspace(0.0, 1.0, _band, dtype=np.float32) ** 1.6)[:, None, None]
+                _rgb[-_band:] = _rgb[-_band:] * (1.0 - _ramp) + _edge * _ramp
+                fg = Image.fromarray(np.clip(_rgb, 0, 255).astype(np.uint8))
+        except Exception as exc:  # noqa: BLE001
+            log.warning("card bottom fade skipped (%s)", exc)
     canvas = bg.copy()
     if card:
         # r31: pinning a SHORT card to CARD_TOP_Y leaves the rest of the phone
