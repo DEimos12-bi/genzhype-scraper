@@ -1,0 +1,83 @@
+# GenZHype | proofs worker (r155). Captures one proof image per source URL cited
+# by a timeline event on a published story page (articles through video_maker's
+# hardened article crop; X, Reddit, TikTok and Instagram embeds in one Chromium
+# session; YouTube thumbnails) and POSTs each one to /api/proofingest.php. Files
+# land in assets/proofs/pending/; the hourly server run safety-checks and
+# promotes them.
+# Secrets: INGEST_TOKEN and SITE_BASE, the same names receipts.yml uses.
+# On demand: push a change to .social/proofs-trigger on main, or run it by hand.
+name: proofs
+
+on:
+  schedule:
+    - cron: "40 */3 * * *"
+  workflow_dispatch: {}
+  push:
+    branches: [main]
+    paths:
+      - ".social/proofs-trigger"
+
+concurrency:
+  group: proofs
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  proofs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install worker deps (numpy requests pillow playwright curl_cffi)
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r proofs-worker/requirements.txt
+
+      # Commands copied from video-maker.yml ("Install chromium for real-source
+      # screenshots"). Non-fatal on purpose: YouTube thumbnails need no browser,
+      # and when Chromium is missing the worker skips browser jobs WITHOUT
+      # recording a failure against the URL, then exits 1 so the run shows red.
+      - name: Install chromium
+        continue-on-error: true
+        timeout-minutes: 6
+        run: |
+          python -m pip install playwright
+          python -m playwright install --with-deps chromium
+
+      # Copied from video-maker.yml ("Vendor YuNet + Readability"), Readability
+      # half only. video_maker.screenshot_articles injects vendor/Readability.js
+      # to find the article column; without the file it uses its ancestor
+      # heuristic.
+      - name: Vendor Readability (optional)
+        continue-on-error: true
+        run: |
+          mkdir -p vendor
+          curl -sSL --max-time 60 -o vendor/Readability.js \
+            "https://unpkg.com/@mozilla/readability@0.6.0/Readability.js" || true
+          # a git-lfs pointer or a 404 page is worse than no file: the driver
+          # would load it and throw. Drop anything implausibly small.
+          for f in vendor/Readability.js; do
+            if [ ! -s "$f" ] || [ "$(stat -c%s "$f")" -lt 20000 ]; then
+              echo "discarding $f ($(stat -c%s "$f" 2>/dev/null || echo 0) bytes)"; rm -f "$f"
+            else
+              echo "vendored $f ($(stat -c%s "$f") bytes)"
+            fi
+          done
+
+      - name: Capture + post proofs
+        timeout-minutes: 20
+        env:
+          SITE_BASE: ${{ secrets.SITE_BASE || 'https://genzhype.com' }}
+          INGEST_TOKEN: ${{ secrets.INGEST_TOKEN }}
+          PROOFS_BUDGET_S: "840"
+          PROOFS_MAX: "25"
+        run: python proofs-worker/proofs.py
