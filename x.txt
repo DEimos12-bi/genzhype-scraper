@@ -1,0 +1,964 @@
+== twitter status ==
+WARNING twitter_cli.client: Failed to init ClientTransaction: 'NoneType' object has no attribute 'group'
+ok: true
+schema_version: '1'
+data:
+  authenticated: true
+  user:
+    id: '2085101201981419520'
+    name: Nighty
+    username: Nightygxa
+    screenName: Nightygxa
+    bio: ''
+    location: ''
+    url: ''
+    followers: 0
+    following: 0
+    tweets: 0
+    likes: 4
+    verified: false
+    profileImageUrl: https://abs.twimg.com/sticky/default_profile_images/default_profile_normal.png
+    createdAt: Wed Aug 05 20:31:14 +0000 2026
+
+exit=0
+== twitter search "streamer drama" ==
+WARNING twitter_cli.client: Failed to init ClientTransaction: 'NoneType' object has no attribute 'group'
+ok: true
+schema_version: '1'
+data:
+- id: '2045120926186914051'
+  text: We NEED more streamer drama! It’s so interesting! I’m 47!
+  author:
+    id: '2715279899'
+    name: BaldBoyDevinTTV
+    screenName: tom_on_here
+    profileImageUrl: https://pbs.twimg.com/profile_images/2096428930781597699/WVLSwqou_normal.jpg
+    verified: false
+  metrics:
+    likes: 1842
+    retweets: 93
+    replies: 4
+    quotes: 3
+    views: 29975
+    bookmarks: 31
+  createdAt: Fri Apr 17 12:43:19 +0000 2026
+  createdAtLocal: 2026-04-17 12:43
+  createdAtISO: '2026-04-17T12:43:19+00:00'
+  media: []
+  urls: []
+  isRetweet: false
+  retweetedBy: null
+  lang: en
+  score: null
+  isSubscriberOnly: false
+  isPromoted: false
+- id: '2035183622504792186'
+  text: UFC media + kick streamer Nina Drama 🎤 https://t.co/EqNqfU8KVG
+  author:
+    id: '1987637714586628096'
+    name: MMA Babes
+    screenName: MMA_Babes
+    profileImageUrl: https://pbs.twimg.com/profile_images/2020846449869942784/lxy0iQl__normal.jpg
+    verified: true
+  metrics:
+    likes: 2756
+    retweets: 53
+    replies: 15
+    quotes: 0
+    views: 65782
+    bookmarks: 331
+  createdAt: Sat Mar 21 02:36:02 +0000 2026
+  createdAtLocal: 2026-03-21 02:36
+  createdAtISO: '2026-03-21T02:36:02+00:00'
+  media:
+  - type: photo
+    url: https://pbs.twimg.com/media/HD5st6ObMAAxWjB.jpg
+    width: 640
+    height: 1359
+  urls: []
+  isRetweet: false
+  retweetedBy: null
+  lang: pl
+  score: null
+  isSubscriberOnly: false
+  isPromoted: false
+- id: '2052907802109034787'
+  text: UFC media + kick streamer Nina Drama 🎤 https://t.co/IwpYqbSTHF
+  author:
+    id: '1987637714586628096'
+    name: MMA Babes
+    screenName: MMA_Babes
+    profileImageUrl: https://pbs.twimg.com/profile_images/2020846449869942784/lxy0iQl__normal.jpg
+    verified: true
+  metrics:
+    likes: 1694
+    retweets: 35
+    replies: 36
+    quotes: 0
+    views: 82001
+    bookmarks: 335
+  createdAt: Sat May 09 00:25:35 +0000 2026
+  createdAtLocal: 2026-05-09 00:25
+  createdAtISO: '2026-05-09T00:25:35+00:00'
+  media:
+  - type: video
+    url: https://video.twimg.com/amplify_video/2052907739303608321/vid/avc1/1080x1920/MV1VKYQzHlRlF7Yx.mp4?tag=27
+    width: 1080
+    height: 1920
+  urls: []
+  isRetweet: false
+  retweetedBy: null
+  lang: pl
+  score: null
+  isSubscriberOnly: false
+  isPromoted: false
+- id: '2032898205206053271'
+  text: UFC media + kick streamer Nina Drama 🎤 https://t.co/LTXhRC5nir
+  author:
+    id: '1987637714586628096'
+    name: MMA Babes
+    screenName: MMA_Babes
+    profileImageUrl: https://pbs.twimg.com/profile_images/2020846449869942784/lxy0iQl__normal.jpg
+    verified: true
+  metrics:
+    likes: 6411
+    retweets: 108
+    replies: 40
+    quotes: 6
+    views: 190330
+    bookmarks: 986
+  createdAt: Sat Mar 14 19:14:36 +0000 2026
+  createdAtLocal: 2026-03-14 19:14
+  createdAtISO: '2026-03-14T19:14:36+00:00'
+  media:
+  - type: photo
+    url: https://pbs.twimg.com/media/HDZOJKbXkAAUxSN.jpg
+    width: 1175
+    height: 2048
+  urls: []
+  isRetweet: false
+  retweetedBy: null
+  lang: pl
+  score: null
+  isSubscriberOnly: false
+  isPromoted: false
+- id: '929195727544373250'
+  text: 'In regards to the recent female streamer drama, my 2c
+
+
+    I don''t really care about titty streamers anymore lol yeah some shit might be
+    over the line but the whole issue is overblown'
+  author:
+    id: '147039284'
+    name: Zack
+    screenName: Asmongold
+    profileImageUrl: https://pbs.twimg.com/profile_images/1993607925017743360/-UDIaI_l_normal.jpg
+    verified: true
+  metrics:
+    likes: 248
+    retweets: 6
+    replies: 26
+    quotes: 1
+    views: 0
+    bookmarks: 0
+  createdAt: Sat Nov 11 03:54:59 +0000 2017
+  createdAtLocal: 2017-11-11 03:54
+  createdAtISO: '2017-11-11T03:54:59+00:00'
+  media: []
+  urls: []
+  isRetweet: false
+  retweetedBy: null
+  lang: en
+  score: null
+  isSubscriberOnly: false
+  isPromoted: false
+- id: '892747250237136897'
+  text: Thinking of starting some drama with another streamer, spice it up a little.
+    Just trying to figure out who 🤔
+  author:
+    id: '520680837'
+    name: Lirik
+    screenName: LIRIK
+    profileImageUrl: https://pbs.twimg.com/profile_images/1148972773290762240/kmkJzp5I_normal.png
+    verified: true
+  metrics:
+    likes: 2352
+    retweets: 49
+    replies: 150
+    quotes: 8
+    views: 0
+    bookmarks: 0
+  createdAt: Wed Aug 02 14:01:45 +0000 2017
+  createdAtLocal: 2017-08-02 14:01
+  createdAtISO: '2017-08-02T14:01:45+00:00'
+  media: []
+  urls: []
+  isRetweet: false
+  retweetedBy: null
+  lang: en
+  score: null
+  isSubscriberOnly: false
+  isPromoted: false
+- id: '1636055251277979650'
+  text: 'I wish Vtuber drama would be as in depth as Streamer drama
+
+
+    All we have is weird call-out posts and crying about hate dm''s
+
+
+    Can we all start beef with each other please?'
+  author:
+    id: '1276145259257499648'
+    name: Shira 🦊🩹🌸 | Vtuber
+    screenName: shirahikovt
+    profileImageUrl: https://pbs.twimg.com/profile_images/2014358688752951296/ZIJcTa9e_normal.jpg
+    verified: true
+  metrics:
+    likes: 842
+    retweets: 19
+    replies: 96
+    quotes: 5
+    views: 42196
+    bookmarks: 6
+  createdAt: Wed Mar 15 17:22:22 +0000 2023
+  createdAtLocal: 2023-03-15 17:22
+  createdAtISO: '2023-03-15T17:22:22+00:00'
+  media: []
+  urls: []
+  isRetweet: false
+  retweetedBy: null
+  lang: en
+  score: null
+  isSubscriberOnly: false
+  isPromoted: false
+- id: '1815549848021811441'
+  text: '-drama streamer made false videos smearing a group of vtubers over their
+    choice of avatars.
+
+    -her fans harass the Vtubers and got two of them suspended
+
+    -gloats on stream and claims she is immune to backlash over her lies because she
+    is “too big” and they’re “insignificant”
+
+
+    Class'
+  author:
+    id: '837889064829276161'
+    name: Perma Banned ထ🔨
+    screenName: GiveMeBanHammer
+    profileImageUrl: https://pbs.twimg.com/profile_images/2029064008142360577/EgfZNjXH_normal.png
+    verified: true
+  metrics:
+    likes: 3360
+    retweets: 345
+    replies: 66
+    quotes: 7
+    views: 98303
+    bookmarks: 302
+  createdAt: Tue Jul 23 00:49:49 +0000 2024
+  createdAtLocal: 2024-07-23 00:49
+  createdAtISO: '2024-07-23T00:49:49+00:00'
+  media: []
+  urls: []
+  isRetweet: false
+  retweetedBy: null
+  lang: en
+  score: null
+  isSubscriberOnly: false
+  isPromoted: false
+  quotedTweet:
+    id: '1815244187668820382'
+    text: Your video got two vtubers suspended in a single day due to misinformation
+      and this is what you say in your stream? https://t.co/7JGI8DeKL4
+    author:
+      screenName: ANTllSM
+      name: Anti
+- id: '2017716561214050628'
+  text: DrDisrespect CRASHED OUT on streamer over the highguard drama with this funny
+    skit. https://t.co/whYoGGk7hd
+  author:
+    id: '807355480188141568'
+    name: DramaAlert
+    screenName: DramaAlert
+    profileImageUrl: https://pbs.twimg.com/profile_images/807356568182222848/cA3XE1W3_normal.jpg
+    verified: false
+  metrics:
+    likes: 1964
+    retweets: 98
+    replies: 259
+    quotes: 30
+    views: 254535
+    bookmarks: 373
+  createdAt: Sat Jan 31 21:48:10 +0000 2026
+  createdAtLocal: 2026-01-31 21:48
+  createdAtISO: '2026-01-31T21:48:10+00:00'
+  media:
+  - type: video
+    url: https://video.twimg.com/amplify_video/2017716320498769920/vid/avc1/1280x720/9fAuZlGnSfhHmQIj.mp4?tag=21
+    width: 1280
+    height: 720
+  urls: []
+  isRetweet: false
+  retweetedBy: null
+  lang: en
+  score: null
+  isSubscriberOnly: false
+  isPromoted: false
+- id: '1818335088968630771'
+  text: How Twitch streamer drama sounds https://t.co/yGeeOWy1po
+  author:
+    id: '922622358413824000'
+    name: Kevin Sanji
+    screenName: kevsanji
+    profileImageUrl: https://pbs.twimg.com/profile_images/1917049131178328064/ICAzEHyN_normal.jpg
+    verified: false
+  metrics:
+    likes: 1681
+    retweets: 173
+    replies: 4
+    quotes: 10
+    views: 73696
+    bookmarks: 258
+  createdAt: Tue Jul 30 17:17:22 +0000 2024
+  createdAtLocal: 2024-07-30 17:17
+  createdAtISO: '2024-07-30T17:17:22+00:00'
+  media:
+  - type: video
+    url: https://video.twimg.com/ext_tw_video/1818334915844595712/pu/vid/avc1/720x1280/sug1Y4jh51bBv99I.mp4?tag=12
+    width: 720
+    height: 1280
+  urls: []
+  isRetweet: false
+  retweetedBy: null
+  lang: en
+  score: null
+  isSubscriberOnly: false
+  isPromoted: false
+- id: '1813613628849107119'
+  text: How Twitch streamer drama sounds https://t.co/oRvqJeWEJL
+  author:
+    id: '922622358413824000'
+    name: Kevin Sanji
+    screenName: kevsanji
+    profileImageUrl: https://pbs.twimg.com/profile_images/1917049131178328064/ICAzEHyN_normal.jpg
+    verified: false
+  metrics:
+    likes: 7304
+    retweets: 639
+    replies: 30
+    quotes: 33
+    views: 331408
+    bookmarks: 1075
+  createdAt: Wed Jul 17 16:35:59 +0000 2024
+  createdAtLocal: 2024-07-17 16:35
+  createdAtISO: '2024-07-17T16:35:59+00:00'
+  media:
+  - type: video
+    url: https://video.twimg.com/ext_tw_video/1813613444228370432/pu/vid/avc1/720x1280/glgsmbW9laORgJLP.mp4?tag=12
+    width: 720
+    height: 1280
+  urls: []
+  isRetweet: false
+  retweetedBy: null
+  lang: en
+  score: null
+  isSubscriberOnly: false
+  isPromoted: false
+- id: '1845954676866666733'
+  text: 'Can we all agree that CaseOh is the best Streamer
+
+
+    never once been in drama all he does is play video games https://t.co/qJaEJYfHXT'
+  author:
+    id: '745708855481425920'
+    name: yoxic
+    screenName: yoxics
+    profileImageUrl: https://pbs.twimg.com/profile_images/1603159442249248768/APJLtkBZ_normal.jpg
+    verified: true
+  metrics:
+    likes: 79266
+    retweets: 3369
+    replies: 1322
+    quotes: 883
+    views: 9621139
+    bookmarks: 2597
+  createdAt: Mon Oct 14 22:27:45 +0000 2024
+  createdAtLocal: 2024-10-14 22:27
+  createdAtISO: '2024-10-14T22:27:45+00:00'
+  media:
+  - type: photo
+    url: https://pbs.twimg.com/media/GZ4l_swWUAAa5i4.jpg
+    width: 900
+    height: 900
+  - type: photo
+    url: https://pbs.twimg.com/media/GZ4l_swWYAAzFnH.jpg
+    width: 1080
+    height: 567
+  urls: []
+  isRetweet: false
+  retweetedBy: null
+  lang: en
+  score: null
+  isSubscriberOnly: false
+  isPromoted: false
+- id: '1982958418169381299'
+  text: "Sorry for ALL THE POSTS abt streamer drama \U0001F602 \n\nAnyway.. here's\
+    \ my blurry face &amp; big... eyes https://t.co/uXG4Gj20k2"
+  author:
+    id: '1371582329685209093'
+    name: Pσƙƙҽƚ 𝒾𝓈 𝓉𝓎𝓅𝒾𝓃𝑔...
+    screenName: Pokket
+    profileImageUrl: https://pbs.twimg.com/profile_images/2098107197586870272/mPqAf8ZL_normal.jpg
+    verified: true
+  metrics:
+    likes: 2233
+    retweets: 27
+    replies: 28
+    quotes: 0
+    views: 140280
+    bookmarks: 340
+  createdAt: Mon Oct 27 23:51:43 +0000 2025
+  createdAtLocal: 2025-10-27 23:51
+  createdAtISO: '2025-10-27T23:51:43+00:00'
+  media:
+  - type: photo
+    url: https://pbs.twimg.com/media/G4TbRL_boAAnWGw.jpg
+    width: 1150
+    height: 2048
+  urls: []
+  isRetweet: false
+  retweetedBy: null
+  lang: en
+  score: null
+  isSubscriberOnly: false
+  isPromoted: false
+- id: '2044889199963250752'
+  text: "I dont get into streamer drama, so let me just say this:\n\nThis subtle victim\
+    \ playing is tip #1 on how to spot a misogynyst.\n\n\"I wish I had a choice in\
+    \ this being made public :(\" \"it's getting in the way of us healing :(\"\n\n\
+    Guess who speaking up benefits? The victims. As it should. \n\nDont fall for the\
+    \ misogynistic playbook of painting the man as the victim of his predation."
+  author:
+    id: '2015279020976271360'
+    name: Jack Court
+    screenName: JackssCourt
+    profileImageUrl: https://pbs.twimg.com/profile_images/2065149986191368192/SIK4WUNJ_normal.jpg
+    verified: true
+  metrics:
+    likes: 6612
+    retweets: 421
+    replies: 29
+    quotes: 10
+    views: 381880
+    bookmarks: 432
+  createdAt: Thu Apr 16 21:22:32 +0000 2026
+  createdAtLocal: 2026-04-16 21:22
+  createdAtISO: '2026-04-16T21:22:32+00:00'
+  media: []
+  urls: []
+  isRetweet: false
+  retweetedBy: null
+  lang: en
+  score: null
+  isSubscriberOnly: false
+  isPromoted: false
+- id: '1861893843823599912'
+  text: What Twitch streamer drama sounds like https://t.co/RxLrp97dvA
+  author:
+    id: '922622358413824000'
+    name: Kevin Sanji
+    screenName: kevsanji
+    profileImageUrl: https://pbs.twimg.com/profile_images/1917049131178328064/ICAzEHyN_normal.jpg
+    verified: false
+  metrics:
+    likes: 1745
+    retweets: 126
+    replies: 6
+    quotes: 2
+    views: 102974
+    bookmarks: 301
+  createdAt: Wed Nov 27 22:04:19 +0000 2024
+  createdAtLocal: 2024-11-27 22:04
+  createdAtISO: '2024-11-27T22:04:19+00:00'
+  media:
+  - type: video
+    url: https://video.twimg.com/ext_tw_video/1861893735358820352/pu/vid/avc1/720x1280/vt-tztZ4kBRRDPFe.mp4?tag=12
+    width: 720
+    height: 1280
+  urls: []
+  isRetweet: false
+  retweetedBy: null
+  lang: en
+  score: null
+  isSubscriberOnly: false
+  isPromoted: false
+
+exit=0
+== twitter search "youtuber apology" ==
+WARNING twitter_cli.client: Failed to init ClientTransaction: 'NoneType' object has no attribute 'group'
+ok: true
+schema_version: '1'
+data:
+- id: '1821977335765332134'
+  text: 'We Ranked Every YouTuber Apology
+
+
+    OUT NOW!!!
+
+
+    https://t.co/llpvoH6pQJ https://t.co/Xy0qCpJkBJ'
+  author:
+    id: '1259605507456761858'
+    name: Max
+    screenName: WhaleGGs
+    profileImageUrl: https://pbs.twimg.com/profile_images/1678361985165950977/_EhyxZCa_normal.jpg
+    verified: false
+  metrics:
+    likes: 269
+    retweets: 31
+    replies: 2
+    quotes: 3
+    views: 6845
+    bookmarks: 10
+  createdAt: Fri Aug 09 18:30:22 +0000 2024
+  createdAtLocal: 2024-08-09 18:30
+  createdAtISO: '2024-08-09T18:30:22+00:00'
+  media:
+  - type: photo
+    url: https://pbs.twimg.com/media/GUj1yIbXEAAxewq.jpg
+    width: 1920
+    height: 1080
+  urls:
+  - https://youtu.be/DCyc1nCEEik
+  isRetweet: false
+  retweetedBy: null
+  lang: en
+  score: null
+  isSubscriberOnly: false
+  isPromoted: false
+- id: '1971072514014302248'
+  text: why is this kind of giving youtuber apology video https://t.co/HSu34blqcV
+  author:
+    id: '1853056144379367424'
+    name: josie 💤
+    screenName: fuamiresuiko
+    profileImageUrl: https://pbs.twimg.com/profile_images/1936864109858828289/Do4hlMkd_normal.jpg
+    verified: false
+  metrics:
+    likes: 632
+    retweets: 57
+    replies: 5
+    quotes: 9
+    views: 30168
+    bookmarks: 19
+  createdAt: Thu Sep 25 04:41:22 +0000 2025
+  createdAtLocal: 2025-09-25 04:41
+  createdAtISO: '2025-09-25T04:41:22+00:00'
+  media:
+  - type: photo
+    url: https://pbs.twimg.com/media/G1qoAYAaAAASdwF.jpg
+    width: 1170
+    height: 646
+  urls: []
+  isRetweet: false
+  retweetedBy: null
+  lang: en
+  score: null
+  isSubscriberOnly: false
+  isPromoted: false
+- id: '1485812366457647115'
+  text: Aw hang on, does my slight democratic misstep mean I get to do a YouTuber
+    apology video? Y'know, crying, showing off a pet to garner sympathy, not actually
+    apologising in any meaningful way?
+  author:
+    id: '1416480746'
+    name: Many A True Nerd
+    screenName: ManyATrueNerd
+    profileImageUrl: https://pbs.twimg.com/profile_images/424966812745207808/FhXrhqO5_normal.jpeg
+    verified: false
+  metrics:
+    likes: 598
+    retweets: 4
+    replies: 31
+    quotes: 1
+    views: 0
+    bookmarks: 1
+  createdAt: Tue Jan 25 03:10:47 +0000 2022
+  createdAtLocal: 2022-01-25 03:10
+  createdAtISO: '2022-01-25T03:10:47+00:00'
+  media: []
+  urls: []
+  isRetweet: false
+  retweetedBy: null
+  lang: en
+  score: null
+  isSubscriberOnly: false
+  isPromoted: false
+- id: '1413456279461269505'
+  text: 'First attempt at the @images_ai thing.
+
+
+    "Shrek Giving Birth to Wario" https://t.co/acJpvdGUKj'
+  author:
+    id: '51359739'
+    name: Justin Whang 🐙
+    screenName: JustinWhang
+    profileImageUrl: https://pbs.twimg.com/profile_images/2094835779331657728/1qbcqMEy_normal.jpg
+    verified: true
+  metrics:
+    likes: 1812
+    retweets: 83
+    replies: 32
+    quotes: 6
+    views: 0
+    bookmarks: 74
+  createdAt: Fri Jul 09 11:13:32 +0000 2021
+  createdAtLocal: 2021-07-09 11:13
+  createdAtISO: '2021-07-09T11:13:32+00:00'
+  media:
+  - type: photo
+    url: https://pbs.twimg.com/media/E52a_VxUcAAKckr.png
+    width: 480
+    height: 480
+  urls: []
+  isRetweet: false
+  retweetedBy: null
+  lang: en
+  score: null
+  isSubscriberOnly: false
+  isPromoted: false
+- id: '1419505208271511553'
+  text: '"If Mark Wahlberg Stopped 9/11" https://t.co/nn2YonnGPy'
+  author:
+    id: '51359739'
+    name: Justin Whang 🐙
+    screenName: JustinWhang
+    profileImageUrl: https://pbs.twimg.com/profile_images/2094835779331657728/1qbcqMEy_normal.jpg
+    verified: true
+  metrics:
+    likes: 743
+    retweets: 33
+    replies: 20
+    quotes: 2
+    views: 0
+    bookmarks: 6
+  createdAt: Mon Jul 26 03:49:49 +0000 2021
+  createdAtLocal: 2021-07-26 03:49
+  createdAtISO: '2021-07-26T03:49:49+00:00'
+  media:
+  - type: photo
+    url: https://pbs.twimg.com/media/E7MYa_PX0Ao7V5z.png
+    width: 512
+    height: 512
+  - type: photo
+    url: https://pbs.twimg.com/media/E7MYa_SWQAATNrk.png
+    width: 512
+    height: 512
+  urls: []
+  isRetweet: false
+  retweetedBy: null
+  lang: de
+  score: null
+  isSubscriberOnly: false
+  isPromoted: false
+- id: '1419519410138660869'
+  text: '@JustinWhang "YouTuber Apology Video" https://t.co/SH9FW45G3Y'
+  author:
+    id: '375166977'
+    name: Auz
+    screenName: auz466
+    profileImageUrl: https://pbs.twimg.com/profile_images/1488647855426387977/zwptb6hb_normal.jpg
+    verified: false
+  metrics:
+    likes: 684
+    retweets: 51
+    replies: 10
+    quotes: 0
+    views: 0
+    bookmarks: 6
+  createdAt: Mon Jul 26 04:46:15 +0000 2021
+  createdAtLocal: 2021-07-26 04:46
+  createdAtISO: '2021-07-26T04:46:15+00:00'
+  media:
+  - type: photo
+    url: https://pbs.twimg.com/media/E7MlXceWQAko2dO.png
+    width: 512
+    height: 512
+  urls: []
+  isRetweet: false
+  retweetedBy: null
+  lang: en
+  score: null
+  isSubscriberOnly: false
+  isPromoted: false
+- id: '824625079027978240'
+  text: "Why is every 'YouTuber apology video' embarrassing, pandering, transparent\
+    \ and hilariously false? \n\nEvery. Single. Time."
+  author:
+    id: '2415730399'
+    name: I Hate Everything
+    screenName: IHE_OFFICIAL
+    profileImageUrl: https://pbs.twimg.com/profile_images/1628095128626765824/5e-UrNx5_normal.jpg
+    verified: false
+  metrics:
+    likes: 3225
+    retweets: 232
+    replies: 110
+    quotes: 6
+    views: 0
+    bookmarks: 0
+  createdAt: Thu Jan 26 14:28:34 +0000 2017
+  createdAtLocal: 2017-01-26 14:28
+  createdAtISO: '2017-01-26T14:28:34+00:00'
+  media: []
+  urls: []
+  isRetweet: false
+  retweetedBy: null
+  lang: en
+  score: null
+  isSubscriberOnly: false
+  isPromoted: false
+- id: '1661691163928141825'
+  text: A YouTuber has been sentenced by a Judge to upload a weekly apology video
+    to his ex's Dad https://t.co/h5WEz0g2He
+  author:
+    id: '76766018'
+    name: Dexerto
+    screenName: Dexerto
+    profileImageUrl: https://pbs.twimg.com/profile_images/1714301666445402112/5U5myYFv_normal.jpg
+    verified: false
+  metrics:
+    likes: 14968
+    retweets: 277
+    replies: 82
+    quotes: 87
+    views: 1834378
+    bookmarks: 290
+  createdAt: Thu May 25 11:10:20 +0000 2023
+  createdAtLocal: 2023-05-25 11:10
+  createdAtISO: '2023-05-25T11:10:20+00:00'
+  media:
+  - type: photo
+    url: https://pbs.twimg.com/media/Fw-C4D_WYAEx4-g.jpg
+    width: 1280
+    height: 720
+  urls: []
+  isRetweet: false
+  retweetedBy: null
+  lang: en
+  score: null
+  isSubscriberOnly: false
+  isPromoted: false
+- id: '1597716613490704384'
+  text: I hope liverking makes a classic YouTuber apology video
+  author:
+    id: '1573265498'
+    name: FINNEAS
+    screenName: finneas
+    profileImageUrl: https://pbs.twimg.com/profile_images/1931078099950874624/HYQOtC7G_normal.jpg
+    verified: false
+  metrics:
+    likes: 996
+    retweets: 23
+    replies: 29
+    quotes: 2
+    views: 0
+    bookmarks: 3
+  createdAt: Tue Nov 29 22:18:19 +0000 2022
+  createdAtLocal: 2022-11-29 22:18
+  createdAtISO: '2022-11-29T22:18:19+00:00'
+  media: []
+  urls: []
+  isRetweet: false
+  retweetedBy: null
+  lang: en
+  score: null
+  isSubscriberOnly: false
+  isPromoted: false
+- id: '1058107884188377088'
+  text: '@ThatgayteenOW @tomsstankcurls @JKeilig @ultimatelydjh @tanamongeau @itsjojosiwa
+    youtuber apology starter pack: a big sigh at the start of the video, crying, fake
+    apologies, blaming everyone else, and messy hair'
+  author:
+    id: '981825934243319808'
+    name: molly 🪭 saw young forever AND ltb live
+    screenName: proximbridge
+    profileImageUrl: https://pbs.twimg.com/profile_images/2033574864833933313/nzxXYwvX_normal.jpg
+    verified: false
+  metrics:
+    likes: 285
+    retweets: 18
+    replies: 4
+    quotes: 0
+    views: 0
+    bookmarks: 2
+  createdAt: Thu Nov 01 21:25:52 +0000 2018
+  createdAtLocal: 2018-11-01 21:25
+  createdAtISO: '2018-11-01T21:25:52+00:00'
+  media: []
+  urls: []
+  isRetweet: false
+  retweetedBy: null
+  lang: en
+  score: null
+  isSubscriberOnly: false
+  isPromoted: false
+- id: '1346136581166530561'
+  text: https://t.co/idfokNp1Ws
+  author:
+    id: '1235610347500974081'
+    name: Poorly Aged Things
+    screenName: PoorlyAgedStuff
+    profileImageUrl: https://pbs.twimg.com/profile_images/1670639644378005508/Flv2gLEd_normal.jpg
+    verified: true
+  metrics:
+    likes: 25805
+    retweets: 477
+    replies: 185
+    quotes: 44
+    views: 0
+    bookmarks: 186
+  createdAt: Mon Jan 04 16:49:05 +0000 2021
+  createdAtLocal: 2021-01-04 16:49
+  createdAtISO: '2021-01-04T16:49:05+00:00'
+  media:
+  - type: photo
+    url: https://pbs.twimg.com/media/Eq5wFX2XcAA8Cxc.png
+    width: 654
+    height: 224
+  urls: []
+  isRetweet: false
+  retweetedBy: null
+  lang: zxx
+  score: null
+  isSubscriberOnly: false
+  isPromoted: false
+- id: '1346138663730688000'
+  text: '@PoorlyAgedStuff The video here is making fun of Youtuber apology videos,
+    which Charlie (Cr1tikal (penguinz0)) had to make recently for a mixup involving
+    selling rare cards at a marked-up price.'
+  author:
+    id: '1238089053691617280'
+    name: Context for Poorly Aged Things
+    screenName: AgedContext
+    profileImageUrl: https://pbs.twimg.com/profile_images/1238089790467256320/2eaSaZ-P_normal.jpg
+    verified: false
+  metrics:
+    likes: 8987
+    retweets: 34
+    replies: 36
+    quotes: 4
+    views: 0
+    bookmarks: 25
+  createdAt: Mon Jan 04 16:57:22 +0000 2021
+  createdAtLocal: 2021-01-04 16:57
+  createdAtISO: '2021-01-04T16:57:22+00:00'
+  media: []
+  urls: []
+  isRetweet: false
+  retweetedBy: null
+  lang: en
+  score: null
+  isSubscriberOnly: false
+  isPromoted: false
+- id: '1782776395866759679'
+  text: youtuber apology moment https://t.co/DhahknN4YZ
+  author:
+    id: '1171536013769838594'
+    name: evie Ψ
+    screenName: softestbandito
+    profileImageUrl: https://pbs.twimg.com/profile_images/1924824901191372800/wUQZPwFa_normal.jpg
+    verified: false
+  metrics:
+    likes: 1370
+    retweets: 112
+    replies: 1
+    quotes: 0
+    views: 21742
+    bookmarks: 17
+  createdAt: Tue Apr 23 14:19:49 +0000 2024
+  createdAtLocal: 2024-04-23 14:19
+  createdAtISO: '2024-04-23T14:19:49+00:00'
+  media:
+  - type: photo
+    url: https://pbs.twimg.com/media/GL2xrgPXAAEP-rJ.jpg
+    width: 1179
+    height: 820
+  urls: []
+  isRetweet: false
+  retweetedBy: null
+  lang: en
+  score: null
+  isSubscriberOnly: false
+  isPromoted: false
+  quotedTweet:
+    id: '1782773461070361026'
+    text: https://t.co/HjabljqeIo
+    author:
+      screenName: tylerrjoseph
+      name: tyler jøseph
+- id: '2015481342918644042'
+  text: youtuber apology video thumbnail
+  author:
+    id: '1612285432464637953'
+    name: Sealary
+    screenName: Sealary503
+    profileImageUrl: https://pbs.twimg.com/profile_images/2086475135192625152/4kkNNQl6_normal.jpg
+    verified: false
+  metrics:
+    likes: 2271
+    retweets: 339
+    replies: 8
+    quotes: 10
+    views: 46963
+    bookmarks: 83
+  createdAt: Sun Jan 25 17:46:12 +0000 2026
+  createdAtLocal: 2026-01-25 17:46
+  createdAtISO: '2026-01-25T17:46:12+00:00'
+  media: []
+  urls: []
+  isRetweet: false
+  retweetedBy: null
+  lang: en
+  score: null
+  isSubscriberOnly: false
+  isPromoted: false
+  quotedTweet:
+    id: '2015453267090612440'
+    text: '/3.2 Spoilers
+
+
+      Oh wow https://t.co/7viP7xxAqx'
+    author:
+      screenName: CEOof37
+      name: Ratatouille🕊️
+- id: '1349495485652893698'
+  text: donald trump is doing a youtuber apology video, exclusively to get his twitter
+    back. wow.
+  author:
+    id: '326756275'
+    name: hasanabi
+    screenName: hasanthehun
+    profileImageUrl: https://pbs.twimg.com/profile_images/1915957431299100672/uIhGgd8B_normal.jpg
+    verified: true
+  metrics:
+    likes: 40869
+    retweets: 1580
+    replies: 171
+    quotes: 98
+    views: 0
+    bookmarks: 112
+  createdAt: Wed Jan 13 23:16:10 +0000 2021
+  createdAtLocal: 2021-01-13 23:16
+  createdAtISO: '2021-01-13T23:16:10+00:00'
+  media: []
+  urls: []
+  isRetweet: false
+  retweetedBy: null
+  lang: en
+  score: null
+  isSubscriberOnly: false
+  isPromoted: false
+
+exit=0
+json exit=0 bytes=17032

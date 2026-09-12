@@ -1,0 +1,73 @@
+twitter-cli install exit=0
+rdt-cli install exit=0
+From https://github.com/DEimos12-bi/genzhype-scraper
+ * branch            video-feed -> FETCH_HEAD
+ * [new branch]      video-feed -> origin/video-feed
+video feed bytes=73067
+    -> 1 raw hit(s), 1 kept (dropped: 0 not-this-person, 0 off-topic)
+    -> 15 raw hit(s), 0 kept (dropped: 0 not-this-person, 15 off-topic)
+    -> 1 raw hit(s), 0 kept (dropped: 1 not-this-person, 0 off-topic)
+  page 830: 1 candidate(s) from 3 search(es)
+    -> 1 raw hit(s), 1 kept (dropped: 0 not-this-person, 0 off-topic)
+    -> 15 raw hit(s), 0 kept (dropped: 0 not-this-person, 15 off-topic)
+    -> 1 raw hit(s), 0 kept (dropped: 1 not-this-person, 0 off-topic)
+  page 827: 1 candidate(s) from 3 search(es)
+  page 814: grave story, skipped
+    -> 1 raw hit(s), 1 kept (dropped: 0 not-this-person, 0 off-topic)
+    -> 15 raw hit(s), 0 kept (dropped: 0 not-this-person, 15 off-topic)
+    -> 4 raw hit(s), 0 kept (dropped: 4 not-this-person, 0 off-topic)
+  page 829: 1 candidate(s) from 3 search(es)
+  search '"Vinícius Júnior" split': 0 hits, raw='{\n  "ok": true,\n  "schema_version": "1",\n  "data": []\n}\n'
+    -> 15 raw hit(s), 0 kept (dropped: 13 not-this-person, 2 off-topic)
+    -> 15 raw hit(s), 0 kept (dropped: 15 not-this-person, 0 off-topic)
+  page 270: 0 candidate(s) from 3 search(es)
+  search cap reached — remaining pages deferred
+  page 977: 0 candidate(s) from 0 search(es)
+x-pages: 5 page(s), 12 search(es) used
+x-pages exit=0 bytes=1167
+From https://github.com/DEimos12-bi/genzhype-scraper
+ * branch            reach-feed -> FETCH_HEAD
+ * [new branch]      reach-feed -> origin/reach-feed
+terms feed bytes=1139
+terms wanted: 12
+  co-op: x=10 reddit=10
+  they're good dogs brent: x=10 reddit=10
+  stamina: x=10 reddit=10
+  ai killing us: x=10 reddit=10
+  good for her: x=10 reddit=10
+  satellite baddies: x=0 reddit=10
+  haminations cringe spreads on tiktok: x=0 reddit=10
+  supreme: x=10 reddit=10
+  gas: x=10 reddit=10
+  when hatches: x=10 reddit=10
+  roblox evil homer…: x=0 reddit=10
+  why does everyone hate sombr? tiktok meme explained: x=0 reddit=10
+wrote drop/term-usage.json
+term-usage exit=0 bytes=79349
+  r/teenagers: 25 posts
+  r/GenZ: 25 posts
+  r/OutOfTheLoop: 25 posts
+  r/memes: 25 posts
+  r/dankmemes: 25 posts
+  r/me_irl: 25 posts
+  r/MemeEconomy: 25 posts
+  r/gaming: 25 posts
+  r/pcgaming: 25 posts
+  r/Games: 25 posts
+  r/leagueoflegends: 25 posts
+  r/VALORANT: 25 posts
+  r/2007scape: 25 posts
+  r/LivestreamFail: 25 posts
+  r/GamingLeaksAndRumours: 25 posts
+  r/youtubedrama: 25 posts
+  r/GTA6: 25 posts
+  x 'new slang': 20 posts
+  x 'why is everyone saying': 20 posts
+  x 'what does it mean when someone says': 20 posts
+scout harvest: 485 posts -> drop/scout-posts.json
+scout exit=0 bytes=196937
+A api anon: 200, tags=0
+B page anon: 200, 21290 bytes, tags=0
+C api cookies: 200, tags=0
+tiktok ear: method=None hashtags=0
+tiktok exit=0 bytes=345

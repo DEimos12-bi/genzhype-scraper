@@ -1,0 +1,526 @@
+{
+  "ok": true,
+  "schema_version": "1",
+  "data": [
+    {
+      "id": "2045120926186914051",
+      "text": "We NEED more streamer drama! It’s so interesting! I’m 47!",
+      "author": {
+        "id": "2715279899",
+        "name": "BaldBoyDevinTTV",
+        "screenName": "tom_on_here",
+        "profileImageUrl": "https://pbs.twimg.com/profile_images/2096428930781597699/WVLSwqou_normal.jpg",
+        "verified": false
+      },
+      "metrics": {
+        "likes": 1842,
+        "retweets": 93,
+        "replies": 4,
+        "quotes": 3,
+        "views": 29975,
+        "bookmarks": 31
+      },
+      "createdAt": "Fri Apr 17 12:43:19 +0000 2026",
+      "createdAtLocal": "2026-04-17 12:43",
+      "createdAtISO": "2026-04-17T12:43:19+00:00",
+      "media": [],
+      "urls": [],
+      "isRetweet": false,
+      "retweetedBy": null,
+      "lang": "en",
+      "score": null,
+      "isSubscriberOnly": false,
+      "isPromoted": false
+    },
+    {
+      "id": "2032898205206053271",
+      "text": "UFC media + kick streamer Nina Drama 🎤 https://t.co/LTXhRC5nir",
+      "author": {
+        "id": "1987637714586628096",
+        "name": "MMA Babes",
+        "screenName": "MMA_Babes",
+        "profileImageUrl": "https://pbs.twimg.com/profile_images/2020846449869942784/lxy0iQl__normal.jpg",
+        "verified": true
+      },
+      "metrics": {
+        "likes": 6411,
+        "retweets": 109,
+        "replies": 40,
+        "quotes": 6,
+        "views": 190330,
+        "bookmarks": 986
+      },
+      "createdAt": "Sat Mar 14 19:14:36 +0000 2026",
+      "createdAtLocal": "2026-03-14 19:14",
+      "createdAtISO": "2026-03-14T19:14:36+00:00",
+      "media": [
+        {
+          "type": "photo",
+          "url": "https://pbs.twimg.com/media/HDZOJKbXkAAUxSN.jpg",
+          "width": 1175,
+          "height": 2048
+        }
+      ],
+      "urls": [],
+      "isRetweet": false,
+      "retweetedBy": null,
+      "lang": "pl",
+      "score": null,
+      "isSubscriberOnly": false,
+      "isPromoted": false
+    },
+    {
+      "id": "2052907802109034787",
+      "text": "UFC media + kick streamer Nina Drama 🎤 https://t.co/IwpYqbSTHF",
+      "author": {
+        "id": "1987637714586628096",
+        "name": "MMA Babes",
+        "screenName": "MMA_Babes",
+        "profileImageUrl": "https://pbs.twimg.com/profile_images/2020846449869942784/lxy0iQl__normal.jpg",
+        "verified": true
+      },
+      "metrics": {
+        "likes": 1694,
+        "retweets": 35,
+        "replies": 36,
+        "quotes": 0,
+        "views": 82001,
+        "bookmarks": 335
+      },
+      "createdAt": "Sat May 09 00:25:35 +0000 2026",
+      "createdAtLocal": "2026-05-09 00:25",
+      "createdAtISO": "2026-05-09T00:25:35+00:00",
+      "media": [
+        {
+          "type": "video",
+          "url": "https://video.twimg.com/amplify_video/2052907739303608321/vid/avc1/1080x1920/MV1VKYQzHlRlF7Yx.mp4?tag=27",
+          "width": 1080,
+          "height": 1920
+        }
+      ],
+      "urls": [],
+      "isRetweet": false,
+      "retweetedBy": null,
+      "lang": "pl",
+      "score": null,
+      "isSubscriberOnly": false,
+      "isPromoted": false
+    },
+    {
+      "id": "2035183622504792186",
+      "text": "UFC media + kick streamer Nina Drama 🎤 https://t.co/EqNqfU8KVG",
+      "author": {
+        "id": "1987637714586628096",
+        "name": "MMA Babes",
+        "screenName": "MMA_Babes",
+        "profileImageUrl": "https://pbs.twimg.com/profile_images/2020846449869942784/lxy0iQl__normal.jpg",
+        "verified": true
+      },
+      "metrics": {
+        "likes": 2756,
+        "retweets": 53,
+        "replies": 15,
+        "quotes": 0,
+        "views": 65782,
+        "bookmarks": 331
+      },
+      "createdAt": "Sat Mar 21 02:36:02 +0000 2026",
+      "createdAtLocal": "2026-03-21 02:36",
+      "createdAtISO": "2026-03-21T02:36:02+00:00",
+      "media": [
+        {
+          "type": "photo",
+          "url": "https://pbs.twimg.com/media/HD5st6ObMAAxWjB.jpg",
+          "width": 640,
+          "height": 1359
+        }
+      ],
+      "urls": [],
+      "isRetweet": false,
+      "retweetedBy": null,
+      "lang": "pl",
+      "score": null,
+      "isSubscriberOnly": false,
+      "isPromoted": false
+    },
+    {
+      "id": "1815549848021811441",
+      "text": "-drama streamer made false videos smearing a group of vtubers over their choice of avatars.\n-her fans harass the Vtubers and got two of them suspended\n-gloats on stream and claims she is immune to backlash over her lies because she is “too big” and they’re “insignificant”\n\nClass",
+      "author": {
+        "id": "837889064829276161",
+        "name": "Perma Banned ထ🔨",
+        "screenName": "GiveMeBanHammer",
+        "profileImageUrl": "https://pbs.twimg.com/profile_images/2029064008142360577/EgfZNjXH_normal.png",
+        "verified": true
+      },
+      "metrics": {
+        "likes": 3360,
+        "retweets": 345,
+        "replies": 66,
+        "quotes": 7,
+        "views": 98303,
+        "bookmarks": 302
+      },
+      "createdAt": "Tue Jul 23 00:49:49 +0000 2024",
+      "createdAtLocal": "2024-07-23 00:49",
+      "createdAtISO": "2024-07-23T00:49:49+00:00",
+      "media": [],
+      "urls": [],
+      "isRetweet": false,
+      "retweetedBy": null,
+      "lang": "en",
+      "score": null,
+      "isSubscriberOnly": false,
+      "isPromoted": false,
+      "quotedTweet": {
+        "id": "1815244187668820382",
+        "text": "Your video got two vtubers suspended in a single day due to misinformation and this is what you say in your stream? https://t.co/7JGI8DeKL4",
+        "author": {
+          "screenName": "ANTllSM",
+          "name": "Anti"
+        }
+      }
+    },
+    {
+      "id": "1636055251277979650",
+      "text": "I wish Vtuber drama would be as in depth as Streamer drama\n\nAll we have is weird call-out posts and crying about hate dm's\n\nCan we all start beef with each other please?",
+      "author": {
+        "id": "1276145259257499648",
+        "name": "Shira 🦊🩹🌸 | Vtuber",
+        "screenName": "shirahikovt",
+        "profileImageUrl": "https://pbs.twimg.com/profile_images/2014358688752951296/ZIJcTa9e_normal.jpg",
+        "verified": true
+      },
+      "metrics": {
+        "likes": 842,
+        "retweets": 19,
+        "replies": 96,
+        "quotes": 5,
+        "views": 42196,
+        "bookmarks": 6
+      },
+      "createdAt": "Wed Mar 15 17:22:22 +0000 2023",
+      "createdAtLocal": "2023-03-15 17:22",
+      "createdAtISO": "2023-03-15T17:22:22+00:00",
+      "media": [],
+      "urls": [],
+      "isRetweet": false,
+      "retweetedBy": null,
+      "lang": "en",
+      "score": null,
+      "isSubscriberOnly": false,
+      "isPromoted": false
+    },
+    {
+      "id": "892747250237136897",
+      "text": "Thinking of starting some drama with another streamer, spice it up a little. Just trying to figure out who 🤔",
+      "author": {
+        "id": "520680837",
+        "name": "Lirik",
+        "screenName": "LIRIK",
+        "profileImageUrl": "https://pbs.twimg.com/profile_images/1148972773290762240/kmkJzp5I_normal.png",
+        "verified": true
+      },
+      "metrics": {
+        "likes": 2352,
+        "retweets": 49,
+        "replies": 150,
+        "quotes": 8,
+        "views": 0,
+        "bookmarks": 0
+      },
+      "createdAt": "Wed Aug 02 14:01:45 +0000 2017",
+      "createdAtLocal": "2017-08-02 14:01",
+      "createdAtISO": "2017-08-02T14:01:45+00:00",
+      "media": [],
+      "urls": [],
+      "isRetweet": false,
+      "retweetedBy": null,
+      "lang": "en",
+      "score": null,
+      "isSubscriberOnly": false,
+      "isPromoted": false
+    },
+    {
+      "id": "929195727544373250",
+      "text": "In regards to the recent female streamer drama, my 2c\n\nI don't really care about titty streamers anymore lol yeah some shit might be over the line but the whole issue is overblown",
+      "author": {
+        "id": "147039284",
+        "name": "Zack",
+        "screenName": "Asmongold",
+        "profileImageUrl": "https://pbs.twimg.com/profile_images/1993607925017743360/-UDIaI_l_normal.jpg",
+        "verified": true
+      },
+      "metrics": {
+        "likes": 248,
+        "retweets": 6,
+        "replies": 26,
+        "quotes": 1,
+        "views": 0,
+        "bookmarks": 0
+      },
+      "createdAt": "Sat Nov 11 03:54:59 +0000 2017",
+      "createdAtLocal": "2017-11-11 03:54",
+      "createdAtISO": "2017-11-11T03:54:59+00:00",
+      "media": [],
+      "urls": [],
+      "isRetweet": false,
+      "retweetedBy": null,
+      "lang": "en",
+      "score": null,
+      "isSubscriberOnly": false,
+      "isPromoted": false
+    },
+    {
+      "id": "1818335088968630771",
+      "text": "How Twitch streamer drama sounds https://t.co/yGeeOWy1po",
+      "author": {
+        "id": "922622358413824000",
+        "name": "Kevin Sanji",
+        "screenName": "kevsanji",
+        "profileImageUrl": "https://pbs.twimg.com/profile_images/1917049131178328064/ICAzEHyN_normal.jpg",
+        "verified": false
+      },
+      "metrics": {
+        "likes": 1681,
+        "retweets": 173,
+        "replies": 4,
+        "quotes": 10,
+        "views": 73696,
+        "bookmarks": 258
+      },
+      "createdAt": "Tue Jul 30 17:17:22 +0000 2024",
+      "createdAtLocal": "2024-07-30 17:17",
+      "createdAtISO": "2024-07-30T17:17:22+00:00",
+      "media": [
+        {
+          "type": "video",
+          "url": "https://video.twimg.com/ext_tw_video/1818334915844595712/pu/vid/avc1/720x1280/sug1Y4jh51bBv99I.mp4?tag=12",
+          "width": 720,
+          "height": 1280
+        }
+      ],
+      "urls": [],
+      "isRetweet": false,
+      "retweetedBy": null,
+      "lang": "en",
+      "score": null,
+      "isSubscriberOnly": false,
+      "isPromoted": false
+    },
+    {
+      "id": "2017716561214050628",
+      "text": "DrDisrespect CRASHED OUT on streamer over the highguard drama with this funny skit. https://t.co/whYoGGk7hd",
+      "author": {
+        "id": "807355480188141568",
+        "name": "DramaAlert",
+        "screenName": "DramaAlert",
+        "profileImageUrl": "https://pbs.twimg.com/profile_images/807356568182222848/cA3XE1W3_normal.jpg",
+        "verified": false
+      },
+      "metrics": {
+        "likes": 1964,
+        "retweets": 98,
+        "replies": 259,
+        "quotes": 30,
+        "views": 254535,
+        "bookmarks": 373
+      },
+      "createdAt": "Sat Jan 31 21:48:10 +0000 2026",
+      "createdAtLocal": "2026-01-31 21:48",
+      "createdAtISO": "2026-01-31T21:48:10+00:00",
+      "media": [
+        {
+          "type": "video",
+          "url": "https://video.twimg.com/amplify_video/2017716320498769920/vid/avc1/1280x720/9fAuZlGnSfhHmQIj.mp4?tag=21",
+          "width": 1280,
+          "height": 720
+        }
+      ],
+      "urls": [],
+      "isRetweet": false,
+      "retweetedBy": null,
+      "lang": "en",
+      "score": null,
+      "isSubscriberOnly": false,
+      "isPromoted": false
+    },
+    {
+      "id": "1813613628849107119",
+      "text": "How Twitch streamer drama sounds https://t.co/oRvqJeWEJL",
+      "author": {
+        "id": "922622358413824000",
+        "name": "Kevin Sanji",
+        "screenName": "kevsanji",
+        "profileImageUrl": "https://pbs.twimg.com/profile_images/1917049131178328064/ICAzEHyN_normal.jpg",
+        "verified": false
+      },
+      "metrics": {
+        "likes": 7304,
+        "retweets": 639,
+        "replies": 30,
+        "quotes": 33,
+        "views": 331408,
+        "bookmarks": 1075
+      },
+      "createdAt": "Wed Jul 17 16:35:59 +0000 2024",
+      "createdAtLocal": "2024-07-17 16:35",
+      "createdAtISO": "2024-07-17T16:35:59+00:00",
+      "media": [
+        {
+          "type": "video",
+          "url": "https://video.twimg.com/ext_tw_video/1813613444228370432/pu/vid/avc1/720x1280/glgsmbW9laORgJLP.mp4?tag=12",
+          "width": 720,
+          "height": 1280
+        }
+      ],
+      "urls": [],
+      "isRetweet": false,
+      "retweetedBy": null,
+      "lang": "en",
+      "score": null,
+      "isSubscriberOnly": false,
+      "isPromoted": false
+    },
+    {
+      "id": "1845954676866666733",
+      "text": "Can we all agree that CaseOh is the best Streamer\n\nnever once been in drama all he does is play video games https://t.co/qJaEJYfHXT",
+      "author": {
+        "id": "745708855481425920",
+        "name": "yoxic",
+        "screenName": "yoxics",
+        "profileImageUrl": "https://pbs.twimg.com/profile_images/1603159442249248768/APJLtkBZ_normal.jpg",
+        "verified": true
+      },
+      "metrics": {
+        "likes": 79266,
+        "retweets": 3369,
+        "replies": 1322,
+        "quotes": 883,
+        "views": 9621139,
+        "bookmarks": 2597
+      },
+      "createdAt": "Mon Oct 14 22:27:45 +0000 2024",
+      "createdAtLocal": "2024-10-14 22:27",
+      "createdAtISO": "2024-10-14T22:27:45+00:00",
+      "media": [
+        {
+          "type": "photo",
+          "url": "https://pbs.twimg.com/media/GZ4l_swWUAAa5i4.jpg",
+          "width": 900,
+          "height": 900
+        },
+        {
+          "type": "photo",
+          "url": "https://pbs.twimg.com/media/GZ4l_swWYAAzFnH.jpg",
+          "width": 1080,
+          "height": 567
+        }
+      ],
+      "urls": [],
+      "isRetweet": false,
+      "retweetedBy": null,
+      "lang": "en",
+      "score": null,
+      "isSubscriberOnly": false,
+      "isPromoted": false
+    },
+    {
+      "id": "2044889199963250752",
+      "text": "I dont get into streamer drama, so let me just say this:\n\nThis subtle victim playing is tip #1 on how to spot a misogynyst.\n\n\"I wish I had a choice in this being made public :(\" \"it's getting in the way of us healing :(\"\n\nGuess who speaking up benefits? The victims. As it should. \n\nDont fall for the misogynistic playbook of painting the man as the victim of his predation.",
+      "author": {
+        "id": "2015279020976271360",
+        "name": "Jack Court",
+        "screenName": "JackssCourt",
+        "profileImageUrl": "https://pbs.twimg.com/profile_images/2065149986191368192/SIK4WUNJ_normal.jpg",
+        "verified": true
+      },
+      "metrics": {
+        "likes": 6612,
+        "retweets": 421,
+        "replies": 29,
+        "quotes": 10,
+        "views": 381880,
+        "bookmarks": 432
+      },
+      "createdAt": "Thu Apr 16 21:22:32 +0000 2026",
+      "createdAtLocal": "2026-04-16 21:22",
+      "createdAtISO": "2026-04-16T21:22:32+00:00",
+      "media": [],
+      "urls": [],
+      "isRetweet": false,
+      "retweetedBy": null,
+      "lang": "en",
+      "score": null,
+      "isSubscriberOnly": false,
+      "isPromoted": false
+    },
+    {
+      "id": "1806674509019111691",
+      "text": "I really need a new twitter feed. 🙄\n\nI’m sick of politics, I’m sick of streamer drama, I’m sick of seeing the same big creators getting banned for being shit humans (happy they are getting what they deserve just sick of it being the only thing I see being talked about). \n\nI just want to go back to seeing gaming clips, and streamers excited about collabs, partnerships and other accomplishments. I want to see setups and selfies that make someone feel confident and proud. \n\n😔",
+      "author": {
+        "id": "1402986724993556481",
+        "name": "MsSavage",
+        "screenName": "MsSavageAF",
+        "profileImageUrl": "https://pbs.twimg.com/profile_images/2075628211346759680/fvW_IQqN_normal.jpg",
+        "verified": true
+      },
+      "metrics": {
+        "likes": 994,
+        "retweets": 51,
+        "replies": 144,
+        "quotes": 9,
+        "views": 85020,
+        "bookmarks": 17
+      },
+      "createdAt": "Fri Jun 28 13:02:23 +0000 2024",
+      "createdAtLocal": "2024-06-28 13:02",
+      "createdAtISO": "2024-06-28T13:02:23+00:00",
+      "media": [],
+      "urls": [],
+      "isRetweet": false,
+      "retweetedBy": null,
+      "lang": "en",
+      "score": null,
+      "isSubscriberOnly": false,
+      "isPromoted": false
+    },
+    {
+      "id": "1982958418169381299",
+      "text": "Sorry for ALL THE POSTS abt streamer drama 😂 \n\nAnyway.. here's my blurry face &amp; big... eyes https://t.co/uXG4Gj20k2",
+      "author": {
+        "id": "1371582329685209093",
+        "name": "Pσƙƙҽƚ 𝒾𝓈 𝓉𝓎𝓅𝒾𝓃𝑔...",
+        "screenName": "Pokket",
+        "profileImageUrl": "https://pbs.twimg.com/profile_images/2098107197586870272/mPqAf8ZL_normal.jpg",
+        "verified": true
+      },
+      "metrics": {
+        "likes": 2233,
+        "retweets": 27,
+        "replies": 28,
+        "quotes": 0,
+        "views": 140280,
+        "bookmarks": 340
+      },
+      "createdAt": "Mon Oct 27 23:51:43 +0000 2025",
+      "createdAtLocal": "2025-10-27 23:51",
+      "createdAtISO": "2025-10-27T23:51:43+00:00",
+      "media": [
+        {
+          "type": "photo",
+          "url": "https://pbs.twimg.com/media/G4TbRL_boAAnWGw.jpg",
+          "width": 1150,
+          "height": 2048
+        }
+      ],
+      "urls": [],
+      "isRetweet": false,
+      "retweetedBy": null,
+      "lang": "en",
+      "score": null,
+      "isSubscriberOnly": false,
+      "isPromoted": false
+    }
+  ]
+}
