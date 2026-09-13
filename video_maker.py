@@ -6059,12 +6059,31 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
             cands = _under
         else:
             _prev = scenes[-1].get("path") if scenes else None
-            _anyu = [e for e in base if use_count.get(e["path"], 0) < IMAGE_MAX_USES
-                     and e["path"] != _prev]
-            if _anyu:
+            # r170 (render 34776749400, page 920: pool of 4 real stills all at
+            # the cap by scene 22, so clipfr-0 went on screen a 3rd time while
+            # 7 downloaded story images sat at 0-1 uses): the Director's story
+            # images are spent before any third use. YouTube thumbnails stay
+            # out — unpinned, they are the off-topic-frame risk r25 names.
+            _story = [e for e in visual_map.values()
+                      if e.get("path") and not e.get("designed")
+                      and not e.get("textish")
+                      and "ytimg.com/vi" not in str(e.get("url") or "")
+                      and use_count.get(e["path"], 0) < IMAGE_MAX_USES]
+            _fresh_story = [e for e in _story if e["path"] not in recent]
+            _anyu = ([e for e in base if use_count.get(e["path"], 0) < IMAGE_MAX_USES
+                      and e["path"] != _prev]
+                     or [e for e in _story if e["path"] != _prev])
+            if _fresh_story:
+                log.info("IMAGE CAP: pool stills all fill %d shot(s); spending an "
+                         "under-used story image instead", IMAGE_MAX_USES)
+                cands = _fresh_story
+            elif _anyu:
                 log.info("IMAGE CAP: fresh candidates all fill %d shot(s); reusing an "
                          "under-cap image inside the window instead", IMAGE_MAX_USES)
                 cands = _anyu
+            else:
+                log.info("IMAGE CAP: every real image fills %d shot(s); a repeat "
+                         "is the last resort", IMAGE_MAX_USES)
         if not cands:
             prev = scenes[-1].get("path") if scenes else None
             cands = [e for e in base if e["path"] != prev] or base
@@ -6076,11 +6095,9 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
             faced = [e for e in best if e.get("has_face")] or best
             entry = max(faced, key=lambda e: e.get("quality") or (0.0, 0.0))
             last_used[entry["path"]] = si
-            use_count[entry["path"]] = use_count.get(entry["path"], 0) + 1
             return entry
         entry = min(cands, key=lambda e: last_used.get(e["path"], -1))
         last_used[entry["path"]] = si
-        use_count[entry["path"]] = use_count.get(entry["path"], 0) + 1
         return entry
 
     def _gap_footage(si, need_s):
@@ -6424,7 +6441,6 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                     planned_here = False
             if entry is not None:
                 last_used[entry["path"]] = si          # r11: LRU sees pins too
-                use_count[entry["path"]] = use_count.get(entry["path"], 0) + 1   # r169
                 path, typ, textish = entry["path"], "photo", entry["textish"]
                 contain_here = bool(entry.get("contain"))     # r57
                 src_url = entry.get("url")             # r13: footage upgrade
@@ -6676,6 +6692,10 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
         # to (broll/receipt/photo) on the shared EDL dict — the judge's
         # per-frame expectation follows reality, not the dead original plan
         sh["resolved"] = typ if not textish else "receipt"
+        # r170: count the image that went ON SCREEN. r169 counted at pick time,
+        # so a pick later replaced by footage or a still-hold swap still spent
+        # a use (page 920 scene 3) and the pool hit the cap early.
+        use_count[path] = use_count.get(path, 0) + 1
         prev_motion = motion
 
     # r46 SPEND THE POOL (owner, watching the scene plan: "fix the picker so it
@@ -6706,6 +6726,12 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
         if _swapped:
             log.info("SPEND THE POOL: %d repeat(s) swapped for unused images "
                      "(%d distinct stills now on screen)", _swapped, len(_used))
+            # r170: swaps changed what is on screen; the pacing split below
+            # reads use_count, so recount from the scenes as they now stand
+            use_count.clear()
+            for sc in scenes:
+                if sc.get("path"):
+                    use_count[sc["path"]] = use_count.get(sc["path"], 0) + 1
 
     # r43 PACING: split long STILLS into ~SCENE_SPLIT_TARGET_S beats, each with a
     # different image, so the picture changes at short-form rhythm instead of
