@@ -4735,6 +4735,129 @@ def _yunet():
     return _YUNET
 
 
+# r171 TEXT AVOID (render 34776749400). Judge on page 920, frame 2: "caption
+# text overlaps and cuts off behind the main title box"; page 830 shipped our
+# captions right under a TikTok creator's own burned-in captions. Borrowed clips
+# (and the stills harvested from them) carry their creator's text, and our hook
+# and captions sat on fixed rows whatever was underneath. The broadcast rule is
+# explicit: FCC 47 CFR 79.1(j)(2)(iv), captioning "shall not block other
+# important visual content on the screen, including ... featured text"; Netflix
+# Timed Text Style Guide, subtitles are "positioned accordingly to avoid overlap
+# with onscreen text", and where overlap is impossible "placed where easier to
+# read". Detection is OpenCV Zoo's PP-OCRv3 text detector (Apache-2.0, same zoo
+# and loader pattern as YuNet) with the zoo demo's own parameters, run on the
+# COMPOSED scene frames (zoom/crop/contain already applied) before any of our
+# overlays exist. Missing model or any error = the old fixed rows, never fatal.
+TEXT_AVOID = os.environ.get("VIDEO_TEXT_AVOID", "1") != "0"
+TEXT_DET_MODEL = os.environ.get("VIDEO_TEXT_DET_MODEL",
+                                "models/text_detection_en_ppocrv3_2023may.onnx")
+TEXT_DET_IN = (544, 960)   # DB input must be multiples of 32; 9:16 like the frame
+TEXT_MIN_BOX_H = 20        # frame px; shorter boxes are UI dust, not featured text
+TEXT_PAD = 16              # clearance kept between their text and ours
+CHIP_CLEAR_Y = 360         # r153: the date chip's rows end at 348 (+12)
+_TEXTDET = None
+
+
+def _textdet():
+    global _TEXTDET
+    if _TEXTDET is None:
+        import cv2
+        m = cv2.dnn_TextDetectionModel_DB(cv2.dnn.readNet(TEXT_DET_MODEL))
+        m.setBinaryThreshold(0.3)
+        m.setPolygonThreshold(0.5)
+        m.setUnclipRatio(2.0)
+        m.setMaxCandidates(200)
+        m.setInputSize(TEXT_DET_IN)
+        m.setInputMean((123.675, 116.28, 103.53))
+        m.setInputScale(1.0 / 255.0 / np.array([0.229, 0.224, 0.225]))
+        _TEXTDET = m
+    return _TEXTDET
+
+
+def frame_text_boxes(rgb):
+    """Burned-in text boxes [(x0, y0, x1, y1)] in frame pixels for one RGB
+    frame. The zoo demo feeds cv.imread BGR, so the frame is converted."""
+    import cv2
+    h, w = rgb.shape[:2]
+    bgr = cv2.cvtColor(np.ascontiguousarray(rgb[:, :, :3]).astype(np.uint8),
+                       cv2.COLOR_RGB2BGR)
+    small = cv2.resize(bgr, TEXT_DET_IN, interpolation=cv2.INTER_AREA)
+    polys, _conf = _textdet().detect(small)
+    sx, sy = w / float(TEXT_DET_IN[0]), h / float(TEXT_DET_IN[1])
+    out = []
+    for p in polys:
+        p = np.asarray(p, dtype=float).reshape(-1, 2)
+        x0, x1 = p[:, 0].min() * sx, p[:, 0].max() * sx
+        y0, y1 = p[:, 1].min() * sy, p[:, 1].max() * sy
+        if y1 - y0 >= TEXT_MIN_BOX_H:
+            out.append((max(0, int(x0)), max(0, int(y0)),
+                        min(w, int(x1)), min(h, int(y1))))
+    return out
+
+
+def scene_text_windows(scenes, scene_clips):
+    """[(start, end, boxes)] for every scene whose composed frames carry
+    burned-in text: the union of boxes over 3 frames (in, middle, out — the
+    push-in moves text monotonically, so the ends bound it). Receipt cards are
+    skipped: v9 already drops captions below the card for those."""
+    if not TEXT_AVOID:
+        return []
+    if not os.path.isfile(TEXT_DET_MODEL):
+        log.info("TEXT AVOID off: no text model at %s (fixed caption rows)",
+                 TEXT_DET_MODEL)
+        return []
+    wins, t0 = [], time.time()
+    for i, (sc, clip) in enumerate(zip(scenes, scene_clips)):
+        if sc.get("type") == "receipt":
+            continue
+        if tuple(getattr(clip, "size", (0, 0))) != (W, H):
+            log.info("TEXT AVOID: scene %d clip is %s, not the frame; skipped",
+                     i + 1, getattr(clip, "size", None))
+            continue
+        dur = max(0.05, float(sc["end"]) - float(sc["start"]))
+        boxes = []
+        for lt in sorted({min(0.12, dur / 2), dur / 2, max(dur - 0.12, dur / 2)}):
+            try:
+                boxes.extend(frame_text_boxes(clip.get_frame(lt)))
+            except Exception as exc:  # noqa: BLE001 — never fatal
+                log.info("TEXT AVOID: scene %d frame %.2fs unreadable (%s)",
+                         i + 1, lt, str(exc)[:80])
+        if boxes:
+            wins.append((float(sc["start"]), float(sc["end"]), boxes))
+    log.info("TEXT AVOID: burned-in text on %d of %d scene(s) (%.1fs)",
+             len(wins), len(scenes), time.time() - t0)
+    return wins
+
+
+def clear_text_y(default_c, block_h, boxes, lo=CHIP_CLEAR_Y,
+                 hi=H - SAFE_BOTTOM, x0=SAFE_X, x1=W - SAFE_X):
+    """CENTER y for a centred text block of height block_h: the default row
+    when it covers no burned-in text, else the clear row nearest to it inside
+    the platform-safe band, else (Netflix: overlap impossible) the row that
+    covers the least text."""
+    half = block_h / 2.0
+
+    def covered(c):
+        a, b = c - half - TEXT_PAD, c + half + TEXT_PAD
+        tot = 0.0
+        for bx0, by0, bx1, by1 in boxes:
+            if bx1 <= x0 or bx0 >= x1:
+                continue
+            ov = min(b, by1) - max(a, by0)
+            if ov > 0:
+                tot += ov * (min(x1, bx1) - max(x0, bx0))
+        return tot
+
+    if not boxes or covered(default_c) == 0:
+        return default_c
+    lo_c, hi_c = lo + half, hi - half
+    if hi_c < lo_c:
+        return default_c
+    cands = [lo_c + 10.0 * k for k in range(int((hi_c - lo_c) // 10) + 1)]
+    cands.append(hi_c)
+    return min(cands, key=lambda c: (covered(c), abs(c - default_c)))
+
+
 def _profile_cascade():
     """r31: the frontal cascade misses a turned head, a tilted head, shades or
     a hat brim — exactly how our subjects are photographed. Every miss fell
@@ -7699,9 +7822,10 @@ def date_chip_clip(date_label, start, end, font_path):
         return None
 
 
-def hook_clip(text, start, end, font_path):
+def hook_clip(text, start, end, font_path, text_boxes=None):
     """The oversized HOOK card over the first ~2s (kept from v1): TextClip with
-    pre-wrapped text, slide-up + CrossFadeIn."""
+    pre-wrapped text, slide-up + CrossFadeIn. r171: text_boxes = burned-in
+    text under the hook's window; the block moves off it (clear_text_y)."""
     from moviepy import TextClip, vfx
 
     text = text.strip()
@@ -7735,6 +7859,20 @@ def hook_clip(text, start, end, font_path):
     # staggered title-card entrance every produced short uses). Single-line
     # hooks and any failure keep the exact pre-v2 single-clip path below.
     lines = [ln for ln in render_text.split("\n") if ln.strip()]
+    if text_boxes and th > 0:
+        # r171: the block's real height in whichever path renders it below
+        # (stacked lines overlap by one stroke; the single clip is padded)
+        if DEPTH_PARALLAX and len(lines) > 1 and dur > 0.6:
+            _pad = stroke * 2 + 8
+            block_h = sum(_text_block_size(ln, font_path, HOOK_FONT, stroke)[1]
+                          + 2 * _pad - stroke for ln in lines) + stroke
+        else:
+            block_h = th + 2 * (stroke * 2 + 8)
+        _c = clear_text_y(base_y + block_h / 2.0, block_h, text_boxes)
+        if abs((_c - block_h / 2.0) - base_y) >= 1:
+            log.info("TEXT AVOID: hook moved off burned-in text, top y %d -> %d",
+                     int(base_y), int(_c - block_h / 2.0))
+            base_y = float(int(_c - block_h / 2.0))
     if DEPTH_PARALLAX and len(lines) > 1 and dur > 0.6:
         try:
             clips = []
@@ -7889,7 +8027,8 @@ def render_chunk_frame(words, hot_idx, font_path, hot_boost=1.0):
     return np.array(canvas)
 
 
-def chunk_caption_clips(beats, hook_end, duration, font_path, card_windows=None):
+def chunk_caption_clips(beats, hook_end, duration, font_path, card_windows=None,
+                        text_windows=None):
     """Word-pop captions: for every chunk, one ImageClip per word-state (the
     spoken word accent-colored + larger). Each state runs from its word's
     start to the next word's start; the chunk's last state holds until the
@@ -7915,10 +8054,17 @@ def chunk_caption_clips(beats, hook_end, duration, font_path, card_windows=None)
             en = max(en, st + 0.05)
             mid = (st + en) / 2.0
             y_center = CAPTION_CENTER_Y
+            _on_card = False
             for cw_s, cw_e in (card_windows or []):
                 if cw_s <= mid < cw_e:      # v9: this word plays over a card
                     y_center = CARD_CAPTION_Y
+                    _on_card = True
                     break
+            if not _on_card:
+                for tw_s, tw_e, tw_y in (text_windows or []):
+                    if tw_s <= mid < tw_e:  # r171: the row clear of their text
+                        y_center = tw_y
+                        break
             # TREATMENT V2 kinetic pop: the spoken word lands as a brief
             # OVERSHOOT state (hot word at 1.22x its accent size for the
             # first 90ms) then settles to the normal accent state — the
@@ -8732,7 +8878,27 @@ def compose_video(pool, broll_terms, mp3_path, hook, script, word_timings,
     # text is now 4-8 words (readable in ~1s per TikTok's own 5-10 words/sec
     # guidance), so it needs at most ~2.2s on screen — then it clears and the
     # opening clip carries the frame while the voice finishes the loop.
-    hc = hook_clip(hook.upper(), 0.0, min(hook_end, HOOK_TEXT_MAX_S), font_path)
+    # r171 TEXT AVOID: find the creators' burned-in text on the composed scene
+    # frames, then keep the hook and the captions off it (see frame_text_boxes)
+    hook_s = min(hook_end, HOOK_TEXT_MAX_S)
+    text_windows, hook_boxes = [], []
+    try:
+        _tw = scene_text_windows(scenes, scene_clips)
+        hook_boxes = [b for s, e, bx in _tw if s < hook_s and e > 0.0 for b in bx]
+        _cap_h = render_chunk_frame(["WORD", "WORD"], 0, font_path,
+                                    hot_boost=1.22).shape[0]
+        _cx0 = (W - int(W * 0.88)) // 2          # render_chunk_frame's max width
+        for s, e, bx in _tw:
+            y = clear_text_y(CAPTION_CENTER_Y, _cap_h, bx, x0=_cx0, x1=W - _cx0)
+            if y != CAPTION_CENTER_Y:
+                log.info("TEXT AVOID: captions %.2f-%.2fs moved off burned-in "
+                         "text, center y %d -> %d", s, e, CAPTION_CENTER_Y, int(y))
+            text_windows.append((s, e, int(round(y))))
+    except Exception as exc:  # noqa: BLE001 — never fatal: fixed rows as before
+        log.warning("TEXT AVOID failed (%s); fixed caption rows", str(exc)[:120])
+        text_windows, hook_boxes = [], []
+
+    hc = hook_clip(hook.upper(), 0.0, hook_s, font_path, text_boxes=hook_boxes)
     if hc is not None:
         # treatment v2: the kinetic hook returns one clip PER LINE
         layers.extend(hc if isinstance(hc, list) else [hc])
@@ -8742,7 +8908,8 @@ def compose_video(pool, broll_terms, mp3_path, hook, script, word_timings,
     card_windows = [(sc["start"], sc["end"]) for sc in scenes
                     if sc.get("type") == "receipt"]
     layers.extend(chunk_caption_clips(beats, hook_end, duration, font_path,
-                                      card_windows=card_windows))
+                                      card_windows=card_windows,
+                                      text_windows=text_windows))
 
     video = CompositeVideoClip(layers, size=(W, H)).with_duration(total)
     if v4_mode and EDGE_FADE_S > 0:

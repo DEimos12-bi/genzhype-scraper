@@ -425,9 +425,13 @@ jobs:
             "https://media.githubusercontent.com/media/opencv/opencv_zoo/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx" || true
           curl -sSL --max-time 60 -o vendor/Readability.js \
             "https://unpkg.com/@mozilla/readability@0.6.0/Readability.js" || true
+          # r171 TEXT AVOID: PP-OCRv3 text detector, same zoo (Apache-2.0),
+          # keeps our hook/captions off creators' burned-in text. 2,423,490 bytes.
+          curl -sSL --max-time 60 -o models/text_detection_en_ppocrv3_2023may.onnx \
+            "https://media.githubusercontent.com/media/opencv/opencv_zoo/main/models/text_detection_ppocr/text_detection_en_ppocrv3_2023may.onnx" || true
           # a git-lfs pointer or a 404 page is worse than no file: the driver
           # would load it and throw. Drop anything implausibly small.
-          for f in models/face_detection_yunet_2023mar.onnx vendor/Readability.js; do
+          for f in models/face_detection_yunet_2023mar.onnx models/text_detection_en_ppocrv3_2023may.onnx vendor/Readability.js; do
             if [ ! -s "$f" ] || [ "$(stat -c%s "$f")" -lt 20000 ]; then
               echo "discarding $f ($(stat -c%s "$f" 2>/dev/null || echo 0) bytes)"; rm -f "$f"
             else
