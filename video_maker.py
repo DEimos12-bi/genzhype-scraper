@@ -2013,11 +2013,19 @@ def _is_ad_host(url):
     return any(sub in host for sub in _AD_HOST_SUBSTRINGS)
 
 
+# r173 (owner: "the login for Google is showing" in the proof screenshots):
+# Google's One Tap sign-in prompt is a script + iframe from these paths. Not an
+# ad host, so the host list never caught it; the screenshot APIs block it as a
+# popup. Aborting the request means the prompt never mounts.
+_SIGNIN_PROMPT_URLS = ("accounts.google.com/gsi/", "accounts.google.com/o/oauth2/iframe")
+
+
 def _block_ads(route):
     """Playwright route handler: abort ad/tracker requests, let the rest pass.
     Never raises — on any doubt the request is allowed to continue."""
     try:
-        if _is_ad_host(route.request.url):
+        _u = route.request.url
+        if _is_ad_host(_u) or any(s in _u for s in _SIGNIN_PROMPT_URLS):
             route.abort()
             return
     except Exception:  # noqa: BLE001
@@ -2026,6 +2034,87 @@ def _block_ads(route):
         route.continue_()
     except Exception:  # noqa: BLE001
         pass
+
+
+# r173 CAPTURE WHEN LOADED, NOT WHEN TOLD (owner, 2026-09-13: "it takes the
+# screenshot when it's not finished loading, or the ads are showing"). Measured
+# on the delivered proof cards: page 920's IGN card has a white hole where the
+# lead photo never loaded; 827/830's Daily Hive card is under an "ALLOW ADS"
+# wall with the page dimmed behind it; 823's card shows a spinning widget. The
+# capture waited a fixed 1.5s after DOMContentLoaded and hid fixed overlays only
+# when they started >150px down, which keeps exactly the full-screen modals.
+# What the screenshot services do instead (ScreenshotOne options: wait_until
+# networkidle, full_page_scroll "to trigger lazy loading",
+# block_banners_by_heuristics, block_cookie_banners):
+SHOT_IDLE_MS = int(os.environ.get("VIDEO_SHOT_IDLE_MS", "3000"))
+SHOT_IMG_WAIT_MS = int(os.environ.get("VIDEO_SHOT_IMG_WAIT_MS", "3500"))
+
+# scroll two viewports down and back so lazy loaders start the lead image
+_LAZY_SCROLL_JS = """async () => {
+  const step = Math.max(200, Math.floor(window.innerHeight * 0.8));
+  for (let y = step; y <= window.innerHeight * 2; y += step) {
+    window.scrollTo(0, y);
+    await new Promise(r => setTimeout(r, 150));
+  }
+  window.scrollTo(0, 0);
+}"""
+
+# overlays: fixed/sticky boxes below the masthead (old rule) PLUS any fixed/
+# sticky box covering a fifth of the viewport wherever it sits (modal, scrim,
+# adblock wall, sign-in sheet), and the scroll lock those modals leave behind
+_OVERLAY_HIDE_JS = """() => {
+  const vw = window.innerWidth, vh = window.innerHeight;
+  for (const el of document.querySelectorAll('*')) {
+    const s = getComputedStyle(el);
+    if (s.position !== 'fixed' && s.position !== 'sticky') continue;
+    const r = el.getBoundingClientRect();
+    const ow = Math.min(r.right, vw) - Math.max(r.left, 0);
+    const oh = Math.min(r.bottom, vh) - Math.max(r.top, 0);
+    const covers = ow > 0 && oh > 0 && ow * oh > 0.2 * vw * vh;
+    if (r.top > 150 || covers) el.style.visibility = 'hidden';
+  }
+  for (const el of [document.documentElement, document.body]) {
+    if (el && getComputedStyle(el).overflow === 'hidden') el.style.overflow = 'visible';
+  }
+}"""
+
+# every visible <img> of real size inside the crop has finished decoding, and
+# the web fonts are in (a half-loaded font reflows the headline mid-shot)
+_CLIP_READY_JS = """(clip) => {
+  if (document.fonts && document.fonts.status !== 'loaded') return false;
+  const x0 = clip.x, y0 = clip.y, x1 = clip.x + clip.width, y1 = clip.y + clip.height;
+  for (const img of Array.from(document.images)) {
+    const r = img.getBoundingClientRect();
+    if (r.width * r.height < 40000) continue;
+    const s = getComputedStyle(img);
+    if (s.display === 'none' || s.visibility === 'hidden' || s.opacity === '0') continue;
+    const L = r.left + window.scrollX, T = r.top + window.scrollY;
+    if (L + r.width <= x0 || L >= x1 || T + r.height <= y0 || T >= y1) continue;
+    if (!(img.complete && img.naturalWidth > 0)) return false;
+  }
+  return true;
+}"""
+
+
+def _clip_ready(page, clip):
+    """Bring the crop into view (lazy loaders fire on intersection), wait for its
+    images + fonts, return to the top where the crop was measured. False = the
+    lead image never loaded inside SHOT_IMG_WAIT_MS."""
+    ok = True
+    try:
+        page.evaluate("y => window.scrollTo(0, Math.max(0, y - 200))",
+                      float(clip["y"]))
+        page.wait_for_function(_CLIP_READY_JS, arg=clip,
+                               timeout=SHOT_IMG_WAIT_MS)
+    except Exception:  # noqa: BLE001 — timeout = still loading
+        ok = False
+    try:
+        page.evaluate("() => window.scrollTo(0, 0)")
+        page.evaluate(_OVERLAY_HIDE_JS)        # late modals mount while we wait
+        page.wait_for_timeout(150)
+    except Exception:  # noqa: BLE001
+        pass
+    return ok
 
 
 def _shot_is_blank(path):
@@ -2198,7 +2287,9 @@ def screenshot_articles(targets, page_id, topic_kw=None):
                 log.info("Readability.js absent (%s); ancestor heuristic only",
                          READABILITY_JS)
             url_shot = {}                  # r22: SAME url -> SAME file (path-
+            head_shot = {}                 # r173: SAME headline -> SAME file
             for i, url in targets.items():  # based scene caps finally bite)
+                h1_txt = ""
                 if url in url_shot:
                     if url_shot[url]:
                         out[i] = url_shot[url]
@@ -2250,6 +2341,17 @@ def screenshot_articles(targets, page_id, topic_kw=None):
                             continue
                     except Exception:  # noqa: BLE001
                         pass
+                    # r173: wait for the network to settle (bounded: ad-blocked
+                    # pages still poll), then scroll so lazy images start
+                    try:
+                        page.wait_for_load_state("networkidle",
+                                                 timeout=SHOT_IDLE_MS)
+                    except Exception:  # noqa: BLE001 — busy page; carry on
+                        pass
+                    try:
+                        page.evaluate(_LAZY_SCROLL_JS)
+                    except Exception:  # noqa: BLE001
+                        pass
                     # best-effort cookie-banner dismissal
                     for sel in ("#onetrust-accept-btn-handler",
                                 "button[id*='accept' i]",
@@ -2261,17 +2363,10 @@ def screenshot_articles(targets, page_id, topic_kw=None):
                             break
                         except Exception:
                             pass
-                    # hide sticky overlays below the masthead (keep top nav)
+                    # hide sticky overlays below the masthead (keep top nav);
+                    # r173: and any modal/scrim/wall covering the viewport
                     try:
-                        page.evaluate("""() => {
-                          for (const el of document.querySelectorAll('*')) {
-                            const s = getComputedStyle(el);
-                            if ((s.position === 'fixed' || s.position === 'sticky')
-                                && el.getBoundingClientRect().top > 150) {
-                              el.style.visibility = 'hidden';
-                            }
-                          }
-                        }""")
+                        page.evaluate(_OVERLAY_HIDE_JS)
                     except Exception:
                         pass
                     # r17 AD-KILL (owner: article shots grabbed ads/page
@@ -2335,6 +2430,12 @@ def screenshot_articles(targets, page_id, topic_kw=None):
                             'blockquote.twitter-tweet', '.instagram-media',
                             '[class*="social-embed" i]', '[class*="embed-container" i]',
                             '[aria-label*="advertisement" i]',
+                            // r173: Google sign-in prompt + "Add as a preferred
+                            // source on Google" / follow buttons (740, 823, 920)
+                            '#credential_picker_container',
+                            '[id*="credential_picker" i]',
+                            'a[href*="google.com/preferences/source" i]',
+                            'a[href*="news.google.com/publications" i]',
                             'aside',
                             'a[href*="shop" i]', 'a[href*="/store" i]',
                             'a[href*="merch" i]', 'a[href*="amazon" i]',
@@ -2456,7 +2557,7 @@ def screenshot_articles(targets, page_id, topic_kw=None):
                             if topic_kw:
                                 for bb, txt, el in cands:
                                     if any(kw in txt for kw in topic_kw):
-                                        h1, h1_el = bb, el
+                                        h1, h1_el, h1_txt = bb, el, txt
                                         break
                                 if h1 is None and cands:
                                     log.info("screenshot: no ON-TOPIC headline "
@@ -2476,7 +2577,7 @@ def screenshot_articles(targets, page_id, topic_kw=None):
                                     page.close()
                                     continue
                             elif cands:
-                                h1, h1_el = cands[0][0], cands[0][2]
+                                h1, h1_el, h1_txt = cands[0][0], cands[0][2], cands[0][1]
                         except Exception:  # noqa: BLE001
                             h1, h1_el = None, None
                         if not h1:
@@ -2609,6 +2710,15 @@ def screenshot_articles(targets, page_id, topic_kw=None):
                         # width — a whole-article card is unreadable at 9:16.
                         height = min(height, float(width) * SHOT_MAX_H_RATIO)
                         clip = {"x": x, "y": y, "width": width, "height": height}
+                        # r173: never shoot a crop whose lead image is still
+                        # loading; the og-photo/subject chain covers the proof
+                        if not _clip_ready(page, clip):
+                            log.info("screenshot: crop images/fonts still loading "
+                                     "after %dms; og/subject fallback: %s",
+                                     SHOT_IMG_WAIT_MS, url[:80])
+                            url_shot[url] = None
+                            page.close()
+                            continue
                         page.screenshot(path=path, clip=clip)
                         # normalize the column crop to card width (1440-wide
                         # layouts shoot WIDER than 1080 now, so downscale too)
@@ -2652,6 +2762,22 @@ def screenshot_articles(targets, page_id, topic_kw=None):
                 if not screenshot_is_clean(path):
                     url_shot[url] = None
                     continue
+                # r173 COPY SITES (page 740: tigerjek.com republished the Dexerto
+                # article word for word; both were shot, so the same headline and
+                # photo filled a third scene and the judge failed it for
+                # repetition). One article is one proof card: a copy's index
+                # points at the original's file, so the per-file evidence cap
+                # counts them together.
+                _hk = re.sub(r"[^a-z0-9]", "", h1_txt or "")[:160]
+                if len(_hk) >= 30 and _hk in head_shot:
+                    log.info("COPY SITE: %s repeats the headline already shot "
+                             "for %s; one card for both", url[:60],
+                             os.path.basename(head_shot[_hk]))
+                    out[i] = head_shot[_hk]
+                    url_shot[url] = head_shot[_hk]
+                    continue
+                if len(_hk) >= 30:
+                    head_shot[_hk] = path
                 log.info("REAL source screenshot: %s", url[:100])
                 out[i] = path
                 url_shot[url] = path
