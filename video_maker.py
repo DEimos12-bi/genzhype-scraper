@@ -1778,7 +1778,11 @@ def resolve_font():
 # v10 REAL-SOURCE SCREENSHOTS (owner round-10: evidence = original pixels)
 # ============================================================================
 REAL_SHOTS = os.environ.get("VIDEO_REAL_SHOTS", "1") != "0"
-SHOT_TOTAL_BUDGET_S = 45.0     # wall-clock across ALL screenshots per video
+# r173e: 45 -> 60. Bakeoff 34790874177 vs the cf9cbe1 baseline on the same 8
+# sources: networkidle + lazy scroll + image wait raised the mean page from
+# 8.0s to 9.3s, and a desktop re-shoot costs ~10s more; 45s would now drop
+# the last proof of a 5-article story to the og photo.
+SHOT_TOTAL_BUDGET_S = 60.0     # wall-clock across ALL screenshots per video
 # r30: shoot at a REAL desktop width. At 1080 many news layouts overflow their
 # min-width container, so a headline line can physically extend past x=1080 —
 # the r29 "full 1080 band" then cut it mid-word anyway (judge failed exactly
@@ -2058,6 +2062,10 @@ def _is_ad_host(url):
 # ad host, so the host list never caught it; the screenshot APIs block it as a
 # popup. Aborting the request means the prompt never mounts.
 _SIGNIN_PROMPT_URLS = ("accounts.google.com/gsi/", "accounts.google.com/o/oauth2/iframe")
+# r173e: article text-to-speech players mount their own widget over the lead
+# (Korea JoongAng Daily's BeyondWords "Audio report ... read by AI" bar pushed
+# the photo out of the crop). Vendor hosts, blocked like the ad hosts.
+_ARTICLE_AUDIO_HOSTS = ("beyondwords", "trinityaudio", "instaread", "remixd")
 
 
 def _block_ads(route):
@@ -2065,7 +2073,9 @@ def _block_ads(route):
     Never raises — on any doubt the request is allowed to continue."""
     try:
         _u = route.request.url
-        if _is_ad_host(_u) or any(s in _u for s in _SIGNIN_PROMPT_URLS):
+        if (_is_ad_host(_u) or any(s in _u for s in _SIGNIN_PROMPT_URLS)
+                or any(h in (urllib.parse.urlparse(_u).hostname or "")
+                       for h in _ARTICLE_AUDIO_HOSTS)):
             route.abort()
             return
     except Exception:  # noqa: BLE001
@@ -2310,7 +2320,8 @@ def _shot_blank_band_fix(path):
 
 
 def _screenshot_articles_at(targets, page_id, topic_kw=None, view_w=None,
-                            dsf=None, deadline=None, retry=None):
+                            dsf=None, deadline=None, retry=None,
+                            head_shot=None):
     """Screenshot REAL article pages (masthead + headline + lead image, as the
     site actually renders) — the drama-genre confidence move: FOUND evidence,
     not made evidence. ONE chromium session for all targets, hard wall-clock
@@ -2395,7 +2406,9 @@ def _screenshot_articles_at(targets, page_id, topic_kw=None, view_w=None,
                 log.info("Readability.js absent (%s); ancestor heuristic only",
                          READABILITY_JS)
             url_shot = {}                  # r22: SAME url -> SAME file (path-
-            head_shot = {}                 # r173: SAME headline -> SAME file
+            # r173: SAME headline -> SAME file; r173e: shared by both passes,
+            # or a copy re-shot at desktop is never matched to its original
+            head_shot = {} if head_shot is None else head_shot
             for i, url in targets.items():  # based scene caps finally bite)
                 h1_txt = ""
                 if url in url_shot:
@@ -2925,10 +2938,11 @@ def screenshot_articles(targets, page_id, topic_kw=None):
     SHOT_TOTAL_BUDGET_S across both passes.
     targets: {receipt_idx: url} -> returns {receipt_idx: png_path}."""
     deadline = time.time() + SHOT_TOTAL_BUDGET_S
-    retry = set()
+    retry, heads = set(), {}
     out = _screenshot_articles_at(targets, page_id, topic_kw=topic_kw,
                                   view_w=SHOT_VIEW_W, dsf=SHOT_DSF,
-                                  deadline=deadline, retry=retry)
+                                  deadline=deadline, retry=retry,
+                                  head_shot=heads)
     again = {i: u for i, u in targets.items() if u in retry and i not in out}
     if (again and SHOT_FALLBACK_VIEW_W and SHOT_FALLBACK_VIEW_W != SHOT_VIEW_W
             and time.time() < deadline - 6):
@@ -2937,7 +2951,7 @@ def screenshot_articles(targets, page_id, topic_kw=None):
         out.update(_screenshot_articles_at(again, page_id, topic_kw=topic_kw,
                                            view_w=SHOT_FALLBACK_VIEW_W,
                                            dsf=SHOT_FALLBACK_DSF,
-                                           deadline=deadline))
+                                           deadline=deadline, head_shot=heads))
     return out
 
 
