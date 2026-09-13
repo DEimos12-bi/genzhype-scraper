@@ -1842,6 +1842,13 @@ _READABILITY_COL_JS = """() => {
     const marked = art.content.querySelectorAll('[data-gzid]');
     const sx = window.scrollX;
     let L = Infinity, R = -Infinity, n = 0;
+    // r173: Readability keeps WRAPPER divs too, and a wrapper that also holds
+    // the right rail made the "column" page-wide (mid-day shipped its Latest
+    // Headlines rail + ad in the proof). Reader-view content is paragraphs:
+    // measure those first, the old all-node union only when there are too few.
+    const LEAF = {P: 1, LI: 1, BLOCKQUOTE: 1, H2: 1, H3: 1, FIGURE: 1,
+                  FIGCAPTION: 1, IMG: 1, PICTURE: 1};
+    let lL = Infinity, lR = -Infinity, ln = 0;
     for (const m of marked) {
       const live = document.querySelector('[data-gzid="' + m.getAttribute('data-gzid') + '"]');
       if (!live) continue;
@@ -1850,6 +1857,12 @@ _READABILITY_COL_JS = """() => {
       const txt = (live.textContent || '').trim();
       if (txt.length < 40 && live.tagName !== 'IMG') continue;
       L = Math.min(L, b.left + sx); R = Math.max(R, b.right + sx); n++;
+      if (LEAF[live.tagName]) {
+        lL = Math.min(lL, b.left + sx); lR = Math.max(lR, b.right + sx); ln++;
+      }
+    }
+    if (ln >= 3 && isFinite(lL) && lR - lL >= 260) {
+      return {l: lL, r: lR, n: ln, title: String(art.title || '').slice(0, 120)};
     }
     if (!n || !isFinite(L) || R - L < 260) return null;
     return {l: L, r: R, n: n, title: String(art.title || '').slice(0, 120)};
@@ -1928,6 +1941,23 @@ _CROP_JS = """(node, rcol) => {
     if (b.t > hl.bo + 520) continue;
     img = b; break;
   }
+  // r173: the "column" ancestor is often a header wrapper holding only the
+  // headline and byline; the lead photo sits in a sibling block, so root never
+  // contains it (bakeoff: lead-img False on 7 of 8 pages, and the crop ran
+  // 4:5 down into body text instead of stopping under the photo). Same rules,
+  // whole document, but the photo must sit under the headline's column.
+  let imgScope = root;
+  if (!img) {
+    for (const im of Array.from(document.querySelectorAll('img')).slice(0, 120)) {
+      const b = box(im), w = b.r - b.l, h = b.bo - b.t;
+      if (w < 260 || h < 140) continue;
+      if (b.t < hl.bo - 8 || b.t > hl.bo + 520) continue;
+      if (b.r <= col.l || b.l >= col.r) continue;
+      const cs = getComputedStyle(im);
+      if (cs.display === 'none' || cs.visibility === 'hidden') continue;
+      img = b; imgScope = document; break;
+    }
+  }
 
   const pad = 24;
   let L = Math.max(0, Math.min(col.l, img ? img.l : col.l) - pad);
@@ -1942,8 +1972,9 @@ _CROP_JS = """(node, rcol) => {
   const target = T + (R - L) * 1.25;
   if (B < target) {
     let limit = target;
-    for (const im of root.querySelectorAll('img, iframe, video')) {
+    for (const im of imgScope.querySelectorAll('img, iframe, video')) {
       const b = box(im);
+      if (b.r <= L || b.l >= R) continue;          // r173: only what the crop holds
       if (b.t >= B + 4 && b.t < limit) limit = b.t - 8;
     }
     B = Math.max(B, Math.min(target, limit));
@@ -2087,10 +2118,12 @@ _CLIP_READY_JS = """(clip) => {
     const r = img.getBoundingClientRect();
     if (r.width * r.height < 40000) continue;
     const s = getComputedStyle(img);
-    if (s.display === 'none' || s.visibility === 'hidden' || s.opacity === '0') continue;
+    if (s.display === 'none' || s.visibility === 'hidden') continue;
     const L = r.left + window.scrollX, T = r.top + window.scrollY;
     if (L + r.width <= x0 || L >= x1 || T + r.height <= y0 || T >= y1) continue;
-    if (!(img.complete && img.naturalWidth > 0)) return false;
+    // lazy loaders hold opacity 0 and a 1px placeholder until the real photo
+    // lands, so neither counts as loaded
+    if (!(img.complete && img.naturalWidth >= 50) || s.opacity === '0') return false;
   }
   return true;
 }"""
@@ -2211,6 +2244,59 @@ def _shot_dead_zone_fix(path):
         return True
     except Exception as exc:  # noqa: BLE001 — never block a shot on infra
         log.info("dead-zone check failed open (%s)", str(exc)[:60])
+        return True
+
+
+def _shot_blank_band_fix(path):
+    """r173 BLANK-BAND BACKSTOP, the light twin of r61's black dead zone. The
+    player kill hides an in-article video but its aspect-ratio wrapper keeps
+    the height, so the card shipped a page-coloured hole between the dek and
+    the byline (page 920's IGN card; reproduced on the runner by the bakeoff).
+    Same deterministic splice as r61: find the tallest run of rows that are
+    flat (row std < 2.5) AND the same colour as each other, at least
+    max(80px, 12% of the frame); cut it, keeping 24px so text blocks do not
+    touch. A real photo never has 12% of full-width rows with zero texture.
+    Returns True if the file is usable (possibly rewritten)."""
+    try:
+        im = Image.open(path).convert("RGB")
+        g = np.asarray(im.convert("L")).astype("float32")
+        h, w = g.shape
+        if h < 200:
+            im.close()
+            return True
+        flat = g.std(axis=1) < 2.5
+        means = g.mean(axis=1)
+        best_s, best_e, s = 0, 0, -1
+        for y in range(h + 1):
+            ok = y < h and flat[y] and (s < 0 or abs(means[y] - means[s]) < 3.0)
+            if ok:
+                if s < 0:
+                    s = y
+            else:
+                if s >= 0 and y - s > best_e - best_s:
+                    best_s, best_e = s, y
+                s = y if (y < h and flat[y]) else -1
+        band = best_e - best_s
+        if band < max(80, int(h * 0.12)):
+            im.close()
+            return True
+        cut_s, cut_e = best_s + 12, best_e - 12
+        top = im.crop((0, 0, w, cut_s))
+        bot = im.crop((0, cut_e, w, h))
+        fixed = Image.new("RGB", (w, top.height + bot.height))
+        fixed.paste(top, (0, 0))
+        fixed.paste(bot, (0, top.height))
+        im.close()
+        if fixed.height < 260:
+            log.info("SHOT BLANK-BAND: only %dpx of page survives; rejected "
+                     "(%s)", fixed.height, os.path.basename(path))
+            return False
+        fixed.save(path)
+        log.info("SHOT BLANK-BAND: removed %dpx empty band at y=%d (%s)",
+                 cut_e - cut_s, cut_s, os.path.basename(path))
+        return True
+    except Exception as exc:  # noqa: BLE001 — never block a shot on infra
+        log.info("blank-band check failed open (%s)", str(exc)[:60])
         return True
 
 
@@ -2754,6 +2840,9 @@ def screenshot_articles(targets, page_id, topic_kw=None):
                 # reject black player/embed rectangles BEFORE the vision gate,
                 # so the fix works even when Gemini is over cap.
                 if not _shot_dead_zone_fix(path):
+                    url_shot[url] = None
+                    continue
+                if not _shot_blank_band_fix(path):       # r173: the light twin
                     url_shot[url] = None
                     continue
                 # r29 AD BACKSTOP: vision-verify the shot is clean of ad / merch /
