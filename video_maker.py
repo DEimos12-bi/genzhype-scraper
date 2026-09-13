@@ -4049,6 +4049,43 @@ _STORY_CLIP_START = {}
 # which on page 192 threw away BOTH of the story's TikToks as "off-topic" and
 # left a clips-first video with zero footage.
 _STORY_CLIP_SRC = set()
+# r172 CLIP FIT (render 34776749400, page 738: the attack clip, cut at 12s,
+# played over "then he was spotted at Adin"; scenes 2/7/8 carried hunted
+# clips titled "Cinna Tells Agent About Her First Time..." and "REACT TO
+# AGENT00 CLASS..." over a story about a streamer attacked by his mother).
+# The opportunistic clip step took the next clip in list order and only
+# asked whether it suited the story TITLE. PBS Editorial Standards: producers
+# "should not make editorial choices that could mislead or deceive the
+# audience" or encourage "false inferences". A clip now plays over a beat only
+# when its own title names this story's people AND shares a distinctive
+# non-name word with THAT beat's words (a name alone says who, never which
+# moment). Clips without a real title cannot prove a beat; they stay for the
+# opener, which is judged against the whole story.
+_STORY_CLIP_TEXT = {}      # clip url -> its own title/caption
+_STORY_NAME_WORDS = set()  # distinctive words of the story's people's names
+_STORY_TITLE_WORDS = set() # distinctive words of the story title (no-people fallback)
+_PLACEHOLDER_TITLE = re.compile(r"^\s*(tiktok\s*-\s*make your day|twitch|x|youtube)\s*$", re.I)
+_HASHTAG = re.compile(r"#\w+")
+
+
+def clip_fits_words(url, phrase):
+    """True when the clip's own title is about this story's people (the
+    identity rule the server's timeline binder already applies) AND names
+    something THIS beat says. Hashtags are dropped first: they are discovery
+    labels, not a description of what the clip shows (measured: a GTA-map
+    TikTok matched "visited Rockstar North" through #rockstar alone, and
+    "jr almost getting arrested" matched "Gonzalez was arrested")."""
+    text = (_STORY_CLIP_TEXT.get(url)
+            or _STORY_CLIP_TEXT.get(str(url or "").split("#", 1)[0]) or "")
+    if not text or _PLACEHOLDER_TITLE.match(text):
+        return False
+    text = _HASHTAG.sub(" ", text)
+    ident = _STORY_NAME_WORDS or _STORY_TITLE_WORDS
+    beat = distinctive_words(phrase) - _STORY_NAME_WORDS
+    return (bool(beat) and bool(ident) and title_is_topical(text, ident)
+            and title_is_topical(text, beat))
+
+
 _HOOK_CLIP = [None]        # (path, src_off) of the clip chosen to open the video
 _CLIP_ARTIFACT_FRAMES = []  # jpgs of each clip beat's REAL video, shipped
                             # with delivery for the carousel (joined by
@@ -6759,14 +6796,27 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                                  cookies=True, runtime_s=runtime_s,
                                  consec_footage=consec_footage):
                 cpath = None
-                while clip_pool and cpath is None:
-                    cand = fetch_platform_clip(clip_pool.pop(0))
+                # r172 CLIP FIT: only a clip whose own title matches THIS
+                # beat's words; the rest stay in the pool for a beat they fit
+                _fit = [u for u in clip_pool
+                        if clip_fits_words(u, sh.get("phrase", ""))]
+                if not _fit:
+                    log.info("CLIP FIT: no clip's title matches scene %d's words "
+                             "(%r); the planned still stands", si + 1,
+                             str(sh.get("phrase", ""))[:48])
+                for _cu in _fit:
+                    clip_pool.remove(_cu)
+                    cand = fetch_platform_clip(_cu)
                     # r28 SMART GATE here too: an article-embedded clip can still
                     # be a music video (the reporter used it as b-roll). Vision-
                     # check it against the topic; off-topic -> try the next clip.
                     if (cand and cand not in _recent_paths()
                             and footage_is_relevant(cand, title)):
                         cpath = cand
+                        log.info("CLIP FIT: scene %d words %r match clip title %r",
+                                 si + 1, str(sh.get("phrase", ""))[:40],
+                                 _STORY_CLIP_TEXT.get(_cu, "")[:48])
+                        break
                 if cpath:
                     path, typ, textish = cpath, "broll", False
                     motion, footage = "punch_build", True
@@ -9640,6 +9690,7 @@ def make_one(post, font_path):
     # the scene planner pulls these in as REAL MOVING footage matched to the
     # story, each fetched with its proper method (fetch_platform_clip).
     global _STORY_CLIPS, _STORY_CLIP_START, _STORY_CLIP_SRC
+    global _STORY_CLIP_TEXT, _STORY_NAME_WORDS, _STORY_TITLE_WORDS
     _HOOK_CLIP[0] = None          # r57: per-story, not per-process
     _CLIP_FRAMES_DONE[0] = False
     _STORY_CLIPS = [c.get("url") for c in (post.get("clips") or [])
@@ -9648,9 +9699,16 @@ def make_one(post, font_path):
     # clips lead the feed list, so _STORY_CLIPS[0] is normally the money moment.
     _STORY_CLIP_START = {}
     _STORY_CLIP_SRC = set()
+    _STORY_CLIP_TEXT = {}         # r172 CLIP FIT
+    _STORY_NAME_WORDS = distinctive_words(
+        *[str(p.get("name") if isinstance(p, dict) else p or "")
+          for p in (post.get("people") or [])])
+    _STORY_TITLE_WORDS = distinctive_words(post.get("title"))
     for c in (post.get("clips") or []):
         if not isinstance(c, dict) or not c.get("url"):
             continue
+        if str(c.get("title") or "").strip():
+            _STORY_CLIP_TEXT[c["url"]] = str(c["title"]).strip()
         if int(c.get("start") or 0) > 0:
             _STORY_CLIP_START[c["url"]] = int(c["start"])
         if str(c.get("src") or "").startswith("http"):
