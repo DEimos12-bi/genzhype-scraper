@@ -45,6 +45,14 @@ CASES = [
      "kw": ["santy", "sharma"], "was": "823: Join/Follow/Google source buttons"},
     {"url": "https://www.dexerto.com/youtube/roblox-youtuber-meganplays-flooded-with-donations-after-best-friend-apologizes-for-affair-with-husband-3401026/",
      "kw": ["meganplays", "roblox"], "was": "649: narrow column + white space"},
+    # r173d: the three sites whose headline detection died under ~1024px in
+    # r76 — the tablet-first capture must re-shoot these at desktop if needed
+    {"url": "https://gamerant.com/should-i-let-my-boyfriend-get-gta-6/",
+     "kw": ["gta 6", "boyfriend"], "was": "r76: no headline block at tablet width"},
+    {"url": "https://www.netinfluencer.com/youtuber-syndicate-faces-copyright-claims-on-nearly-3000-videos-after-outro-song-acquired-by-new-rights-holder/",
+     "kw": ["syndicate", "copyright"], "was": "r76: no headline block at tablet width"},
+    {"url": "https://kotaku.com/the-legend-of-zelda-majoras-masks-art-director-gets-blow-back-for-using-ai-in-prototyping-test-2000734003",
+     "kw": ["majora", "imamura", "art director"], "was": "r76 era: Kotaku legibility"},
 ]
 # r173: a copy site republishing the same article must not become a SECOND
 # proof card (page 740: tigerjek.com's copy of the Dexerto piece put the same
@@ -85,6 +93,7 @@ def run_ours(prefix="A", view_w=None, dsf=None):
         import video_maker as vm
         if view_w:                      # r173c: module globals are read per call
             vm.SHOT_VIEW_W = int(view_w)
+            vm.SHOT_FALLBACK_VIEW_W = int(view_w)   # one width only, no retry
         if dsf:
             vm.SHOT_DSF = float(dsf)
     except Exception as exc:                                   # noqa: BLE001
@@ -176,10 +185,9 @@ def run_pairs():
 if __name__ == "__main__":
     run_ours()
     run_pairs()
-    # r173c A/B: the same pages at a tablet width. Responsive layouts drop the
-    # right rail and run the headline + photo edge to edge; 760 css px x 1.4211
-    # device scale = exactly the 1080px card width, so nothing is rescaled.
-    run_ours(prefix="N", view_w=760, dsf=1080 / 760)
+    # r173d: A = production default (760 tablet-first, desktop re-shoot on a
+    # headline miss); D = the old 1440 desktop-only capture for comparison
+    run_ours(prefix="D", view_w=1440, dsf=1.4)
     run_pixelshot()
     with open(f"{OUT}/report.json", "w") as fh:
         json.dump(report, fh, indent=2)

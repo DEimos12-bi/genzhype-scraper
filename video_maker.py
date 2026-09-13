@@ -1795,9 +1795,18 @@ SHOT_TOTAL_BUDGET_S = 45.0     # wall-clock across ALL screenshots per video
 # at high resolution, so after normalizing to the 1080 card the text arrives
 # ~1.1x its CSS size instead of 0.75x. The height cap below (headline + lede,
 # never a wall of body copy) stays — that half of r76 was right.
-SHOT_VIEW_W = int(os.environ.get("VIDEO_SHOT_VIEW_W", "1440"))
+# r173d (bakeoff 34790538947, same 8 failing sources shot at both widths):
+# at 760px the responsive layout drops the right rail and runs headline +
+# photo edge to edge — mid-day's ad rail and Dexerto's white void are gone,
+# IGN/Daily Hive/Korea JoongAng text reads at card size — and 760 x 1.4211
+# is exactly the 1080px card, so nothing is rescaled. r76's failure is kept
+# in mind, not repeated: a page that hides its headline at tablet width is
+# re-shot at the r81 desktop settings (SHOT_FALLBACK_*), same budget.
+SHOT_VIEW_W = int(os.environ.get("VIDEO_SHOT_VIEW_W", "760"))
 SHOT_VIEW_H = int(os.environ.get("VIDEO_SHOT_VIEW_H", "1800"))
-SHOT_DSF    = float(os.environ.get("VIDEO_SHOT_DSF", "1.4"))
+SHOT_DSF    = float(os.environ.get("VIDEO_SHOT_DSF", str(round(1080 / 760, 4))))
+SHOT_FALLBACK_VIEW_W = int(os.environ.get("VIDEO_SHOT_FALLBACK_VIEW_W", "1440"))
+SHOT_FALLBACK_DSF    = float(os.environ.get("VIDEO_SHOT_FALLBACK_DSF", "1.4"))
 # Cap a card at headline + lede rather than a whole article, as a multiple of
 # its own width. 1.25 keeps the story's first beat and drops the long tail.
 SHOT_MAX_H_RATIO = float(os.environ.get("VIDEO_SHOT_MAX_H_RATIO", "1.25"))
@@ -2300,7 +2309,8 @@ def _shot_blank_band_fix(path):
         return True
 
 
-def screenshot_articles(targets, page_id, topic_kw=None):
+def _screenshot_articles_at(targets, page_id, topic_kw=None, view_w=None,
+                            dsf=None, deadline=None, retry=None):
     """Screenshot REAL article pages (masthead + headline + lead image, as the
     site actually renders) — the drama-genre confidence move: FOUND evidence,
     not made evidence. ONE chromium session for all targets, hard wall-clock
@@ -2310,15 +2320,20 @@ def screenshot_articles(targets, page_id, topic_kw=None):
     crop locks onto the headline that CONTAINS one (the MAIN article), so a
     'trending now' module's unrelated headline can't be shot by mistake. Every
     failure is silent; the og-photo / subject chain covers misses downstream.
-    targets: {receipt_idx: url} -> returns {receipt_idx: png_path}."""
+    targets: {receipt_idx: url} -> returns {receipt_idx: png_path}.
+    r173d: view_w/dsf = the viewport for this pass; deadline = the shared
+    wall clock; retry = a set that collects URLs whose headline was not found
+    (the caller re-shoots those at the desktop fallback)."""
     topic_kw = topic_kw or []
+    view_w = int(view_w or SHOT_VIEW_W)
+    dsf = float(dsf or SHOT_DSF)
     out = {}
     try:
         from playwright.sync_api import sync_playwright
     except Exception:
         log.info("playwright not installed; og-photo/subject chain only")
         return out
-    deadline = time.time() + SHOT_TOTAL_BUDGET_S
+    deadline = deadline or (time.time() + SHOT_TOTAL_BUDGET_S)
     try:
         with sync_playwright() as pw:
             # r91 STOP LOOKING LIKE A BOT. Measured in the PixelRAG bake-off:
@@ -2338,8 +2353,8 @@ def screenshot_articles(targets, page_id, topic_kw=None):
                 args=["--disable-blink-features=AutomationControlled",
                       "--disable-features=IsolateOrigins,site-per-process"])
             ctx = browser.new_context(
-                viewport={"width": SHOT_VIEW_W, "height": SHOT_VIEW_H},
-                device_scale_factor=SHOT_DSF,      # r81: hi-dpi = legible text
+                viewport={"width": view_w, "height": SHOT_VIEW_H},
+                device_scale_factor=dsf,           # r81: hi-dpi = legible text
                 user_agent=SHOT_UA, locale="en-US",
                 timezone_id="America/New_York",
                 extra_http_headers={
@@ -2364,7 +2379,14 @@ def screenshot_articles(targets, page_id, topic_kw=None):
             # sites) cannot block it the way it would block add_script_tag.
             if os.path.isfile(READABILITY_JS):
                 try:
-                    ctx.add_init_script(path=READABILITY_JS)
+                    # r173d: add_init_script runs the file in its own scope,
+                    # so its top-level `function Readability` never became a
+                    # page global — the column JS saw "Readability is not
+                    # defined" on every page since r32. Export it explicitly.
+                    with open(READABILITY_JS, encoding="utf-8") as _rfh:
+                        ctx.add_init_script(
+                            script=_rfh.read() + "\n;try { window.Readability ="
+                                   " Readability; } catch (e) {}\n")
                     log.info("Readability injected from %s", READABILITY_JS)
                 except Exception as exc:  # noqa: BLE001
                     log.info("Readability inject failed (%s); ancestor "
@@ -2666,6 +2688,8 @@ def screenshot_articles(targets, page_id, topic_kw=None):
                                     # the screenshot stage runs against a hard
                                     # wall-clock budget, i.e. the waste is taken
                                     # straight out of other proofs' chances.
+                                    if retry is not None:
+                                        retry.add(url)
                                     url_shot[url] = None
                                     page.close()
                                     continue
@@ -2677,6 +2701,8 @@ def screenshot_articles(targets, page_id, topic_kw=None):
                             log.info("screenshot: no headline block found; "
                                      "skipping (no raw-page fallback): %s",
                                      url[:90])
+                            if retry is not None:
+                                retry.add(url)
                             url_shot[url] = None      # r58: also deterministic
                             page.close()
                             continue
@@ -2759,7 +2785,7 @@ def screenshot_articles(targets, page_id, topic_kw=None):
                             except Exception:  # noqa: BLE001
                                 tb = None
                         tb = tb or {}
-                        doc_w = float(tb.get("docw") or SHOT_VIEW_W)
+                        doc_w = float(tb.get("docw") or view_w)
                         doc_h = float(tb.get("doch") or SHOT_VIEW_H)
                         t_left = float(tb.get("left", h1["x"]))
                         t_right = float(tb.get("right", h1["x"] + h1["width"]))
@@ -2772,7 +2798,7 @@ def screenshot_articles(targets, page_id, topic_kw=None):
                         right = (max(t_right, img_bb["x"] + img_bb["width"])
                                  if img_bb else t_right)
                         x = max(0.0, left - SHOT_PAD)
-                        right = min(right + SHOT_PAD, doc_w, float(SHOT_VIEW_W))
+                        right = min(right + SHOT_PAD, doc_w, float(view_w))
                         width = max(560.0, right - x)
                         # r27 (owner: "dexerto is our COMPETITOR, why are we
                         # giving them views/brand on our back"): crop from just
@@ -2792,7 +2818,7 @@ def screenshot_articles(targets, page_id, topic_kw=None):
                         if crop:                       # r30c measured geometry
                             x = float(crop["x"])
                             y = float(crop["y"])
-                            width = min(float(crop["w"]), float(SHOT_VIEW_W) - x)
+                            width = min(float(crop["w"]), float(view_w) - x)
                             height = min(float(crop["h"]),
                                          max(1.0, float(crop["doch"]) - y))
                             doc_h = float(crop["doch"])
@@ -2890,6 +2916,28 @@ def screenshot_articles(targets, page_id, topic_kw=None):
     except Exception as exc:  # noqa: BLE001
         log.info("screenshot engine unavailable (%s); article receipts fall "
                  "back to og photos / subject", str(exc)[:100])
+    return out
+
+
+def screenshot_articles(targets, page_id, topic_kw=None):
+    """Tablet-width proof screenshots with a desktop re-shoot for any page that
+    hid its headline at tablet width (r173d; see SHOT_VIEW_W). One shared
+    SHOT_TOTAL_BUDGET_S across both passes.
+    targets: {receipt_idx: url} -> returns {receipt_idx: png_path}."""
+    deadline = time.time() + SHOT_TOTAL_BUDGET_S
+    retry = set()
+    out = _screenshot_articles_at(targets, page_id, topic_kw=topic_kw,
+                                  view_w=SHOT_VIEW_W, dsf=SHOT_DSF,
+                                  deadline=deadline, retry=retry)
+    again = {i: u for i, u in targets.items() if u in retry and i not in out}
+    if (again and SHOT_FALLBACK_VIEW_W and SHOT_FALLBACK_VIEW_W != SHOT_VIEW_W
+            and time.time() < deadline - 6):
+        log.info("screenshot: %d page(s) showed no headline at %dpx; re-shooting "
+                 "at desktop %dpx", len(again), SHOT_VIEW_W, SHOT_FALLBACK_VIEW_W)
+        out.update(_screenshot_articles_at(again, page_id, topic_kw=topic_kw,
+                                           view_w=SHOT_FALLBACK_VIEW_W,
+                                           dsf=SHOT_FALLBACK_DSF,
+                                           deadline=deadline))
     return out
 
 
