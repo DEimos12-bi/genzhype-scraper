@@ -78,10 +78,15 @@ def shrink(src, dst, maxw=900):
 
 
 # ---------------------------------------------------------------- METHOD A
-def run_ours():
-    print("=== METHOD A: our screenshot_articles() ===", flush=True)
+def run_ours(prefix="A", view_w=None, dsf=None):
+    print(f"=== METHOD {prefix}: our screenshot_articles() "
+          f"(viewport {view_w or 'default'}, dsf {dsf or 'default'}) ===", flush=True)
     try:
         import video_maker as vm
+        if view_w:                      # r173c: module globals are read per call
+            vm.SHOT_VIEW_W = int(view_w)
+        if dsf:
+            vm.SHOT_DSF = float(dsf)
     except Exception as exc:                                   # noqa: BLE001
         print(f"  cannot import video_maker: {exc}")
         for c in CASES:
@@ -91,16 +96,16 @@ def run_ours():
     for i, c in enumerate(CASES):
         t0 = time.time()
         try:
-            got = vm.screenshot_articles({0: c["url"]}, page_id=900 + i,
+            got = vm.screenshot_articles({0: c["url"]}, page_id=(900 if prefix == "A" else 950) + i,
                                          topic_kw=c["kw"])
         except Exception as exc:                               # noqa: BLE001
             got = {}
             print(f"  [{i}] threw: {exc}")
         ms = int((time.time() - t0) * 1000)
         p = got.get(0)
-        size = shrink(p, f"{OUT}/A{i}.jpg") if p and os.path.isfile(p) else 0
-        report.append({"url": c["url"], "was": c["was"], "method": "ours",
-                       "ok": bool(size), "ms": ms, "file": f"A{i}.jpg" if size else None})
+        size = shrink(p, f"{OUT}/{prefix}{i}.jpg") if p and os.path.isfile(p) else 0
+        report.append({"url": c["url"], "was": c["was"], "method": f"ours-{prefix}",
+                       "ok": bool(size), "ms": ms, "file": f"{prefix}{i}.jpg" if size else None})
         print(f"  [{i}] {'OK  ' if size else 'MISS'} {ms:>6}ms  {c['url'][:64]}",
               flush=True)
 
@@ -171,11 +176,15 @@ def run_pairs():
 if __name__ == "__main__":
     run_ours()
     run_pairs()
+    # r173c A/B: the same pages at a tablet width. Responsive layouts drop the
+    # right rail and run the headline + photo edge to edge; 760 css px x 1.4211
+    # device scale = exactly the 1080px card width, so nothing is rescaled.
+    run_ours(prefix="N", view_w=760, dsf=1080 / 760)
     run_pixelshot()
     with open(f"{OUT}/report.json", "w") as fh:
         json.dump(report, fh, indent=2)
 
-    ours = [r for r in report if r["method"] == "ours" and r.get("ok")]
+    ours = [r for r in report if r["method"] == "ours-A" and r.get("ok")]
     pix = [r for r in report if r["method"] == "pixelshot" and r.get("ok")]
     print(f"\nSCORE  ours: {len(ours)}/{len(CASES)}   "
           f"pixelshot: {len(pix)}/{len(CASES)}")

@@ -1831,14 +1831,14 @@ SHOT_PAD    = 28               # breathing room around the measured text/photo
 READABILITY_JS = os.environ.get("VIDEO_READABILITY_JS", "vendor/Readability.js")
 _READABILITY_COL_JS = """() => {
   try {
-    if (typeof Readability !== 'function') return null;
+    if (typeof Readability !== 'function') return {err: 'Readability is not defined in the page'};
     const nodes = document.querySelectorAll('*');
     for (let i = 0; i < nodes.length; i++) nodes[i].setAttribute('data-gzid', String(i));
     const clone = document.cloneNode(true);
     const art = new Readability(clone, {serializer: (el) => el,
                                         keepClasses: true,
                                         charThreshold: 200}).parse();
-    if (!art || !art.content || !art.content.querySelectorAll) return null;
+    if (!art || !art.content || !art.content.querySelectorAll) return {err: 'parse() returned no article'};
     const marked = art.content.querySelectorAll('[data-gzid]');
     const sx = window.scrollX;
     let L = Infinity, R = -Infinity, n = 0;
@@ -1864,9 +1864,9 @@ _READABILITY_COL_JS = """() => {
     if (ln >= 3 && isFinite(lL) && lR - lL >= 260) {
       return {l: lL, r: lR, n: ln, title: String(art.title || '').slice(0, 120)};
     }
-    if (!n || !isFinite(L) || R - L < 260) return null;
+    if (!n || !isFinite(L) || R - L < 260) return {err: 'no measurable nodes (' + marked.length + ' marked)'};
     return {l: L, r: R, n: n, title: String(art.title || '').slice(0, 120)};
-  } catch (e) { return null; }
+  } catch (e) { return {err: 'threw: ' + String(e).slice(0, 160)}; }
 }"""
 
 _CROP_JS = """(node, rcol) => {
@@ -2515,6 +2515,13 @@ def screenshot_articles(targets, page_id, topic_kw=None):
                             'blockquote.tiktok-embed', '[class*="tiktok-embed" i]',
                             'blockquote.twitter-tweet', '.instagram-media',
                             '[class*="social-embed" i]', '[class*="embed-container" i]',
+                            // r173c: every embed family (TOI's "vdo_embedd" video
+                            // box shipped as a spinner under "Watch"; WordPress
+                            // wp-block-embed, Bootstrap embed-responsive) and the
+                            // standard still-loading markers
+                            '[class*="embed" i]', '[aria-busy="true"]',
+                            '[role="progressbar"]', '[class*="spinner" i]',
+                            '[class*="skeleton" i]',
                             '[aria-label*="advertisement" i]',
                             // r173: Google sign-in prompt + "Add as a preferred
                             // source on Google" / follow buttons (740, 823, 920)
@@ -2682,11 +2689,20 @@ def screenshot_articles(targets, page_id, topic_kw=None):
                             rcol = None
                             try:                    # r32: Readability's column
                                 rcol = page.evaluate(_READABILITY_COL_JS)
+                                if rcol and rcol.get("err"):
+                                    # r173c: this returned null silently on every
+                                    # page since r32 (0 "Readability column" lines
+                                    # in production); say why it has no column
+                                    log.info("Readability column unavailable (%s) "
+                                             "on %s", rcol["err"], url[:55])
+                                    rcol = None
                                 if rcol:
                                     log.info("Readability column %.0f..%.0f "
                                              "(%d nodes) on %s", rcol["l"],
                                              rcol["r"], rcol["n"], url[:55])
-                            except Exception:  # noqa: BLE001
+                            except Exception as _rexc:  # noqa: BLE001
+                                log.info("Readability column evaluate failed (%s)",
+                                         str(_rexc)[:120])
                                 rcol = None
                             try:
                                 crop = h1_el.evaluate(_CROP_JS, rcol)
