@@ -793,6 +793,20 @@ JUDGE_FRAMES = int(os.environ.get("VIDEO_JUDGE_FRAMES", "12"))
 # ("page_id count" lines, committed like video_done.txt); at REPLAN_CAP the
 # video is delivered anyway with a loud log — the loop is never infinite.
 REPLAN_FILE = os.environ.get("VIDEO_REPLAN_FILE", ".social/video_replans.txt")
+# r177 DEAD-LETTER, NOT DONE. An abandoned page used to be appended to the DONE
+# list, so it was never tried again even after the code that failed it was
+# fixed (2026-09-14: pages 6, 740, 823, 122, 692 sat pending forever while r170-
+# r176 fixed their rejection causes). A dead-letter queue parks a failed job and
+# releases it when the failure cause changes: abandons are now recorded per
+# RENDERER REVISION (a hash of this file) and replan attempts are counted per
+# revision, so a new renderer gives each parked page one fresh attempt cycle.
+# Bounded: no retry without a code change.
+ABANDON_FILE = os.environ.get("VIDEO_ABANDON_FILE", ".social/video_abandoned.txt")
+try:
+    with open(os.path.abspath(__file__), "rb") as _mf:
+        MAKER_REV = hashlib.sha1(_mf.read()).hexdigest()[:10]
+except Exception:  # noqa: BLE001
+    MAKER_REV = "unknown"
 REPLAN_CAP = int(os.environ.get("VIDEO_REPLAN_CAP", "3"))
 
 # r16: the judge pairs sampled frames with the EDL shot phrases spoken under
@@ -9735,28 +9749,54 @@ def read_replans():
             with open(REPLAN_FILE, "r", encoding="utf-8") as f:
                 for line in f:
                     parts = line.split()
-                    if (len(parts) == 2 and parts[0].isdigit()
-                            and parts[1].isdigit()):
+                    if (len(parts) == 2 and parts[1].isdigit()
+                            and re.fullmatch(r"\d+(@[0-9a-f]{6,40}|@unknown)?", parts[0])):
                         counts[parts[0]] = int(parts[1])
     except Exception as exc:  # noqa: BLE001
         log.warning("replan state unreadable (%s); treating as empty", exc)
     return counts
 
 
+def _replan_key(page_id):
+    return f"{page_id}@{MAKER_REV}"          # r177: attempts count per renderer
+
+
 def replan_count(page_id):
-    return read_replans().get(str(page_id), 0)
+    return read_replans().get(_replan_key(page_id), 0)
 
 
 def bump_replan(page_id):
     """Increment this page's replan count and rewrite the state file. Returns
     the new count."""
     counts = read_replans()
-    counts[str(page_id)] = counts.get(str(page_id), 0) + 1
+    key = _replan_key(page_id)
+    counts[key] = counts.get(key, 0) + 1
     os.makedirs(os.path.dirname(REPLAN_FILE) or ".", exist_ok=True)
     with open(REPLAN_FILE, "w", encoding="utf-8") as f:
-        for k in sorted(counts, key=int):
+        for k in sorted(counts, key=lambda x: (int(x.split("@")[0]), x)):
             f.write(f"{k} {counts[k]}\n")
-    return counts[str(page_id)]
+    return counts[key]
+
+
+def read_abandoned():
+    """r177: {(page_id_str, rev)} parked by the dead-letter rule."""
+    out = set()
+    try:
+        if os.path.exists(ABANDON_FILE):
+            with open(ABANDON_FILE, "r", encoding="utf-8") as f:
+                for line in f:
+                    parts = line.split()
+                    if len(parts) >= 2 and parts[0].isdigit():
+                        out.add((parts[0], parts[1]))
+    except Exception as exc:  # noqa: BLE001
+        log.warning("abandon book unreadable (%s); treating as empty", exc)
+    return out
+
+
+def append_abandoned(page_id):
+    os.makedirs(os.path.dirname(ABANDON_FILE) or ".", exist_ok=True)
+    with open(ABANDON_FILE, "a", encoding="utf-8") as f:
+        f.write(f"{page_id} {MAKER_REV}\n")
 
 
 def request_replan(page_id, reasons):
@@ -9858,6 +9898,9 @@ def fetch_next(done_ids):
         f"{BASE}/media/vfeed-{INGEST_TOKEN}.json",
     ]
     done_set = {str(d) for d in done_ids}
+    # r177: pages parked under THIS renderer are skipped like done ones; pages
+    # parked under an older renderer get their fresh attempt
+    done_set |= {pid for pid, rev in read_abandoned() if rev == MAKER_REV}
     try:
         data = None
         # r37: the repo-staged feed (video-feed branch) FIRST — it needs no
@@ -10502,10 +10545,11 @@ def make_one(post, font_path):
             prev = replan_count(page_id)
             if prev >= REPLAN_CAP:
                 log.error(
-                    "ABANDON page %s after %d attempts — judge still fails "
-                    "(weird=%s mism=%s); marking done so the queue advances.",
-                    page_id, prev, weird[:3], mism[:3])
-                append_done(page_id)
+                    "ABANDON page %s after %d attempts on renderer %s — judge "
+                    "still fails (weird=%s mism=%s); parked until the renderer "
+                    "changes, so the queue advances.",
+                    page_id, prev, MAKER_REV, weird[:3], mism[:3])
+                append_abandoned(page_id)   # r177: dead letter, not done
                 return                   # green run; next run renders the next page
             now = bump_replan(page_id)
             if len(mism) >= 2:

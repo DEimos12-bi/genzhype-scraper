@@ -563,9 +563,11 @@ jobs:
           # r16: the replan book (.social/video_replans.txt) commits alongside
           # the done-list; the || true guards keep an absent file from ever
           # failing this step.
-          if [ -n "$(git status --porcelain .social/video_done.txt .social/video_replans.txt 2>/dev/null || true)" ]; then
+          # r177: the dead-letter book (.social/video_abandoned.txt) commits too
+          if [ -n "$(git status --porcelain .social/video_done.txt .social/video_replans.txt .social/video_abandoned.txt 2>/dev/null || true)" ]; then
             git add .social/video_done.txt || true
             git add .social/video_replans.txt || true
+            git add .social/video_abandoned.txt || true
             git commit -m "video-maker: update dedup state [skip ci]"
             # r25: the on-demand render trigger means the maintainer may push to
             # main WHILE a render runs, so main can advance under us -> the plain
