@@ -1,0 +1,190 @@
+[
+  {
+    "url": "https://dailyhive.com/edmonton/better-baker-edmonton-viral-video",
+    "was": "827/830: ALLOW ADS wall over the article",
+    "method": "ours-A",
+    "ok": true,
+    "ms": 15275,
+    "file": "A0.jpg"
+  },
+  {
+    "url": "https://in.ign.com/grand-theft-auto-vi/269189/gta-6-gameplay-and-map-appear-to-leak-online-group-reportedly-responsible-threatens-rockstar-over-al",
+    "was": "920: lead photo not loaded (white hole)",
+    "method": "ours-A",
+    "ok": true,
+    "ms": 5773,
+    "file": "A1.jpg"
+  },
+  {
+    "url": "https://timesofindia.indiatimes.com/tv/news/hindi/rapper-santy-sharmas-youtube-channel-suspended-cjp-remarks-row-triggers-online-buzz/articleshow/132518067.cms",
+    "was": "823: Watch widget still spinning",
+    "method": "ours-A",
+    "ok": true,
+    "ms": 7572,
+    "file": "A2.jpg"
+  },
+  {
+    "url": "https://www.mid-day.com/entertainment/bollywood-news/article/santy-sharma-claims-youtube-deleted-his-channel-announces-cjp-related-press-conference-23641219",
+    "was": "823: sidebar ads + black unloaded box",
+    "method": "ours-A",
+    "ok": true,
+    "ms": 14140,
+    "file": "A3.jpg"
+  },
+  {
+    "url": "https://www.dexerto.com/twitch/agent-00-offers-to-help-viral-1-viewer-twitch-streamer-after-incident-with-mom-3401116/",
+    "was": "740: narrow column + white space + Google buttons",
+    "method": "ours-A",
+    "ok": true,
+    "ms": 7626,
+    "file": "A4.jpg"
+  },
+  {
+    "url": "https://www.koreajoongangdaily.com/entertainment/kiss-of-life-controversy-reignites-debate-over-cultural-appropriation-in-k-pop/12306620",
+    "was": "827/830: audio-player widget + tiny text",
+    "method": "ours-A",
+    "ok": true,
+    "ms": 6286,
+    "file": "A5.jpg"
+  },
+  {
+    "url": "https://www.moneycontrol.com/entertainment/rapper-santy-sharma-youtube-permanently-deleted-links-action-to-cjp-controversy-article-13978460.html",
+    "was": "823: Join/Follow/Google source buttons",
+    "method": "ours-A",
+    "ok": false,
+    "ms": 2206,
+    "file": null
+  },
+  {
+    "url": "https://www.dexerto.com/youtube/roblox-youtuber-meganplays-flooded-with-donations-after-best-friend-apologizes-for-affair-with-husband-3401026/",
+    "was": "649: narrow column + white space",
+    "method": "ours-A",
+    "ok": true,
+    "ms": 7623,
+    "file": "A7.jpg"
+  },
+  {
+    "url": "https://gamerant.com/should-i-let-my-boyfriend-get-gta-6/",
+    "was": "r76: no headline block at tablet width",
+    "method": "ours-A",
+    "ok": true,
+    "ms": 20088,
+    "file": "A8.jpg"
+  },
+  {
+    "url": "https://www.netinfluencer.com/youtuber-syndicate-faces-copyright-claims-on-nearly-3000-videos-after-outro-song-acquired-by-new-rights-holder/",
+    "was": "r76: no headline block at tablet width",
+    "method": "ours-A",
+    "ok": false,
+    "ms": 17027,
+    "file": null
+  },
+  {
+    "url": "https://kotaku.com/the-legend-of-zelda-majoras-masks-art-director-gets-blow-back-for-using-ai-in-prototyping-test-2000734003",
+    "was": "r76 era: Kotaku legibility",
+    "method": "ours-A",
+    "ok": true,
+    "ms": 22592,
+    "file": "A10.jpg"
+  },
+  {
+    "pair": [
+      "https://www.dexerto.com/twitch/agent-00-offers-to-help-viral-1-viewer-twitch-streamer-after-incident-with-mom-3401116/",
+      "https://tigerjek.com/agent-00-offers-to-help-viral-1-viewer-twitch-streamer-after-incident-with-mom/"
+    ],
+    "method": "pair",
+    "files": [
+      "build/shot-990-0.png",
+      "build/shot-990-0.png"
+    ],
+    "copy_reuses_original": true
+  },
+  {
+    "url": "https://dailyhive.com/edmonton/better-baker-edmonton-viral-video",
+    "was": "827/830: ALLOW ADS wall over the article",
+    "method": "ours-D",
+    "ok": true,
+    "ms": 17209,
+    "file": "D0.jpg"
+  },
+  {
+    "url": "https://in.ign.com/grand-theft-auto-vi/269189/gta-6-gameplay-and-map-appear-to-leak-online-group-reportedly-responsible-threatens-rockstar-over-al",
+    "was": "920: lead photo not loaded (white hole)",
+    "method": "ours-D",
+    "ok": true,
+    "ms": 5712,
+    "file": "D1.jpg"
+  },
+  {
+    "url": "https://timesofindia.indiatimes.com/tv/news/hindi/rapper-santy-sharmas-youtube-channel-suspended-cjp-remarks-row-triggers-online-buzz/articleshow/132518067.cms",
+    "was": "823: Watch widget still spinning",
+    "method": "ours-D",
+    "ok": true,
+    "ms": 7330,
+    "file": "D2.jpg"
+  },
+  {
+    "url": "https://www.mid-day.com/entertainment/bollywood-news/article/santy-sharma-claims-youtube-deleted-his-channel-announces-cjp-related-press-conference-23641219",
+    "was": "823: sidebar ads + black unloaded box",
+    "method": "ours-D",
+    "ok": true,
+    "ms": 15182,
+    "file": "D3.jpg"
+  },
+  {
+    "url": "https://www.dexerto.com/twitch/agent-00-offers-to-help-viral-1-viewer-twitch-streamer-after-incident-with-mom-3401116/",
+    "was": "740: narrow column + white space + Google buttons",
+    "method": "ours-D",
+    "ok": true,
+    "ms": 8088,
+    "file": "D4.jpg"
+  },
+  {
+    "url": "https://www.koreajoongangdaily.com/entertainment/kiss-of-life-controversy-reignites-debate-over-cultural-appropriation-in-k-pop/12306620",
+    "was": "827/830: audio-player widget + tiny text",
+    "method": "ours-D",
+    "ok": true,
+    "ms": 6848,
+    "file": "D5.jpg"
+  },
+  {
+    "url": "https://www.moneycontrol.com/entertainment/rapper-santy-sharma-youtube-permanently-deleted-links-action-to-cjp-controversy-article-13978460.html",
+    "was": "823: Join/Follow/Google source buttons",
+    "method": "ours-D",
+    "ok": false,
+    "ms": 2151,
+    "file": null
+  },
+  {
+    "url": "https://www.dexerto.com/youtube/roblox-youtuber-meganplays-flooded-with-donations-after-best-friend-apologizes-for-affair-with-husband-3401026/",
+    "was": "649: narrow column + white space",
+    "method": "ours-D",
+    "ok": true,
+    "ms": 7961,
+    "file": "D7.jpg"
+  },
+  {
+    "url": "https://gamerant.com/should-i-let-my-boyfriend-get-gta-6/",
+    "was": "r76: no headline block at tablet width",
+    "method": "ours-D",
+    "ok": true,
+    "ms": 10817,
+    "file": "D8.jpg"
+  },
+  {
+    "url": "https://www.netinfluencer.com/youtuber-syndicate-faces-copyright-claims-on-nearly-3000-videos-after-outro-song-acquired-by-new-rights-holder/",
+    "was": "r76: no headline block at tablet width",
+    "method": "ours-D",
+    "ok": false,
+    "ms": 8622,
+    "file": null
+  },
+  {
+    "url": "https://kotaku.com/the-legend-of-zelda-majoras-masks-art-director-gets-blow-back-for-using-ai-in-prototyping-test-2000734003",
+    "was": "r76 era: Kotaku legibility",
+    "method": "ours-D",
+    "ok": true,
+    "ms": 11684,
+    "file": "D10.jpg"
+  }
+]

@@ -1,0 +1,133 @@
+=== METHOD A: our screenshot_articles() (viewport default, dsf default) ===
+2026-09-14 00:00:06,711 INFO Readability injected from vendor/Readability.js
+2026-09-14 00:00:20,343 INFO Readability column 20..740 (18 nodes) on https://dailyhive.com/edmonton/better-baker-edmonton-vi
+2026-09-14 00:00:20,360 INFO crop r30c: 760x950 at 0,82 (col 720, lead-img True) https://dailyhive.com/edmonton/better-baker-edmonton-viral-v
+2026-09-14 00:00:21,208 INFO REAL source screenshot: https://dailyhive.com/edmonton/better-baker-edmonton-viral-video
+  [0] OK    15275ms  https://dailyhive.com/edmonton/better-baker-edmonton-viral-video
+2026-09-14 00:00:21,753 INFO Readability injected from vendor/Readability.js
+2026-09-14 00:00:26,697 INFO Readability column 24..736 (31 nodes) on https://in.ign.com/grand-theft-auto-vi/269189/gta-6-gam
+2026-09-14 00:00:26,709 INFO crop r30c: 760x950 at 0,146 (col 712, lead-img False) https://in.ign.com/grand-theft-auto-vi/269189/gta-6-gameplay
+2026-09-14 00:00:27,082 INFO SHOT BLANK-BAND: removed 652px empty band at y=509 (shot-901-0.png)
+2026-09-14 00:00:27,082 INFO REAL source screenshot: https://in.ign.com/grand-theft-auto-vi/269189/gta-6-gameplay-and-map-appear-to-leak-online-group-rep
+  [1] OK     5773ms  https://in.ign.com/grand-theft-auto-vi/269189/gta-6-gameplay-and
+2026-09-14 00:00:27,573 INFO Readability injected from vendor/Readability.js
+2026-09-14 00:00:33,959 INFO Readability column 0..430 (2 nodes) on https://timesofindia.indiatimes.com/tv/news/hindi/rappe
+2026-09-14 00:00:33,980 INFO crop r30c: 454x568 at 0,484 (col 430, lead-img False) https://timesofindia.indiatimes.com/tv/news/hindi/rapper-san
+2026-09-14 00:00:34,657 INFO REAL source screenshot: https://timesofindia.indiatimes.com/tv/news/hindi/rapper-santy-sharmas-youtube-channel-suspended-cjp
+  [2] OK     7572ms  https://timesofindia.indiatimes.com/tv/news/hindi/rapper-santy-s
+2026-09-14 00:00:35,170 INFO Readability injected from vendor/Readability.js
+2026-09-14 00:00:47,868 INFO Readability column 122..638 (5 nodes) on https://www.mid-day.com/entertainment/bollywood-news/ar
+2026-09-14 00:00:47,884 INFO crop r30c: 662x828 at 98,239 (col 1043, lead-img True) https://www.mid-day.com/entertainment/bollywood-news/article
+2026-09-14 00:00:48,857 INFO REAL source screenshot: https://www.mid-day.com/entertainment/bollywood-news/article/santy-sharma-claims-youtube-deleted-his
+  [3] OK    14140ms  https://www.mid-day.com/entertainment/bollywood-news/article/san
+2026-09-14 00:00:49,363 INFO Readability injected from vendor/Readability.js
+2026-09-14 00:00:55,967 INFO Readability column 16..744 (14 nodes) on https://www.dexerto.com/twitch/agent-00-offers-to-help-
+2026-09-14 00:00:56,015 INFO crop r30c: 760x950 at 0,158 (col 728, lead-img True) https://www.dexerto.com/twitch/agent-00-offers-to-help-viral
+2026-09-14 00:00:56,545 INFO REAL source screenshot: https://www.dexerto.com/twitch/agent-00-offers-to-help-viral-1-viewer-twitch-streamer-after-incident
+  [4] OK     7626ms  https://www.dexerto.com/twitch/agent-00-offers-to-help-viral-1-v
+2026-09-14 00:00:57,047 INFO Readability injected from vendor/Readability.js
+2026-09-14 00:01:02,490 INFO Readability column 0..760 (61 nodes) on https://www.koreajoongangdaily.com/entertainment/kiss-o
+2026-09-14 00:01:02,499 INFO crop r30c: 760x950 at 0,122 (col 760, lead-img False) https://www.koreajoongangdaily.com/entertainment/kiss-of-lif
+2026-09-14 00:01:02,893 INFO REAL source screenshot: https://www.koreajoongangdaily.com/entertainment/kiss-of-life-controversy-reignites-debate-over-cult
+  [5] OK     6286ms  https://www.koreajoongangdaily.com/entertainment/kiss-of-life-co
+2026-09-14 00:01:03,389 INFO Readability injected from vendor/Readability.js
+2026-09-14 00:01:05,155 INFO screenshot: DEAD PAGE (http 403, title 'Access Denied') — the source itself is gone, not a detection failure: https://www.moneycontrol.com/entertainment/rapper-santy-sharma-youtube-permanent
+  [6] MISS   2206ms  https://www.moneycontrol.com/entertainment/rapper-santy-sharma-y
+2026-09-14 00:01:05,591 INFO Readability injected from vendor/Readability.js
+2026-09-14 00:01:12,145 INFO Readability column 16..744 (25 nodes) on https://www.dexerto.com/youtube/roblox-youtuber-meganpl
+2026-09-14 00:01:12,202 INFO crop r30c: 760x950 at 0,158 (col 728, lead-img True) https://www.dexerto.com/youtube/roblox-youtuber-meganplays-f
+2026-09-14 00:01:12,767 INFO REAL source screenshot: https://www.dexerto.com/youtube/roblox-youtuber-meganplays-flooded-with-donations-after-best-friend-
+  [7] OK     7623ms  https://www.dexerto.com/youtube/roblox-youtuber-meganplays-flood
+2026-09-14 00:01:13,272 INFO Readability injected from vendor/Readability.js
+2026-09-14 00:01:22,110 INFO screenshot: no headline block found; skipping (no raw-page fallback): https://gamerant.com/should-i-let-my-boyfriend-get-gta-6/
+2026-09-14 00:01:22,190 INFO screenshot: 1 page(s) showed no headline at 760px; re-shooting at desktop 1440px
+2026-09-14 00:01:22,603 INFO Readability injected from vendor/Readability.js
+2026-09-14 00:01:31,318 INFO Readability column 108..982 (9 nodes) on https://gamerant.com/should-i-let-my-boyfriend-get-gta-
+2026-09-14 00:01:31,333 INFO crop r30c: 1163x1440 at 84,629 (col 1115, lead-img False) https://gamerant.com/should-i-let-my-boyfriend-get-gta-6/
+2026-09-14 00:01:32,895 INFO SHOT BLANK-BAND: removed 330px empty band at y=745 (shot-908-0.png)
+2026-09-14 00:01:32,895 INFO REAL source screenshot: https://gamerant.com/should-i-let-my-boyfriend-get-gta-6/
+  [8] OK    20088ms  https://gamerant.com/should-i-let-my-boyfriend-get-gta-6/
+2026-09-14 00:01:33,381 INFO Readability injected from vendor/Readability.js
+2026-09-14 00:01:41,465 INFO screenshot: no headline block found; skipping (no raw-page fallback): https://www.netinfluencer.com/youtuber-syndicate-faces-copyright-claims-on-nearly-3000-vid
+2026-09-14 00:01:41,526 INFO screenshot: 1 page(s) showed no headline at 760px; re-shooting at desktop 1440px
+2026-09-14 00:01:41,931 INFO Readability injected from vendor/Readability.js
+2026-09-14 00:01:49,947 INFO screenshot: no headline block found; skipping (no raw-page fallback): https://www.netinfluencer.com/youtuber-syndicate-faces-copyright-claims-on-nearly-3000-vid
+  [9] MISS  17027ms  https://www.netinfluencer.com/youtuber-syndicate-faces-copyright
+2026-09-14 00:01:50,407 INFO Readability injected from vendor/Readability.js
+2026-09-14 00:01:59,875 INFO screenshot: no headline block found; skipping (no raw-page fallback): https://kotaku.com/the-legend-of-zelda-majoras-masks-art-director-gets-blow-back-for-using
+2026-09-14 00:02:00,186 INFO screenshot: 1 page(s) showed no headline at 760px; re-shooting at desktop 1440px
+2026-09-14 00:02:00,597 INFO Readability injected from vendor/Readability.js
+2026-09-14 00:02:10,933 INFO Readability column 160..800 (8 nodes) on https://kotaku.com/the-legend-of-zelda-majoras-masks-ar
+2026-09-14 00:02:10,969 INFO crop r30c: 1106x1382 at 56,382 (col 1058, lead-img True) https://kotaku.com/the-legend-of-zelda-majoras-masks-art-dir
+2026-09-14 00:02:12,505 INFO REAL source screenshot: https://kotaku.com/the-legend-of-zelda-majoras-masks-art-director-gets-blow-back-for-using-ai-in-pro
+  [10] OK    22592ms  https://kotaku.com/the-legend-of-zelda-majoras-masks-art-directo
+=== COPY-SITE PAIRS: same article on two domains ===
+2026-09-14 00:02:13,061 INFO Readability injected from vendor/Readability.js
+2026-09-14 00:02:19,616 INFO Readability column 16..744 (14 nodes) on https://www.dexerto.com/twitch/agent-00-offers-to-help-
+2026-09-14 00:02:19,629 INFO crop r30c: 760x950 at 0,158 (col 728, lead-img True) https://www.dexerto.com/twitch/agent-00-offers-to-help-viral
+2026-09-14 00:02:20,186 INFO REAL source screenshot: https://www.dexerto.com/twitch/agent-00-offers-to-help-viral-1-viewer-twitch-streamer-after-incident
+2026-09-14 00:02:26,023 INFO screenshot: no headline block found; skipping (no raw-page fallback): https://tigerjek.com/agent-00-offers-to-help-viral-1-viewer-twitch-streamer-after-incident
+2026-09-14 00:02:26,076 INFO screenshot: 1 page(s) showed no headline at 760px; re-shooting at desktop 1440px
+2026-09-14 00:02:26,487 INFO Readability injected from vendor/Readability.js
+2026-09-14 00:02:32,443 INFO Readability column 120..959 (16 nodes) on https://tigerjek.com/agent-00-offers-to-help-viral-1-vi
+2026-09-14 00:02:32,451 INFO crop r30c: 887x1109 at 96,178 (col 839, lead-img True) https://tigerjek.com/agent-00-offers-to-help-viral-1-viewer-
+2026-09-14 00:02:33,297 INFO COPY SITE: https://tigerjek.com/agent-00-offers-to-help-viral-1-viewer- repeats the headline already shot for shot-990-0.png; one card for both
+  [pair 0] original=build/shot-990-0.png copy=build/shot-990-0.png reuses_original=True
+=== METHOD D: our screenshot_articles() (viewport 1440, dsf 1.4) ===
+2026-09-14 00:02:33,841 INFO Readability injected from vendor/Readability.js
+2026-09-14 00:02:49,090 INFO Readability column 209..959 (18 nodes) on https://dailyhive.com/edmonton/better-baker-edmonton-vi
+2026-09-14 00:02:49,254 INFO crop r30c: 956x1195 at 106,131 (col 829, lead-img True) https://dailyhive.com/edmonton/better-baker-edmonton-viral-v
+2026-09-14 00:02:50,555 INFO REAL source screenshot: https://dailyhive.com/edmonton/better-baker-edmonton-viral-video
+  [0] OK    17209ms  https://dailyhive.com/edmonton/better-baker-edmonton-viral-video
+2026-09-14 00:02:51,110 INFO Readability injected from vendor/Readability.js
+2026-09-14 00:02:55,738 INFO Readability column 364..1052 (31 nodes) on https://in.ign.com/grand-theft-auto-vi/269189/gta-6-gam
+2026-09-14 00:02:55,755 INFO crop r30c: 984x1230 at 340,82 (col 936, lead-img False) https://in.ign.com/grand-theft-auto-vi/269189/gta-6-gameplay
+2026-09-14 00:02:56,365 INFO SHOT BLANK-BAND: removed 683px empty band at y=270 (shot-951-0.png)
+2026-09-14 00:02:56,365 INFO REAL source screenshot: https://in.ign.com/grand-theft-auto-vi/269189/gta-6-gameplay-and-map-appear-to-leak-online-group-rep
+  [1] OK     5712ms  https://in.ign.com/grand-theft-auto-vi/269189/gta-6-gameplay-and
+2026-09-14 00:02:56,848 INFO Readability injected from vendor/Readability.js
+2026-09-14 00:03:02,965 INFO Readability column 220..890 (2 nodes) on https://timesofindia.indiatimes.com/tv/news/hindi/rappe
+2026-09-14 00:03:02,985 INFO crop r30c: 718x898 at 196,484 (col 670, lead-img False) https://timesofindia.indiatimes.com/tv/news/hindi/rapper-san
+2026-09-14 00:03:03,703 INFO SHOT BLANK-BAND: removed 475px empty band at y=862 (shot-952-0.png)
+2026-09-14 00:03:03,703 INFO REAL source screenshot: https://timesofindia.indiatimes.com/tv/news/hindi/rapper-santy-sharmas-youtube-channel-suspended-cjp
+  [2] OK     7330ms  https://timesofindia.indiatimes.com/tv/news/hindi/rapper-santy-s
+2026-09-14 00:03:04,209 INFO Readability injected from vendor/Readability.js
+2026-09-14 00:03:17,605 INFO Readability column -533..1905 (14 nodes) on https://www.mid-day.com/entertainment/bollywood-news/ar
+2026-09-14 00:03:17,626 INFO crop r30c: 1440x937 at 0,402 (col 2438, lead-img True) https://www.mid-day.com/entertainment/bollywood-news/article
+2026-09-14 00:03:18,929 INFO REAL source screenshot: https://www.mid-day.com/entertainment/bollywood-news/article/santy-sharma-claims-youtube-deleted-his
+  [3] OK    15182ms  https://www.mid-day.com/entertainment/bollywood-news/article/san
+2026-09-14 00:03:19,496 INFO Readability injected from vendor/Readability.js
+2026-09-14 00:03:26,221 INFO Readability column 80..817 (14 nodes) on https://www.dexerto.com/twitch/agent-00-offers-to-help-
+2026-09-14 00:03:26,230 INFO crop r30c: 1297x1607 at 56,210 (col 1249, lead-img True) https://www.dexerto.com/twitch/agent-00-offers-to-help-viral
+2026-09-14 00:03:27,046 INFO REAL source screenshot: https://www.dexerto.com/twitch/agent-00-offers-to-help-viral-1-viewer-twitch-streamer-after-incident
+  [4] OK     8088ms  https://www.dexerto.com/twitch/agent-00-offers-to-help-viral-1-v
+2026-09-14 00:03:27,549 INFO Readability injected from vendor/Readability.js
+2026-09-14 00:03:33,180 INFO Readability column 120..1320 (61 nodes) on https://www.koreajoongangdaily.com/entertainment/kiss-o
+2026-09-14 00:03:33,195 INFO crop r30c: 1248x1461 at 96,107 (col 1200, lead-img True) https://www.koreajoongangdaily.com/entertainment/kiss-of-lif
+2026-09-14 00:03:33,954 INFO REAL source screenshot: https://www.koreajoongangdaily.com/entertainment/kiss-of-life-controversy-reignites-debate-over-cult
+  [5] OK     6848ms  https://www.koreajoongangdaily.com/entertainment/kiss-of-life-co
+2026-09-14 00:03:34,443 INFO Readability injected from vendor/Readability.js
+2026-09-14 00:03:36,155 INFO screenshot: DEAD PAGE (http 403, title 'Access Denied') — the source itself is gone, not a detection failure: https://www.moneycontrol.com/entertainment/rapper-santy-sharma-youtube-permanent
+  [6] MISS   2151ms  https://www.moneycontrol.com/entertainment/rapper-santy-sharma-y
+2026-09-14 00:03:36,586 INFO Readability injected from vendor/Readability.js
+2026-09-14 00:03:43,249 INFO Readability column 80..817 (25 nodes) on https://www.dexerto.com/youtube/roblox-youtuber-meganpl
+2026-09-14 00:03:43,268 INFO crop r30c: 1214x1504 at 56,210 (col 1166, lead-img True) https://www.dexerto.com/youtube/roblox-youtuber-meganplays-f
+2026-09-14 00:03:44,102 INFO REAL source screenshot: https://www.dexerto.com/youtube/roblox-youtuber-meganplays-flooded-with-donations-after-best-friend-
+  [7] OK     7961ms  https://www.dexerto.com/youtube/roblox-youtuber-meganplays-flood
+2026-09-14 00:03:44,599 INFO Readability injected from vendor/Readability.js
+2026-09-14 00:03:53,400 INFO Readability column 108..982 (9 nodes) on https://gamerant.com/should-i-let-my-boyfriend-get-gta-
+2026-09-14 00:03:53,411 INFO crop r30c: 1163x1440 at 84,629 (col 1115, lead-img False) https://gamerant.com/should-i-let-my-boyfriend-get-gta-6/
+2026-09-14 00:03:54,957 INFO SHOT BLANK-BAND: removed 330px empty band at y=745 (shot-958-0.png)
+2026-09-14 00:03:54,957 INFO REAL source screenshot: https://gamerant.com/should-i-let-my-boyfriend-get-gta-6/
+  [8] OK    10817ms  https://gamerant.com/should-i-let-my-boyfriend-get-gta-6/
+2026-09-14 00:03:55,463 INFO Readability injected from vendor/Readability.js
+2026-09-14 00:04:03,611 INFO screenshot: no headline block found; skipping (no raw-page fallback): https://www.netinfluencer.com/youtuber-syndicate-faces-copyright-claims-on-nearly-3000-vid
+  [9] MISS   8622ms  https://www.netinfluencer.com/youtuber-syndicate-faces-copyright
+2026-09-14 00:04:04,076 INFO Readability injected from vendor/Readability.js
+2026-09-14 00:04:13,935 INFO Readability column 160..800 (8 nodes) on https://kotaku.com/the-legend-of-zelda-majoras-masks-ar
+2026-09-14 00:04:13,950 INFO crop r30c: 1106x1382 at 56,382 (col 1058, lead-img True) https://kotaku.com/the-legend-of-zelda-majoras-masks-art-dir
+2026-09-14 00:04:15,259 INFO REAL source screenshot: https://kotaku.com/the-legend-of-zelda-majoras-masks-art-director-gets-blow-back-for-using-ai-in-pro
+  [10] OK    11684ms  https://kotaku.com/the-legend-of-zelda-majoras-masks-art-directo
+=== METHOD B skipped (this round tests the bot-block fix only) ===
+
+SCORE  ours: 9/11   pixelshot: 0/11
