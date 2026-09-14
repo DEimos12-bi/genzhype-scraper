@@ -5377,6 +5377,32 @@ def detect_face_box(path):
     return box
 
 
+FACE_BORDER_FRAC = 0.02   # r178: a face within 2% of the image edge is cut by it
+
+
+def face_touches_border(path, frac=FACE_BORDER_FRAC):
+    """r178: True when any detected face runs into the SOURCE image's own edge.
+    No crop can repair that face — it is already cut in the picture. Page 692
+    shipped such a still: a Twitch stream frame whose webcam face (61x83 at
+    x990 y519 of 1080x608) sat 6px above the bottom border, and the judge
+    failed the video for a sliced face. r48's edge-safe crop only shifts a
+    crop window between two or more faces, so a single face cut by the frame
+    itself was never caught. Uses the faces detect_face_box() already found."""
+    try:
+        if detect_face_box(path) is None:
+            return False
+        faces = _FACE_ALL.get(path) or []
+        with Image.open(path) as im:
+            w, h = im.size
+        mx, my = w * frac, h * frac
+        for fx, fy, fw, fh in faces:
+            if fx <= mx or fy <= my or fx + fw >= w - mx or fy + fh >= h - my:
+                return True
+    except Exception:  # noqa: BLE001 — never block a still on infra
+        return False
+    return False
+
+
 def cover_fit_headroom(pil_img, tw, th, bias=0.14):
     """r31: cover-crop biased toward the TOP of the source, not dead center.
     When no face is detected the center crop of a standing person is their
@@ -6401,6 +6427,10 @@ def harvest_clip_frames(clip_path, pool, want=12, label="event footage"):
             if any(dhash_distance(dh, kh) < CLIP_FRAME_MIN_DIFF
                    for kh in kept_hashes):
                 log.info("clip frame too similar to one already kept; skipped")
+                continue
+            if face_touches_border(fp):
+                log.info("clip frame skipped: a face is cut by the frame's own "
+                         "edge (%s)", os.path.basename(fp))
                 continue
             kept_hashes.append(dh)
             entry = {"path": fp, "textish": False, "url": None,
