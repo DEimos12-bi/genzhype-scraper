@@ -6435,7 +6435,8 @@ def harvest_clip_frames(clip_path, pool, want=12, label="event footage"):
             kept_hashes.append(dh)
             entry = {"path": fp, "textish": False, "url": None,
                      "person": None, "designed": False,
-                     "dhash": dh, "quality": image_quality(fp)}
+                     "dhash": dh, "quality": image_quality(fp),
+                     "family": "clip:" + os.path.basename(clip_path)}   # r179
             try:
                 entry["has_face"] = detect_face_box(fp) is not None
             except Exception:  # noqa: BLE001
@@ -6544,7 +6545,37 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
     consec_footage = 0             # r25: footage scenes in a row (own cap)
     foot_n, foot_s = 0, 0.0        # r13: footage scenes / borrowed seconds
     last_used = {}                 # r11 LRU: pool path -> last scene index
-    use_count = {}                 # r169: pool path -> how many shots it already fills
+    use_count = {}                 # r169: image FAMILY -> how many shots it already fills
+    # r179 IMAGE FAMILIES. The judge counts "the same underlying image", not the
+    # same file: page 695 failed on one breach graphic that arrived as a pool
+    # photo, a Director pin and two og report photos (4 paths), and page 694 on
+    # ten freeze-frames of ONE commentator's talking-head clip (dHash apart, the
+    # same shot to a viewer). The use cap therefore counts families: stills
+    # harvested from one clip share that clip; any other picture joins an
+    # earlier one within dHash 6/64 (r36's same-image line).
+    _fam_cache, _fam_reps = {}, []
+
+    def _fam(p):
+        if not p:
+            return p
+        if p in _fam_cache:
+            return _fam_cache[p]
+        key = None
+        for _e in pool:
+            if _e.get("path") == p and _e.get("family"):
+                key = _e["family"]
+                break
+        if key is None and not str(p).lower().endswith((".mp4", ".webm", ".mov")):
+            _dh = image_dhash(p)
+            if _dh is not None:
+                for _rdh, _rkey in _fam_reps:
+                    if dhash_distance(_dh, _rdh) <= 6:
+                        key = _rkey
+                        break
+                if key is None:
+                    _fam_reps.append((_dh, p))
+        _fam_cache[p] = key or p
+        return _fam_cache[p]
     evidence_scene_uses = {}       # r21: evidence image -> scenes it backs (cap 2)
     person_rot = {}                # r11: per-person rotation cursor
 
@@ -6647,7 +6678,7 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
         # judge's repetition fail waiting to happen. Prefer one under the cap;
         # if every fresh candidate is capped, an under-cap image just inside the
         # window still beats a third use (never the immediately previous one).
-        _under = [e for e in cands if use_count.get(e["path"], 0) < IMAGE_MAX_USES]
+        _under = [e for e in cands if use_count.get(_fam(e["path"]), 0) < IMAGE_MAX_USES]
         if _under:
             cands = _under
         else:
@@ -6661,9 +6692,9 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                       if e.get("path") and not e.get("designed")
                       and not e.get("textish")
                       and "ytimg.com/vi" not in str(e.get("url") or "")
-                      and use_count.get(e["path"], 0) < IMAGE_MAX_USES]
+                      and use_count.get(_fam(e["path"]), 0) < IMAGE_MAX_USES]
             _fresh_story = [e for e in _story if e["path"] not in recent]
-            _anyu = ([e for e in base if use_count.get(e["path"], 0) < IMAGE_MAX_USES
+            _anyu = ([e for e in base if use_count.get(_fam(e["path"]), 0) < IMAGE_MAX_USES
                       and e["path"] != _prev]
                      or [e for e in _story if e["path"] != _prev])
             if _fresh_story:
@@ -6921,6 +6952,13 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                 log.info("receipt image already in 2 scenes; subject photo "
                          "for variety")
                 path = None
+            elif path and use_count.get(_fam(path), 0) >= IMAGE_MAX_USES:
+                # r179: the same picture may already be on screen as a pool
+                # photo or a pin under another path
+                log.info("IMAGE CAP: receipt %s shows a picture already in %d "
+                         "shot(s); subject photo instead", sh.get("receipt_i"),
+                         use_count.get(_fam(path), 0))
+                path = None
             elif path and path in _recent_paths():
                 # r12 selfcheck law: the SAME card twice inside the no-repeat
                 # window reads as a frozen frame — subject photo instead.
@@ -6989,7 +7027,7 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                 for k in range(len(p_entries)):
                     cand = p_entries[(start + k) % len(p_entries)]
                     if cand["path"] not in recent and cand["path"] not in last_used \
-                            and use_count.get(cand["path"], 0) < IMAGE_MAX_USES:
+                            and use_count.get(_fam(cand["path"]), 0) < IMAGE_MAX_USES:
                         entry = cand
                         person_rot[pname] = (start + k + 1) % len(p_entries)
                         break
@@ -6997,7 +7035,7 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                     for k in range(len(p_entries)):    # first of theirs not recent
                         cand = p_entries[(start + k) % len(p_entries)]
                         if cand["path"] not in recent \
-                                and use_count.get(cand["path"], 0) < IMAGE_MAX_USES:
+                                and use_count.get(_fam(cand["path"]), 0) < IMAGE_MAX_USES:
                             entry = cand
                             person_rot[pname] = (start + k + 1) % len(p_entries)
                             break
@@ -7027,9 +7065,9 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
             # r12: widened from back-to-back to the FULL no-repeat window —
             # a pinned image inside the window is exactly the "same image
             # again and again" defect the selfcheck now hard-fails on.
-            if entry is not None and use_count.get(entry["path"], 0) >= IMAGE_MAX_USES:
+            if entry is not None and use_count.get(_fam(entry["path"]), 0) >= IMAGE_MAX_USES:
                 log.info("IMAGE CAP: %s already fills %d shot(s); LRU pool pick instead",
-                         os.path.basename(entry["path"]), use_count.get(entry["path"], 0))
+                         os.path.basename(entry["path"]), use_count.get(_fam(entry["path"]), 0))
                 entry = None
                 planned_here = False
             if entry is not None and entry["path"] in _recent_paths():
@@ -7336,7 +7374,7 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
         # r170: count the image that went ON SCREEN. r169 counted at pick time,
         # so a pick later replaced by footage or a still-hold swap still spent
         # a use (page 920 scene 3) and the pool hit the cap early.
-        use_count[path] = use_count.get(path, 0) + 1
+        use_count[_fam(path)] = use_count.get(_fam(path), 0) + 1
         prev_motion = motion
 
     # r46 SPEND THE POOL (owner, watching the scene plan: "fix the picker so it
@@ -7372,7 +7410,7 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
             use_count.clear()
             for sc in scenes:
                 if sc.get("path"):
-                    use_count[sc["path"]] = use_count.get(sc["path"], 0) + 1
+                    use_count[_fam(sc["path"])] = use_count.get(_fam(sc["path"]), 0) + 1
 
     # r43 PACING: split long STILLS into ~SCENE_SPLIT_TARGET_S beats, each with a
     # different image, so the picture changes at short-form rhythm instead of
@@ -7405,7 +7443,7 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                     cands = [e for e in pool
                              if e.get("path") and e["path"] not in recent
                              and not e.get("designed") and not e.get("textish")
-                             and use_count.get(e["path"], 0) < IMAGE_MAX_USES]   # r169
+                             and use_count.get(_fam(e["path"]), 0) < IMAGE_MAX_USES]   # r169
                     if not cands:
                         # r50 FROZEN GUARD: a beat with no fresh image would
                         # inherit the parent's, and 3 identical consecutive
@@ -7425,7 +7463,7 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                     sub["footage"] = False
                     sub["src_off"] = None
                     last_used[alt["path"]] = si_here
-                    use_count[alt["path"]] = use_count.get(alt["path"], 0) + 1   # r169
+                    use_count[_fam(alt["path"])] = use_count.get(_fam(alt["path"]), 0) + 1   # r169/r179
                     # one-shot cues belong to the parent's first beat only
                     sub["sfx"] = None
                     sub["emph_t"] = None
