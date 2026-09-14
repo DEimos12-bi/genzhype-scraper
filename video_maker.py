@@ -5159,24 +5159,32 @@ def scene_text_windows(scenes, scene_clips):
     return wins
 
 
+def _text_covered(c, block_h, boxes, x0=SAFE_X, x1=W - SAFE_X):
+    """Pixels of burned-in text a centred block (center y c) would sit on,
+    TEXT_PAD clearance included."""
+    half = block_h / 2.0
+    a, b = c - half - TEXT_PAD, c + half + TEXT_PAD
+    tot = 0.0
+    for bx0, by0, bx1, by1 in boxes:
+        if bx1 <= x0 or bx0 >= x1:
+            continue
+        ov = min(b, by1) - max(a, by0)
+        if ov > 0:
+            tot += ov * (min(x1, bx1) - max(x0, bx0))
+    return tot
+
+
 def clear_text_y(default_c, block_h, boxes, lo=CHIP_CLEAR_Y,
                  hi=H - SAFE_BOTTOM, x0=SAFE_X, x1=W - SAFE_X):
     """CENTER y for a centred text block of height block_h: the default row
     when it covers no burned-in text, else the clear row nearest to it inside
     the platform-safe band, else (Netflix: overlap impossible) the row that
-    covers the least text."""
+    covers the least text. r174: used for the one-off HOOK only; captions
+    follow caption_event_y (two homes, one position per caption event)."""
     half = block_h / 2.0
 
     def covered(c):
-        a, b = c - half - TEXT_PAD, c + half + TEXT_PAD
-        tot = 0.0
-        for bx0, by0, bx1, by1 in boxes:
-            if bx1 <= x0 or bx0 >= x1:
-                continue
-            ov = min(b, by1) - max(a, by0)
-            if ov > 0:
-                tot += ov * (min(x1, bx1) - max(x0, bx0))
-        return tot
+        return _text_covered(c, block_h, boxes, x0, x1)
 
     if not boxes or covered(default_c) == 0:
         return default_c
@@ -5186,6 +5194,43 @@ def clear_text_y(default_c, block_h, boxes, lo=CHIP_CLEAR_Y,
     cands = [lo_c + 10.0 * k for k in range(int((hi_c - lo_c) // 10) + 1)]
     cands.append(hi_c)
     return min(cands, key=lambda c: (covered(c), abs(c - default_c)))
+
+
+def caption_event_y(span_s, span_e, cap_h, card_windows=None, text_windows=None,
+                    x0=SAFE_X, x1=W - SAFE_X):
+    """r174 CAPTION EVENTS. One caption chunk is one subtitle event: it takes
+    ONE position for everything it is on screen over, decided from every shot
+    it overlaps. r171 decided per word from the word's MIDPOINT, so a word
+    that straddled a cut drew at the next shot's row over the previous shot
+    (page 649, 25.2s: "LATER EXPOSING THE BRUTAL" at y 446 on top of an
+    article card's headline), and it picked the nearest clear row per shot,
+    so one video's captions sat at seven different heights.
+
+    The professional model: Netflix places subtitles "at either the top or
+    bottom of the screen", moves one only "to avoid overlap with onscreen
+    text", and where both are covered puts it "where easier to read"; subtitles
+    "sit neatly within shots". Short-form caption tools likewise keep one home
+    per video. Viewers' eyes learn where captions live; an event never jumps
+    while it is read. So: a proof card anywhere in the span -> the v9 row below
+    the card; otherwise the lower-middle HOME, else the TOP home (just under
+    the date chip), else whichever of the two covers less text.
+    Returns (center_y, reason)."""
+    for cw_s, cw_e in (card_windows or []):
+        if span_s < cw_e and span_e > cw_s:
+            return CARD_CAPTION_Y, "card"
+    boxes = [b for s, e, bx in (text_windows or [])
+             if span_s < e and span_e > s for b in bx]
+    if not boxes:
+        return CAPTION_CENTER_Y, "home"
+    top = int(round(CHIP_CLEAR_Y + cap_h / 2.0 + TEXT_PAD))
+    cov = [(_text_covered(CAPTION_CENTER_Y, cap_h, boxes, x0, x1),
+            CAPTION_CENTER_Y, "home"),
+           (_text_covered(top, cap_h, boxes, x0, x1), top, "top")]
+    for c, y, why in cov:
+        if c == 0:
+            return y, why
+    c, y, why = min(cov, key=lambda t: t[0])      # ties keep the home
+    return y, why + "-least-covered"
 
 
 def _profile_cascade():
@@ -8372,6 +8417,8 @@ def render_chunk_frame(words, hot_idx, font_path, hot_boost=1.0):
 
 def chunk_caption_clips(beats, hook_end, duration, font_path, card_windows=None,
                         text_windows=None):
+    # r174: text_windows = [(start, end, burned-in text boxes)]; every chunk
+    # is placed once by caption_event_y over its whole on-screen span
     """Word-pop captions: for every chunk, one ImageClip per word-state (the
     spoken word accent-colored + larger). Each state runs from its word's
     start to the next word's start; the chunk's last state holds until the
@@ -8385,29 +8432,32 @@ def chunk_caption_clips(beats, hook_end, duration, font_path, card_windows=None,
         if body:
             chunks.extend(_chunk_words(body))
     clips = []
+    _cap_h = None
+    _cx0 = (W - int(W * 0.88)) // 2          # render_chunk_frame's max width
+    _placed = {}
     for ci, chunk in enumerate(chunks):
         if ci + 1 < len(chunks):
             chunk_end = chunks[ci + 1][0][1]
         else:
             chunk_end = max(duration, chunk[-1][2])
         chunk_words = [wt[0] for wt in chunk]
+        # r174: one position for the whole caption event (see caption_event_y)
+        if text_windows and _cap_h is None:
+            try:
+                _cap_h = render_chunk_frame(["WORD", "WORD"], 0, font_path,
+                                            hot_boost=1.22).shape[0]
+            except Exception:  # noqa: BLE001 — measured estimate instead
+                _cap_h = int(CHUNK_FONT * HOT_SCALE * 1.22 * 1.35)
+        chunk_y, _why = caption_event_y(chunk[0][1], chunk_end, _cap_h or 0,
+                                        card_windows, text_windows,
+                                        x0=_cx0, x1=W - _cx0)
+        _placed[_why] = _placed.get(_why, 0) + 1
         for k, (_, ws, _we) in enumerate(chunk):
             st = ws
             en = chunk[k + 1][1] if k + 1 < len(chunk) else chunk_end
             en = max(en, st + 0.05)
             mid = (st + en) / 2.0
-            y_center = CAPTION_CENTER_Y
-            _on_card = False
-            for cw_s, cw_e in (card_windows or []):
-                if cw_s <= mid < cw_e:      # v9: this word plays over a card
-                    y_center = CARD_CAPTION_Y
-                    _on_card = True
-                    break
-            if not _on_card:
-                for tw_s, tw_e, tw_y in (text_windows or []):
-                    if tw_s <= mid < tw_e:  # r171: the row clear of their text
-                        y_center = tw_y
-                        break
+            y_center = chunk_y
             # TREATMENT V2 kinetic pop: the spoken word lands as a brief
             # OVERSHOOT state (hot word at 1.22x its accent size for the
             # first 90ms) then settles to the normal accent state — the
@@ -8451,6 +8501,9 @@ def chunk_caption_clips(beats, hook_end, duration, font_path, card_windows=None,
                 ic = ImageClip(_canvas, transparent=True)
                 ic = ic.with_start(s_st).with_end(s_en).with_position((0, 0))
                 clips.append(ic)
+    if text_windows or card_windows:
+        log.info("CAPTION PLACEMENT: %d caption event(s) by position: %s",
+                 len(chunks), json.dumps(_placed, sort_keys=True))
     return clips
 
 
@@ -9228,15 +9281,8 @@ def compose_video(pool, broll_terms, mp3_path, hook, script, word_timings,
     try:
         _tw = scene_text_windows(scenes, scene_clips)
         hook_boxes = [b for s, e, bx in _tw if s < hook_s and e > 0.0 for b in bx]
-        _cap_h = render_chunk_frame(["WORD", "WORD"], 0, font_path,
-                                    hot_boost=1.22).shape[0]
-        _cx0 = (W - int(W * 0.88)) // 2          # render_chunk_frame's max width
-        for s, e, bx in _tw:
-            y = clear_text_y(CAPTION_CENTER_Y, _cap_h, bx, x0=_cx0, x1=W - _cx0)
-            if y != CAPTION_CENTER_Y:
-                log.info("TEXT AVOID: captions %.2f-%.2fs moved off burned-in "
-                         "text, center y %d -> %d", s, e, CAPTION_CENTER_Y, int(y))
-            text_windows.append((s, e, int(round(y))))
+        # r174: captions are placed per caption event from these boxes
+        text_windows = [(s, e, bx) for s, e, bx in _tw]
     except Exception as exc:  # noqa: BLE001 — never fatal: fixed rows as before
         log.warning("TEXT AVOID failed (%s); fixed caption rows", str(exc)[:120])
         text_windows, hook_boxes = [], []
