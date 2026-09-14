@@ -1,0 +1,464 @@
+2026-09-14 21:25:20,867 INFO caption font: /usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf
+2026-09-14 21:25:20,869 INFO job feed from repo branch (generated 2026-09-14T21:22:37+00:00)
+2026-09-14 21:25:20,869 INFO job from static feed (generated 2026-09-14T21:22:37+00:00)
+2026-09-14 21:25:20,869 INFO processing page_id=740 slug=agent-00-and-major-streamers-rally-behind-viral-twitch-streamer-nitro-camden-after-family-incident
+2026-09-14 21:25:20,869 INFO STYLE slowburn: lead=footage cuts~2.2s xfade=0.25 zoom=0.10 punch=1.10 bgm_1 evidence_cap=2 footage_consec=6
+2026-09-14 21:25:20,869 INFO voice: en-US-AvaMultilingualNeural
+2026-09-14 21:25:20,869 INFO STAGE: visuals
+2026-09-14 21:25:20,870 INFO PROVENANCE: 4 clip(s) were embedded by reporters in this story's own articles; the footage gate cannot veto those
+2026-09-14 21:25:20,870 INFO story clips available: 10 (tiktok, youtube)
+2026-09-14 21:25:20,870 INFO person photos from feed (site-resolved): Agent 00 x1
+2026-09-14 21:25:21,604 INFO UPSIZED: https://yt3.ggpht.com/Dezbu2x9xzkyAQfZcHiYNkPyBJ10SDsHiUPu9uQ8tw5uY1VG8XVqW0Keu5YO43Z80i3jYtIU0q0=s1200
+2026-09-14 21:25:21,632 INFO trimmed letterbox (1080, 1080) -> (1080, 1024): https://yt3.ggpht.com/Dezbu2x9xzkyAQfZcHiYNkPyBJ10SDsHiUPu9uQ8tw5uY1VG8XVqW0Keu5YO43Z80i3jYtIU0q0=s800-k-c0xffffffff-no-
+2026-09-14 21:25:21,660 INFO CONTAIN MODE: 1080x1024 needs 1.9x upscale to cover; rendering whole on a blurred fill instead
+2026-09-14 21:25:21,711 INFO face detected in vis-740-0: 352x489 at (373,197)
+2026-09-14 21:25:21,739 INFO CONTAIN MODE: 1600x900 needs 2.1x upscale to cover; rendering whole on a blurred fill instead
+2026-09-14 21:25:21,757 INFO face detected in vis-740-1: 331x471 at (1049,200)
+2026-09-14 21:25:28,718 INFO vision rotation: still-relevance served by gemini-3.5-flash-lite
+2026-09-14 21:25:28,730 INFO trimmed letterbox (1200, 675) -> (1200, 558): https://s.yimg.com/lo/mysterio/api/f667dbd97fb2e6cad155ad713b38e6aaa2de3ad475cd5d1980ea8967744696ab/lightyear_networkapi
+2026-09-14 21:25:28,793 INFO text-heavy visual (heuristic) -> contain mode (no crop/zoom): https://s.yimg.com/lo/mysterio/api/f667dbd97fb2e6cad155ad713b38e6aaa2de3ad475cd5d1980ea8967744696ab/lightyear_networkapi
+2026-09-14 21:25:28,940 INFO CONTAIN MODE: 1600x900 needs 2.1x upscale to cover; rendering whole on a blurred fill instead
+2026-09-14 21:25:28,952 INFO face detected in vis-740-3: 209x275 at (965,227)
+2026-09-14 21:25:31,723 INFO vision rotation: still-relevance served by gemini-3.5-flash-lite
+2026-09-14 21:25:31,778 INFO CONTAIN MODE: 1600x900 needs 2.1x upscale to cover; rendering whole on a blurred fill instead
+2026-09-14 21:25:31,815 INFO face detected in vis-740-4: 332x472 at (1049,200)
+2026-09-14 21:25:33,029 INFO vision rotation: still-relevance served by gemini-3.5-flash-lite
+2026-09-14 21:25:33,042 INFO POOL DEDUP: https://tigerjek.com/wp-content/uploads/2026/08/1787400161.avif is the same image as https://www.dexerto.com/cdn-image/wp-content/uploads/2026/08; skipped
+2026-09-14 21:25:33,050 INFO text-heavy visual (heuristic) -> contain mode (no crop/zoom): https://genzhype.com/assets/covers/agent-00-and-major-streamers-rally-behind-viral-twitch-streamer-nitro-camden-after-fa
+2026-09-14 21:25:35,513 INFO visual pool: 5 distinct of 6 candidates (1 from people, 1 name(s) mapped: {'agent 00': 1})
+2026-09-14 21:25:35,513 INFO visual_i 1 ready (the actual moment (Aug 21 report photo): Massive Twitch Raid Brings Thousands of)
+2026-09-14 21:25:35,522 INFO visual_i 4 ready (the actual moment (Aug 22 report photo): Agent 00 Offers Twitch Account Assistan)
+2026-09-14 21:25:35,523 INFO STAGE: receipts
+2026-09-14 21:25:35,693 INFO receipts: 7 card(s) downloaded of 17 entries (event entries carry no card by design)
+2026-09-14 21:25:35,693 INFO STAGE: screenshots
+2026-09-14 21:25:37,031 INFO Readability injected from vendor/Readability.js
+2026-09-14 21:25:43,630 INFO Readability column 16..744 (14 nodes) on https://www.dexerto.com/twitch/agent-00-offers-to-help-
+2026-09-14 21:25:43,638 INFO crop r30c: 760x950 at 0,158 (col 728, lead-img True) https://www.dexerto.com/twitch/agent-00-offers-to-help-viral
+2026-09-14 21:25:45,456 INFO vision rotation: screenshot-clean served by gemini-3.5-flash-lite
+2026-09-14 21:25:45,457 INFO REAL source screenshot: https://www.dexerto.com/twitch/agent-00-offers-to-help-viral-1-viewer-twitch-streamer-after-incident
+2026-09-14 21:25:53,849 INFO Readability column 60..700 (32 nodes) on https://ca.news.yahoo.com/twitch-streamer-18-attacked-m
+2026-09-14 21:25:53,857 INFO crop r30c: 720x886 at 20,198 (col 640, lead-img True) https://ca.news.yahoo.com/twitch-streamer-18-attacked-mom-14
+2026-09-14 21:25:54,806 INFO SHOT DEAD-ZONE: removed 265px dead band at y=696 (shot-740-1.png)
+2026-09-14 21:25:56,341 INFO vision rotation: screenshot-clean served by gemini-3.5-flash-lite
+2026-09-14 21:25:56,342 INFO REAL source screenshot: https://ca.news.yahoo.com/twitch-streamer-18-attacked-mom-144000851.html
+2026-09-14 21:26:01,906 INFO Readability column 16..744 (8 nodes) on https://www.dexerto.com/twitch/doja-cat-urges-fans-to-s
+2026-09-14 21:26:01,914 INFO crop r30c: 760x950 at 0,158 (col 728, lead-img True) https://www.dexerto.com/twitch/doja-cat-urges-fans-to-sub-to
+2026-09-14 21:26:03,507 INFO vision rotation: screenshot-clean served by gemini-3.5-flash-lite
+2026-09-14 21:26:03,508 INFO REAL source screenshot: https://www.dexerto.com/twitch/doja-cat-urges-fans-to-sub-to-viral-1-viewer-twitch-streamer-nitro-ca
+2026-09-14 21:26:12,178 INFO Readability column 20..740 (9 nodes) on https://au.complex.com/pop-culture/a/backwoodsaltar/sta
+2026-09-14 21:26:12,185 INFO crop r30c: 760x936 at 0,259 (col 720, lead-img False) https://au.complex.com/pop-culture/a/backwoodsaltar/stable-r
+2026-09-14 21:26:16,258 INFO vision rotation: screenshot-clean served by gemini-3.5-flash-lite
+2026-09-14 21:26:16,260 INFO REAL source screenshot: https://au.complex.com/pop-culture/a/backwoodsaltar/stable-ronaldo-twitch-viewers-support-assaulted-
+2026-09-14 21:26:31,293 INFO screenshot failed (Page.goto: Timeout 15000ms exceeded.
+Call log:
+  - navigating to "https://tigerj): https://tigerjek.com/agent-00-offers-to-help-viral-1-viewer-twitch-streamer-after-incident
+2026-09-14 21:26:46,326 INFO screenshot failed (Page.goto: Timeout 15000ms exceeded.
+Call log:
+  - navigating to "https://tigerj): https://tigerjek.com/agent-00-offers-to-help-viral-1-viewer-twitch-streamer-after-incident
+2026-09-14 21:26:46,406 INFO event receipts: 4 clean screenshot(s), 2 og report photo(s); the rest fall back to subject photos
+2026-09-14 21:26:46,406 INFO STAGE: tts
+2026-09-14 21:26:47,873 INFO expressive TTS: segment 1/3 rate=+18% pitch=+2Hz 4.20s 12 cue(s)
+2026-09-14 21:26:48,864 INFO expressive TTS: segment 2/3 rate=+5% pitch=- 47.71s 126 cue(s)
+2026-09-14 21:26:50,615 INFO expressive TTS: segment 3/3 rate=+1% pitch=- 3.55s 7 cue(s)
+2026-09-14 21:26:51,022 INFO expressive TTS ok: 3 segment(s), 55.51s audio, 145 word timings
+2026-09-14 21:26:51,022 INFO STAGE: compose
+2026-09-14 21:26:51,022 INFO bgm: SIGNATURE bed bgm_2.mp3 (same on every video, by design)
+2026-09-14 21:26:51,031 INFO EDL: 20 shot(s) from 20 directed (words=145)
+2026-09-14 21:26:51,031 INFO footage: cookies active
+2026-09-14 21:26:51,031 INFO CLIP staged by the server: dd90da168c373138c6ec867020e27a54d935f5b6.mp4 (https://www.tiktok.com/@meesterkeem/video/748919465819981750)
+2026-09-14 21:26:56,545 INFO FOOTAGE GATE: off-topic clip rejected (dd90da168c373138c6ec867020e27a54d935f5b6.mp4)
+2026-09-14 21:26:56,545 INFO HOOK: candidate unavailable (off-topic); trying next
+2026-09-14 21:26:56,545 INFO CLIP staged by the server: bc27db5201a116c081faf45245c861f643402b90.mp4 (https://www.tiktok.com/@flex.twitch/video/747631121056085120)
+2026-09-14 21:27:36,868 INFO vision footage-relevance: gemini-flash-latest failed (HTTPSConnectionPool(host='generativelanguage.googleapis.com', port=443): Read timed out. (read timeout=40))
+2026-09-14 21:28:16,934 INFO vision footage-relevance: gemma-4-31b-it failed (HTTPSConnectionPool(host='generativelanguage.googleapis.com', port=443): Read timed out. (read timeout=40))
+2026-09-14 21:28:17,744 INFO vision rotation: footage-relevance served by gemini-3.5-flash-lite
+2026-09-14 21:28:17,744 INFO FOOTAGE GATE: off-topic clip rejected (bc27db5201a116c081faf45245c861f643402b90.mp4)
+2026-09-14 21:28:17,744 INFO HOOK: candidate unavailable (off-topic); trying next
+2026-09-14 21:28:17,744 INFO CLIP staged by the server: 7421ec03e9ec18f7e31d0e9d8d85e687c33f682d.mp4 (https://www.tiktok.com/@nizzyhypetalks/video/743616897792093)
+2026-09-14 21:28:21,774 INFO vision footage-relevance: gemini-flash-latest HTTP 503
+2026-09-14 21:28:47,809 INFO vision footage-relevance: gemma-4-31b-it HTTP 500
+2026-09-14 21:28:48,892 INFO vision rotation: footage-relevance served by gemini-3.5-flash-lite
+2026-09-14 21:28:48,893 INFO FOOTAGE GATE: off-topic clip rejected (7421ec03e9ec18f7e31d0e9d8d85e687c33f682d.mp4)
+2026-09-14 21:28:48,893 INFO HOOK: candidate unavailable (off-topic); trying next
+2026-09-14 21:28:48,893 INFO HOOK: no fetchable clip; normal opener
+2026-09-14 21:28:48,893 INFO CLIP staged by the server: 295f7423104937e5464a26e34b7e4f795b3daf3c.mp4 (https://www.tiktok.com/@agentscoffee/video/76371643556031726)
+2026-09-14 21:29:02,310 INFO vision footage-relevance: gemini-flash-latest HTTP 503
+2026-09-14 21:29:32,901 INFO vision rotation: footage-relevance served by gemma-4-31b-it
+2026-09-14 21:29:34,271 INFO face detected in clipfr-0.jpg: 357x530 at (162,336)
+2026-09-14 21:29:34,388 INFO face detected in clipfr-2.jpg: 368x493 at (28,366)
+2026-09-14 21:29:34,477 INFO face detected in clipfr-3.jpg: 273x415 at (446,365)
+2026-09-14 21:29:34,561 INFO face detected in clipfr-4.jpg: 328x420 at (549,418)
+2026-09-14 21:29:34,646 INFO face detected in clipfr-5.jpg: 164x248 at (441,364)
+2026-09-14 21:29:34,732 INFO face detected in clipfr-6.jpg: 399x507 at (404,378)
+2026-09-14 21:29:34,732 INFO clip frame skipped: a face is cut by the frame's own edge (clipfr-6.jpg)
+2026-09-14 21:29:34,751 INFO face detected in clipfr-7.jpg: 117x149 at (617,348)
+2026-09-14 21:29:35,033 INFO face detected in clipfr-8.jpg: 82x82 at (523,432)
+2026-09-14 21:29:35,121 INFO face detected in clipfr-9.jpg: 171x270 at (395,141)
+2026-09-14 21:29:35,292 INFO CLIP FRAMES: +9 stills harvested from the story clip (pool 5 -> 14)
+2026-09-14 21:29:35,318 INFO CLIP FIT: no clip's title matches scene 1's words ("It's not just a regular raid,"); the planned still stands
+2026-09-14 21:29:35,318 INFO visual_i 1 -> real story image (vis-740-1)
+2026-09-14 21:29:35,318 INFO pinned image would repeat within 3 scenes; LRU pool pick instead
+2026-09-14 21:29:35,319 INFO CLIP FIT: no clip's title matches scene 2's words ("it's the Nitro Camden drama explained."); the planned still stands
+2026-09-14 21:29:35,343 INFO CLIP FIT: no clip's title matches scene 4's words ("to Nitro Camden's small channel,"); the planned still stands
+2026-09-14 21:29:35,344 INFO CLIP FIT: no clip's title matches scene 5's words ('but that celebration was cut short when'); the planned still stands
+2026-09-14 21:29:35,364 INFO CLIP FIT: no clip's title matches scene 7's words ('and a physical altercation happened.'); the planned still stands
+2026-09-14 21:29:35,389 INFO CLIP FIT: no clip's title matches scene 9's words ('bank funds, then police were called to the'); the planned still stands
+2026-09-14 21:29:35,389 INFO visual_i 4 -> real story image (visidx-740-4)
+2026-09-14 21:29:35,401 INFO CLIP FIT: no clip's title matches scene 10's words ('house. It gets worse.'); the planned still stands
+2026-09-14 21:29:35,428 INFO IMAGE CAP: receipt 8 shows a picture already in 2 shot(s); subject photo instead
+2026-09-14 21:29:35,428 INFO receipt 8 missing/unresolved; subject photo fallback
+2026-09-14 21:29:35,428 INFO CLIP FIT: no clip's title matches scene 12's words ('to subscribe to him, so he also showed'); the planned still stands
+2026-09-14 21:29:35,428 INFO CLIP FIT: no clip's title matches scene 15's words ('fifty-fifty brand deal split, but other creators'); the planned still stands
+2026-09-14 21:29:35,429 INFO person 'Agent 00': all 1 photo(s) inside the no-repeat window; LRU pool pick instead
+2026-09-14 21:29:35,429 INFO CLIP FIT: no clip's title matches scene 16's words ('Cinna gave him money to relocate and replace'); the planned still stands
+2026-09-14 21:29:35,429 INFO IMAGE CAP: every real image fills 2 shot(s); a repeat is the last resort
+2026-09-14 21:29:35,429 INFO CLIP FIT: no clip's title matches scene 17's words ('his stolen phone. Right now, Nitro has reportedl'); the planned still stands
+2026-09-14 21:29:35,429 INFO IMAGE CAP: every real image fills 2 shot(s); a repeat is the last resort
+2026-09-14 21:29:35,429 INFO CLIP FIT: no clip's title matches scene 18's words ('moved out and is building his career with'); the planned still stands
+2026-09-14 21:29:35,429 INFO IMAGE CAP: every real image fills 2 shot(s); a repeat is the last resort
+2026-09-14 21:29:35,429 INFO CLIP FIT: no clip's title matches scene 19's words ('major creator backing. So whose side are you'); the planned still stands
+2026-09-14 21:29:35,444 INFO SPEND THE POOL: 5 repeat(s) swapped for unused images (11 distinct stills now on screen)
+2026-09-14 21:29:35,444 INFO RENDER REPORT: {"style": "slowburn", "ck_mode": true, "cookie_bytes": 3003, "story_vids": 0, "scenes": 20, "runtime_s": 56.0, "footage_scenes": 0, "gap_fill_scenes": 0, "opportunistic_footage": 0, "still_photo_scenes": 13, "card_scenes": 9, "frozen_stills": 0, "footage_fetches": 0, "seq": "ssccscscsscscccssssc"}
+2026-09-14 21:29:35,444 INFO CLIP verify disabled (VIDEO_CLIP_VERIFY=0)
+2026-09-14 21:29:35,444 INFO scene plan (v4 EDL): 20 scene(s) (7 receipt, 0 b-roll), pool=14
+2026-09-14 21:29:35,444 INFO   scene 1: 0.00-1.54s type=photo motion=punch_build sfx=none music=bed visual=vis-740-1
+2026-09-14 21:29:35,444 INFO   scene 2: 1.54-4.00s type=photo motion=punch_hit sfx=whoosh music=bed visual=vis-740-0
+2026-09-14 21:29:35,444 INFO   scene 3: 4.00-8.97s type=receipt motion=contain sfx=pop music=bed visual=shot-740-0.png
+2026-09-14 21:29:35,444 INFO   scene 4: 8.97-11.10s type=photo motion=contain sfx=none music=bed visual=vis-740-2
+2026-09-14 21:29:35,444 INFO   scene 5: 11.10-12.86s type=photo motion=pan_left sfx=none music=bed visual=vis-740-3
+2026-09-14 21:29:35,444 INFO   scene 6: 12.86-15.78s type=receipt motion=contain sfx=pop music=bed visual=shot-740-1.png
+2026-09-14 21:29:35,444 INFO   scene 7: 15.78-18.19s type=photo motion=zoom_out sfx=none music=bed visual=clipfr-0.jpg
+2026-09-14 21:29:35,444 INFO   scene 8: 18.19-20.46s type=receipt motion=contain sfx=pop music=bed visual=shot-740-2.png
+2026-09-14 21:29:35,444 INFO   scene 9: 20.46-22.67s type=photo motion=pan_right sfx=none music=bed visual=clipfr-2.jpg
+2026-09-14 21:29:35,444 INFO   scene 10: 22.67-24.82s type=photo motion=punch_build sfx=riser music=silence visual=visidx-740-4
+2026-09-14 21:29:35,444 INFO   scene 11: 24.82-28.27s type=receipt motion=contain sfx=impact music=duck visual=shot-740-6.png
+2026-09-14 21:29:35,444 INFO   scene 12: 28.27-30.92s type=photo motion=pan_left sfx=none music=bed visual=clipfr-3.jpg
+2026-09-14 21:29:35,444 INFO   scene 13: 30.92-34.23s type=receipt motion=contain sfx=none music=bed visual=shot-740-0.png
+2026-09-14 21:29:35,444 INFO   scene 14: 34.23-37.22s type=receipt motion=contain sfx=none music=bed visual=shot-740-1.png
+2026-09-14 21:29:35,444 INFO   scene 15: 37.22-40.26s type=photo motion=contain sfx=none music=bed visual=vis-740-2
+2026-09-14 21:29:35,444 INFO   scene 16: 40.26-42.66s type=photo motion=pan_right sfx=none music=bed visual=clipfr-4.jpg
+2026-09-14 21:29:35,444 INFO   scene 17: 42.66-46.08s type=photo motion=punch_hit sfx=none music=bed visual=clipfr-5.jpg
+2026-09-14 21:29:35,444 INFO   scene 18: 46.08-48.29s type=photo motion=punch_build sfx=none music=bed visual=clipfr-7.jpg
+2026-09-14 21:29:35,444 INFO   scene 19: 48.29-50.96s type=photo motion=zoom_out sfx=none music=bed visual=clipfr-8.jpg
+2026-09-14 21:29:35,444 INFO   scene 20: 50.96-55.96s type=receipt motion=contain sfx=none music=bed visual=receipt-740-10.png
+2026-09-14 21:29:35,445 INFO VARIETY: 17 distinct stills, top visual carries 2/20 (10%)
+2026-09-14 21:29:35,445 INFO SELFCHECK: repeats=0 short_scenes=none caption_cov=99% (window=3, assets=27)
+[0;93m2026-09-14 21:29:37.238886562 [W:onnxruntime:Default, device_discovery.cc:146 GetPciBusId] Skipping pci_bus_id for PCI path at "/sys/devices/LNXSYSTM:00/LNXSYBUS:00/ACPI0004:00/MSFT1000:00/5620e0c7-8062-4dce-aeb7-520c7ef76171" because filename "5620e0c7-8062-4dce-aeb7-520c7ef76171" did not match expected pattern of [0-9a-f]+:[0-9a-f]+:[0-9a-f]+[.][0-9a-f]+[m
+2026-09-14 21:29:37,462 INFO depth: session ready
+2026-09-14 21:29:38,099 INFO depth: clipfr-0.jpg in 0.64s
+2026-09-14 21:29:38,166 INFO DEPTH SCENE clipfr-0.jpg motion=zoom_out dur=2.4s
+2026-09-14 21:29:38,627 INFO face detected in visidx-740-4: 332x472 at (1049,200)
+2026-09-14 21:29:39,402 INFO depth: visidx-740-4 in 0.63s
+2026-09-14 21:29:39,439 INFO DEPTH SCENE visidx-740-4 motion=punch_build dur=2.1s
+2026-09-14 21:29:41,805 INFO depth: clipfr-5.jpg in 0.65s
+2026-09-14 21:29:41,856 INFO DEPTH SCENE clipfr-5.jpg motion=punch_hit dur=3.4s
+2026-09-14 21:29:42,598 INFO depth: clipfr-7.jpg in 0.62s
+2026-09-14 21:29:42,636 INFO DEPTH SCENE clipfr-7.jpg motion=punch_build dur=2.2s
+2026-09-14 21:29:43,407 INFO depth: clipfr-8.jpg in 0.66s
+2026-09-14 21:29:43,450 INFO DEPTH SCENE clipfr-8.jpg motion=zoom_out dur=2.7s
+2026-09-14 21:29:44,009 INFO transition 1/3: whip at 1.54s (beat change)
+2026-09-14 21:29:49,770 INFO TEXT AVOID: burned-in text on 11 of 20 scene(s) (5.7s)
+2026-09-14 21:29:52,789 INFO CAPTION PLACEMENT: 43 caption event(s) by position: {"card": 24, "home": 10, "home-least-covered": 5, "top": 4}
+2026-09-14 21:29:53,682 INFO bgm: SIGNATURE bed bgm_2.mp3 (same on every video, by design)
+2026-09-14 21:29:54,072 INFO sound: SWELL +5dB over 2.1s into the reveal at 24.8s, decaying 1.8s
+2026-09-14 21:29:54,106 INFO sound: bed bgm_2.mp3 over 3 interval(s), 1 swell(s)
+2026-09-14 21:29:54,740 INFO sound: 6 SFX placed
+2026-09-14 21:29:54,802 INFO sound: final -17.5 dBFS avg / -1.5 dBFS peak
+2026-09-14 21:35:57,116 INFO STAGE: judge
+2026-09-14 21:36:05,899 INFO vision rotation: JUDGE served by gemini-3.5-flash-lite
+2026-09-14 21:36:05,900 INFO vision judge: pass=False weird=[{'frame': 4, 'issue': 'c. REPETITION: article screenshot background appears 3 or more times (frames 3, 5, 8, 10, 12)'}, {'frame': 5, 'issue': 'c. REPETITION: article screenshot background appears 3 or more times'}, {'frame': 8, 'issue': 'c. REPETITION: article screenshot background appears 3 or more times'}, {'frame': 10, 'issue': 'c. REPETITION: article screenshot background appears 3 or more times'}, {'frame': 12, 'issue': 'c. REPETITION: article screenshot background appears 3 or more times'}] mismatches=[] artifact_misses=[] scores={'readability': 8, 'framing': 9, 'variety': 4, 'edit_variety': 4, 'completeness': 5} issues=['Repetitive article screenshots used across multiple frames violating the repetition rule.']
+2026-09-14 21:36:19,448 INFO caption font: /usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf
+2026-09-14 21:36:19,757 INFO filmstrip built: build/reject-740.jpg
+2026-09-14 21:37:34,819 INFO DIAG reject-sheet failed: HTTPSConnectionPool(host='genzhype.com', port=443): Max retries exceeded with url: /api/vi
+2026-09-14 21:38:49,861 INFO DIAG shot-740-0 failed: HTTPSConnectionPool(host='genzhype.com', port=443): Max retries exceeded with url: /api/vi
+2026-09-14 21:40:04,919 INFO DIAG shot-740-1 failed: HTTPSConnectionPool(host='genzhype.com', port=443): Max retries exceeded with url: /api/vi
+2026-09-14 21:41:19,956 INFO DIAG shot-740-2 failed: HTTPSConnectionPool(host='genzhype.com', port=443): Max retries exceeded with url: /api/vi
+2026-09-14 21:42:34,997 INFO DIAG shot-740-6 failed: HTTPSConnectionPool(host='genzhype.com', port=443): Max retries exceeded with url: /api/vi
+2026-09-14 21:42:59,013 ERROR failed to make video for 740: vision judge rejected page 740 (attempt 1/1): weird=[{'frame': 4, 'issue': 'c. REPETITION: article screenshot background appears 3 or more times (frames 3, 5, 8, 10, 12)'}, {'frame': 5, 'issue': 'c. REPETITION: article screenshot background appears 3 or more times'}, {'frame': 8, 'issue': 'c. REPETITION: article screenshot background appears 3 or more times'}] mism=[] issues=['Repetitive article screenshots used across multiple frames violating the repetition rule.']
+Traceback (most recent call last):
+  File "/home/runner/work/genzhype-scraper/genzhype-scraper/video_maker.py", line 10706, in main
+    make_one(post, font_path)
+  File "/home/runner/work/genzhype-scraper/genzhype-scraper/video_maker.py", line 10661, in make_one
+    raise JudgeRejected(
+JudgeRejected: vision judge rejected page 740 (attempt 1/1): weird=[{'frame': 4, 'issue': 'c. REPETITION: article screenshot background appears 3 or more times (frames 3, 5, 8, 10, 12)'}, {'frame': 5, 'issue': 'c. REPETITION: article screenshot background appears 3 or more times'}, {'frame': 8, 'issue': 'c. REPETITION: article screenshot background appears 3 or more times'}] mism=[] issues=['Repetitive article screenshots used across multiple frames violating the repetition rule.']
+2026-09-14 21:43:23,036 INFO job feed from repo branch (generated 2026-09-14T21:22:37+00:00)
+2026-09-14 21:43:23,036 INFO job from static feed (generated 2026-09-14T21:22:37+00:00)
+2026-09-14 21:43:23,036 INFO processing page_id=823 slug=santy-sharma-s-youtube-channel-deleted-amid-cjp-controversy
+2026-09-14 21:43:23,036 INFO STYLE rapid: lead=receipts cuts~1.0s xfade=0.00 zoom=0.20 punch=1.22 bgm_2 evidence_cap=3 footage_consec=2
+2026-09-14 21:43:23,036 INFO voice: en-US-BrianMultilingualNeural
+2026-09-14 21:43:23,036 INFO STAGE: visuals
+2026-09-14 21:43:23,036 INFO story clips available: 6 (kick)
+2026-09-14 21:43:23,706 INFO person photo resolved via wikidata: Santy Sharma
+2026-09-14 21:43:24,540 INFO UPSIZED: https://commons.wikimedia.org/wiki/Special:FilePath/Santy_Sharma_in_2021.jpg?width=1600
+2026-09-14 21:43:24,608 INFO face detected in vis-823-0: 427x547 at (628,306)
+2026-09-14 21:43:25,003 INFO UPSIZED: https://cf-images.assettype.com/outlookindia/2026-07-20/f17iby7j/shata-sharama18c0ab9f6aaacce7521d4a0b33df4920
+2026-09-14 21:43:25,027 INFO CONTAIN MODE: 1600x900 needs 2.1x upscale to cover; rendering whole on a blurred fill instead
+2026-09-14 21:43:25,044 INFO face detected in vis-823-1: 222x293 at (643,159)
+2026-09-14 21:43:26,504 INFO vision rotation: still-relevance served by gemini-3.5-flash-lite
+2026-09-14 21:43:26,528 INFO CONTAIN MODE: 1280x720 needs 2.7x upscale to cover; rendering whole on a blurred fill instead
+2026-09-14 21:43:26,538 INFO face detected in vis-823-2: 178x240 at (515,118)
+2026-09-14 21:43:28,058 INFO vision rotation: still-relevance served by gemini-3.5-flash-lite
+2026-09-14 21:43:28,065 INFO POOL DEDUP: https://static.toiimg.com/thumb/msid-132518093,width-1280,height-720,resizemode- is the same image as https://cf-images.assettype.com/outlookindia/2026-07-20/f17i; skipped
+2026-09-14 21:43:28,074 INFO CONTAIN MODE: 1280x720 needs 2.7x upscale to cover; rendering whole on a blurred fill instead
+2026-09-14 21:43:28,083 INFO face detected in vis-823-3: 201x268 at (346,77)
+2026-09-14 21:43:30,833 INFO vision rotation: still-relevance served by gemini-3.5-flash-lite
+2026-09-14 21:43:30,848 INFO CONTAIN MODE: 1280x720 needs 2.7x upscale to cover; rendering whole on a blurred fill instead
+2026-09-14 21:43:30,857 INFO face detected in vis-823-4: 244x305 at (534,105)
+2026-09-14 21:43:32,750 INFO vision rotation: still-relevance served by gemini-3.5-flash-lite
+2026-09-14 21:43:32,767 INFO trimmed letterbox (1200, 630) -> (1135, 586): https://genzhype.com/assets/covers/santy-sharma-s-youtube-channel-deleted-amid-cjp-controversy.png
+2026-09-14 21:43:32,768 INFO text-heavy visual (heuristic) -> contain mode (no crop/zoom): https://genzhype.com/assets/covers/santy-sharma-s-youtube-channel-deleted-amid-cjp-controversy.png
+2026-09-14 21:43:33,431 INFO visual pool: 5 distinct of 6 candidates (1 from people, 1 name(s) mapped: {'santy sharma': 1})
+2026-09-14 21:43:33,432 INFO visual_i 0 ready (cover photo of the story)
+2026-09-14 21:43:33,432 INFO visual_i 4 ready (the actual moment (Jul 23 report photo): Santy Sharma Announces Press Conference)
+2026-09-14 21:43:33,432 INFO STAGE: receipts
+2026-09-14 21:43:33,448 INFO receipts: 1 card(s) downloaded of 14 entries (event entries carry no card by design)
+2026-09-14 21:43:33,449 INFO STAGE: screenshots
+2026-09-14 21:43:33,793 INFO Readability injected from vendor/Readability.js
+2026-09-14 21:43:39,361 INFO Readability column 10..750 (13 nodes) on https://www.outlookindia.com/art-entertainment/rapper-s
+2026-09-14 21:43:39,368 INFO crop r30c: 760x950 at 0,255 (col 740, lead-img True) https://www.outlookindia.com/art-entertainment/rapper-santy-
+2026-09-14 21:43:41,512 INFO vision rotation: screenshot-clean served by gemini-3.5-flash-lite
+2026-09-14 21:43:41,514 INFO REAL source screenshot: https://www.outlookindia.com/art-entertainment/rapper-santy-sharmas-youtube-channel-removed-over-cjp
+2026-09-14 21:43:47,670 INFO Readability column 0..430 (2 nodes) on https://timesofindia.indiatimes.com/tv/news/hindi/rappe
+2026-09-14 21:43:47,679 INFO crop r30c: 454x568 at 0,484 (col 430, lead-img False) https://timesofindia.indiatimes.com/tv/news/hindi/rapper-san
+2026-09-14 21:43:49,574 INFO vision rotation: screenshot-clean served by gemini-3.5-flash-lite
+2026-09-14 21:43:49,575 INFO REAL source screenshot: https://timesofindia.indiatimes.com/tv/news/hindi/rapper-santy-sharmas-youtube-channel-suspended-cjp
+2026-09-14 21:43:58,603 INFO Readability column 15..745 (10 nodes) on https://www.moneycontrol.com/entertainment/rapper-santy
+2026-09-14 21:43:58,615 INFO crop r30c: 760x726 at 0,425 (col 730, lead-img True) https://www.moneycontrol.com/entertainment/rapper-santy-shar
+2026-09-14 21:44:01,746 INFO vision rotation: screenshot-clean served by gemini-3.5-flash-lite
+2026-09-14 21:44:01,747 INFO REAL source screenshot: https://www.moneycontrol.com/entertainment/rapper-santy-sharma-youtube-permanently-deleted-links-act
+2026-09-14 21:44:12,001 INFO Readability column 122..638 (5 nodes) on https://www.mid-day.com/entertainment/bollywood-news/ar
+2026-09-14 21:44:12,019 INFO crop r30c: 662x828 at 98,239 (col 1043, lead-img True) https://www.mid-day.com/entertainment/bollywood-news/article
+2026-09-14 21:44:15,300 INFO vision rotation: screenshot-clean served by gemini-3.5-flash-lite
+2026-09-14 21:44:15,301 INFO REAL source screenshot: https://www.mid-day.com/entertainment/bollywood-news/article/santy-sharma-claims-youtube-deleted-his
+2026-09-14 21:44:22,179 INFO Readability column 16..640 (27 nodes) on https://www.livemint.com/news/india/why-was-santy-sharm
+2026-09-14 21:44:22,186 INFO crop r30c: 680x672 at 0,145 (col 624, lead-img True) https://www.livemint.com/news/india/why-was-santy-sharmas-yo
+2026-09-14 21:44:45,267 INFO vision rotation: screenshot-clean served by gemini-3.5-flash-lite
+2026-09-14 21:44:45,268 INFO REAL source screenshot: https://www.livemint.com/news/india/why-was-santy-sharmas-youtube-channel-permanently-deleted-ratlam
+2026-09-14 21:44:45,268 INFO screenshot budget spent; 2 article(s) fall back to og photos/subject
+2026-09-14 21:44:45,425 INFO UPSIZED: https://cf-images.assettype.com/outlookindia/2026-07-20/f17iby7j/shata-sharama18c0ab9f6aaacce7521d4a0b33df4920
+2026-09-14 21:44:45,525 INFO UPSIZED: https://cf-images.assettype.com/outlookindia/2026-07-20/f17iby7j/shata-sharama18c0ab9f6aaacce7521d4a0b33df4920
+2026-09-14 21:44:45,536 INFO event receipts: 5 clean screenshot(s), 2 og report photo(s); the rest fall back to subject photos
+2026-09-14 21:44:45,536 INFO STAGE: tts
+2026-09-14 21:44:46,324 INFO expressive TTS: segment 1/3 rate=+18% pitch=+2Hz 3.55s 10 cue(s)
+2026-09-14 21:44:47,390 INFO expressive TTS: segment 2/3 rate=+5% pitch=- 29.54s 80 cue(s)
+2026-09-14 21:44:48,006 INFO expressive TTS: segment 3/3 rate=+1% pitch=- 3.34s 7 cue(s)
+2026-09-14 21:44:48,265 INFO expressive TTS ok: 3 segment(s), 36.48s audio, 97 word timings
+2026-09-14 21:44:48,266 INFO STAGE: compose
+2026-09-14 21:44:48,266 INFO bgm: SIGNATURE bed bgm_2.mp3 (same on every video, by design)
+2026-09-14 21:44:48,266 INFO EDL: 12 shot(s) from 12 directed (words=97)
+2026-09-14 21:44:48,266 INFO CLIP staged by the server: 351ecdae6c77da70034db4f304bca59737247c1c.mp4 (https://kick.com/oceansharma/clips/clip_01KVDN827C2J0XFZXTT1)
+2026-09-14 21:44:51,202 INFO vision footage-relevance: gemma-4-31b-it HTTP 500
+2026-09-14 21:44:53,502 INFO vision rotation: footage-relevance served by gemini-3.5-flash-lite
+2026-09-14 21:44:57,786 INFO clip frame skipped: a face is cut by the frame's own edge (clipfr-0.jpg)
+2026-09-14 21:44:57,798 INFO face detected in clipfr-1.jpg: 47x63 at (114,247)
+2026-09-14 21:44:57,863 INFO clip frame skipped: a face is cut by the frame's own edge (clipfr-2.jpg)
+2026-09-14 21:44:57,866 INFO clip frame skipped: a face is cut by the frame's own edge (clipfr-3.jpg)
+2026-09-14 21:44:57,870 INFO clip frame skipped: a face is cut by the frame's own edge (clipfr-4.jpg)
+2026-09-14 21:44:57,874 INFO clip frame skipped: a face is cut by the frame's own edge (clipfr-5.jpg)
+2026-09-14 21:44:57,878 INFO clip frame skipped: a face is cut by the frame's own edge (clipfr-6.jpg)
+2026-09-14 21:44:58,152 INFO face detected in clipfr-11.jpg: 53x68 at (111,253)
+2026-09-14 21:44:58,214 INFO CLIP FRAMES: +6 stills harvested from the money-moment clip (pool 5 -> 11)
+2026-09-14 21:44:58,214 INFO HOOK = OPENING CLIP: 351ecdae6c77da70034db4f304bca59737247c1c.mp4 (t=0s)
+2026-09-14 21:44:58,244 INFO person shot -> Santy Sharma's photo 1/1 (vis-823-0)
+2026-09-14 21:44:58,244 INFO CLIP FIT: no clip's title matches scene 2's words ('permanent ban. Quick context: the Santy Sharma d'); the planned still stands
+2026-09-14 21:44:58,310 INFO person shot -> Santy Sharma's photo 1/1 (vis-823-0)
+2026-09-14 21:44:58,310 INFO CLIP FIT: no clip's title matches scene 6's words ('hate messages, but that was just the start.'); the planned still stands
+2026-09-14 21:44:58,334 INFO visual_i 4 -> real story image (vis-823-4)
+2026-09-14 21:44:58,339 INFO CLIP FIT: no clip's title matches scene 8's words ("was permanently deleted. But one date doesn't ad"); the planned still stands
+2026-09-14 21:44:58,359 INFO person 'Santy Sharma': all 1 photo(s) inside the no-repeat window; LRU pool pick instead
+2026-09-14 21:44:58,377 INFO CLIP FIT: no clip's title matches scene 10's words ('press conference on August 1st to reveal the'); the planned still stands
+2026-09-14 21:44:58,378 INFO visual_i 0 -> real story image (vis-823-5)
+2026-09-14 21:44:58,381 INFO CLIP FIT: no clip's title matches scene 11's words ('truth. So is this targeted censorship or a'); the planned still stands
+2026-09-14 21:44:58,400 INFO SPEND THE POOL: 2 repeat(s) swapped for unused images (4 distinct stills now on screen)
+2026-09-14 21:44:58,401 INFO PACING: 12 scenes -> 17 beats (target 1.0s/image, avg 2.17s)
+2026-09-14 21:44:58,401 INFO RENDER REPORT: {"style": "rapid", "ck_mode": true, "cookie_bytes": 3003, "story_vids": 0, "scenes": 17, "runtime_s": 36.9, "footage_scenes": 1, "gap_fill_scenes": 0, "opportunistic_footage": 1, "still_photo_scenes": 10, "card_scenes": 7, "frozen_stills": 0, "footage_fetches": 0, "seq": "fssscccsscsscsscc"}
+2026-09-14 21:44:58,401 INFO CLIP verify disabled (VIDEO_CLIP_VERIFY=0)
+2026-09-14 21:44:58,401 INFO scene plan (v4 EDL): 17 scene(s) (6 receipt, 1 b-roll), pool=11
+2026-09-14 21:44:58,401 INFO   scene 1: 0.00-2.21s type=broll(FOOTAGE) motion=punch_build sfx=whoosh music=bed visual=351ecdae6c77da70034db4f304bca59737247c1c.mp4
+2026-09-14 21:44:58,401 INFO   scene 2: 2.21-3.51s type=photo motion=zoom_out sfx=none music=bed visual=vis-823-0
+2026-09-14 21:44:58,401 INFO   scene 3: 3.51-4.81s type=photo motion=zoom_out sfx=None music=bed visual=vis-823-3
+2026-09-14 21:44:58,401 INFO   scene 4: 4.81-6.11s type=photo motion=zoom_in sfx=None music=bed visual=clipfr-1.jpg
+2026-09-14 21:44:58,401 INFO   scene 5: 6.11-9.53s type=receipt motion=contain sfx=pop music=bed visual=shot-823-0.png
+2026-09-14 21:44:58,401 INFO   scene 6: 9.53-12.34s type=receipt motion=contain sfx=pop music=bed visual=shot-823-1.png
+2026-09-14 21:44:58,401 INFO   scene 7: 12.34-15.25s type=receipt motion=contain sfx=none music=bed visual=shot-823-6.png
+2026-09-14 21:44:58,401 INFO   scene 8: 15.25-16.73s type=photo motion=punch_build sfx=riser music=silence visual=vis-823-1
+2026-09-14 21:44:58,401 INFO   scene 9: 16.73-18.22s type=photo motion=zoom_out sfx=None music=silence visual=clipfr-7.jpg
+2026-09-14 21:44:58,401 INFO   scene 10: 18.22-21.13s type=receipt motion=contain sfx=impact music=duck visual=shot-823-9.png
+2026-09-14 21:44:58,401 INFO   scene 11: 21.13-22.61s type=photo motion=zoom_out sfx=none music=bed visual=vis-823-4
+2026-09-14 21:44:58,401 INFO   scene 12: 22.61-24.09s type=photo motion=zoom_out sfx=None music=bed visual=vis-823-0
+2026-09-14 21:44:58,401 INFO   scene 13: 24.09-26.55s type=receipt motion=contain sfx=none music=bed visual=shot-823-10.png
+2026-09-14 21:44:58,401 INFO   scene 14: 26.55-27.73s type=photo motion=pan_right sfx=none music=bed visual=vis-823-3
+2026-09-14 21:44:58,401 INFO   scene 15: 27.73-28.92s type=photo motion=zoom_out sfx=None music=bed visual=vis-823-4
+2026-09-14 21:44:58,401 INFO   scene 16: 28.92-31.80s type=photo motion=contain sfx=none music=bed visual=vis-823-5
+2026-09-14 21:44:58,401 INFO   scene 17: 31.80-36.93s type=receipt motion=contain sfx=none music=bed visual=receipt-823-13.png
+2026-09-14 21:44:58,401 INFO VARIETY: 13 distinct stills, top visual carries 2/16 (12%)
+2026-09-14 21:44:58,401 INFO SELFCHECK: repeats=0 short_scenes=none caption_cov=99% (window=3, assets=20)
+2026-09-14 21:45:00,533 INFO depth: vis-823-0 in 0.63s
+2026-09-14 21:45:00,565 INFO DEPTH SCENE vis-823-0 motion=zoom_out dur=1.3s
+2026-09-14 21:45:01,591 INFO depth: clipfr-1.jpg in 0.63s
+2026-09-14 21:45:01,624 INFO DEPTH SCENE clipfr-1.jpg motion=zoom_in dur=1.3s
+2026-09-14 21:45:03,137 INFO depth: vis-823-1 in 0.62s
+2026-09-14 21:45:03,167 INFO DEPTH SCENE vis-823-1 motion=punch_build dur=1.5s
+2026-09-14 21:45:03,325 INFO DEPTH SCENE clipfr-7.jpg motion=zoom_out dur=1.5s
+2026-09-14 21:45:04,032 INFO DEPTH SCENE vis-823-0 motion=zoom_out dur=1.5s
+2026-09-14 21:45:10,831 INFO TEXT AVOID: burned-in text on 7 of 17 scene(s) (5.4s)
+2026-09-14 21:45:12,244 INFO CAPTION PLACEMENT: 28 caption event(s) by position: {"card": 19, "home": 2, "top": 7}
+2026-09-14 21:45:13,498 INFO bgm: SIGNATURE bed bgm_2.mp3 (same on every video, by design)
+2026-09-14 21:45:13,869 INFO sound: bed bgm_2.mp3 over 3 interval(s), 0 swell(s)
+2026-09-14 21:45:14,392 INFO sound: 5 SFX placed
+2026-09-14 21:45:14,433 INFO sound: final -17.5 dBFS avg / -1.5 dBFS peak
+2026-09-14 21:49:22,734 INFO STAGE: judge
+2026-09-14 21:50:26,955 INFO vision rotation: JUDGE served by gemini-3.5-flash-lite
+2026-09-14 21:50:26,956 INFO vision judge: pass=False weird=[{'frame': 6, 'issue': 'e. CONTEXT MISMATCH: random stone wall/corridor footage unrelated to internet drama'}] mismatches=[] artifact_misses=[] scores={'readability': 8, 'framing': 8, 'variety': 7, 'edit_variety': 7, 'completeness': 8} issues=['Frame 6 shows random physical hallway footage unrelated to internet drama context.']
+2026-09-14 21:50:35,665 INFO caption font: /usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf
+2026-09-14 21:50:35,869 INFO filmstrip built: build/reject-823.jpg
+2026-09-14 21:51:50,902 INFO DIAG reject-sheet failed: HTTPSConnectionPool(host='genzhype.com', port=443): Max retries exceeded with url: /api/vi
+2026-09-14 21:53:05,962 INFO DIAG shot-823-0 failed: HTTPSConnectionPool(host='genzhype.com', port=443): Max retries exceeded with url: /api/vi
+2026-09-14 21:54:21,020 INFO DIAG shot-823-1 failed: HTTPSConnectionPool(host='genzhype.com', port=443): Max retries exceeded with url: /api/vi
+2026-09-14 21:55:36,075 INFO DIAG shot-823-10 failed: HTTPSConnectionPool(host='genzhype.com', port=443): Max retries exceeded with url: /api/vi
+2026-09-14 21:56:51,122 INFO DIAG shot-823-6 failed: HTTPSConnectionPool(host='genzhype.com', port=443): Max retries exceeded with url: /api/vi
+2026-09-14 21:58:06,151 INFO DIAG shot-823-9 failed: HTTPSConnectionPool(host='genzhype.com', port=443): Max retries exceeded with url: /api/vi
+2026-09-14 21:58:30,171 ERROR failed to make video for 823: vision judge rejected page 823 (attempt 1/1): weird=[{'frame': 6, 'issue': 'e. CONTEXT MISMATCH: random stone wall/corridor footage unrelated to internet drama'}] mism=[] issues=['Frame 6 shows random physical hallway footage unrelated to internet drama context.']
+Traceback (most recent call last):
+  File "/home/runner/work/genzhype-scraper/genzhype-scraper/video_maker.py", line 10706, in main
+    make_one(post, font_path)
+  File "/home/runner/work/genzhype-scraper/genzhype-scraper/video_maker.py", line 10661, in make_one
+    raise JudgeRejected(
+JudgeRejected: vision judge rejected page 823 (attempt 1/1): weird=[{'frame': 6, 'issue': 'e. CONTEXT MISMATCH: random stone wall/corridor footage unrelated to internet drama'}] mism=[] issues=['Frame 6 shows random physical hallway footage unrelated to internet drama context.']
+2026-09-14 21:58:54,194 INFO job feed from repo branch (generated 2026-09-14T21:22:37+00:00)
+2026-09-14 21:58:54,194 INFO job from static feed (generated 2026-09-14T21:22:37+00:00)
+2026-09-14 21:58:54,194 INFO processing page_id=122 slug=distracted-boyfriend
+2026-09-14 21:58:54,194 INFO STYLE slowburn: lead=footage cuts~2.2s xfade=0.25 zoom=0.10 punch=1.10 bgm_1 evidence_cap=2 footage_consec=6
+2026-09-14 21:58:54,194 INFO voice: en-US-AvaMultilingualNeural
+2026-09-14 21:58:54,194 INFO STAGE: visuals
+2026-09-14 21:58:54,194 INFO CLIP HUNT: story now has 3 clip(s)
+2026-09-14 21:58:54,730 INFO archive.org: dropped 3 coincidence match(es) with no distinctive story word in the title (e.g. Michigan State Police Discuss Preventing); kept 0
+2026-09-14 21:58:54,730 INFO archive.org: 0 topical items for ["'distracted", "boyfriend'", 'took']
+2026-09-14 21:58:54,731 INFO story clips available: 3 (tiktok)
+2026-09-14 21:58:54,739 INFO CONTAIN MODE: 1280x670 needs 2.9x upscale to cover; rendering whole on a blurred fill instead
+2026-09-14 21:58:54,748 INFO face detected in vis-122-0: 148x199 at (287,159)
+2026-09-14 21:58:55,648 INFO vision rotation: still-relevance served by gemini-3.5-flash-lite
+2026-09-14 21:58:55,841 INFO UPSIZED: https://www.shropshirestar.com/jpim-static/image/2026/03/24/05/cs-3585f33e-6b36-475e-9639-817c93f2fa79.jpg?wid
+2026-09-14 21:58:55,850 INFO CONTAIN MODE: 800x600 needs 3.2x upscale to cover; rendering whole on a blurred fill instead
+2026-09-14 21:58:55,861 INFO face detected in vis-122-1: 67x89 at (383,101)
+2026-09-14 21:58:58,259 INFO vision rotation: still-relevance served by gemini-3.5-flash-lite
+2026-09-14 21:58:58,273 INFO CONTAIN MODE: 1200x630 needs 3.0x upscale to cover; rendering whole on a blurred fill instead
+2026-09-14 21:58:58,283 INFO face detected in vis-122-2: 79x106 at (157,170)
+2026-09-14 21:58:59,573 INFO vision rotation: still-relevance served by gemini-3.5-flash-lite
+2026-09-14 21:58:59,587 INFO text-heavy visual (heuristic) -> contain mode (no crop/zoom): https://genzhype.com/assets/covers/distracted-boyfriend-featured.webp
+2026-09-14 21:58:59,608 INFO face detected in vis-122-3: 156x209 at (230,131)
+2026-09-14 21:58:59,618 INFO POOL DEDUP: https://genzhype.com/assets/covers/distracted-boyfriend-featured.webp is the same image as https://media.wired.com/photos/59a459d3b345f64511c5e3d4/191:; skipped
+2026-09-14 21:58:59,714 INFO openverse: 1 modifiable-licence photos for 'How 'distracted boyfriend' took'
+2026-09-14 21:59:03,259 INFO vision rotation: still-relevance served by gemini-3.5-flash-lite
+2026-09-14 21:59:03,260 INFO openverse candidate rejected (not this story): https://live.staticflickr.com/3542/3396804745_6720cbef09_b.jpg
+2026-09-14 21:59:03,260 INFO visual pool: 3 distinct of 4 candidates (0 from people, 0 name(s) mapped: {})
+2026-09-14 21:59:03,260 INFO TIMELINE MODE: deterministic beats, clip opportunism OFF
+2026-09-14 21:59:03,260 INFO TIMELINE: site cover demoted behind 3 real artifact(s) — the hero is decoration, not evidence
+2026-09-14 21:59:03,260 INFO TIMELINE: hook image switched off the site cover onto a real artifact (https://media.wired.com/photos/59a459d3b345f64511c5e3d4/191:100/w_1280)
+2026-09-14 21:59:03,261 INFO STAGE: receipts
+2026-09-14 21:59:03,358 INFO receipts: 3 card(s) downloaded of 14 entries (event entries carry no card by design)
+2026-09-14 21:59:03,358 INFO STAGE: screenshots
+2026-09-14 21:59:03,677 INFO Readability injected from vendor/Readability.js
+2026-09-14 21:59:13,497 INFO Readability column 20..720 (9 nodes) on https://www.vox.com/culture/2017/8/25/16200526/distract
+2026-09-14 21:59:13,509 INFO crop r30c: 744x930 at 0,0 (col 700, lead-img False) https://www.vox.com/culture/2017/8/25/16200526/distracted-bo
+2026-09-14 21:59:13,896 INFO screenshot near-blank; og/subject fallback: https://www.vox.com/culture/2017/8/25/16200526/distracted-boyfriend-other-woman-stock-phot
+2026-09-14 21:59:22,471 INFO Readability column 24..736 (3 nodes) on https://www.wired.com/story/distracted-boyfriend-meme-p
+2026-09-14 21:59:22,476 INFO crop r30c: 760x950 at 0,238 (col 712, lead-img True) https://www.wired.com/story/distracted-boyfriend-meme-photog
+2026-09-14 21:59:25,403 INFO vision rotation: screenshot-clean served by gemini-3.5-flash-lite
+2026-09-14 21:59:25,404 INFO REAL source screenshot: https://www.wired.com/story/distracted-boyfriend-meme-photographer-interview/
+2026-09-14 21:59:30,297 INFO Readability column 15..745 (13 nodes) on https://www.shropshirestar.com/whats-on/arts-and-entert
+2026-09-14 21:59:30,303 INFO crop r30c: 760x1000 at 0,255 (col 730, lead-img True) https://www.shropshirestar.com/whats-on/arts-and-entertainme
+2026-09-14 21:59:34,924 INFO vision rotation: screenshot-clean served by gemini-3.5-flash-lite
+2026-09-14 21:59:34,925 INFO REAL source screenshot: https://www.shropshirestar.com/whats-on/arts-and-entertainment/this-photobomber-recreated-the-distra
+2026-09-14 21:59:44,209 INFO screenshot: no ON-TOPIC headline (['distracted', 'boyfriend', 'internet']) on https://www.rediff.com/sports/report/rodris-ibiza-photo-sparks-hilario; skipping
+2026-09-14 22:00:08,189 INFO screenshot: no headline block found; skipping (no raw-page fallback): https://knowyourmeme.com/memes/distracted-boyfriend
+2026-09-14 22:00:08,443 INFO screenshot budget spent; 6 article(s) fall back to og photos/subject
+2026-09-14 22:00:08,674 INFO event receipts: 2 clean screenshot(s), 2 og report photo(s); the rest fall back to subject photos
+2026-09-14 22:00:08,674 INFO STAGE: tts
+2026-09-14 22:00:09,339 INFO expressive TTS: segment 1/2 rate=+18% pitch=+2Hz 3.31s 10 cue(s)
+2026-09-14 22:00:10,426 INFO expressive TTS: segment 2/2 rate=+5% pitch=- 22.66s 58 cue(s)
+2026-09-14 22:00:10,652 INFO expressive TTS ok: 2 segment(s), 26.02s audio, 68 word timings
+2026-09-14 22:00:10,653 INFO STAGE: compose
+2026-09-14 22:00:10,653 INFO bgm: SIGNATURE bed bgm_2.mp3 (same on every video, by design)
+2026-09-14 22:00:10,653 INFO no broll terms in feed; cursor mode off (v4 per-shot queries may still fetch)
+2026-09-14 22:00:10,653 INFO EDL: 6 shot(s) from 6 directed (words=68)
+2026-09-14 22:00:10,653 INFO CLIP staged by the server: 449633c2dcea2664cbadae246e7ca474bbbf2d52.mp4 (https://www.tiktok.com/@aidanetcetera/video/7540452410490178)
+2026-09-14 22:00:13,031 INFO vision footage-relevance: gemma-4-31b-it HTTP 500
+2026-09-14 22:00:16,837 INFO vision rotation: footage-relevance served by gemini-3.5-flash-lite
+2026-09-14 22:00:19,406 INFO clip frame skipped: 13% of it is burned-in text (clipfr-2.jpg)
+2026-09-14 22:00:19,482 INFO clip frame skipped: 14% of it is burned-in text (clipfr-3.jpg)
+2026-09-14 22:00:19,576 INFO clip frame too similar to one already kept; skipped
+2026-09-14 22:00:19,587 INFO clip frame too similar to one already kept; skipped
+2026-09-14 22:00:19,598 INFO clip frame too similar to one already kept; skipped
+2026-09-14 22:00:19,760 INFO clip frame skipped: 25% of it is burned-in text (clipfr-9.jpg)
+2026-09-14 22:00:19,836 INFO clip frame skipped: 24% of it is burned-in text (clipfr-10.jpg)
+2026-09-14 22:00:19,846 INFO clip frame too similar to one already kept; skipped
+2026-09-14 22:00:19,846 INFO CLIP FRAMES: +4 stills harvested from the money-moment clip (pool 3 -> 7)
+2026-09-14 22:00:19,846 INFO HOOK = OPENING CLIP: 449633c2dcea2664cbadae246e7ca474bbbf2d52.mp4 (t=0s)
+2026-09-14 22:00:19,846 INFO CLIP staged by the server: 449633c2dcea2664cbadae246e7ca474bbbf2d52.mp4 (https://www.tiktok.com/@aidanetcetera/video/7540452410490178)
+2026-09-14 22:00:19,846 INFO TIMELINE ARTIFACT: beat 2 plays its own clip 449633c2dcea2664cbadae246e7ca474bbbf2d52.mp4
+2026-09-14 22:00:19,846 INFO CLIP staged by the server: 323e5704fc83fa01595d9dd0a85ef698cec8f641.mp4 (https://www.tiktok.com/@jordanloufas/video/72532734971730363)
+2026-09-14 22:00:55,080 INFO vision rotation: footage-relevance served by gemma-4-31b-it
+2026-09-14 22:00:55,081 INFO FOOTAGE GATE: off-topic clip rejected (323e5704fc83fa01595d9dd0a85ef698cec8f641.mp4)
+2026-09-14 22:00:55,081 INFO TIMELINE ARTIFACT: clip unavailable for beat 3 (off-topic); receipt fallback
+2026-09-14 22:00:55,081 INFO receipt 1 missing/unresolved; subject photo fallback
+2026-09-14 22:00:55,094 INFO CLIP staged by the server: 0e9942435cbf9a051421b747170348fdf1cb8fa0.mp4 (https://www.tiktok.com/@aidanetcetera/video/7540452410490178)
+2026-09-14 22:01:35,528 INFO vision footage-relevance: gemma-4-31b-it failed (HTTPSConnectionPool(host='generativelanguage.googleapis.com', port=443): Read timed out. (read timeout=40))
+2026-09-14 22:02:15,579 INFO vision footage-relevance: gemini-3.5-flash-lite failed (HTTPSConnectionPool(host='generativelanguage.googleapis.com', port=443): Read timed out. (read timeout=40))
+2026-09-14 22:02:16,199 INFO vision rotation: footage-relevance served by groq/qwen3.6
+2026-09-14 22:02:16,199 INFO TIMELINE ARTIFACT: beat 4 plays its own clip 0e9942435cbf9a051421b747170348fdf1cb8fa0.mp4
+2026-09-14 22:02:16,199 INFO CLIP staged by the server: 41973caf817ae1fe572babec49247b9d8c38f91a.mp4 (https://www.tiktok.com/@aidanetcetera/video/7540452410490178)
+2026-09-14 22:02:45,997 INFO vision footage-relevance: gemma-4-31b-it HTTP 503
+2026-09-14 22:03:21,774 INFO vision rotation: footage-relevance served by gemini-3.5-flash-lite
+2026-09-14 22:03:21,775 INFO FOOTAGE GATE: off-topic clip rejected (41973caf817ae1fe572babec49247b9d8c38f91a.mp4)
+2026-09-14 22:03:21,775 INFO TIMELINE ARTIFACT: clip unavailable for beat 5 (off-topic); receipt fallback
+2026-09-14 22:03:23,542 INFO CLIP tiktok -> clip-tiktok-d30bf835ce62.mp4 (https://www.tiktok.com/@jordanloufas/video/72532734971730363)
+2026-09-14 22:04:04,166 INFO vision footage-relevance: gemma-4-31b-it failed (HTTPSConnectionPool(host='generativelanguage.googleapis.com', port=443): Read timed out. (read timeout=40))
+2026-09-14 22:04:27,711 INFO vision rotation: footage-relevance served by gemini-3.5-flash-lite
+2026-09-14 22:04:27,711 INFO FOOTAGE GATE: off-topic clip rejected (clip-tiktok-d30bf835ce62.mp4)
+2026-09-14 22:04:27,711 INFO TIMELINE ARTIFACT: clip unavailable for beat 6 (off-topic); receipt fallback
+2026-09-14 22:04:27,711 INFO receipt 8 missing/unresolved; subject photo fallback
+2026-09-14 22:04:27,711 INFO PACING: 6 scenes -> 8 beats (target 2.2s/image, avg 3.31s)
+2026-09-14 22:04:27,711 INFO RENDER REPORT: {"style": "slowburn", "ck_mode": true, "cookie_bytes": 3003, "story_vids": 0, "scenes": 8, "runtime_s": 26.5, "footage_scenes": 3, "gap_fill_scenes": 0, "opportunistic_footage": 3, "still_photo_scenes": 4, "card_scenes": 1, "frozen_stills": 0, "footage_fetches": 1, "seq": "ffssfcss"}
+2026-09-14 22:04:27,711 INFO CLIP verify disabled (VIDEO_CLIP_VERIFY=0)
+2026-09-14 22:04:28,334 INFO carousel frames: 4 real clip frame(s) staged
+2026-09-14 22:04:28,334 INFO scene plan (v4 EDL): 8 scene(s) (1 receipt, 3 b-roll), pool=7
+2026-09-14 22:04:28,334 INFO   scene 1: 0.00-3.08s type=broll(FOOTAGE) motion=punch_build sfx=none music=bed visual=449633c2dcea2664cbadae246e7ca474bbbf2d52.mp4
+2026-09-14 22:04:28,334 INFO   scene 2: 3.08-8.44s type=broll(FOOTAGE) motion=None sfx=none music=bed visual=449633c2dcea2664cbadae246e7ca474bbbf2d52.mp4
+2026-09-14 22:04:28,334 INFO   scene 3: 8.44-10.65s type=photo motion=punch_build sfx=whoosh music=bed visual=vis-122-0
+2026-09-14 22:04:28,334 INFO   scene 4: 10.65-12.87s type=photo motion=zoom_out sfx=None music=bed visual=vis-122-2
+2026-09-14 22:04:28,334 INFO   scene 5: 12.87-16.32s type=broll(FOOTAGE) motion=None sfx=none music=bed visual=0e9942435cbf9a051421b747170348fdf1cb8fa0.mp4
+2026-09-14 22:04:28,334 INFO   scene 6: 16.32-20.98s type=receipt motion=contain sfx=riser music=silence visual=shot-122-2.png
+2026-09-14 22:04:28,334 INFO   scene 7: 20.98-23.72s type=photo motion=zoom_out sfx=impact music=duck visual=vis-122-1
+2026-09-14 22:04:28,334 INFO   scene 8: 23.72-26.47s type=photo motion=zoom_out sfx=None music=duck visual=clipfr-0.jpg
+2026-09-14 22:04:28,335 INFO VARIETY: 5 distinct stills, top visual carries 1/5 (20%)
+2026-09-14 22:04:28,335 INFO SELFCHECK: repeats=0 short_scenes=none caption_cov=100% (window=3, assets=16)
+2026-09-14 22:04:28,335 WARNING SELFCHECK: 1 near-repeat(s) within the 3-scene window (small pool; each reappears with different motion) — non-fatal
+2026-09-14 22:04:29,374 INFO FREEZE skipped: the clip runs 25.1s and the beat needs 5.4s — playing it through
+2026-09-14 22:04:30,937 INFO DEPTH SCENE clipfr-0.jpg motion=zoom_out dur=2.7s
+2026-09-14 22:04:31,429 INFO transition 1/3: whip at 8.44s (beat change)
+2026-09-14 22:04:35,440 INFO TEXT AVOID: burned-in text on 5 of 8 scene(s) (4.0s)
+2026-09-14 22:04:35,445 INFO TEXT AVOID: hook moved off burned-in text, top y 652 -> 540
+2026-09-14 22:04:36,431 INFO CAPTION PLACEMENT: 19 caption event(s) by position: {"card": 4, "home": 6, "home-least-covered": 6, "top": 3}
+2026-09-14 22:04:37,251 INFO bgm: SIGNATURE bed bgm_2.mp3 (same on every video, by design)
+2026-09-14 22:04:37,623 INFO sound: SWELL +5dB over 4.7s into the reveal at 21.0s, decaying 1.8s
+2026-09-14 22:04:37,640 INFO sound: bed bgm_2.mp3 over 2 interval(s), 1 swell(s)
+2026-09-14 22:04:37,934 INFO sound: 3 SFX placed
+2026-09-14 22:04:37,964 INFO sound: final -17.5 dBFS avg / -1.5 dBFS peak
+2026-09-14 22:07:44,690 INFO STAGE: judge
+2026-09-14 22:07:48,586 INFO vision rotation: JUDGE served by gemini-3.5-flash-lite
+2026-09-14 22:07:48,587 INFO vision judge: pass=False weird=[{'frame': 1, 'issue': 'f. CAPTION COLLISION: caption text sitting on top of the text of a screenshot/receipt/news card so that either becomes hard to read.'}, {'frame': 2, 'issue': 'f. CAPTION COLLISION: caption text sitting on top of the text of a screenshot/receipt/news card so that either becomes hard to read.'}] mismatches=[] artifact_misses=[] scores={'readability': 6, 'framing': 8, 'variety': 7, 'edit_variety': 7, 'completeness': 8} issues=['Caption text collides with the text on the document/screenshot in frames 1 and 2, making it hard to read.']
+2026-09-14 22:07:54,497 INFO caption font: /usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf
+2026-09-14 22:07:54,659 INFO filmstrip built: build/reject-122.jpg
+2026-09-14 22:09:09,716 INFO DIAG reject-sheet failed: HTTPSConnectionPool(host='genzhype.com', port=443): Max retries exceeded with url: /api/vi
+2026-09-14 22:10:24,757 INFO DIAG shot-122-0 failed: HTTPSConnectionPool(host='genzhype.com', port=443): Max retries exceeded with url: /api/vi
+2026-09-14 22:11:39,817 INFO DIAG shot-122-2 failed: HTTPSConnectionPool(host='genzhype.com', port=443): Max retries exceeded with url: /api/vi
+2026-09-14 22:12:54,876 INFO DIAG shot-122-4 failed: HTTPSConnectionPool(host='genzhype.com', port=443): Max retries exceeded with url: /api/vi
+2026-09-14 22:13:18,898 ERROR failed to make video for 122: vision judge rejected page 122 (attempt 1/1): weird=[{'frame': 1, 'issue': 'f. CAPTION COLLISION: caption text sitting on top of the text of a screenshot/receipt/news card so that either becomes hard to read.'}, {'frame': 2, 'issue': 'f. CAPTION COLLISION: caption text sitting on top of the text of a screenshot/receipt/news card so that either becomes hard to read.'}] mism=[] issues=['Caption text collides with the text on the document/screenshot in frames 1 and 2, making it hard to read.']
+Traceback (most recent call last):
+  File "/home/runner/work/genzhype-scraper/genzhype-scraper/video_maker.py", line 10706, in main
+    make_one(post, font_path)
+  File "/home/runner/work/genzhype-scraper/genzhype-scraper/video_maker.py", line 10661, in make_one
+    raise JudgeRejected(
+JudgeRejected: vision judge rejected page 122 (attempt 1/1): weird=[{'frame': 1, 'issue': 'f. CAPTION COLLISION: caption text sitting on top of the text of a screenshot/receipt/news card so that either becomes hard to read.'}, {'frame': 2, 'issue': 'f. CAPTION COLLISION: caption text sitting on top of the text of a screenshot/receipt/news card so that either becomes hard to read.'}] mism=[] issues=['Caption text collides with the text on the document/screenshot in frames 1 and 2, making it hard to read.']
+2026-09-14 22:13:42,920 INFO done. made 0 video(s), 3 failed
