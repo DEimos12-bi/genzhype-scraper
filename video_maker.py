@@ -5190,6 +5190,28 @@ def frame_text_boxes(rgb):
     return out
 
 
+CLIP_FRAME_TEXT_MAX = float(os.environ.get("VIDEO_CLIP_FRAME_TEXT_MAX", "0.10"))
+
+
+def frame_text_fraction(path):
+    """r181: share of a still covered by burned-in text (0..1), or None when
+    the detector is unavailable. Measured on real harvested frames: page 649's
+    Notes-app statement 29-30% and YouTube comment screens 15-17%, a person
+    talking under one caption line 1-2%."""
+    if not os.path.isfile(TEXT_DET_MODEL):
+        return None
+    try:
+        with Image.open(path) as im:
+            arr = np.asarray(im.convert("RGB"))
+        h, w = arr.shape[:2]
+        mask = np.zeros((h, w), dtype=np.uint8)
+        for x0, y0, x1, y1 in frame_text_boxes(arr):
+            mask[max(0, y0):min(h, y1), max(0, x0):min(w, x1)] = 1
+        return float(mask.mean())
+    except Exception:  # noqa: BLE001 — never block a still on infra
+        return None
+
+
 def scene_text_windows(scenes, scene_clips):
     """[(start, end, boxes)] for every scene whose composed frames carry
     burned-in text: the union of boxes over 3 frames (in, middle, out — the
@@ -6431,6 +6453,14 @@ def harvest_clip_frames(clip_path, pool, want=12, label="event footage"):
             if face_touches_border(fp):
                 log.info("clip frame skipped: a face is cut by the frame's own "
                          "edge (%s)", os.path.basename(fp))
+                continue
+            # r181 (page 649 aired a creator's Notes-app statement as three
+            # "photos" and the judge failed caption-on-text; frozen walls of
+            # someone else's words are screenshots, not event photos)
+            _tf = frame_text_fraction(fp)
+            if _tf is not None and _tf >= CLIP_FRAME_TEXT_MAX:
+                log.info("clip frame skipped: %.0f%% of it is burned-in text (%s)",
+                         100 * _tf, os.path.basename(fp))
                 continue
             kept_hashes.append(dh)
             entry = {"path": fp, "textish": False, "url": None,
