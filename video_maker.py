@@ -4389,10 +4389,18 @@ def clip_fits_words(url, phrase):
     if not text or _PLACEHOLDER_TITLE.match(text):
         return False
     text = _HASHTAG.sub(" ", text)
-    ident = _STORY_NAME_WORDS or _STORY_TITLE_WORDS
     beat = distinctive_words(phrase) - _STORY_NAME_WORDS
-    return (bool(beat) and bool(ident) and title_is_topical(text, ident)
-            and title_is_topical(text, beat))
+    if not beat:
+        return False
+    if _STORY_NAME_WORDS:
+        return (title_is_topical(text, _STORY_NAME_WORDS)
+                and title_is_topical(text, beat))
+    # r176: a story with no named people has no WHO to anchor on, and one shared
+    # word is the coincidence r87 warned about: page 692 ("Twitch Data Breach")
+    # took "Breach - Oscrix on Twitch", a Path of Exile gameplay clip, on the
+    # single word "breach". Require two distinct story words in the clip title.
+    hits = [w for w in _STORY_TITLE_WORDS if title_is_topical(text, {w})]
+    return len(hits) >= 2 and title_is_topical(text, beat)
 
 
 _HOOK_CLIP = [None]        # (path, src_off) of the clip chosen to open the video
@@ -4413,6 +4421,8 @@ _TIMELINE_MODE = [False]   # TIMELINE CONTRACT (2026-08-06): shotlist meta
 _CLIP_FRAMES_DONE = [False]   # r57: the supply harvest runs once per story
 _FOOTAGE_REL_CACHE = {}    # r28 smart gate: clip path -> is-it-on-topic
 _FOOTAGE_REL_CALLS = [0]
+_FOOTAGE_REL_LAST = [""]    # r176: why the last footage_is_relevant answered as it did
+_CLIP_OFFTOPIC_URLS = set() # r176: clips a model judged off-topic for THIS story
 FOOTAGE_REL_MAX_CALLS = 5  # cap Gemini relevance checks per render (speed)
 
 
@@ -4424,12 +4434,16 @@ def footage_is_relevant(clip_path, topic):
     wrong clip. No key / over the call cap / any error -> True (never blocks
     footage on infra problems). Cached per clip."""
     if not (GEMINI_API_KEY and clip_path and topic):
+        _FOOTAGE_REL_LAST[0] = "no key"
         return True
     if clip_path in _FOOTAGE_REL_CACHE:
+        _FOOTAGE_REL_LAST[0] = "judged (cached)"
         return _FOOTAGE_REL_CACHE[clip_path]
     if _FOOTAGE_REL_CALLS[0] >= FOOTAGE_REL_MAX_CALLS:
+        _FOOTAGE_REL_LAST[0] = "call cap %d spent" % FOOTAGE_REL_MAX_CALLS
         return True
     ok = True
+    _FOOTAGE_REL_LAST[0] = "no answer"
     try:
         import io
         from moviepy import VideoFileClip
@@ -4466,13 +4480,31 @@ def footage_is_relevant(clip_path, topic):
                 if txt.lower().startswith("json"):
                     txt = txt[4:].strip()
             ok = bool(json.loads(txt).get("related", True))
+            _FOOTAGE_REL_LAST[0] = "judged"
             if not ok:
                 log.info("FOOTAGE GATE: off-topic clip rejected (%s)",
                          os.path.basename(clip_path))
     except Exception as e:  # noqa: BLE001
         ok = True
-    _FOOTAGE_REL_CACHE[clip_path] = ok
+        _FOOTAGE_REL_LAST[0] = "error"
+    if _FOOTAGE_REL_LAST[0] == "judged":     # r176: an error is not a verdict
+        _FOOTAGE_REL_CACHE[clip_path] = ok
     return ok
+
+
+def footage_verified_relevant(clip_path, topic):
+    """r176: True only when a model actually said the clip belongs to the
+    story. footage_is_relevant() answers True on no key / cap / error so the
+    opener never starves; a clip dropped into the MIDDLE of a story over a
+    specific sentence is found footage and needs a real yes (PBS: no editorial
+    choice that encourages a false inference)."""
+    ok = footage_is_relevant(clip_path, topic)
+    return bool(ok) and _FOOTAGE_REL_LAST[0].startswith("judged")
+
+
+def clip_base_url(u):
+    """A clip and its slices (#t=...) are one piece of content."""
+    return str(u or "").split("#", 1)[0]
 
 
 _SHOT_CLEAN_CACHE = {}
@@ -4576,6 +4608,9 @@ SEARCH_STOP = {
     "america", "american", "update", "updates", "response", "incident",
     "rise", "fallout", "drama", "viral", "trend", "trending", "internet",
     "reaction", "explained", "tiktok", "twitter", "youtube", "instagram",
+    # r176: the other platforms our clips come from, same reason — every Twitch
+    # clip title ends "- <streamer> on Twitch", so the word proves nothing
+    "twitch", "kick", "stream", "streams", "streamer", "streamers", "streaming",
 }
 
 
@@ -6745,7 +6780,13 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                 _hp = fetch_platform_clip(_money)
                 if _hp and footage_is_relevant(_hp, title):
                     _HOOK_CLIP[0] = _hp
-                    harvest_clip_frames(_hp, pool, label="money-moment clip")
+                    # r176: the opener may play on a lenient answer, but stills
+                    # mined from it are reused all over the story: real yes only
+                    if _FOOTAGE_REL_LAST[0].startswith("judged"):
+                        harvest_clip_frames(_hp, pool, label="money-moment clip")
+                    else:
+                        log.info("CLIP FRAMES: opener %s not harvested (UNJUDGED: %s)",
+                                 os.path.basename(_hp), _FOOTAGE_REL_LAST[0])
                     try:
                         clip_pool.remove(_money)
                     except ValueError:
@@ -6758,6 +6799,10 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                              os.path.basename(_hp),
                              _STORY_CLIP_START.get(_money, 0))
                     break
+                if _hp and _FOOTAGE_REL_LAST[0].startswith("judged"):
+                    # r176: the verdict belongs to the CLIP, not to this file;
+                    # its slices must not come back later as "new" footage
+                    _CLIP_OFFTOPIC_URLS.add(clip_base_url(_money))
                 log.info("HOOK: candidate unavailable (%s); trying next",
                          "off-topic" if _hp else "fetch failed")
             if _HOOK_CLIP[0] is None:
@@ -6775,8 +6820,20 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                 and not _TIMELINE_MODE[0]):     # money clip already harvested
             _CLIP_FRAMES_DONE[0] = True
             _got = 0
-            for _cu in list(clip_pool)[:2]:
+            for _cu in [u for u in clip_pool
+                        if clip_base_url(u) not in _CLIP_OFFTOPIC_URLS][:2]:
                 _cp = fetch_platform_clip(_cu)
+                # r176 (page 692: 8 stills of Path of Exile gameplay were mined
+                # from the "Breach - Oscrix on Twitch" clip the hook had just
+                # judged off-topic, and two aired as story photos)
+                if _cp and not footage_verified_relevant(_cp, title):
+                    if _FOOTAGE_REL_LAST[0].startswith("judged"):
+                        _CLIP_OFFTOPIC_URLS.add(clip_base_url(_cu))
+                    log.info("CLIP FRAMES: %s not harvested (%s)",
+                             os.path.basename(_cp),
+                             "judged off-topic" if _FOOTAGE_REL_LAST[0].startswith("judged")
+                             else "UNJUDGED: " + _FOOTAGE_REL_LAST[0])
+                    continue
                 if _cp and harvest_clip_frames(_cp, pool,
                                                label="story clip"):
                     _got = 1
@@ -7153,7 +7210,8 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                 # r172 CLIP FIT: only a clip whose own title matches THIS
                 # beat's words; the rest stay in the pool for a beat they fit
                 _fit = [u for u in clip_pool
-                        if clip_fits_words(u, sh.get("phrase", ""))]
+                        if clip_base_url(u) not in _CLIP_OFFTOPIC_URLS
+                        and clip_fits_words(u, sh.get("phrase", ""))]
                 if not _fit:
                     log.info("CLIP FIT: no clip's title matches scene %d's words "
                              "(%r); the planned still stands", si + 1,
@@ -7164,13 +7222,25 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                     # r28 SMART GATE here too: an article-embedded clip can still
                     # be a music video (the reporter used it as b-roll). Vision-
                     # check it against the topic; off-topic -> try the next clip.
-                    if (cand and cand not in _recent_paths()
-                            and footage_is_relevant(cand, title)):
-                        cpath = cand
-                        log.info("CLIP FIT: scene %d words %r match clip title %r",
-                                 si + 1, str(sh.get("phrase", ""))[:40],
-                                 _STORY_CLIP_TEXT.get(_cu, "")[:48])
-                        break
+                    if not cand or cand in _recent_paths():
+                        continue
+                    if not footage_verified_relevant(cand, title):
+                        # r176: judged off-topic -> the whole clip is out for
+                        # this story; no verdict -> not placed (found footage
+                        # needs a real yes), but it may still be judged later
+                        if _FOOTAGE_REL_LAST[0].startswith("judged"):
+                            _CLIP_OFFTOPIC_URLS.add(clip_base_url(_cu))
+                        log.info("CLIP FIT: scene %d clip %s not placed (%s)",
+                                 si + 1, os.path.basename(cand),
+                                 "judged off-topic" if _FOOTAGE_REL_LAST[0].startswith("judged")
+                                 else "UNJUDGED: " + _FOOTAGE_REL_LAST[0])
+                        continue
+                    cpath = cand
+                    log.info("CLIP FIT: scene %d words %r match clip title %r",
+                             si + 1, str(sh.get("phrase", ""))[:40],
+                             (_STORY_CLIP_TEXT.get(_cu)
+                              or _STORY_CLIP_TEXT.get(clip_base_url(_cu), ""))[:48])
+                    break
                 if cpath:
                     path, typ, textish = cpath, "broll", False
                     motion, footage = "punch_build", True
@@ -10057,6 +10127,7 @@ def make_one(post, font_path):
     _STILL_REL_CALLS[0] = 0
     _FOOTAGE_REL_CALLS[0] = 0
     _SHOT_CLEAN_CALLS[0] = 0
+    _CLIP_OFFTOPIC_URLS.clear()
     _CLIP_FRAMES_DONE[0] = False
     _STORY_CLIPS = [c.get("url") for c in (post.get("clips") or [])
                     if isinstance(c, dict) and platform_of(c.get("url"))]
