@@ -744,6 +744,8 @@ POOL_NO_REPEAT_WINDOW = 3      # r11: an image never reappears within 3 scenes
 # (page 814: one photo in 4 frames; page 977: one artwork in 4). Every picker
 # now counts shots per image and prefers one under this cap. 99 turns it off.
 IMAGE_MAX_USES = int(os.environ.get("VIDEO_IMAGE_MAX_USES", "2"))
+# r183: longest a photo beat may be held to avoid showing a capped picture again
+REPEAT_HOLD_MAX_S = float(os.environ.get("VIDEO_REPEAT_HOLD_MAX_S", "5.0"))
 # r42: the window and the max-share below were tuned when a story had 4-6 images
 # and HAD to recycle. The people-resolver fix (athletes were being dropped from
 # their own stories) now yields ~24 distinct visuals for ~23 shots, so recycling
@@ -7416,27 +7418,85 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
     # 4, 5 AND 10 while other pool images were never touched.
     # Receipts (textish) and footage are exempt — a proof card is chosen for what
     # it PROVES, and footage is not interchangeable with a still.
+    # r183: "used" means the picture FAMILY is on screen (r179). Keyed by path,
+    # 7 freeze-frames of ONE podcast clip each looked unused, so this pass put
+    # the same studio shot on scenes 7/9/12/16/17/18/19 of page 740 (run 475,
+    # judge: c. REPETITION on frames 4, 5, 10, 12).
     if scenes and pool:
         _used, _swapped = {}, 0
         for sc in scenes:
             p = sc.get("path")
             if not p or sc.get("textish") or sc.get("footage"):
                 continue
-            if p in _used:
+            if _fam(p) in _used:
                 _fresh = [e for e in pool
-                          if e.get("path") and e["path"] not in _used
+                          if e.get("path") and _fam(e["path"]) not in _used
                           and not e.get("designed") and not e.get("textish")]
                 if _fresh:
                     sc["path"] = _fresh[0]["path"]
-                    _used[sc["path"]] = 1
+                    _used[_fam(sc["path"])] = 1
                     _swapped += 1
                     continue
-            _used[p] = 1
+            _used[_fam(p)] = 1
         if _swapped:
             log.info("SPEND THE POOL: %d repeat(s) swapped for unused images "
                      "(%d distinct stills now on screen)", _swapped, len(_used))
             # r170: swaps changed what is on screen; the pacing split below
             # reads use_count, so recount from the scenes as they now stand
+            use_count.clear()
+            for sc in scenes:
+                if sc.get("path"):
+                    use_count[_fam(sc["path"])] = use_count.get(_fam(sc["path"]), 0) + 1
+
+    # r183 REPEAT -> HOLD: when a story has fewer pictures than photo beats
+    # (740: 13 photo beats, 6 picture families) the picker's last resort put a
+    # picture on screen a THIRD time, the judge's rule c. r50's rule instead:
+    # one honest longer shot beats a fake cut back to the same picture. A beat
+    # whose family already filled IMAGE_MAX_USES shots stays on the photo beat
+    # before it. Cards, footage, planned clip beats and a beat carrying its own
+    # date chip are never folded; a hold stops at REPEAT_HOLD_MAX_S. First, a
+    # picture with a use left (outside the no-repeat window) takes the beat:
+    # 740 showed its clip 7x while three story photos were on screen once.
+    if scenes and IMAGE_MAX_USES > 0:
+        def _is_still(s):
+            return (bool(s.get("path")) and s.get("type") == "photo"
+                    and not s.get("textish") and not s.get("footage"))
+        _tot = {}
+        for sc in scenes:
+            if _is_still(sc):
+                _tot[_fam(sc["path"])] = _tot.get(_fam(sc["path"]), 0) + 1
+        _seen, _kept, _folded, _moved = {}, [], 0, 0
+        for sc in scenes:
+            still = _is_still(sc)
+            if still and _seen.get(_fam(sc["path"]), 0) >= IMAGE_MAX_USES:
+                _near = {_fam(s.get("path")) for s in _kept[-POOL_NO_REPEAT_WINDOW:]}
+                _alt = [e for e in pool
+                        if e.get("path") and not e.get("designed") and not e.get("textish")
+                        and _tot.get(_fam(e["path"]), 0) < IMAGE_MAX_USES
+                        and _fam(e["path"]) not in _near]
+                prev = _kept[-1] if _kept else {}
+                if _alt:
+                    _a = min(_alt, key=lambda e: _tot.get(_fam(e["path"]), 0))
+                    _tot[_fam(sc["path"])] -= 1
+                    _tot[_fam(_a["path"])] = _tot.get(_fam(_a["path"]), 0) + 1
+                    sc["path"], sc["contain"] = _a["path"], bool(_a.get("contain"))
+                    _moved += 1
+                elif (_is_still(prev) and not sc.get("is_clip_beat")
+                        and not sc.get("card_hold")
+                        and str(sc.get("date") or "") in ("", str(prev.get("date") or ""))
+                        and float(sc["end"]) - float(prev["start"]) <= REPEAT_HOLD_MAX_S):
+                    prev["end"] = sc["end"]
+                    _tot[_fam(sc["path"])] -= 1
+                    _folded += 1
+                    continue
+            if still:
+                _seen[_fam(sc["path"])] = _seen.get(_fam(sc["path"]), 0) + 1
+            _kept.append(sc)
+        if _folded or _moved:
+            log.info("REPEAT HOLD: %d beat(s) moved to a picture with a use left, %d "
+                     "held on the previous picture (cap %d shots)",
+                     _moved, _folded, IMAGE_MAX_USES)
+            scenes = _kept
             use_count.clear()
             for sc in scenes:
                 if sc.get("path"):
@@ -9849,7 +9909,9 @@ def read_replans():
                     parts = line.split()
                     if (len(parts) == 2 and parts[1].isdigit()
                             and re.fullmatch(r"\d+(@[0-9a-f]{6,40}|@unknown)?", parts[0])):
-                        counts[parts[0]] = int(parts[1])
+                        # r183: union-merged books may hold a key twice; the
+                        # count only rises, so the highest line is the truth
+                        counts[parts[0]] = max(counts.get(parts[0], 0), int(parts[1]))
     except Exception as exc:  # noqa: BLE001
         log.warning("replan state unreadable (%s); treating as empty", exc)
     return counts

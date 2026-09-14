@@ -144,6 +144,14 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # r183: without a ref, checkout takes the sha the run was CREATED at.
+          # Run 475 (a schedule run created 21:53, queued behind run 474 by the
+          # concurrency group) started at 22:16 on 6daab8f, older than 474's
+          # dedup commit, so it read stale done/replan/abandon books and
+          # re-rendered 740 + 823 as "attempt 1/1" instead of parking them.
+          # The branch ref is resolved when this step runs: the newest main.
+          ref: main
 
       - name: Verify ffmpeg + fonts (preinstalled on ubuntu-latest)
         # Resolve the runner's REAL ffmpeg path dynamically — hardcoding /usr/bin/ffmpeg
@@ -400,7 +408,11 @@ jobs:
         run: |
           if git fetch --depth 1 origin video-feed 2>/dev/null; then
             rm -rf feeddir && mkdir feeddir
-            git --work-tree=feeddir checkout FETCH_HEAD -- . 2>/dev/null || true
+            # r183: `git --work-tree=feeddir checkout FETCH_HEAD -- .` also STAGED
+            # the feed (feed.json, clips/, visuals/) in main's index, so every
+            # dedup commit pushed it to main, and run 475's rebase stopped on
+            # feed.json. An archive unpacks the files without touching the index.
+            git archive FETCH_HEAD | tar -x -C feeddir 2>/dev/null || true
             ls -la feeddir/ || true
             echo "VIDEO_FEED_DIR=$GITHUB_WORKSPACE/feeddir" >> "$GITHUB_ENV"
             # r143 THE BRAIN: numeric levers the server's Executive set travel in
@@ -565,6 +577,7 @@ jobs:
           # failing this step.
           # r177: the dead-letter book (.social/video_abandoned.txt) commits too
           if [ -n "$(git status --porcelain .social/video_done.txt .social/video_replans.txt .social/video_abandoned.txt 2>/dev/null || true)" ]; then
+            git reset -q || true   # r183: commit the three books and nothing else
             git add .social/video_done.txt || true
             git add .social/video_replans.txt || true
             git add .social/video_abandoned.txt || true
@@ -574,10 +587,21 @@ jobs:
             # push was rejected (non-fast-forward) and turned the whole run red
             # even though the video delivered fine. Rebase + retry a few times so
             # this bookkeeping commit never fails the run.
+            # r183: run 475's rebase stopped on a conflict and every retry then
+            # failed at once on the half-done rebase, so the step "succeeded"
+            # with nothing pushed (122's delivery and 740/823's attempts lost).
+            # The books merge by union (.gitattributes); a failed rebase is
+            # aborted before the retry, and a total failure is reported.
+            pushed=0
             for i in 1 2 3 4 5; do
-              git pull --rebase --autostash origin main && git push && break
+              if git pull --rebase --autostash origin main && git push; then pushed=1; break; fi
+              git rebase --abort 2>/dev/null || true
               echo "push race (attempt $i); retrying"; sleep $((RANDOM % 4 + 2))
             done
+            if [ "$pushed" != "1" ]; then
+              echo "::error::dedup state was NOT pushed after 5 attempts"
+              exit 1
+            fi
           else
             echo "no dedup changes to commit"
           fi

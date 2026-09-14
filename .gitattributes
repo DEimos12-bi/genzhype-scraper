@@ -1,0 +1,6 @@
+# r183: the video-maker's state books only ever grow (ids appended, attempt
+# counts rising), so a rebase of the end-of-run commit keeps both sides' lines
+# instead of stopping on a conflict. read_replans() takes the highest count.
+.social/video_done.txt merge=union
+.social/video_replans.txt merge=union
+.social/video_abandoned.txt merge=union
