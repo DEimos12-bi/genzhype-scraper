@@ -3353,6 +3353,7 @@ def dhash_distance(a, b):
 
 _STILL_REL_CACHE = {}
 _STILL_REL_CALLS = [0]
+_STILL_REL_LAST = [""]      # r175: why the last still_is_relevant answered as it did
 STILL_REL_MAX_CALLS = int(os.environ.get("VIDEO_STILL_REL_MAX", "8"))
 
 
@@ -3513,12 +3514,16 @@ def still_is_relevant(path, topic, strict=False):
     keyword matches) an unanswerable identity question must keep the image OUT
     — wrong-person imagery is worse than a thin pool."""
     if not (GEMINI_API_KEY and path and topic):
+        _STILL_REL_LAST[0] = "no key"
         return not strict
     if path in _STILL_REL_CACHE:
+        _STILL_REL_LAST[0] = "judged (cached)"
         return _STILL_REL_CACHE[path]
     if _STILL_REL_CALLS[0] >= STILL_REL_MAX_CALLS:
+        _STILL_REL_LAST[0] = "call cap %d spent" % STILL_REL_MAX_CALLS
         return not strict
     ok = not strict
+    _STILL_REL_LAST[0] = "no answer"
     try:
         import io
         im = Image.open(path).convert("RGB")
@@ -3549,9 +3554,12 @@ def still_is_relevant(path, topic, strict=False):
                 if txt.lower().startswith("json"):
                     txt = txt[4:].strip()
             ok = bool(json.loads(txt).get("relevant", not strict))
+            _STILL_REL_LAST[0] = "judged"
     except Exception:  # noqa: BLE001
         ok = not strict
-    _STILL_REL_CACHE[path] = ok
+        _STILL_REL_LAST[0] = "error"
+    if _STILL_REL_LAST[0] == "judged":       # r175: only real verdicts are cached
+        _STILL_REL_CACHE[path] = ok
     return ok
 
 
@@ -3887,7 +3895,15 @@ def build_visual_pool(post, page_id):
                                 "mentioned in the story" % _names
                                 if _names else ""))
                 if not still_is_relevant(p, _topic, strict=len(pool) >= 2):
-                    log.info("STILL GATE: off-topic stock dropped: %s", u[:100])
+                    # r175: say whether a model judged it or nothing did. Page
+                    # 740 logged five "off-topic" drops with ZERO vision calls
+                    # (the budget was spent by the previous video in the batch)
+                    # and lost its real Dexerto article photos that way.
+                    if _STILL_REL_LAST[0].startswith("judged"):
+                        log.info("STILL GATE: judged off-topic, dropped: %s", u[:100])
+                    else:
+                        log.info("STILL GATE: UNJUDGED (%s), dropped by the "
+                                 "fail-closed default: %s", _STILL_REL_LAST[0], u[:100])
                     continue
             # r36 CONTENT DEDUP: same pixels under a second URL do not enter
             # the pool twice (distance <= 6 of 64 bits = same image, resized
@@ -10031,6 +10047,16 @@ def make_one(post, font_path):
     global _STORY_CLIPS, _STORY_CLIP_START, _STORY_CLIP_SRC
     global _STORY_CLIP_TEXT, _STORY_NAME_WORDS, _STORY_TITLE_WORDS
     _HOOK_CLIP[0] = None          # r57: per-story, not per-process
+    # r175 PER-VIDEO VISION BUDGETS. The caps below were written per render
+    # ("cap Gemini relevance checks per render") but the counters were never
+    # reset, so in a batch run the FIRST video spent them and every later one
+    # ran blind: page 740 (2nd of 3 in run 34789392254) made 0 still-relevance
+    # calls and dropped 5 real article photos unjudged, which starved its pool
+    # into a wrong-person photo; screenshot_is_clean and footage_is_relevant
+    # silently failed OPEN for the same reason.
+    _STILL_REL_CALLS[0] = 0
+    _FOOTAGE_REL_CALLS[0] = 0
+    _SHOT_CLEAN_CALLS[0] = 0
     _CLIP_FRAMES_DONE[0] = False
     _STORY_CLIPS = [c.get("url") for c in (post.get("clips") or [])
                     if isinstance(c, dict) and platform_of(c.get("url"))]
