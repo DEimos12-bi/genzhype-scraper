@@ -7532,7 +7532,7 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
             p = sc.get("path")
             if not p or sc.get("footage"):
                 continue
-            if sc.get("textish"):
+            if sc.get("type") != "photo":
                 _used[_fam(p)] = 1     # r185: a card showing a photo has shown it
                 continue
             if _fam(p) in _used:
@@ -7566,8 +7566,12 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
     # 740 showed its clip 7x while three story photos were on screen once.
     if scenes and IMAGE_MAX_USES > 0:
         def _is_still(s):
+            # r185b: a TEXT-STYLE POOL IMAGE is still a picture, not a proof.
+            # 692 aired its "DATA BREACH" graphic on 4 scenes because textish
+            # excluded it here, so the cap saw it and could never move it. Only
+            # a receipt scene (the card that proves a fact) is untouchable.
             return (bool(s.get("path")) and s.get("type") == "photo"
-                    and not s.get("textish") and not s.get("footage"))
+                    and not s.get("footage"))
         def _is_shown(s):              # r185: cards spend their photo's uses too
             return bool(s.get("path")) and not s.get("footage")
         _tot = {}
