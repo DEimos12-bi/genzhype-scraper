@@ -29,7 +29,11 @@ name: video-maker
 
 on:
   schedule:
-    - cron: "17 */6 * * *"      # every 6 hours
+    # r188 (owner 2026-09-16: "I need the 5 videos a day across all platforms
+    # back"): 4 runs x 1 video was a hard ceiling of 4/day, and judge rejects
+    # made it 2-3 - measured 2026-09-11..16: fb/ig/tt 2-3 a day, yt 0-2.
+    # Six runs leaves ~5 delivered after the usual rejections.
+    - cron: "17 */4 * * *"      # every 4 hours
   # On-demand render trigger: a push that touches the sentinel file
   # .social/render-trigger starts a run. Lets the maintainer kick a test
   # render straight from the server (git push) without the Actions UI. The
