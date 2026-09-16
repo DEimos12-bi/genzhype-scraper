@@ -3367,6 +3367,68 @@ def dhash_distance(a, b):
     return bin(a ^ b).count("1") if a is not None and b is not None else 64
 
 
+# r185 PICTURE IN A PROOF (judge c, run 476: 692's Twitch-logo photo aired as a
+# still AND inside the BBC article screenshot, each twice; 740's podcast photo
+# inside a Yahoo screenshot). dHash compares whole frames, so a photo inside a
+# screenshot was a different picture to the use cap and the same picture to the
+# viewer. OpenCV ORB keypoints + a RANSAC homography find a photo inside a card
+# at any scale. Measured on 692/740's real files: every containing pair 21-283
+# inliers, every other pair <= 9. Cards are only ever matched against PHOTOS:
+# two pages of one site share logos and type, which is not the same picture.
+ORB_CONTAIN_MIN_INLIERS = int(os.environ.get("VIDEO_ORB_CONTAIN_MIN", "15"))
+ORB_CONTAIN_BUDGET_S = 20.0
+_ORB_CACHE = {}
+
+
+def is_proof_card_path(p):
+    """A rendered proof card: an article screenshot or a real-post card."""
+    return bool(re.match(r"^(shot|receipt)-\d+-\d+\.png$",
+                         os.path.basename(str(p or ""))))
+
+
+def image_orb_features(path, max_w):
+    key = (path, max_w)
+    if key in _ORB_CACHE:
+        return _ORB_CACHE[key]
+    out = None
+    try:
+        import cv2
+        import numpy as np
+        g = Image.open(path).convert("L")
+        if g.width > max_w:
+            g = g.resize((max_w, max(1, int(g.height * max_w / g.width))))
+        arr = np.array(g)
+        g.close()
+        kp, des = cv2.ORB_create(2000).detectAndCompute(arr, None)
+        if des is not None and len(kp) >= 20:
+            out = (np.float32([k.pt for k in kp]), des)
+    except Exception:  # noqa: BLE001
+        out = None
+    _ORB_CACHE[key] = out
+    return out
+
+
+def orb_contains(card_path, photo_path):
+    """Inlier count of photo_path found inside card_path (0 = not inside)."""
+    try:
+        import cv2
+        fc = image_orb_features(card_path, 1080)
+        fp = image_orb_features(photo_path, 700)
+        if not fc or not fp:
+            return 0
+        pairs = cv2.BFMatcher(cv2.NORM_HAMMING).knnMatch(fp[1], fc[1], k=2)
+        good = [m[0] for m in pairs
+                if len(m) == 2 and m[0].distance < 0.75 * m[1].distance]
+        if len(good) < 10:
+            return 0
+        src = fp[0][[g.queryIdx for g in good]].reshape(-1, 1, 2)
+        dst = fc[0][[g.trainIdx for g in good]].reshape(-1, 1, 2)
+        _h, mask = cv2.findHomography(src, dst, cv2.RANSAC, 5.0)
+        return int(mask.sum()) if mask is not None else 0
+    except Exception:  # noqa: BLE001
+        return 0
+
+
 _STILL_REL_CACHE = {}
 _STILL_REL_CALLS = [0]
 _STILL_REL_LAST = [""]      # r175: why the last still_is_relevant answered as it did
@@ -6608,6 +6670,42 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                     _fam_reps.append((_dh, p))
         _fam_cache[p] = key or p
         return _fam_cache[p]
+
+    # r185 PICTURE IN A PROOF (see orb_contains): before any pick, a proof
+    # card that SHOWS one of the story's photos joins that photo's family, so
+    # the card and the photo spend one shared 2-shot allowance.
+    _photos = []
+    for _e in list(pool) + list(visual_map.values()):
+        if isinstance(_e, dict) and _e.get("path") and not _e.get("textish") \
+                and not _e.get("designed") and not is_proof_card_path(_e["path"]) \
+                and not str(_e["path"]).lower().endswith((".mp4", ".webm", ".mov")):
+            _photos.append(_e["path"])
+    for _pv in person_map.values():
+        for _e in (_pv if isinstance(_pv, list) else [_pv]):
+            if isinstance(_e, dict) and _e.get("path"):
+                _photos.append(_e["path"])
+    for _rv in receipts.values():
+        if isinstance(_rv, dict) and _rv.get("path"):
+            _photos.append(_rv["path"])
+    _photos = [p for p in dict.fromkeys(_photos) if os.path.exists(p)]
+    _orb_t0 = time.time()
+    for _rv in receipts.values():
+        if not isinstance(_rv, str) or not is_proof_card_path(_rv) \
+                or not os.path.exists(_rv) or _rv in _fam_cache:
+            continue
+        if time.time() - _orb_t0 > ORB_CONTAIN_BUDGET_S:
+            log.info("PICTURE IN PROOF: time budget spent; remaining cards unchecked")
+            break
+        _best, _bn = None, 0
+        for _pp in _photos:
+            _n = orb_contains(_rv, _pp)
+            if _n > _bn:
+                _best, _bn = _pp, _n
+        if _best is not None and _bn >= ORB_CONTAIN_MIN_INLIERS:
+            _fam_cache[_rv] = _fam(_best)
+            log.info("PICTURE IN PROOF: %s shows %s (%d matching points); one "
+                     "picture to the use cap", os.path.basename(_rv),
+                     os.path.basename(_best), _bn)
     evidence_scene_uses = {}       # r21: evidence image -> scenes it backs (cap 2)
     person_rot = {}                # r11: per-person rotation cursor
 
@@ -7422,14 +7520,23 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
     # 7 freeze-frames of ONE podcast clip each looked unused, so this pass put
     # the same studio shot on scenes 7/9/12/16/17/18/19 of page 740 (run 475,
     # judge: c. REPETITION on frames 4, 5, 10, 12).
+    # r185: the Director's story images (visual_map, e.g. visidx-740-4, used
+    # once while 740 re-showed its clip) are real swap targets too; unpinned
+    # YouTube thumbnails stay out (r170's off-topic-frame rule).
+    _swap_src = list(pool) + [e for e in visual_map.values()
+                              if isinstance(e, dict) and e.get("path")
+                              and "ytimg.com/vi" not in str(e.get("url") or "")]
     if scenes and pool:
         _used, _swapped = {}, 0
         for sc in scenes:
             p = sc.get("path")
-            if not p or sc.get("textish") or sc.get("footage"):
+            if not p or sc.get("footage"):
+                continue
+            if sc.get("textish"):
+                _used[_fam(p)] = 1     # r185: a card showing a photo has shown it
                 continue
             if _fam(p) in _used:
-                _fresh = [e for e in pool
+                _fresh = [e for e in _swap_src
                           if e.get("path") and _fam(e["path"]) not in _used
                           and not e.get("designed") and not e.get("textish")]
                 if _fresh:
@@ -7461,16 +7568,18 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
         def _is_still(s):
             return (bool(s.get("path")) and s.get("type") == "photo"
                     and not s.get("textish") and not s.get("footage"))
+        def _is_shown(s):              # r185: cards spend their photo's uses too
+            return bool(s.get("path")) and not s.get("footage")
         _tot = {}
         for sc in scenes:
-            if _is_still(sc):
+            if _is_shown(sc):
                 _tot[_fam(sc["path"])] = _tot.get(_fam(sc["path"]), 0) + 1
         _seen, _kept, _folded, _moved = {}, [], 0, 0
         for sc in scenes:
             still = _is_still(sc)
             if still and _seen.get(_fam(sc["path"]), 0) >= IMAGE_MAX_USES:
                 _near = {_fam(s.get("path")) for s in _kept[-POOL_NO_REPEAT_WINDOW:]}
-                _alt = [e for e in pool
+                _alt = [e for e in _swap_src
                         if e.get("path") and not e.get("designed") and not e.get("textish")
                         and _tot.get(_fam(e["path"]), 0) < IMAGE_MAX_USES
                         and _fam(e["path"]) not in _near]
@@ -7489,7 +7598,7 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                     _tot[_fam(sc["path"])] -= 1
                     _folded += 1
                     continue
-            if still:
+            if _is_shown(sc):
                 _seen[_fam(sc["path"])] = _seen.get(_fam(sc["path"]), 0) + 1
             _kept.append(sc)
         if _folded or _moved:
