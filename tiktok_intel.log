@@ -1,0 +1,6 @@
+rivals: dramaalert, defnoodles, spillsesh, tiktokroom, popcrave, dexerto
+ms_token: present
+2026-09-19 09:36:36,715 - TikTokApi.tiktok - ERROR - Failed to create session: Target page, context or browser has been closed
+session failed (Target page, context or browser has been closed); nothing collected
+
+collected 0 post(s) from 0 rival(s)
