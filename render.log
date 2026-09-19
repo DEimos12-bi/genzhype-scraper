@@ -1,0 +1,126 @@
+2026-09-19 12:32:00,336 INFO caption font: /usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf
+2026-09-19 12:32:00,338 INFO job feed from repo branch (generated 2026-09-19T12:30:17+00:00)
+2026-09-19 12:32:00,338 INFO job from static feed (generated 2026-09-19T12:30:17+00:00)
+2026-09-19 12:32:00,338 INFO processing page_id=1099 slug=summit1g-wardogs-ban-controversy-timeline
+2026-09-19 12:32:00,338 INFO page 1099 is a GRAVE story: ambient bed, no whoosh/transitions, halved hook-rate boost
+2026-09-19 12:32:00,338 INFO STYLE rapid: lead=receipts cuts~1.0s xfade=0.00 zoom=0.20 punch=1.22 bgm_2 evidence_cap=3 footage_consec=2
+2026-09-19 12:32:00,338 INFO voice: en-US-AndrewMultilingualNeural (grave register)
+2026-09-19 12:32:00,338 INFO STAGE: visuals
+2026-09-19 12:32:00,339 INFO CLIP HUNT: story now has 0 clip(s)
+2026-09-19 12:32:03,694 INFO person photos from feed (site-resolved): Summit1g x4
+2026-09-19 12:32:03,733 INFO CONTAIN MODE: 783x717 needs 2.7x upscale to cover; rendering whole on a blurred fill instead
+2026-09-19 12:32:03,804 INFO face detected in vis-1099-0: 207x250 at (282,47)
+2026-09-19 12:32:03,841 INFO CONTAIN MODE: 1280x720 needs 2.7x upscale to cover; rendering whole on a blurred fill instead
+2026-09-19 12:32:04,043 INFO PORTRAIT GATE: person thumbnail has no visible face; not a portrait: https://i.ytimg.com/vi/NvZfK0in9Sw/maxresdefault.jpg
+2026-09-19 12:32:04,057 INFO CONTAIN MODE: 1280x720 needs 2.7x upscale to cover; rendering whole on a blurred fill instead
+2026-09-19 12:32:04,068 INFO face detected in vis-1099-2: 63x91 at (503,22)
+2026-09-19 12:32:09,474 INFO vision rotation: still-relevance served by gemini-3.5-flash-lite
+2026-09-19 12:32:09,489 INFO trimmed letterbox (1280, 720) -> (1236, 720): https://i.ytimg.com/vi/wwnuc6Tt2po/maxresdefault.jpg
+2026-09-19 12:32:09,498 INFO CONTAIN MODE: 1236x720 needs 2.7x upscale to cover; rendering whole on a blurred fill instead
+2026-09-19 12:32:09,509 INFO face detected in vis-1099-3: 78x91 at (558,92)
+2026-09-19 12:32:10,785 INFO vision rotation: still-relevance served by gemini-3.5-flash-lite
+2026-09-19 12:32:10,847 INFO CONTAIN MODE: 1200x675 needs 2.8x upscale to cover; rendering whole on a blurred fill instead
+2026-09-19 12:32:10,867 INFO face detected in vis-1099-4: 49x59 at (76,17)
+2026-09-19 12:32:12,163 INFO vision rotation: still-relevance served by gemini-3.5-flash-lite
+2026-09-19 12:32:12,236 INFO CONTAIN MODE: 1920x1080 needs 1.8x upscale to cover; rendering whole on a blurred fill instead
+2026-09-19 12:32:14,294 INFO vision rotation: still-relevance served by gemini-3.5-flash-lite
+2026-09-19 12:32:14,295 INFO STILL GATE: judged off-topic, dropped: https://www.pcgamesn.com/wp-content/sites/pcgamesn/2026/07/wardogs-military-tactical-fps-game-twitch
+2026-09-19 12:32:14,332 INFO CONTAIN MODE: 1920x1080 needs 1.8x upscale to cover; rendering whole on a blurred fill instead
+2026-09-19 12:32:14,351 INFO face detected in vis-1099-6: 273x375 at (620,38)
+2026-09-19 12:32:17,029 INFO vision rotation: still-relevance served by gemini-3.5-flash-lite
+2026-09-19 12:32:17,909 INFO UPSIZED: https://gaminghq.b-cdn.net/wp-content/uploads/2026/08/wardogs.jpg
+2026-09-19 12:32:17,919 INFO trimmed letterbox (1280, 720) -> (1280, 628): https://gaminghq.b-cdn.net/wp-content/uploads/2026/08/wardogs-300x169.jpg
+2026-09-19 12:32:17,931 INFO text-heavy visual (heuristic) -> contain mode (no crop/zoom): https://gaminghq.b-cdn.net/wp-content/uploads/2026/08/wardogs-300x169.jpg
+2026-09-19 12:32:17,948 INFO face detected in vis-1099-7: 145x154 at (227,3)
+2026-09-19 12:32:17,961 INFO trimmed letterbox (1200, 630) -> (944, 630): https://genzhype.com/assets/covers/summit1g-wardogs-ban-controversy-timeline-hero.webp
+2026-09-19 12:32:17,963 INFO text-heavy visual (heuristic) -> contain mode (no crop/zoom): https://genzhype.com/assets/covers/summit1g-wardogs-ban-controversy-timeline-hero.webp
+2026-09-19 12:32:17,984 INFO face detected in vis-1099-8: 183x244 at (245,17)
+2026-09-19 12:32:19,467 INFO visual pool: 7 distinct of 9 candidates (4 from people, 1 name(s) mapped: {'summit1g': 3})
+2026-09-19 12:32:19,467 INFO visual_i 0 ready (cover photo of the story)
+2026-09-19 12:32:19,467 INFO visual_i 7 ready (recent photo of Summit1g (their Sep video: Summit1g Gets BANNED on Wardogs for C)
+2026-09-19 12:32:19,467 INFO STAGE: receipts
+2026-09-19 12:32:19,488 INFO receipts: 1 card(s) downloaded of 7 entries (event entries carry no card by design)
+2026-09-19 12:32:19,489 INFO STAGE: screenshots
+2026-09-19 12:32:21,058 INFO Readability injected from vendor/Readability.js
+2026-09-19 12:32:26,046 INFO screenshot: no headline block found; skipping (no raw-page fallback): https://spilled.gg/summit1g-wardogs-ban-developer-cheater/
+2026-09-19 12:32:32,901 INFO screenshot: no headline block found; skipping (no raw-page fallback): https://www.pcgamesn.com/wardogs/livestream-twitch-ban
+2026-09-19 12:32:34,902 INFO screenshot: DEAD PAGE (http 403, title 'Forbidden') — the source itself is gone, not a detection failure: https://www.sportskeeda.com/us/streamers/news-summit1g-wardogs-ban-controversy-e
+2026-09-19 12:32:42,036 INFO screenshot: no headline block found; skipping (no raw-page fallback): https://gaminghq.eu/2026/09/13/wardogs-accidentally-bans-summit1g/
+2026-09-19 12:32:42,089 INFO screenshot: 5 page(s) showed no headline at 760px; re-shooting at desktop 1440px
+2026-09-19 12:32:42,493 INFO Readability injected from vendor/Readability.js
+2026-09-19 12:32:47,562 INFO Readability column 120..860 (9 nodes) on https://spilled.gg/summit1g-wardogs-ban-developer-cheat
+2026-09-19 12:32:47,583 INFO crop r30c: 1248x1553 at 96,125 (col 1002, lead-img True) https://spilled.gg/summit1g-wardogs-ban-developer-cheater/
+2026-09-19 12:33:01,898 INFO vision rotation: screenshot-clean served by gemini-3.5-flash-lite
+2026-09-19 12:33:01,899 INFO REAL source screenshot: https://spilled.gg/summit1g-wardogs-ban-developer-cheater/
+2026-09-19 12:33:08,381 INFO Readability column 149..925 (32 nodes) on https://www.pcgamesn.com/wardogs/livestream-twitch-ban
+2026-09-19 12:33:08,388 INFO crop r30c: 824x1030 at 125,582 (col 776, lead-img False) https://www.pcgamesn.com/wardogs/livestream-twitch-ban
+2026-09-19 12:33:10,673 INFO vision rotation: screenshot-clean served by gemini-3.5-flash-lite
+2026-09-19 12:33:10,674 INFO SHOT AD-GATE: ad/merch-cluttered screenshot rejected (shot-1099-2.png)
+2026-09-19 12:33:17,563 INFO Readability column 72..1368 (30 nodes) on https://gaminghq.eu/2026/09/13/wardogs-accidentally-ban
+2026-09-19 12:33:17,571 INFO crop r30c: 1344x1673 at 48,1027 (col 1296, lead-img False) https://gaminghq.eu/2026/09/13/wardogs-accidentally-bans-sum
+2026-09-19 12:33:19,172 INFO SHOT DEAD-ZONE: removed 149px dead band at y=0 (shot-1099-4.png)
+2026-09-19 12:33:21,413 INFO vision rotation: screenshot-clean served by gemini-3.5-flash-lite
+2026-09-19 12:33:21,414 INFO REAL source screenshot: https://gaminghq.eu/2026/09/13/wardogs-accidentally-bans-summit1g/
+2026-09-19 12:33:21,526 INFO event receipts: 2 clean screenshot(s), 2 og report photo(s); the rest fall back to subject photos
+2026-09-19 12:33:21,526 INFO STAGE: tts
+2026-09-19 12:33:23,012 INFO expressive TTS: segment 1/2 rate=+11% pitch=- 5.16s 9 cue(s)
+2026-09-19 12:33:28,444 INFO expressive TTS: segment 2/2 rate=+5% pitch=- 22.22s 58 cue(s)
+2026-09-19 12:33:28,853 INFO expressive TTS ok: 2 segment(s), 27.43s audio, 67 word timings
+2026-09-19 12:33:28,853 INFO STAGE: compose
+2026-09-19 12:33:28,854 INFO bgm (GRAVE story -> ambient bed): .social/bgm/bgm_1.mp3
+2026-09-19 12:33:28,866 INFO EDL: 9 shot(s) from 9 directed (words=67)
+2026-09-19 12:33:28,866 INFO VARIETY tuned for pool=7 scenes=9 -> window=6 max_share=0.33
+2026-09-19 12:33:29,325 INFO PICTURE IN PROOF: shot-1099-0.png shows vis-1099-4 (153 matching points); one picture to the use cap
+2026-09-19 12:33:29,507 INFO footage: cookies active
+2026-09-19 12:33:43,875 INFO PLANNED CLIP prefetch: wwnuc6Tt2po -> unavailable (moment photo fallback)
+2026-09-19 12:33:43,876 INFO visual_i 7 -> real story image (vis-1099-3) [PLANNED CLIP shot]
+2026-09-19 12:34:01,256 INFO PLANNED CLIP unavailable for wwnuc6Tt2po (bot-wall/miss); the moment's photo stands
+2026-09-19 12:34:01,286 INFO receipt 2 -> og report photo (photo scene)
+2026-09-19 12:34:01,303 INFO receipt 3 -> og report photo (photo scene)
+2026-09-19 12:34:01,316 INFO person shot -> Summit1g's photo 1/3 (vis-1099-0)
+2026-09-19 12:34:01,325 INFO receipt 0 repeats within 6 scenes; subject photo fallback
+2026-09-19 12:34:01,325 INFO receipt 0 missing/unresolved; subject photo fallback
+2026-09-19 12:34:16,314 INFO FOOTAGE unavailable for 5lKJyuVZExw; thumbnail fallback
+2026-09-19 12:34:16,314 INFO visual_i 0 -> real story image (vis-1099-8)
+2026-09-19 12:34:16,319 INFO PACING: 9 scenes -> 13 beats (target 1.0s/image, avg 2.14s)
+2026-09-19 12:34:16,319 INFO RENDER REPORT: {"style": "rapid", "ck_mode": true, "cookie_bytes": 1611, "story_vids": 2, "scenes": 13, "runtime_s": 27.9, "footage_scenes": 0, "gap_fill_scenes": 0, "opportunistic_footage": 0, "still_photo_scenes": 11, "card_scenes": 3, "frozen_stills": 0, "footage_fetches": 3, "seq": "csssssssscssc"}
+2026-09-19 12:34:16,319 INFO CLIP verify disabled (VIDEO_CLIP_VERIFY=0)
+2026-09-19 12:34:16,320 INFO scene plan (v4 EDL): 13 scene(s) (2 receipt, 0 b-roll), pool=7
+2026-09-19 12:34:16,320 INFO   scene 1: 0.00-4.08s type=receipt motion=contain sfx=pop music=bed visual=shot-1099-0.png
+2026-09-19 12:34:16,320 INFO   scene 2: 4.08-5.52s type=photo motion=zoom_out sfx=none music=bed visual=vis-1099-3
+2026-09-19 12:34:16,320 INFO   scene 3: 5.52-6.97s type=photo motion=zoom_out sfx=None music=bed visual=vis-1099-6
+2026-09-19 12:34:16,320 INFO   scene 4: 6.97-8.30s type=photo motion=pan_left sfx=none music=bed visual=receipt-og-1099-2.jpg
+2026-09-19 12:34:16,320 INFO   scene 5: 8.30-9.63s type=photo motion=zoom_out sfx=None music=bed visual=vis-1099-0
+2026-09-19 12:34:16,320 INFO   scene 6: 9.63-11.04s type=photo motion=punch_build sfx=pop music=bed visual=receipt-og-1099-3.jpg
+2026-09-19 12:34:16,320 INFO   scene 7: 11.04-12.44s type=photo motion=zoom_out sfx=None music=bed visual=vis-1099-2
+2026-09-19 12:34:16,320 INFO   scene 8: 12.44-13.87s type=photo motion=zoom_out sfx=none music=bed visual=vis-1099-0
+2026-09-19 12:34:16,320 INFO   scene 9: 13.87-15.29s type=photo motion=zoom_out sfx=None music=bed visual=vis-1099-3
+2026-09-19 12:34:16,320 INFO   scene 10: 15.29-19.05s type=receipt motion=contain sfx=none music=bed visual=shot-1099-4.png
+2026-09-19 12:34:16,320 INFO   scene 11: 19.05-21.75s type=photo motion=punch_build sfx=pop music=bed visual=vis-1099-2
+2026-09-19 12:34:16,320 INFO   scene 12: 21.75-24.04s type=photo motion=zoom_out sfx=none music=bed visual=vis-1099-4
+2026-09-19 12:34:16,320 INFO   scene 13: 24.04-27.88s type=photo motion=contain sfx=none music=bed visual=vis-1099-8
+2026-09-19 12:34:16,320 INFO VARIETY: 10 distinct stills, top visual carries 2/13 (15%)
+2026-09-19 12:34:16,320 INFO SELFCHECK: repeats=0 short_scenes=none caption_cov=100% (window=6, assets=12)
+2026-09-19 12:34:16,320 WARNING SELFCHECK: 2 near-repeat(s) within the 6-scene window (small pool; each reappears with different motion) — non-fatal
+2026-09-19 12:34:18,088 INFO face detected in receipt-og-1099-3.jpg: 273x375 at (620,38)
+[0;93m2026-09-19 12:34:18.302431818 [W:onnxruntime:Default, device_discovery.cc:146 GetPciBusId] Skipping pci_bus_id for PCI path at "/sys/devices/LNXSYSTM:00/LNXSYBUS:00/ACPI0004:00/MSFT1000:00/5620e0c7-8062-4dce-aeb7-520c7ef76171" because filename "5620e0c7-8062-4dce-aeb7-520c7ef76171" did not match expected pattern of [0-9a-f]+:[0-9a-f]+:[0-9a-f]+[.][0-9a-f]+[m
+2026-09-19 12:34:18,572 INFO depth: session ready
+2026-09-19 12:34:19,344 INFO depth: receipt-og-1099-3.jpg in 0.77s
+2026-09-19 12:34:19,426 INFO DEPTH SCENE receipt-og-1099-3.jpg motion=punch_build dur=1.4s
+2026-09-19 12:34:21,665 INFO GRAVE story: transitions + pattern interrupt disabled
+2026-09-19 12:34:28,255 INFO TEXT AVOID: burned-in text on 7 of 13 scene(s) (6.6s)
+2026-09-19 12:34:29,496 INFO CAPTION PLACEMENT: 18 caption event(s) by position: {"card": 4, "home": 12, "top": 2}
+2026-09-19 12:34:30,197 INFO bgm: SIGNATURE bed bgm_2.mp3 (same on every video, by design)
+2026-09-19 12:34:30,681 INFO sound: bed bgm_2.mp3 over 1 interval(s), 0 swell(s)
+2026-09-19 12:34:30,999 INFO sound: 3 SFX placed
+2026-09-19 12:34:31,032 INFO sound: final -17.6 dBFS avg / -1.5 dBFS peak
+2026-09-19 12:38:25,367 INFO STAGE: judge
+2026-09-19 12:38:30,996 INFO vision rotation: JUDGE served by gemini-3.5-flash-lite
+2026-09-19 12:38:30,997 INFO vision judge: pass=False weird=[{'frame': 4, 'issue': 'e. CONTEXT MISMATCH: random helicopter gameplay video unrelated to developer human error story'}, {'frame': 7, 'issue': 'e. CONTEXT MISMATCH: random helicopter gameplay video unrelated to developer throwing dildo story'}] mismatches=[{'frame': 4, 'words': 'was caused by human error. A developer trying to', 'what_shown': 'a helicopter flying over terrain in a shooter game'}, {'frame': 7, 'words': 'but developer Bulkhead was suspended for throwing', 'what_shown': 'a helicopter flying over terrain in a shooter game'}] artifact_misses=[] scores={'readability': 9, 'framing': 9, 'variety': 6, 'edit_variety': 6, 'completeness': 7} issues=['Context mismatch due to random unrelated helicopter gameplay footage appearing multiple times.']
+2026-09-19 12:38:38,299 INFO caption font: /usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf
+2026-09-19 12:38:38,500 INFO filmstrip built: build/reject-1099.jpg
+2026-09-19 12:39:53,536 INFO DIAG reject-sheet failed: HTTPSConnectionPool(host='genzhype.com', port=443): Max retries exceeded with url: /api/vi
+2026-09-19 12:41:08,581 INFO DIAG shot-1099-0 failed: HTTPSConnectionPool(host='genzhype.com', port=443): Max retries exceeded with url: /api/vi
+2026-09-19 12:42:23,617 INFO DIAG shot-1099-2 failed: HTTPSConnectionPool(host='genzhype.com', port=443): Max retries exceeded with url: /api/vi
+2026-09-19 12:43:38,657 INFO DIAG shot-1099-4 failed: HTTPSConnectionPool(host='genzhype.com', port=443): Max retries exceeded with url: /api/vi
+2026-09-19 12:53:24,775 ERROR WATCHDOG: stage 'judge' stalled past its cap — force-exit
