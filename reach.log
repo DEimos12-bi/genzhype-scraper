@@ -1,0 +1,66 @@
+twitter-cli install exit=0
+rdt-cli install exit=0
+From https://github.com/DEimos12-bi/genzhype-scraper
+ * branch            video-feed -> FETCH_HEAD
+ * [new branch]      video-feed -> origin/video-feed
+video feed bytes=44586
+  page 1099: grave story, skipped
+  search 'Suspended CBLOL Playoffs Clash': 0 hits, raw='{\n  "ok": true,\n  "schema_version": "1",\n  "data": []\n}\n'
+    -> 15 raw hit(s), 1 kept (dropped: 0 not-this-person, 14 off-topic)
+  page 1037: 1 candidate(s) from 2 search(es)
+  search 'Suspended CBLOL Playoff Series': 0 hits, raw='{\n  "ok": true,\n  "schema_version": "1",\n  "data": []\n}\n'
+    -> 15 raw hit(s), 1 kept (dropped: 0 not-this-person, 14 off-topic)
+  page 1028: 1 candidate(s) from 2 search(es)
+  search '"Natalie Roush" Pok mon': 0 hits, raw='{\n  "ok": true,\n  "schema_version": "1",\n  "data": []\n}\n'
+    -> 4 raw hit(s), 4 kept (dropped: 0 not-this-person, 0 off-topic)
+  page 1012: 4 candidate(s) from 2 search(es)
+    -> 15 raw hit(s), 15 kept (dropped: 0 not-this-person, 0 off-topic)
+  page 692: 15 candidate(s) from 1 search(es)
+x-pages: 4 page(s), 7 search(es) used
+x-pages exit=0 bytes=5733
+From https://github.com/DEimos12-bi/genzhype-scraper
+ * branch            reach-feed -> FETCH_HEAD
+ * [new branch]      reach-feed -> origin/reach-feed
+terms feed bytes=1096
+terms wanted: 12
+  the grind: x=10 reddit=10
+  raids: x=10 reddit=10
+  stacking: x=10 reddit=10
+  kennedy gene meme: x=0 reddit=10
+  parent split-face trend: x=0 reddit=10
+  gta iv meme: x=5 reddit=10
+  lags: x=10 reddit=10
+  ngl i'ma take a nap: x=0 reddit=10
+  usada pekora almond meme: x=2 reddit=10
+  lmaooo: x=10 reddit=10
+  kurt caldwell meme: x=0 reddit=10
+  m2 browning copypasta: x=0 reddit=10
+wrote drop/term-usage.json
+term-usage exit=0 bytes=70010
+  r/teenagers: 25 posts
+  r/GenZ: 25 posts
+  r/OutOfTheLoop: 25 posts
+  r/memes: 25 posts
+  r/dankmemes: 25 posts
+  r/me_irl: 25 posts
+  r/MemeEconomy: 25 posts
+  r/gaming: 25 posts
+  r/pcgaming: 25 posts
+  r/Games: 25 posts
+  r/leagueoflegends: 25 posts
+  r/VALORANT: 25 posts
+  r/2007scape: 25 posts
+  r/LivestreamFail: 25 posts
+  r/GamingLeaksAndRumours: 25 posts
+  r/youtubedrama: 25 posts
+  r/GTA6: 25 posts
+  x 'new slang': 20 posts
+  x 'why is everyone saying': 20 posts
+  x 'what does it mean when someone says': 20 posts
+scout harvest: 485 posts -> drop/scout-posts.json
+scout exit=0 bytes=204406
+A api anon: 200, tags=0
+B page anon: 200, 21290 bytes, tags=0
+C api cookies: 200, tags=0
+tiktok ear: method=None hashtags=0
+tiktok exit=0 bytes=345
