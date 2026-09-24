@@ -56,7 +56,7 @@ jobs:
         run: |
           set +e
           mkdir -p drop
-          pip install --quiet "git+https://github.com/jackwener/twitter-cli.git" 2>drop/install-twitter.err
+          pip install --quiet "git+https://github.com/jackwener/twitter-cli.git@7c634e0d396b1e7af9f63315b414925fe4f29ae7" 2>drop/install-twitter.err
           echo "twitter-cli install exit=$?" | tee -a drop/reach.log
           # pinned commit from the agent-reach study (PyPI lags upstream)
           pip install --quiet "git+https://github.com/public-clis/rdt-cli.git@5e4fb3720d5c174e976cd425ccc3b879d52cac66" 2>drop/install-rdt.err
@@ -172,7 +172,7 @@ jobs:
           TT_CC_COOKIES: ${{ secrets.TT_CC_COOKIES }}
         run: |
           set +e
-          pip install --quiet curl_cffi 2>drop/install-cffi.err
+          pip install --quiet "curl_cffi==0.16.3" 2>drop/install-cffi.err
           timeout 180 python tools/reach_tiktok.py drop/tiktok-trends.json >> drop/reach.log 2>&1
           echo "tiktok exit=$? bytes=$(wc -c < drop/tiktok-trends.json 2>/dev/null || echo 0)" | tee -a drop/reach.log
           tail -8 drop/reach.log
