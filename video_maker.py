@@ -800,7 +800,11 @@ except Exception:  # noqa: BLE001
 # when someone bumps it on purpose - bump it when a change is meant to give the
 # parked pages their one fresh attempt. The hash is still written next to each
 # park for diagnosis.
-MAKER_GEN = "g1"
+# Generation names are free text. The first one reuses the r191 file hash on
+# purpose: the renders of 2026-09-24 after r191 WERE the parked pages' fresh
+# attempt, so their parks and replan counts carry over instead of costing two
+# more renders each. Next bump: "g2".
+MAKER_GEN = "e26906dc1d"
 MAKER_REV = MAKER_GEN
 # A page parked under this many generations is never offered again.
 PARK_LIFETIME_CAP = int(os.environ.get("VIDEO_PARK_LIFETIME_CAP", "3"))
