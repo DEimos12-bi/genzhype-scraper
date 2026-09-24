@@ -83,6 +83,7 @@ def collect_youtube(todo):
     if not at:
         log("YT: token refresh failed", json.dumps(tok)[:200])
         return
+    print(f"::add-mask::{at}", flush=True)   # 2026-09-24: logs are public
     items = []
     for i in range(0, len(todo), 50):
         batch = ",".join(todo[i:i + 50])
@@ -115,6 +116,7 @@ def collect_tiktok():
     if not at:
         log("TT: no credentials; skipped")
         return
+    print(f"::add-mask::{at}", flush=True)   # 2026-09-24: logs are public
     d = http_json("https://open.tiktokapis.com/v2/video/list/"
                   "?fields=id,create_time,share_url,view_count,like_count,"
                   "comment_count,share_count",
