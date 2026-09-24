@@ -9,7 +9,7 @@ header('Content-Type: application/json');
 
 $CONFIG = require dirname(__DIR__, 2) . '/app/config.php';
 $token = (string)($_GET['token'] ?? $_POST['token'] ?? '');
-if (!hash_equals((string)($CONFIG['ingest_token'] ?? ''), $token)) {
+if (!hash_equals(((string)($CONFIG['ingest_token'] ?? '')) ?: random_bytes(32), $token)) {
     http_response_code(403);
     echo json_encode(['error' => 'forbidden']);
     exit;
@@ -29,5 +29,5 @@ try {
     ]);
 } catch (Throwable $e) {
     http_response_code(500);
-    echo json_encode(['error' => substr($e->getMessage(), 0, 200)]);
+    require_once dirname(__DIR__, 2) . '/app/api_error.php'; echo json_encode(['error' => api_error_ref($e, 'strategist_run')]);
 }

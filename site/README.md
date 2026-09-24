@@ -6,6 +6,13 @@ and one shared-hosting disk, with no history anywhere — a disk failure would h
 taken all of it. It is here now because the standing rule is **GitHub first, the
 host last**.
 
+**Sync status.** This copy went stale from 2026-08-25 to 2026-09-24 (a month of
+server-side changes existed only on the host). Re-synced 2026-09-24. Since then
+the host also keeps its own local history (`domains/genzhype.com/.git`, code
+only), so every server change is a commit there first; this folder mirrors the
+same scope (top-level `app/*.php` + 7 `api/` endpoints) and should be re-synced
+after each server batch.
+
 ## Layout
 
 | Path | What it is |

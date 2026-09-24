@@ -26,7 +26,7 @@ foreach ($dramas as $r) {
     $out = [];
     try {
         foreach (array_slice(drama_people_ai($r['h1'], $r['summary'] ?? ''), 0, 4) as $name) {
-            $e = entity_resolve_person($pdo, $name);
+            $e = entity_resolve_person($pdo, $name, (string)$r['h1'] . '. ' . (string)($r['summary'] ?? ''));   // r182
             if (!empty($e['sameAs'])) $out[] = ['name' => $name, 'role' => $e['description'] ?: 'Featured', 'sameAs' => $e['sameAs']];
         }
     } catch (Throwable $ex) { echo "  ERR " . substr($r['h1'], 0, 30) . ": " . $ex->getMessage() . "\n"; continue; }

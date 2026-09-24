@@ -139,6 +139,47 @@ function video_trim_script_to_budget(string $script, int $wHi): string {
     return $wc($out) >= 35 ? $out : $script;   // never cut into nonsense
 }
 
+/**
+ * r187: an 18-second cut never ends by asking the viewer a question. The first
+ * short script written (page 935) still closed on "Will you still play after
+ * the hype dies?" although the prompt forbids it, so the rule is enforced in
+ * code: a final sentence that is a question ADDRESSED TO THE VIEWER is dropped
+ * and the video ends on the last real fact. A rhetorical question about the
+ * story itself ("How many episodes are left?") has no second person and stays.
+ */
+function video_strip_viewer_question(string $script): string {
+    $parts = preg_split('/(?<=[.!?])\s+/u', trim($script)) ?: [];
+    if (count($parts) < 2) return trim($script);
+    $last = trim((string)end($parts));
+    if (preg_match('/\?["\')]*\s*$/u', $last)
+            && preg_match('/\b(you|your|u|yall)\b|whose side|comment below/iu', $last)) {
+        array_pop($parts);
+        return trim(implode(' ', $parts));
+    }
+    return trim($script);
+}
+
+/**
+ * r187: the long-form trimmer refuses to cut a script with fewer than 4
+ * sentences ("too short to cut safely"), so an 18-second cut - which IS three
+ * or four sentences - sailed past its word cap (page 978 came in at 50 words,
+ * 21.6s). A short cut keeps whole sentences from the start while they fit, and
+ * never drops below two: the hard fact plus one more.
+ */
+function video_trim_short(string $script, int $wHi): string {
+    $wc = static fn(string $s): int => count(preg_split('/\s+/', trim($s), -1, PREG_SPLIT_NO_EMPTY));
+    if ($wc($script) <= $wHi) return trim($script);
+    $parts = preg_split('/(?<=[.!?])\s+/u', trim($script), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+    if (count($parts) < 3) return trim($script);
+    $keep = [];
+    foreach ($parts as $i => $sent) {
+        $try = trim(implode(' ', array_merge($keep, [$sent])));
+        if ($i >= 2 && $wc($try) > $wHi) break;
+        $keep[] = $sent;
+    }
+    return count($keep) >= 2 ? trim(implode(' ', $keep)) : trim($script);
+}
+
 function video_write_script(PDO $pdo, array $pick): ?array {
     $ev = $pdo->prepare("SELECT event_date, title, description FROM events WHERE drama_id=? ORDER BY sort_order, event_date LIMIT 12");
     $ev->execute([(int)$pick['did']]);
@@ -188,11 +229,23 @@ function video_write_script(PDO $pdo, array $pick): ?array {
         if (is_array($pj)) $estVis += 2 * min(4, count($pj));
     } catch (Throwable $e) { $estVis = 0; }
 
-    if     ($estVis <= 4)  { $wLo = 55;  $wHi = 70;  $secs = '25-30'; }
+    // r187 SHORT CUT (owner 2026-09-16, from his own platform numbers: 305
+    // videos, 54,382 views in 40 days, under 1% likes; our videos average 47.9s
+    // while the 130 winning rival videos we measured average 16.4s, and on
+    // YouTube the average viewer leaves our video at 23.1s of ~50s). While the
+    // app/VIDEO_SHORT sentinel exists, every NEW script is an 18-second cut:
+    // TTS runs a measured 2.31 words/sec, so 18s = ~42 words.
+    $shortCut = is_file(__DIR__ . '/VIDEO_SHORT');
+    if ($shortCut)         { $wLo = 60;  $wHi = 75;  $secs = '26-32'; }
+    elseif ($estVis <= 4)  { $wLo = 55;  $wHi = 70;  $secs = '25-30'; }
     elseif ($estVis <= 8)  { $wLo = 80;  $wHi = 105; $secs = '35-45'; }
     elseif ($estVis <= 14) { $wLo = 120; $wHi = 155; $secs = '52-67'; }
     else                   { $wLo = 155; $wHi = 195; $secs = '67-85'; }
 
+    // r143 THE BRAIN: the word budget scales by one bounded lever (0.80-1.20);
+    // the deterministic trim below reads the same $wHi, so script and shots stay in step.
+    if (!$shortCut)
+    try { require_once __DIR__ . '/brain.php'; $bs = brain_lever('script_words_scale', 1.0); if ($bs > 0 && abs($bs - 1.0) > 0.001) { $wLo = (int)round($wLo * $bs); $wHi = (int)round($wHi * $bs); } } catch (Throwable $e) {}
     $lenRule = "LENGTH IS A HARD BUDGET, NOT A SUGGESTION: write {$wLo}-{$wHi} "
              . "words (about {$secs} seconds spoken). This story has roughly "
              . "{$estVis} usable images, and a short vertical video shows a new "
@@ -204,7 +257,38 @@ function video_write_script(PDO $pdo, array $pick): ?array {
              . "exceeding {$wHi} words. NEVER pad. ";
     error_log("video_write_script: length budget ~{$estVis} visuals -> "
               . "{$wLo}-{$wHi} words ({$secs}s) for {$pick['slug']}");
-    if ($gravity === 'grave') {
+    if ($shortCut) {
+        // r187 SHORT CUT PROMPT. An 18-second cut cannot carry a 12-year
+        // timeline, so it does not try: one hard fact, two proofs, out. The
+        // spoken outro is gone on purpose - "Full dated timeline on GenZHype
+        // dot com" costs ~2.5s, 14% of this video; the link lives in the bio
+        // and the description instead.
+        $graveNote = $gravity === 'grave'
+            ? "THIS IS A GRAVE STORY (a death or serious human tragedy): calm, factual, respectful. No hype words, no teasing, no jokes. "
+            : "";
+        $sys = "You write the voiceover for a 30-SECOND vertical short (TikTok/Reels/Shorts) for a US Gen Z internet-culture "
+             . "channel. Thirty seconds is about five or six short sentences: every word must earn its place. "
+             . $graveNote
+             . "This is a COMPLETE video, not an excerpt: it must open, build and LAND inside those seconds. A viewer who "
+             . "watches to the last word must feel the story finished, never that it was cut off. "
+             . "FOUR BEATS, in this order: "
+             . "(1) HOOK (<=10 spoken words): the single hardest, most specific fact - who did what, with the number, "
+             . "date or quote that makes it land. Start ON the fact; never 'this is X explained', 'quick context', "
+             . "'here is what happened', a greeting or the channel name. "
+             . "(2) WHAT HAPPENED: one or two sentences of dated, showable fact - a report, a post, a number. Nothing "
+             . "unproven stated as fact (alleged/reportedly). "
+             . "(3) THE TURN: the detail that changes how it reads - what he admitted, what does not add up, what it "
+             . "costs him. This beat is why the video exists; without it you have a headline, not a story. "
+             . "(4) THE LANDING: close the loop you opened, then ask the viewer ONE specific question about THIS story "
+             . "that a person would actually answer in the comments (name the thing: the decision, the number, the "
+             . "person). Never a generic 'whose side are you on', never 'follow', 'like', 'link in bio', 'full "
+             . "timeline', a website or the channel name - the caption carries those. "
+             . "Spell every name exactly as the receipts spell it. "
+             . $lenRule
+             . 'Output STRICT JSON: {"hook":"3-6 word ON-SCREEN text hook, ALL CAPS, the stop-scroll claim",'
+             . '"script":"the FULL voiceover as one paragraph, starting with the spoken hook sentence","broll":["2-3 '
+             . 'stock-footage search phrases matching the beats IN ORDER - concrete filmable scenes, NEVER a person\'s name"]}.';
+    } elseif ($gravity === 'grave') {
         $death = video_story_involves_death($pick['title'] . ' ' . $summaryTxt . ' ' . $beats);
         $graveHooks = [
             'FACTUAL EXPLAINER: "What happened to [name], explained." Calm, direct, factual, zero hype.',
@@ -297,14 +381,8 @@ function video_write_script(PDO $pdo, array $pick): ?array {
     $sys = "You write the voiceover for a {$secs} second VERTICAL drama-recap video (TikTok/Reels/Shorts) for a US Gen Z "
          . "internet-culture channel, engineered like a top human creator. "
          . "HOOK (first sentence, <=12 spoken words): use this archetype -> {$style}. No greeting, no intro, no channel name. "
-         . "BEAT TEMPLATE after the hook: (1) one-sentence catch-up ONLY ('quick context:'), (2) the receipts in RISING-stakes "
-         . "order, one specific dated fact per sentence — open at 80% intensity and save the single biggest fact for near the END, "
-         . "(3) plant ONE open loop early ('but that was just the start' / 'wait till you see the reply'), (4) a mid-video re-hook "
-         . "around the halfway mark: use your assigned RE-HOOK from the HOOK ARSENAL below, or 'and this is where it gets messy' "
-         . "only when it genuinely fits better, (5) where it stands RIGHT NOW — anything unproven framed "
-         . "as alleged/reportedly, (6) END with a debate question the viewer must answer ('So whose side are you on?'), then the "
-         . "literal last line: 'Full dated timeline on GenZHype dot com.' "
-         . "SENTENCE CHAIN RULE: connect every beat with 'but', 'so' or 'then' — NEVER 'and then'. Short punchy spoken sentences. "
+             . "AFTER THE HOOK: catch the viewer up in one sentence of your own words, never the phrase 'quick context'. Then the receipts in RISING-stakes order, one specific dated fact per sentence, opening at 80% intensity and saving the single biggest fact for near the END. Plant one open loop early and re-hook near the halfway mark, both in words only this story would use, never a stock line. Anything unproven is framed as alleged/reportedly. END on the story itself: the newest dated receipt, the hardest number, or the question it genuinely leaves open, and echo two or three words from your hook so the loop closes. Never end on a debate question, a recap, the channel name or a link, the caption carries those. "
+         . "RHYTHM: short spoken sentences, one of them under six words, none over 25 words. At most two sentences may open with But, So or Then; vary the joins or drop them. "
          . "SAY the story's natural search phrase once, early (e.g. 'the [names] drama explained') — spoken words are search-indexed. "
          . "NEVER: 'follow for part 2', 'like if', 'link in bio' mid-video, hashtags, invented facts, or any name spelled unlike the receipts. "
          . $lenRule
@@ -350,13 +428,18 @@ function video_write_script(PDO $pdo, array $pick): ?array {
     $row = [
         'page_id' => (int)$pick['id'], 'slug' => $pick['slug'], 'title' => $pick['title'],
         'hook' => mb_substr(video_fix_names(trim((string)$j['hook']), $people), 0, 190),
-        'script' => video_trim_script_to_budget(
-                        video_fix_names(trim((string)$j['script']), $people), $wHi),
+        'script' => $shortCut
+            ? video_trim_short(video_fix_names(trim((string)$j['script']), $people), $wHi)
+            : video_trim_script_to_budget(video_fix_names(trim((string)$j['script']), $people), $wHi),
         'image' => url($pick['cover']),
     ];
     $broll = array_slice(array_values(array_filter(array_map('trim', (array)($j['broll'] ?? [])))), 0, 6);
-    $pdo->prepare("INSERT INTO video_scripts (page_id,slug,title,hook,script,image,tpl,broll,gravity) VALUES (?,?,?,?,?,?,2,?,?)
-                   ON DUPLICATE KEY UPDATE hook=VALUES(hook), script=VALUES(script), image=VALUES(image), tpl=2,
+    // r187: a short cut is tpl=5 so its numbers can be read apart from the
+    // 45-85s creator-playbook cuts (tpl=2). Everything downstream keys off
+    // "tpl >= 2", so a short cut travels the same pipeline.
+    $tplOut = $shortCut ? 5 : 2;
+    $pdo->prepare("INSERT INTO video_scripts (page_id,slug,title,hook,script,image,tpl,broll,gravity) VALUES (?,?,?,?,?,?,{$tplOut},?,?)
+                   ON DUPLICATE KEY UPDATE hook=VALUES(hook), script=VALUES(script), image=VALUES(image), tpl={$tplOut},
                                            broll=VALUES(broll), gravity=VALUES(gravity)")
         ->execute([$row['page_id'], $row['slug'], $row['title'], $row['hook'], $row['script'], $row['image'],
                    $broll ? json_encode($broll, JSON_UNESCAPED_SLASHES) : null, $gravity]);
@@ -507,8 +590,10 @@ function video_event_visuals(PDO $pdo, int $did, string $hero): array {
     try {
         require_once __DIR__ . '/video_people.php';
         $added = 0;
+        // r180: the story headline filters each creator's recent videos
+        $storyTitle = (string)$pdo->query("SELECT title FROM dramas WHERE id=" . (int)$did)->fetchColumn();
         if ($pid) foreach (vp_known_names($pid, $peopleJson, 3) as $nm) {
-            foreach (video_person_recent_media($nm, 3, PHP_SAPI === 'cli') as $mrow) {
+            foreach (video_person_recent_media($nm, 3, PHP_SAPI === 'cli', $storyTitle) as $mrow) {
                 if (count($urls) >= 24 || $added >= 8) break 2;
                 if (in_array($mrow['url'], $urls, true)) continue;
                 $urls[] = $mrow['url'];
@@ -542,6 +627,108 @@ function video_fact_tokens(string $text): array {
         $out[$stem] = max($out[$stem] ?? 0, 1);
     }
     return $out;
+}
+
+/**
+ * r184 (gap 8, footage share): the story's own clips as the Director's options.
+ * Measured 2026-09-14 on the 109 videos the Eyes scored: 86 of the 88 whose
+ * shot list bound no clip HAD fetchable clips (244 of them TikToks) and sat at
+ * ~15% moving picture against rivals' 43%, while bound videos reached 21-26%.
+ * A tpl=2 Director could order footage only on a YouTube thumbnail, so those
+ * clips reached the maker unbound and its clip-title match (r172) placed almost
+ * none. Admission is the timeline's $clipPick rule: fetchable, and embedded by
+ * one of the story's sources, or posted by one of its people, or hunted for it.
+ * Ranked provenance > identity > hunted; each carries the words that say what
+ * it is about (its caption, or the events its source article reports).
+ */
+function video_director_clips(PDO $pdo, int $pageId, int $did, array $people, int $max = 6): array {
+    require_once __DIR__ . '/clip_supply.php';     // clip_fetchable()
+    require_once __DIR__ . '/fetch_sources.php';   // fs_clip_author()
+    $fc = $pdo->prepare("SELECT footage_clips FROM video_scripts WHERE page_id=?");
+    $fc->execute([$pageId]);
+    $raw = (array)json_decode((string)$fc->fetchColumn(), true);
+    if (!$raw) return [];
+    $normId = fn(string $x) => preg_replace('/[^a-z0-9]/', '', mb_strtolower($x));
+    $peopleNorm = array_values(array_filter(array_map(fn($x) => $normId((string)$x), $people)));
+    $srcText = [];
+    try {
+        $q = $pdo->prepare("SELECT s.url, e.title, e.description FROM events e JOIN sources s ON s.id=e.source_id
+                            WHERE e.drama_id=? AND s.url<>''");
+        $q->execute([$did]);
+        foreach ($q->fetchAll() as $ev) {
+            $srcText[(string)$ev['url']] = trim(($srcText[(string)$ev['url']] ?? '') . ' ' . $ev['title'] . '. ' . $ev['description']);
+        }
+    } catch (Throwable $e) {}
+    $out = []; $seen = [];
+    foreach ($raw as $c) {
+        if (!is_array($c)) continue;
+        $u = (string)($c['url'] ?? '');
+        if ($u === '' || isset($seen[$u]) || !clip_fetchable($u)) continue;
+        $seen[$u] = 1;
+        $src = (string)($c['src'] ?? '');
+        $prov = $src !== '' && isset($srcText[$src]);
+        $a = $normId((string)($c['author'] ?? '') ?: fs_clip_author($u));
+        $identity = strlen($a) >= 4 && (in_array($a, $peopleNorm, true)
+            || (bool)array_filter($peopleNorm, fn($pn) => strlen($pn) >= 5 && (str_contains($a, $pn) || str_contains($pn, $a))));
+        $hunted = !empty($c['hunted']);
+        if (!$prov && !$identity && !$hunted) continue;
+        $out[] = ['url' => $u, 'platform' => (string)($c['platform'] ?? ''), 'author' => (string)($c['author'] ?? ''),
+                  'provenance' => $prov, 'identity' => $identity, 'title' => trim((string)($c['title'] ?? '')),
+                  'src_text' => $prov ? mb_substr($srcText[$src], 0, 400) : '',
+                  'rank' => $prov ? 0 : ($identity ? 1 : 2)];
+    }
+    usort($out, fn($x, $y) => $x['rank'] <=> $y['rank']);
+    return array_slice($out, 0, $max);
+}
+
+/**
+ * r184: the deterministic check on a Director clip order, run on the sentence
+ * the shot sits in. The clip must be about what is being said: its author is a
+ * person that sentence names, or its caption / its source article's events share
+ * two distinctive words with the sentence (people's names excluded), or one such
+ * word while both name the same person. r172's page-738 failure, a hunted "Cinna
+ * Tells Agent About Her First Time" clip over a sentence that only names Agent,
+ * is what this refuses. The story's HEADLINE words never count: clips are hunted
+ * with exactly those words, so page 514's Guinness "Fastest window cleaner" clip
+ * shared "window cleaner" with every sentence and proved nothing about a moment.
+ * Returns a fit score, 0 = does not fit (identity 3+, else shared-word count).
+ */
+function video_clip_fits_sentence(array $clip, string $sentence, array $people, string $storyTitle = ''): int {
+    require_once __DIR__ . '/video_people.php';   // vp_title_tokens()
+    $norm = fn(string $x) => preg_replace('/[^a-z0-9]/', '', mb_strtolower($x));
+    $sentTok = array_values(array_diff(vp_title_tokens($sentence), vp_title_tokens($storyTitle)));
+    $sN = $norm($sentence);
+    $nameTok = []; $named = [];
+    foreach ($people as $p) {
+        $p = (string)$p; $pTok = vp_title_tokens($p);
+        $nameTok = array_merge($nameTok, $pTok);
+        $pn = $norm($p);
+        if (strlen($pn) >= 4 && str_contains($sN, $pn)) { $named[] = $pn; continue; }
+        foreach ($pTok as $t) if (mb_strlen($t) >= 4 && in_array($t, $sentTok, true)) { $named[] = $pn; break; }
+    }
+    $a = $norm((string)($clip['author'] ?? ''));
+    $clipText = (string)($clip['title'] ?? '') . ' ' . (string)($clip['src_text'] ?? '');
+    $shared = array_diff(array_intersect($sentTok, vp_title_tokens($clipText)), $nameTok);
+    foreach ($named as $pn) {
+        if (strlen($a) >= 4 && ($a === $pn || (strlen($pn) >= 5 && (str_contains($a, $pn) || str_contains($pn, $a))))) {
+            return 3 + count($shared);
+        }
+    }
+    if (count($shared) >= 2) return count($shared);
+    if (count($shared) === 1) {
+        $cN = $norm($clipText);
+        foreach ($named as $pn) if (str_contains($cN, $pn)) return 1;
+    }
+    return 0;
+}
+
+/** r184: the full sentence(s) a word range sits in (the words a clip plays under). */
+function video_sentence_of(array $words, int $in, int $out): string {
+    $a = $in;
+    while ($a > 0 && !preg_match('/[.!?]["\')]*$/u', (string)$words[$a - 1])) $a--;
+    $b = $out; $last = count($words) - 1;
+    while ($b < $last && !preg_match('/[.!?]["\')]*$/u', (string)$words[$b])) $b++;
+    return implode(' ', array_slice($words, $a, $b - $a + 1));
 }
 
 /**
@@ -688,7 +875,7 @@ function video_spread_receipts(array $shots, array $receipts): array {
  * WordBoundary timings it already collects. Deterministic validation clamps whatever
  * the model returns into a contiguous, law-abiding cut plan.
  */
-function video_write_shotlist(PDO $pdo, int $pageId, array $people = []): ?array {
+function video_write_shotlist(PDO $pdo, int $pageId, array $people = [], bool $write = true): ?array {
     $pdo = db_alive();
     $r = $pdo->prepare("SELECT script, title, gravity FROM video_scripts WHERE page_id=?");
     $r->execute([$pageId]);
@@ -761,6 +948,18 @@ function video_write_shotlist(PDO $pdo, int $pageId, array $people = []): ?array
         $hasVid = isset($visUrls[$vi])
                && preg_match('#^https?://i\.ytimg\.com/vi/#i', (string)$visUrls[$vi]);
         $vList .= "[{$vi}] {$vt}" . ($hasVid ? ' [HAS VIDEO]' : '') . "\n";
+    }
+    // r184: the story's own clips, numbered for clip_i (see video_director_clips)
+    $clipCands = [];
+    try { $clipCands = video_director_clips($pdo, $pageId, (int)($mrow['did'] ?? 0), $people); }
+    catch (Throwable $e) { error_log('video_write_shotlist: clip list failed (' . $e->getMessage() . ')'); }
+    $cList = '';
+    foreach ($clipCands as $ci => $cc) {
+        $about = $cc['title'] !== '' ? $cc['title'] : $cc['src_text'];
+        $cList .= "[{$ci}] " . ($cc['platform'] ?: 'video') . " clip by @{$cc['author']}"
+                . ($about !== '' ? ': "' . mb_substr($about, 0, 160) . '"' : '')
+                . ($cc['provenance'] ? " (embedded in this story's own coverage)"
+                   : ($cc['identity'] ? " (posted by a person in this story)" : " (found by searching this story)")) . "\n";
     }
     $postLaw = $postCount
         ? "Cards tagged [REAL POST by @handle] are the person's ACTUAL social post rendered verbatim (a snapshot of "
@@ -843,14 +1042,21 @@ function video_write_shotlist(PDO $pdo, int $pageId, array $people = []): ?array
                  . "match what the image SHOWS to what the words SAY. "
                  : "")
              : "")
+         . ($cList !== ''
+             ? "(9b) REAL-CLIP LAW: CLIPS lists real videos of this story that WILL play as moving footage. When the "
+             . "narration DESCRIBES what a clip shows (the person in it doing or saying that thing, or the moment its "
+             . "caption names), set \"clip_i\" to that clip's number on that subject shot. Each clip at most once; "
+             . "never on a receipt shot; a clip whose caption is about something else stays unused. Place every clip "
+             . "that genuinely fits somewhere: real moving footage is what separates a creator from a slideshow. "
+             : "")
          . ($promoIdx !== null
-             ? "(10) PROMO LAW: card [{$promoIdx}] is OUR OWN branded promo card - it is NOT evidence and using it "
-             . "mid-video is a failure. Use receipt_i {$promoIdx} ONLY on the literal final CTA shot ('Full dated "
-             . "timeline on GenZHype dot com') or a shot whose spoken words say 'GenZHype'. The FINAL shot MUST be "
-             . "that promo card when the script ends with the GenZHype CTA line. "
+             ? "(10) PROMO LAW: card [{$promoIdx}] is OUR OWN branded promo card. It is not evidence. Use receipt_i "
+             . "{$promoIdx} ONLY on a shot whose spoken words actually say 'GenZHype'. If no sentence says it, the "
+             . "card does not appear at all, and the video ends on the story - r163: scripts no longer carry a "
+             . "spoken brand line, so a final promo card would be a picture of something nobody said. "
              : "")
          . 'Output STRICT JSON: {"shots":[{"w_in":0,"w_out":6,"shot_class":"subject","receipt_i":null,"person":null,'
-         . '"visual_i":null,"clip":false,"query":"","motion":"punch_build","emphasis_w":3,"sfx":"none","music":"bed",'
+         . '"visual_i":null,"clip":false,"clip_i":null,"query":"","motion":"punch_build","emphasis_w":3,"sfx":"none","music":"bed",'
          . '"why":"max five words"}'
          . ($rCount ? ',{"w_in":7,"w_out":13,"shot_class":"receipt","receipt_i":2,"person":null,"visual_i":null,'
                     . '"clip":false,"query":"","motion":"punch_build","emphasis_w":9,"sfx":"pop","music":"bed",'
@@ -859,6 +1065,7 @@ function video_write_shotlist(PDO $pdo, int $pageId, array $people = []): ?array
     $usr = "STORY: {$row['title']}\nPEOPLE: " . (implode(', ', $people) ?: '(none)')
          . ($rList ? "\nRECEIPTS (real numbered evidence cards, dated):\n{$rList}" : '')
          . ($vList ? "\nVISUALS (real numbered story images):\n{$vList}" : '')
+         . ($cList ? "\nCLIPS (real videos of this story, numbered for clip_i):\n{$cList}" : '')
          . "\nNUMBERED SCRIPT ({$n} words):\n{$numbered}";
     // v7: the Director gets its DEDICATED reasoning brain first (own NVIDIA key
     // + quota, deepseek-v4-pro); the shared chain stays behind it as fallback.
@@ -872,30 +1079,57 @@ function video_write_shotlist(PDO $pdo, int $pageId, array $people = []): ?array
     // what it was before the Memory existed (fail closed).
     try { require_once __DIR__ . '/memory.php'; $sys .= memory_prompt_block($pdo, 'director', $pageId); }
     catch (Throwable $e) { error_log('memory block: ' . $e->getMessage()); }
-    $res = ai_chat([['role' => 'system', 'content' => $sys], ['role' => 'user', 'content' => $usr]],
-                   ['nvidia_director', 'gemini', 'openrouter', 'nvidia'], 0.4, 300);
-    if (isset($res['error'])) {
-        error_log("video_write_shotlist: ai error for page {$pageId}: " . json_encode($res['error']));
-        return null;
-    }
-    error_log("video_write_shotlist: director brain = {$res['provider']}/{$res['model']} for page {$pageId}");
-    // The AI call above can hold this process for minutes. MySQL's wait_timeout
-    // expires on the idle connection while we wait, so the very next query throws
-    // "2006 server has gone away" and the whole video step dies - it did, on every
-    // tick since July 12. db_alive() pings and reconnects only if needed.
-    $pdo = db_alive();
-    $j = ai_json($res['content']);
-    $shots = $j['shots'] ?? null;
-    if (!is_array($shots) || count($shots) < 4) {
+    // r158: ai_chat hands back the first HTTP 200, and a reasoning model can fill
+    // that 200 with its notes instead of the JSON. From 09-10 every director call
+    // landed on nemotron-3-super and came back as "We need to split the script
+    // into shots..." or a bare [ ] list, so no new script got a shot list. An
+    // unusable answer now passes that model over and asks the next one, max 3.
+    $dirSkip = [];
+    $shots = null;
+    for ($dirTry = 0; $dirTry < 3; $dirTry++) {
+        $res = ai_chat([['role' => 'system', 'content' => $sys], ['role' => 'user', 'content' => $usr]],
+                       ['nvidia_director', 'gemini', 'openrouter', 'nvidia'], 0.4, 300, $dirSkip);
+        if (isset($res['error'])) {
+            error_log("video_write_shotlist: ai error for page {$pageId}: " . json_encode($res['error']));
+            return null;
+        }
+        error_log("video_write_shotlist: director brain = {$res['provider']}/{$res['model']} for page {$pageId}");
+        // The AI call above can hold this process for minutes. MySQL's wait_timeout
+        // expires on the idle connection while we wait, so the very next query throws
+        // "2006 server has gone away" and the whole video step dies - it did, on every
+        // tick since July 12. db_alive() pings and reconnects only if needed.
+        $pdo = db_alive();
+        $dirReply = (string)$res['content'];
+        $j = ai_json($dirReply);
+        $shots = $j['shots'] ?? null;
+        if (!is_array($shots)) {
+            // the object can sit after notes that carry braces of their own,
+            // or the reply can be the bare shots list
+            $dirAt = strrpos($dirReply, '"shots"');
+            if ($dirAt !== false && ($dirOpen = strrpos(substr($dirReply, 0, $dirAt), '{')) !== false) {
+                $j = ai_json(substr($dirReply, $dirOpen));
+                $shots = $j['shots'] ?? null;
+            }
+            $dirA = strpos($dirReply, '[');
+            $dirB = strrpos($dirReply, ']');
+            if (!is_array($shots) && $dirA !== false && $dirB !== false && $dirB > $dirA) {
+                $dirList = json_decode(substr($dirReply, $dirA, $dirB - $dirA + 1), true);
+                if (is_array($dirList) && isset($dirList[0]['w_in'])) $shots = $dirList;
+            }
+        }
+        if (is_array($shots) && count($shots) >= 4) break;
         error_log("video_write_shotlist: unusable director JSON for page {$pageId} ("
                   . (is_array($shots) ? count($shots) . ' shots' : 'no shots array') . '): '
-                  . mb_substr((string)$res['content'], 0, 300));
-        return null;
+                  . mb_substr($dirReply, 0, 300));
+        $dirSkip[] = $res['provider'] . '/' . $res['model'];
+        $shots = null;
     }
+    if (!is_array($shots)) return null;
 
     // deterministic validation: sort, clamp, force contiguous coverage, enforce budgets
     usort($shots, fn($a, $b) => (int)($a['w_in'] ?? 0) <=> (int)($b['w_in'] ?? 0));
     $clean = []; $cursor = 0; $sfxUsed = 0; $riser = false; $lastMotion = ''; $lastReceipt = null;
+    $clipTaken = []; $clipRefused = [];                              // r184
     $motions = ['punch_hit', 'punch_build', 'zoom_out', 'pan_left', 'pan_right'];
     foreach ($shots as $s) {
         if ($cursor >= $n) break;
@@ -985,6 +1219,23 @@ function video_write_shotlist(PDO $pdo, int $pageId, array $people = []): ?array
             $clip = true;
         }
 
+        // r184 REAL-CLIP ORDER: clip_i -> the clip's URL on this shot (the maker's
+        // clip_url contract plays it), kept only when the clip is about the
+        // sentence this shot sits in. A clip turns a stock shot into a real one.
+        $clipUrl = '';
+        $cIdx = $s['clip_i'] ?? null;
+        if ($cIdx !== null && $cIdx !== '' && is_numeric($cIdx) && isset($clipCands[(int)$cIdx])
+                && $class !== 'receipt' && empty($clipTaken[(int)$cIdx])) {
+            $cc = $clipCands[(int)$cIdx];
+            if (video_clip_fits_sentence($cc, video_sentence_of($words, $in, $out), $people, (string)$row['title']) > 0) {
+                $clipUrl = $cc['url'];
+                $clipTaken[(int)$cIdx] = true;
+                if ($class === 'broll') $class = 'subject';
+            } else {
+                $clipRefused[] = (int)$cIdx;
+            }
+        }
+
         $motion = in_array($s['motion'] ?? '', $motions, true) ? $s['motion'] : 'punch_build';
         if ($motion === $lastMotion) $motion = $motions[(array_search($motion, $motions, true) + 1) % count($motions)];
         $lastMotion = $motion;
@@ -1001,6 +1252,7 @@ function video_write_shotlist(PDO $pdo, int $pageId, array $people = []): ?array
             'person' => $matched,                                  // v6: exact known name -> that person's photo
             'visual_i' => $vi,                                     // v6: index into the feed's visuals[]
             'clip' => $clip,                                       // r17: planned real-footage order
+            'clip_url' => $clipUrl,                                // r184: this story's clip, played here
             'query' => $class === 'broll' ? mb_substr(trim((string)($s['query'] ?? '')), 0, 90) : '',
             'motion' => $motion, 'emphasis_w' => max($in, min($out, $emph)),
             'sfx' => $sfx, 'music' => $music,
@@ -1114,26 +1366,64 @@ function video_write_shotlist(PDO $pdo, int $pageId, array $people = []): ?array
     }
 
     // r11 NO-REPEAT LAW (deterministic): the same visual_i may not appear
-    // twice within any 4 consecutive shots, and max 3 uses total per video.
-    // Violations null the LATER visual_i — the renderer's LRU smart fallback
-    // picks a fresh image there instead of freezing on a repeat.
-    $viTotal = []; $viNulled = 0;
+    // twice within any 4 consecutive shots, and max $viMaxUses uses total
+    // per video. Violations null the LATER visual_i — the
+    // renderer's LRU smart fallback picks a fresh image there instead of
+    // freezing on a repeat.
+    // r159 (2026-09-11, pages 920 and 738 rejected after a finished render):
+    // TWO fixes. (a) the total cap was 3, but the maker's vision judge fails a
+    // video when one image appears in 3 or more sampled frames — so the third
+    // use was never a tolerance, it was a guaranteed rejection. (b) the law
+    // compared visual_i to visual_i only, so it could not see that a receipt's
+    // og_image IS one of the visuals: the feed ships that picture twice, once
+    // as visuals[k] and once as receipt[i].og_image. On 738 shot 3 showed
+    // visual1 and shot 4 showed receipt[0] whose og_image is that same press
+    // photo, and the judge reported "background podcast neon sign image
+    // repeated from frame 3 and frame 4". Receipts now count as the picture
+    // they actually put on screen. A receipt pin is never nulled (its evidence
+    // is WHY the beat exists) — it counts, and the later visual_i gives way.
+    $viMaxUses = 2;                                    // the judge's tolerance
+    $rcptVisual = [];
+    foreach ($receipts as $rc) {
+        $og = trim((string)($rc['og_image'] ?? ''));
+        if ($og === '') continue;
+        $k = array_search($og, $visUrls, true);
+        if ($k !== false) $rcptVisual[(int)$rc['idx']] = (int)$k;
+    }
+    $eff = [];                     // shot -> the visual index it really shows
     foreach ($clean as $ci => $c) {
-        if ($c['visual_i'] === null) continue;
-        $vi = (int)$c['visual_i'];
-        $windowDup = false;
-        for ($k = max(0, $ci - 3); $k < $ci; $k++) {
-            if ($clean[$k]['visual_i'] !== null && (int)$clean[$k]['visual_i'] === $vi) { $windowDup = true; break; }
+        if ($c['visual_i'] !== null) {
+            $eff[$ci] = (int)$c['visual_i'];
+        } elseif ($c['shot_class'] === 'receipt' && $c['receipt_i'] !== null
+                  && isset($rcptVisual[(int)$c['receipt_i']])) {
+            $eff[$ci] = $rcptVisual[(int)$c['receipt_i']];
         }
-        if ($windowDup || ($viTotal[$vi] ?? 0) >= 3) {
+    }
+    $viTotal = []; $viNulled = 0; $viCross = 0;
+    foreach ($clean as $ci => $c) {
+        if (!isset($eff[$ci])) continue;
+        $vi = $eff[$ci];
+        $windowDup = false; $dupWasReceipt = false;
+        for ($k = max(0, $ci - 3); $k < $ci; $k++) {
+            if (isset($eff[$k]) && $eff[$k] === $vi) {
+                $windowDup = true;
+                $dupWasReceipt = ($clean[$k]['visual_i'] === null);
+                break;
+            }
+        }
+        if (($windowDup || ($viTotal[$vi] ?? 0) >= $viMaxUses)
+            && $c['visual_i'] !== null) {
             $clean[$ci]['visual_i'] = null;
             $clean[$ci]['clip'] = false;               // r17: no pin, no clip order
             $viNulled++;
+            if ($dupWasReceipt) $viCross++;
+            unset($eff[$ci]);                          // this beat shows it no more
         } else {
-            $viTotal[$vi] = ($viTotal[$vi] ?? 0) + 1;
+            $viTotal[$vi] = ($viTotal[$vi] ?? 0) + 1;  // receipts count too
         }
     }
-    if ($viNulled) error_log("video_write_shotlist: no-repeat law nulled {$viNulled} visual_i repeat(s) for page {$pageId}");
+    if ($viNulled) error_log("video_write_shotlist: no-repeat law nulled {$viNulled} visual_i repeat(s) "
+        . "(max {$viMaxUses} use(s); {$viCross} of them duplicated a receipt's own photo) for page {$pageId}");
 
     // r11 OBSERVABILITY: subject shots pinned to nothing (no person, no
     // visual_i) are tolerated (the renderer's LRU fallback covers them) but
@@ -1152,10 +1442,61 @@ function video_write_shotlist(PDO $pdo, int $pageId, array $people = []): ?array
         }
     }
 
+    // r184: a shot a later pass turned into a card (receipt pin, post-card pin,
+    // promo CTA) shows that card, so its clip order is void
+    $clipsBound = 0; $clipsVoided = 0; $onScreen = [];
+    foreach ($clean as $ci => $c) {
+        if (($c['clip_url'] ?? '') === '') continue;
+        if ($c['shot_class'] !== 'subject') { $clean[$ci]['clip_url'] = ''; $clipsVoided++; }
+        else { $clipsBound++; $onScreen[$c['clip_url']] = video_sentence_of($words, $c['w_in'], $c['w_out']); }
+    }
+    // r184 CLIP BACKSTOP (the receipt backstop's rule, v4.5): the first live dry
+    // run (page 514, mistral-nemotron) set no clip_i at all. A clip the Director
+    // left unused goes on the subject shot whose sentence it fits best, one clip
+    // per sentence; a clip that fits no sentence stays out. The shot's OWN words
+    // must also touch the clip (a moment word, or the person whose clip it is):
+    // an editor cuts the clip in under the words that name it.
+    $clipsBackstop = 0;
+    if ($clipCands) {
+        require_once __DIR__ . '/video_people.php';
+        $usedSent = array_flip(array_values($onScreen));
+        $skipTok = vp_title_tokens((string)$row['title']);
+        foreach ($people as $pp) $skipTok = array_merge($skipTok, vp_title_tokens((string)$pp));
+        foreach ($clipCands as $cc) {
+            if (isset($onScreen[$cc['url']])) continue;
+            $best = null; $bestScore = 0;
+            $clipTok = vp_title_tokens($cc['title'] . ' ' . $cc['src_text']);
+            foreach ($clean as $ci => $c) {
+                if ($c['shot_class'] !== 'subject' || ($c['clip_url'] ?? '') !== '') continue;
+                $sent = video_sentence_of($words, $c['w_in'], $c['w_out']);
+                if (isset($usedSent[$sent])) continue;
+                $score = video_clip_fits_sentence($cc, $sent, $people, (string)$row['title']);
+                if ($score <= 0) continue;
+                $phrase = implode(' ', array_slice($words, $c['w_in'], $c['w_out'] - $c['w_in'] + 1));
+                $anchor = count(array_intersect(array_diff(vp_title_tokens($phrase), $skipTok), $clipTok));
+                if ($anchor === 0 && video_clip_fits_sentence($cc, $phrase, $people, '') < 3) continue;
+                $score += 2 * $anchor;
+                if ($score > $bestScore) { $bestScore = $score; $best = $ci; }
+            }
+            if ($best === null) continue;
+            $clean[$best]['clip_url'] = $cc['url'];
+            $usedSent[video_sentence_of($words, $clean[$best]['w_in'], $clean[$best]['w_out'])] = 1;
+            $onScreen[$cc['url']] = 1;
+            $clipsBound++; $clipsBackstop++;
+        }
+        error_log("video_write_shotlist: clips for page {$pageId}: " . count($clipCands) . " offered, {$clipsBound} bound "
+                  . "({$clipsBackstop} by the backstop), " . count($clipRefused) . " Director order(s) refused by the "
+                  . "sentence check, {$clipsVoided} voided by a card");
+        $meta = ($meta ?? []) + ['clips_offered' => count($clipCands), 'clips_bound' => $clipsBound,
+                                 'clips_backstop' => $clipsBackstop, 'clips_refused' => count($clipRefused)];
+    }
+
     $payload = ['words' => $n, 'shots' => $clean];
     if ($meta) $payload['meta'] = $meta;
-    $pdo->prepare("UPDATE video_scripts SET shotlist=? WHERE page_id=?")
-        ->execute([json_encode($payload, JSON_UNESCAPED_SLASHES), $pageId]);
+    if ($write) {
+        $pdo->prepare("UPDATE video_scripts SET shotlist=? WHERE page_id=?")
+            ->execute([json_encode($payload, JSON_UNESCAPED_SLASHES), $pageId]);
+    }
     return $clean;
 }
 
@@ -1200,18 +1541,50 @@ function video_story_videoable(PDO $pdo, int $pageId, int $did, string $title): 
     require_once __DIR__ . '/video_people.php';
     require_once __DIR__ . '/receipt_cards.php';
     $pj = (string)$pdo->query("SELECT people_json FROM dramas WHERE id={$did}")->fetchColumn();
-    $names = vp_names_from_json($pj);
+    // r158: an empty people_json is not "nobody is in this story". It means the
+    // entity step has not reached the page yet (it lives in the intelligence
+    // stages a long tick skips) or it kept only Wikidata-known people, which most
+    // streamers are not. Judging on that alone skipped EVERY story from 09-07 on
+    // (Asmongold, GTA 6, elrubius...) and a skipped row is never retried, so no
+    // new video was made for four days. video_people_resolve already heals the
+    // gap with the cached AI name extraction the feed builder uses, so ask it
+    // before calling a story institutional.
+    $names = array_column(vp_names_from_json($pj), 'name');
+    $resolved = [];
+    try {
+        $resolved = video_people_resolve($pdo, $pageId, $pj, $title, '');
+    } catch (Throwable $e) { /* resolver down -> fall through to the face check */ }
+    if (!$names) $names = array_values(array_filter(array_column($resolved, 'name')));
     if (!$names) {
         return ['ok' => false, 'why' => 'no named people — institutional/news story, nothing to put on screen'];
     }
     $faces = 0;
-    try {
-        foreach (video_people_resolve($pdo, $pageId, $pj, $title, '') as $pe) {
-            if (!empty($pe['photo'])) { $faces++; }
-        }
-    } catch (Throwable $e) { /* resolver down -> fall through to the face check */ }
+    foreach ($resolved as $pe) {
+        if (!empty($pe['photo'])) { $faces++; }
+    }
     if ($faces < 1) {
         return ['ok' => false, 'why' => 'no face photo resolvable for ' . mb_substr(implode(', ', array_slice($names, 0, 3)), 0, 120)];
+    }
+    // r189 SUBJECT ON SCREEN: a face is not enough - it must be the face of the
+    // person the HEADLINE names. Page 1022 ("Patrick Clancy Legal Threats...")
+    // passed on Lindsay Clancy's photo and shipped with no picture of Patrick
+    // (owner: "should never be allowed"). Full-name match, so a shared surname
+    // never makes a relative the subject. The renderer checks the same rule.
+    $key = fn(string $x) => trim(preg_replace('/[^a-z0-9]+/', ' ', mb_strtolower($x)));
+    $tSp = ' ' . $key($title) . ' '; $tCp = str_replace(' ', '', $tSp);
+    $subject = []; $subjectFace = false;
+    foreach (array_unique(array_merge($names, array_column($resolved, 'name'))) as $nm) {
+        $k = $key((string)$nm);
+        if (strlen(str_replace(' ', '', $k)) < 4) continue;
+        if (str_contains($tSp, ' ' . $k . ' ') || (str_contains($k, ' ') && str_contains($tCp, str_replace(' ', '', $k)))) {
+            $subject[] = (string)$nm;
+            foreach ($resolved as $pe) {
+                if ($key((string)($pe['name'] ?? '')) === $k && !empty($pe['photo'])) { $subjectFace = true; }
+            }
+        }
+    }
+    if ($subject && !$subjectFace) {
+        return ['ok' => false, 'why' => 'no photo of ' . mb_substr(implode(' or ', $subject), 0, 100) . ', the person this story is about'];
     }
     $rc = 0;
     try {
@@ -1226,6 +1599,73 @@ function video_story_videoable(PDO $pdo, int $pageId, int $did, string $title): 
 }
 
 /** Pre-generate scripts for the newest dramas that don't have one yet. Bounded batch (cron). */
+/**
+ * r186: is the RENDER QUEUE starving? The maker can only render a pending script
+ * that already carries a shot list. Measured 2026-09-16: 0 videos rendered all
+ * day - the only two such scripts were 692 (23 Aug) and 740 (10 Sep), both
+ * parked by the dead-letter rule, while the hourly tick skipped its video stage
+ * 15 times on the +25m budget. Fresh means written in the last few days; an old
+ * pending row is one the renderer has already failed to use.
+ */
+function video_queue_starved(PDO $pdo, int $minFresh = 2, int $freshDays = 3): bool {
+    try {
+        $n = (int)$pdo->query("SELECT COUNT(*) FROM video_scripts
+                               WHERE video_status='pending' AND shotlist IS NOT NULL
+                                 AND created_at > NOW() - INTERVAL " . max(1, $freshDays) . " DAY")->fetchColumn();
+        return $n < max(1, $minFresh);
+    } catch (Throwable $e) { return false; }
+}
+
+/**
+ * r186 SECOND LOOK: the gate writes a 'skipped' row that is never read again, so
+ * a story skipped as "no named people" before the entity step reached it stays
+ * skipped forever - page 1012 was skipped on 16 Sep and carries Natalie Roush
+ * today. Stories that now HAVE people are re-gated, newest first, at most once
+ * a day each (the gate itself costs an AI people-resolve), and a pass rewrites
+ * the same row into a real pending script.
+ */
+function video_rescue_skipped(PDO $pdo, int $limit = 1): int {
+    $pdo = db_alive();
+    $today = date('Y-m-d');
+    // r186 SELF-HEAL: writing a script takes minutes of AI, so a tick that dies
+    // in between leaves the row holding a finished script but still marked
+    // skipped (page 1012, 16 Sep). A script that exists IS the pending state.
+    try {
+        // 2026-09-24: a script set aside ON PURPOSE by the 7-day age-out (cli.php)
+        // also holds a finished script; healing it would bounce it back every
+        // video hour, so those stay set aside.
+        $healed = $pdo->exec("UPDATE video_scripts SET video_status='pending', skip_reason=NULL
+                              WHERE video_status='skipped' AND CHAR_LENGTH(COALESCE(script,'')) > 50
+                                AND COALESCE(skip_reason,'') NOT LIKE 'no shot list after%'");
+        if ($healed) error_log("video rescue: {$healed} written-but-skipped script(s) released to pending");
+    } catch (Throwable $e) {}
+    $rows = $pdo->query("SELECT v.page_id id, v.slug, p.cover, d.id did, d.title, p.summary, p.meta_desc
+                         FROM video_scripts v JOIN pages p ON p.id=v.page_id JOIN dramas d ON d.page_id=p.id
+                         WHERE v.video_status='skipped' AND p.status='published' AND p.cover<>''
+                           AND d.people_json IS NOT NULL AND d.people_json NOT IN ('', '[]')
+                           AND COALESCE(v.skip_reason,'') NOT LIKE 'rechecked {$today}%'
+                         ORDER BY p.published_at DESC LIMIT " . max(1, min(5, $limit)))->fetchAll();
+    $n = 0;
+    foreach ($rows as $r) {
+        $g = video_story_videoable($pdo, (int)$r['id'], (int)$r['did'], (string)$r['title']);
+        $pdo = db_alive();
+        if (!$g['ok']) {
+            $pdo->prepare("UPDATE video_scripts SET skip_reason=? WHERE page_id=?")
+                ->execute(['rechecked ' . $today . ': ' . mb_substr($g['why'], 0, 180), (int)$r['id']]);
+            continue;
+        }
+        if (video_write_script($pdo, $r)) {
+            $pdo = db_alive();
+            $pdo->prepare("UPDATE video_scripts SET video_status='pending', skip_reason=NULL
+                           WHERE page_id=? AND video_status='skipped'")->execute([(int)$r['id']]);
+            error_log("video rescue: page {$r['id']} ({$r['slug']}) passes the gate now — {$g['why']}");
+            $n++;
+        }
+        $pdo = db_alive();
+    }
+    return $n;
+}
+
 function video_scripts_generate(PDO $pdo, int $limit = 2): int {
     $pdo = db_alive();   // callers may hand us a handle that timed out during their own AI work
     video_factory_install($pdo);
@@ -1480,6 +1920,16 @@ function video_write_timeline_script(PDO $pdo, int $pageId): ?array {
         fn($c) => is_array($c) && !empty($c['url'])
                   && in_array($c['platform'] ?? '',
                               ['tiktok', 'twitch', 'kick', 'youtube', 'file', 'facebook', 'instagram'], true)));
+    // r148 (2026-09-09, owner watched p179): 15 beats and 4 clips gave 3 beats
+    // footage, and the maker filled the rest by freezing one clip into a photo it
+    // showed three times. A clip is 25-40 seconds long; cut a second and a third
+    // window out of it so those beats get real motion instead of a still.
+    try {
+        require_once __DIR__ . '/clip_supply.php';
+        $before = count($clips);
+        $clips = clip_supply_expand_slices($clips, count($events));
+        if (count($clips) > $before) error_log("timeline clips: {$before} clip(s) expanded to " . count($clips) . " with slices for " . count($events) . " beats");
+    } catch (Throwable $e) {}
     $clipK = 0;
 
     $people = [];
@@ -1506,6 +1956,16 @@ function video_write_timeline_script(PDO $pdo, int $pageId): ?array {
     foreach ($events as $_e) {
         if (!empty($_e['src_url'])) $storySrcUrls[] = (string)$_e['src_url'];
     }
+    // r145: ALL of the story's sources, not only the beats that survived the
+    // coat-to-cloth cut. Page 33's three staged TikToks were embedded by a source
+    // whose event was trimmed, so they failed the provenance gate and three walled
+    // YouTube links were bound instead. A clip a story source embedded is story
+    // evidence whether or not that beat made the cut.
+    try {
+        $allSrc = $pdo->prepare("SELECT DISTINCT s.url FROM events e JOIN sources s ON s.id=e.source_id WHERE e.drama_id=? AND s.url<>''");
+        $allSrc->execute([(int)$m['did']]);
+        foreach ($allSrc->fetchAll(PDO::FETCH_COLUMN) as $_u) $storySrcUrls[] = (string)$_u;
+    } catch (Throwable $e) {}
     $storySrcUrls = array_values(array_unique($storySrcUrls));
     $clipPick = function (array $e) use ($clips, &$clipUsed, $peopleNorm, $normId, $storySrcUrls): int {
         $evText = $normId((string)$e['title'] . ' ' . (string)$e['description']);
@@ -1542,7 +2002,11 @@ function video_write_timeline_script(PDO $pdo, int $pageId): ?array {
             // than a name match. The gate exists to stop WRONG-PERSON footage;
             // a clip the story's own source chose to embed cannot be that.
             // Search-found clips (no src) still need identity, unchanged.
-            if (!$identity && !$fromOurSource
+            // r145: a HUNTED clip (found by searching TikTok for this exact story,
+            // keyword-checked against the title and people) is topic b-roll and
+            // passes the identity gate; it ranks below any identity/same-article clip.
+            $isHunted = !empty($c['hunted']);
+            if (!$identity && !$fromOurSource && !$isHunted
                     && (strlen($a) < 5 || !str_contains($evText, $a))) continue;
             // r96 PREFER A CLIP WE CAN ACTUALLY GET. Measured 2026-08-11:
             // TikTok serves GitHub's runners a challenge page — twenty-one
@@ -1579,7 +2043,9 @@ function video_write_timeline_script(PDO $pdo, int $pageId): ?array {
             // Yung Miami bound three YouTube clips over its two staged TikToks
             // purely because both scored "gettable", and YouTube is the one
             // that stops working overnight.
-            $tier = in_array($plat, ['tiktok', 'file', 'facebook', 'twitch', 'kick'], true) ? 2
+            // r145: 'x' joins tier 2 — the server fetches X video through the
+            // syndication CDN and the bridge stages the file (measured 2026-09-06).
+            $tier = in_array($plat, ['tiktok', 'x', 'file', 'facebook', 'twitch', 'kick'], true) ? 2
                   : ($plat === 'youtube' ? 1 : 0);
             $gettable = $tier > 0;
             $rank = $tier * 2 + ($sameArticle ? 1 : 0);
@@ -1664,7 +2130,17 @@ function video_write_timeline_script(PDO $pdo, int $pageId): ?array {
             if (getenv('CLIP_DEBUG')) fwrite(STDERR, sprintf("      picked %d (%s) own=%d -> %s\n",
                 $ci, $clips[$ci]['platform'] ?? '?', $ownArticleClip ? 1 : 0,
                 (!$ownArticleClip && !$clipWordy) ? 'KILLED by keyword gate' : 'kept'));
-            if (!$ownArticleClip && !$clipWordy) $ci = -1;   // identity match: keep the old proof
+            // r145: a HUNTED clip is topic-level b-roll (found by searching TikTok for
+            // this story), not proof of this beat; the keyword gate exists to stop a
+            // wrong clip standing in for an event, which a topic clip cannot do. So it
+            // may carry any beat that has no identity clip — the owner's brief:
+            // "clips through the whole script, images only to identify".
+            // ...and so is a clip that one of THIS story's own sources embedded (r84 already
+            // trusts that provenance for identity): page 33 held three staged TikToks from
+            // its Kotaku source and bound none, because no beat's text said "tiktok".
+            $huntedPick = !empty($clips[$ci]['hunted'])
+                || (($clips[$ci]['src'] ?? '') !== '' && in_array((string)$clips[$ci]['src'], $storySrcUrls, true));
+            if (!$ownArticleClip && !$clipWordy && !$huntedPick) $ci = -1;   // identity match: keep the old proof
         } elseif (getenv('CLIP_DEBUG')) {
             fwrite(STDERR, "      no candidate at all\n");
         }
@@ -1690,33 +2166,17 @@ function video_write_timeline_script(PDO $pdo, int $pageId): ?array {
         $push($txt, $shot);
         $k++;
     }
-    $ctaShot = ['shot_class' => 'subject', 'motion' => 'zoom_out',
-                'sfx' => 'whoosh', 'music' => 'bed'];
-    if ($promoIdx !== null) {
-        $ctaShot['shot_class'] = 'receipt';
-        $ctaShot['receipt_i'] = $promoIdx;
-    }
-    // r136 THE CLOSING FEELING (owner: "a slick way to say it without making
-    // it clear... move their emotion"). Berger & Milkman 2012: sharing is
-    // driven by high-arousal feeling, and BOTH TikTok and Meta demote
-    // explicit "like/share/comment" bait — so the last spoken line leaves a
-    // feeling standing instead of asking for anything. The feeling is the
-    // one the Producer judged this story to carry; unknown -> the plain
-    // line exactly as before.
-    $closeLine = '';
-    try {
-        require_once __DIR__ . '/producer.php';
-        $emo = producer_emotion_for_page($pdo, $pageId)['emotion'] ?? '';
-        $closers = [
-            'anger'     => 'Read the order it happened in, then pick a side.',
-            'amusement' => 'Somebody you know still gets this wrong.',
-            'anxiety'   => 'This one is still moving.',
-            'awe'       => 'The numbers look made up. They are not.',
-        ];
-        $closeLine = $closers[$emo] ?? '';
-    } catch (Throwable $e) { $closeLine = ''; }
-    $push(trim($closeLine . ' Every source and the full dated timeline: '
-               . 'GenZHype dot com.'), $ctaShot);
+
+    // r163 (owner, after rating 89 of our videos: 54 ok, 35 bad, ZERO good):
+    // the last spoken line used to be appended HERE, after the writer had
+    // finished. That is why 100% of timeline scripts ended on the same sentence
+    // and only 14 distinct final sentences existed across 120 scripts - his
+    // words were "finish bad and generic as hell". His standing rule: a video
+    // ends on the newest dated receipt, the hardest number, or the real open
+    // question, whichever the writer chose. The brand travels in the caption and
+    // the pinned comment (social_copy.php), never in the voice track. The
+    // final-promo pin further down is already conditional on the last sentence
+    // speaking the brand, so it stops firing on its own.
 
     foreach ($shots as $i => &$s) { $s['i'] = $i; }
     unset($s);

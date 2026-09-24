@@ -38,7 +38,18 @@ if ($mode === 'feed') {
     $rows = $pdo->query("SELECT v.page_id, v.slug, v.title, v.hook, v.script, v.image, v.broll, v.shotlist, v.gravity, v.force_render, v.footage_clips
                          FROM video_scripts v JOIN pages p ON p.id=v.page_id
                          WHERE p.status='published' AND v.video_status='pending'
-                         ORDER BY v.force_render DESC, (v.shotlist IS NOT NULL) DESC, (v.tpl >= 2) DESC, v.created_at DESC
+                           -- r176: a Director-template script (tpl>=2) with no shot list is
+                           -- waiting for the hourly Director (a judge reject NULLs it for a
+                           -- replan). Rendered now it falls back to v3 stock b-roll: page 692,
+                           -- forced before the replan, shipped 6 stock scenes and a dead frame.
+                           AND NOT (v.tpl >= 2 AND v.shotlist IS NULL)
+                         -- r188 (owner 2026-09-16: render the newest pages first). Measured that
+                         -- day: our delivered videos were on average 33 DAYS old at render
+                         -- (slowest 96), while freshness is an official ranking factor for
+                         -- news. The queue sorted by when the SCRIPT was written; a backlog of
+                         -- old scripts therefore outranked today's story. The STORY's publish
+                         -- date now decides.
+                         ORDER BY v.force_render DESC, (v.shotlist IS NOT NULL) DESC, (v.tpl >= 2) DESC, p.published_at DESC, v.created_at DESC
                          LIMIT 6")->fetchAll(PDO::FETCH_ASSOC);
     $posts = [];
     foreach ($rows as $r) { $posts[] = video_feed_build_post($pdo, $r); }
@@ -95,32 +106,128 @@ if ($mode === 'feed') {
     if (!is_dir($cd)) @mkdir($cd, 0755, true);
     $clipsStaged = 0; $clipMB = 0;
     require_once __DIR__ . '/clip_fetch.php';
+    // r140 (2026-09-06): stage EVERY clip the server can fetch — X, TikTok,
+    // YouTube (when the android_vr client answers), direct files — for every
+    // story in the feed, not only shot-bound TikToks. Budget: 6 per story,
+    // 250 MB per run, trimmed windows (12-25s). Per-platform counts are logged
+    // so the admin shows planned vs staged instead of anyone claiming 'done'.
+    require_once __DIR__ . '/clip_supply.php';
+    $runCapMB = 250; $perStory = 6;
+    // r143 THE BRAIN: clips per story is a lever; the maker's own levers travel
+    // in feed/levers.env (the workflow loads them into its environment) and in
+    // feed.json for the record. Defaults stand if the brain is unreachable.
+    $leversEnv = '';
+    try { require_once __DIR__ . '/brain.php'; $perStory = max(3, min(8, (int)round(brain_lever('clips_per_story', 6.0)))); $leversEnv = brain_levers_env(); } catch (Throwable $e) {}
+    if ($leversEnv !== '') @file_put_contents($dir . '/levers.env', $leversEnv);
+    try { $pdoS = db_alive(); clip_supply_install($pdoS); } catch (Throwable $e) { $pdoS = null; }
     foreach ($posts as &$post) {
-        $bound = [];
-        foreach ((array)(($post['shotlist']['shots'] ?? [])) as $sh) {
+        $want = [];
+        foreach ((array)(($post['shotlist']['shots'] ?? [])) as $sh) {   // shot-bound first
             $u = (string)($sh['clip_url'] ?? '');
-            if ($u !== '' && str_contains($u, 'tiktok.com')) $bound[$u] = true;
+            if ($u !== '') $want[$u] = 0;
         }
-        $map = [];
-        foreach (array_keys($bound) as $u) {
-            try {
-                $p = cf_fetch($u);
-            } catch (Throwable $e) { $p = null; }
+        foreach ((array)($post['clips'] ?? []) as $c) {
+            $u = is_array($c) ? (string)($c['url'] ?? '') : (string)$c;
+            if ($u !== '' && !isset($want[$u])) $want[$u] = is_array($c) ? (int)($c['start'] ?? 0) : 0;
+        }
+        // r149 SLICES FOR EVERY VIDEO TYPE (2026-09-09, owner watched p179):
+        // r148 cuts extra windows out of a clip, but only inside the DRAMA
+        // timeline writer. A term video has no shotlist, so its 1-2 clips
+        // reached the maker as 1-2 files and every remaining beat got the same
+        // frozen still ("the last 10 secs was only loops of imgs repeating").
+        // Cut the same extra windows HERE, where every video type passes. A
+        // slice costs no download: cf_fetch reuses the cached source.
+        // Count only what this server can actually DOWNLOAD. p110 listed 8 clips,
+        // 4 of them YouTube (walled from here, 0/27 proven), so a planned count of 8
+        // said "enough" while only 4 files ever existed and half the video went to
+        // stills. A tiktok/x fetch can still fail after this count; that residue is
+        // visible in clip_stage_log as planned-minus-staged.
+        $fetchable = [];
+        foreach ($want as $u => $st) {
+            if (clip_fetchable($u)) $fetchable[] = $u;   // r160: ONE list, clip_supply.php (adds twitch + kick)
+        }
+        if ($fetchable && count($fetchable) < $perStory) {
+            $add = [];
+            // r150: ask the clip how long it is instead of guessing. Offsets 12/24/36
+            // were tried on every clip every ten minutes; 315 of 347 cuts in a day came
+            // back "the window starts past the end" because most TikToks are ~20s. The
+            // source is already on disk after the first run, so one ffprobe (about 20ms,
+            // local file, no network) turns a guess into an answer.
+            $windowsFor = function (string $u): array {
+                $src = cf_path($u . '#full');
+                if (!is_file($src)) $src = cf_path($u);
+                $dur = is_file($src) ? cf_probe_duration($src) : 0.0;
+                // Unknown length (never fetched yet): try the two safest windows only.
+                if ($dur <= 0) return [12, 24];
+                $out = [];
+                foreach ([12, 24, 6, 18, 30, 36] as $off) {
+                    if ($off + 3 <= $dur) $out[] = $off;   // same 3s floor cf_cut enforces
+                }
+                return $out;
+            };
+            $plan = [];
+            foreach ($fetchable as $u) {
+                if (str_contains($u, '#t=')) continue;
+                // youtube is walled from this server; slicing it buys nothing
+                if (!clip_fetchable($u)) continue;
+                $plan[$u] = $windowsFor($u);
+            }
+            // round-robin so one long clip cannot eat every slot
+            for ($round = 0; $round < 6; $round++) {
+                foreach ($plan as $u => $offs) {
+                    if (!isset($offs[$round])) continue;
+                    if (count($fetchable) + count($add) >= $perStory) break 2;
+                    $sl = $u . '#t=' . $offs[$round];
+                    if (isset($want[$sl]) || isset($add[$sl])) continue;
+                    $add[$sl] = true;
+                }
+            }
+            foreach (array_keys($add) as $sl) {
+                $want[$sl] = 0;
+                $post['clips'][] = ['url' => $sl, 'start' => 0,
+                                    'platform' => clip_platform($sl),
+                                    'slice_of' => preg_replace('/#t=\d+$/', '', $sl)];
+            }
+            if ($add) error_log('bridge: page ' . (int)($post['page_id'] ?? 0) . ' had '
+                . count($fetchable) . " fetchable clip(s) for {$perStory} slots; added "
+                . count($add) . ' extra window(s)');
+        }
+        $map = []; $per = []; $n = 0;
+        foreach ($want as $u => $start) {
+            $plat = clip_platform($u);
+            if (!clip_fetchable_platform($plat) && $plat !== 'youtube') continue;   // server routes only (youtube stays in the PLANNED count so its wall keeps being measured)
+            $per[$plat]['planned'] = ($per[$plat]['planned'] ?? 0) + 1;
+            if ($n >= $perStory || $clipMB >= $runCapMB) continue;
+            try { $p = cf_fetch($u, (int)$start); } catch (Throwable $e) { $p = null; }
             if (!$p || !is_file($p)) { error_log("bridge: no local copy for {$u}"); continue; }
             $name = sha1($u) . '.mp4';
             if (!is_file($cd . '/' . $name) && !@copy($p, $cd . '/' . $name)) continue;
             $map[$u] = 'clips/' . $name;
-            $clipsStaged++;
-            $clipMB += (int)round(filesize($cd . '/' . $name) / 1048576);
+            $mb = (int)round(filesize($cd . '/' . $name) / 1048576);
+            $clipsStaged++; $clipMB += $mb; $n++;
+            // r141 THE EYES: a rival TikTok on our own topic, already on disk —
+            // measure its visual shape now (one ffmpeg pass, nothing downloaded twice)
+            if ($plat === 'tiktok' && $pdoS) {
+                try { require_once __DIR__ . '/video_eyes.php'; eyes_ingest_rival($pdoS, $u, $p, (int)($post['page_id'] ?? 0)); } catch (Throwable $e) {}
+            }
+            $per[$plat]['staged'] = ($per[$plat]['staged'] ?? 0) + 1;
+            $per[$plat]['mb'] = ($per[$plat]['mb'] ?? 0) + $mb;
+        }
+        if ($pdoS) foreach ($per as $plat => $c) {
+            try { $pdoS->prepare("INSERT INTO clip_stage_log (at,page_id,platform,planned,staged,mb) VALUES (NOW(),?,?,?,?,?)")
+                ->execute([(int)($post['page_id'] ?? 0), $plat, (int)($c['planned'] ?? 0), (int)($c['staged'] ?? 0), (int)($c['mb'] ?? 0)]); } catch (Throwable $e) {}
         }
         // the maker reads this map and plays the local file instead of
         // spawning a download it cannot win
         if ($map) $post['clip_files'] = $map;
     }
     unset($post);
+    try { cf_prune(14); } catch (Throwable $e) {}   // the server store is a cache, not an archive
 
+    $feedLevers = [];
+    try { $feedLevers = brain_levers_all(); } catch (Throwable $e) {}
     file_put_contents($dir . '/feed.json', json_encode(
-        ['generated' => date('c'), 'posts' => $posts], JSON_UNESCAPED_SLASHES));
+        ['generated' => date('c'), 'levers' => $feedLevers, 'posts' => $posts], JSON_UNESCAPED_SLASHES));
     echo "feed: " . count($posts) . " job(s), $staged visual(s) staged, "
        . "{$clipsStaged} clip(s) staged ({$clipMB} MB)\n";
     exit(0);
@@ -131,19 +238,30 @@ $metas = glob($dir . '/drop-meta-*.json') ?: [];
 // A failed-run drop has no meta sidecar but may carry video-<pid>.mp4 anyway;
 // those are diagnosis-only (the judge said no) — ingest ONLY metad videos.
 $done = 0;
+// 2026-09-24: every drop decision is written to app/video_bridge.log. Page 1226
+// was rendered and marked done by the maker on 09-24 but never arrived, and the
+// bridge's output went nowhere, so the loss could not be traced.
+$blog = static function (string $line): void {
+    @file_put_contents(__DIR__ . '/video_bridge.log', date('c') . ' ' . $line . "\n", FILE_APPEND);
+};
+$blog('drop: ' . count($metas) . ' meta file(s); files: ' . implode(' ', array_map('basename', glob($dir . '/*') ?: [])));
 foreach ($metas as $mf) {
     $m = json_decode((string)file_get_contents($mf), true);
-    if (!is_array($m)) { continue; }
+    if (!is_array($m)) { $blog('SKIP ' . basename($mf) . ': unreadable meta'); continue; }
     $pid  = (int)($m['page_id'] ?? 0);
     $slug = preg_replace('/[^a-z0-9-]/', '', strtolower((string)($m['slug'] ?? '')));
     $mp4  = $dir . '/' . basename((string)($m['mp4'] ?? ''));
-    if ($pid <= 0 || $slug === '' || !is_file($mp4) || filesize($mp4) < 200000) { continue; }
+    if ($pid <= 0 || $slug === '' || !is_file($mp4) || filesize($mp4) < 200000) {
+        $blog("SKIP page {$pid}: " . (!is_file($mp4) ? 'mp4 missing from the drop' : 'bad meta or mp4 under 200 KB'));
+        continue;
+    }
     $row = $pdo->prepare("SELECT video_status, video_made_at FROM video_scripts WHERE page_id=?");
     $row->execute([$pid]);
     $cur = $row->fetch(PDO::FETCH_ASSOC);
     // idempotent: skip if a video newer than this drop already landed via HTTP
     if ($cur && $cur['video_status'] === 'ready'
             && $cur['video_made_at'] && strtotime((string)$cur['video_made_at']) > filemtime($mp4)) {
+        $blog("SKIP page {$pid}: a newer copy already arrived over HTTP");
         continue;
     }
     $mdir = dirname(__DIR__) . '/public_html/media/video';
@@ -167,6 +285,12 @@ foreach ($metas as $mf) {
     $pdo->prepare("UPDATE video_scripts SET video_path=?, video_status='ready', video_made_at=NOW(), force_render=0 WHERE page_id=?")
         ->execute([$rel, $pid]);
     echo "ingested page $pid -> $rel (" . number_format(filesize($mp4)) . " bytes, via video-drop)\n";
+    // r188c: the owner's delivery email, same as the direct route
+    require_once __DIR__ . '/video_notify.php';
+    $blog("INGESTED page {$pid} -> {$rel}");
+    video_notify_delivered($pdo, (int)$pid, (string)$rel, (int)filesize($mp4), 'video-drop');
+    // r141 THE EYES: measure our own finished video the moment it lands
+    try { require_once __DIR__ . '/video_eyes.php'; eyes_ingest_ours($pdo, (int)$pid, dirname(__DIR__) . '/public_html' . $rel); } catch (Throwable $e) {}
     // THE RECORD (organ 02): delivery + judge from the maker's report; plan
     // refreshed now that the row says ready. Observer only.
     try {

@@ -239,9 +239,30 @@ function discover_terms_run(): array {
     // r/OutOfTheLoop FIRST: it catches viral trends days before the dictionaries do
     foreach (dt_reddit_questions() as $w) $harvest[$w] = 'reddit_ootl';
     foreach (dt_ud_words() as $w)     $harvest[$w] = $harvest[$w] ?? 'urbandictionary_wotd';
-    foreach (dt_trends_words() as $w) $harvest[$w] = $harvest[$w] ?? 'google_trends';
+    // GOOGLE TRENDS SWITCHED OFF (2026-09-05, measured). In the previous 48h it
+    // supplied 265 of ~280 term candidates - sports fixtures ("swansea vs
+    // wrexham"), bare celebrity names ("urban meyer"), product queries ("ram
+    // suv") - and the AI selector rejected ALL 265. Zero pages, ever, from this
+    // source, at the cost of one AI judgment per item every hour and a queue so
+    // full of noise the real sources drowned behind it. The July queue poisoning
+    // (heat-80 junk at the front for weeks) was this same tap. Off, not filtered:
+    // Google Trends serves what the whole world searches, and that is never
+    // where a slang word is born. Re-enable only with a lane-restricted feed.
+    // foreach (dt_trends_words() as $w) $harvest[$w] = $harvest[$w] ?? 'google_trends';
+    // TIKTOK EAR (2026-08-30): Creative Center trending hashtags from the
+    // runner (reach_cache['tiktok_trends'], TikTok's OWN trend list). Hashtag
+    // names enter the same AI filter as every other harvest word — generic
+    // campaign tags (#fyp-tier) die there, vocabulary survives.
+    $rc = json_decode((string)@file_get_contents(__DIR__ . '/reach_cache.json'), true);
+    foreach ((array)($rc['tiktok_trends'] ?? []) as $h) {
+        $w = trim((string)($h['name'] ?? ''));
+        if ($w !== '' && mb_strlen($w) >= 3 && mb_strlen($w) <= 40) $harvest[$w] = $harvest[$w] ?? 'tiktok_trending';
+    }
     if (!$harvest) return ['harvested' => 0, 'new' => 0, 'selected' => 0, 'note' => 'all sources empty'];
 
+    // THE DESK (2026-09-05): every harvested word enters the one intake first.
+    require_once __DIR__ . '/desk.php';
+    foreach ($harvest as $w => $src) desk_signal($pdo, (string)$src, (string)$w, '', '', $src === 'reddit_ootl' ? 'reddit' : ($src === 'tiktok_trending' ? 'tiktok' : ''));
     // dedupe against existing pages (by slug) and candidates (by name, any status)
     $fresh = [];
     foreach ($harvest as $w => $src) {

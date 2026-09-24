@@ -84,7 +84,7 @@ function vp_cache_save(array $c): void {
     $now = time();
     foreach ($c as $k => $v) {
         $ttl = str_starts_with($k, 'names:') ? VP_TTL_NAMES
-             : (str_starts_with($k, 'media:') ? VP_TTL_MEDIA
+             : (str_starts_with($k, 'media:') || str_starts_with($k, 'media2:') ? VP_TTL_MEDIA
              : (empty($v['photo']) ? VP_TTL_MISS : VP_TTL_HIT));
         if (($now - (int)($v['at'] ?? 0)) > $ttl * 2) unset($c[$k]);
     }
@@ -116,33 +116,134 @@ function vp_photo_by_qid(string $qid): ?string {
  * historical/military-flavored description is always refused. Misses a few
  * legitimate celebrities (safe: photo stays null), never the wrong person.
  */
-function vp_wikidata_p18_guarded(string $name, string $context = ''): ?string {
+/** r175: a creator-shaped description (the only case accepted without a check). */
+function vp_desc_is_creator(string $desc): bool {
     static $creatorish = ['youtuber','streamer','internet','influencer','content creator','twitch',
         'social media','online','personality','gamer','tiktok','podcaster','celebrit','rapper','media'];
+    $desc = mb_strtolower($desc);
+    foreach ($creatorish as $w) if (str_contains($desc, $w)) return true;
+    return false;
+}
+
+/**
+ * r175: the text an entity linker judges a mention by — the story title plus
+ * the sentences that actually NAME the person (a first-200-chars excerpt never
+ * mentioned Ben Crump, so a correct link could not be confirmed).
+ */
+function vp_mention_context(string $name, string $context): string {
+    $parts = preg_split('/(?<=[.!?])\s+/u', $context) ?: [];
+    $head = (string)($parts[0] ?? '');
+    $tokens = array_filter(preg_split('/\s+/u', mb_strtolower($name)) ?: [], fn($t) => mb_strlen($t) >= 3);
+    $hits = [];
+    foreach (array_slice($parts, 1) as $sent) {
+        $ls = mb_strtolower($sent);
+        foreach ($tokens as $t) if (str_contains($ls, $t)) { $hits[] = $sent; break; }
+        if (mb_strlen(implode(' ', $hits)) > 600) break;
+    }
+    return trim($head . ' ' . implode(' ', $hits));
+}
+
+/** r175: an entity's English description (one cheap wbgetentities call). */
+function vp_qid_description(string $qid): string {
+    static $memo = [];
+    if (isset($memo[$qid])) return $memo[$qid];
+    $r = wm_api_host('www.wikidata.org', ['action' => 'wbgetentities', 'ids' => $qid,
+                                          'props' => 'descriptions', 'languages' => 'en']);
+    return $memo[$qid] = (string)($r['entities'][$qid]['descriptions']['en']['value'] ?? '');
+}
+
+/**
+ * r175 SECOND OPINION for a site entity the description guard cannot vouch for.
+ * Measured on all 166 entity links: of 52 descriptions that do not echo the
+ * story, about half are real namesakes (Q739412 dancehall DJ for streamer
+ * Agent 00; a porn film director for Ateez's San; a CFL player who died in
+ * 2012 for a 2026 disappearance) and half are the right person whose job the
+ * story never names (Katy Perry "American singer" on a cultural-appropriation
+ * story). Entity linkers settle exactly this with a context-aware verifier;
+ * one AI yes/no per entity + story, cached. true = same person; false or no
+ * answer = not verified (the photo path then refuses the entity — a missing
+ * face is recoverable, the wrong face on a crime story is not).
+ */
+/**
+ * r182: the candidate's evidence an entity linker compares against the story —
+ * the Wikidata description plus the English Wikipedia lead (job, era, dates).
+ * A one-line description alone ("American jurist" for Ben Crump, "record
+ * producer" for J. White Did It) made the verifier strip correct links.
+ */
+function vp_qid_evidence(string $qid, string $desc): string {
+    $out = 'Wikidata description: "' . $desc . '"';
+    try {
+        $r = wm_api_host('www.wikidata.org', ['action' => 'wbgetentities', 'ids' => $qid, 'languages' => 'en|mul',
+                                              'props' => 'sitelinks|labels', 'sitefilter' => 'enwiki']);
+        $t = (string)($r['entities'][$qid]['sitelinks']['enwiki']['title'] ?? '');
+        $label = (string)($r['entities'][$qid]['labels']['en']['value'] ?? $r['entities'][$qid]['labels']['mul']['value'] ?? '');
+        if ($label !== '') $out .= "\nWikidata name: \"{$label}\"";
+        // a thin entity (no English article, e.g. Iyanna "Yaya" Mayweather):
+        // birth/death dates are the era evidence the lead would have given
+        if ($t === '') {
+            foreach (['P569' => 'born', 'P570' => 'died'] as $prop => $word) {
+                $c = wm_api_host('www.wikidata.org', ['action' => 'wbgetclaims', 'entity' => $qid, 'property' => $prop]);
+                $tm = (string)($c['claims'][$prop][0]['mainsnak']['datavalue']['value']['time'] ?? '');
+                if (preg_match('/^\+?(\d{4}-\d\d-\d\d)/', $tm, $mm)) $out .= "\n{$word}: {$mm[1]}";
+            }
+        }
+        if ($t !== '') {
+            $w = wm_api_host('en.wikipedia.org', ['action' => 'query', 'prop' => 'extracts', 'exintro' => 1,
+                                                  'explaintext' => 1, 'exsentences' => 3, 'titles' => $t, 'redirects' => 1]);
+            foreach ((array)($w['query']['pages'] ?? []) as $pg) {
+                $x = trim((string)($pg['extract'] ?? ''));
+                if ($x !== '') $out .= "\nWikipedia article \"{$t}\" begins: \"" . mb_substr($x, 0, 600) . '"';
+            }
+        }
+    } catch (Throwable $e) {}
+    return $out;
+}
+
+function vp_entity_same_person(string $qid, string $desc, string $name, string $context): bool {
+    $context = vp_mention_context($name, $context);
+    $ck = 'ent2:' . $qid . ':' . md5(mb_strtolower($name . '|' . mb_substr($context, 0, 900)));
+    $cache = vp_cache_load();
+    if (isset($cache[$ck]['same']) && (time() - (int)($cache[$ck]['at'] ?? 0)) < VP_TTL_HIT) {
+        return (bool)$cache[$ck]['same'];
+    }
+    require_once __DIR__ . '/ai.php';
+    // r182: tested 10/10 on known namesakes (porn director for San, dancehall
+    // DJ for Agent 00, CFL player d.2012, actor d.1980, wrestler d.1936) and
+    // right people (Ben Crump, J. White Did It, Katy Perry, Tom Brady, Al Sharpton)
+    $res = ai_chat([['role' => 'user', 'content' =>
+        "A news story says: \"" . mb_substr($context, 0, 900) . "\"\n\n"
+        . "Candidate entity {$qid}:\n" . vp_qid_evidence($qid, $desc) . "\n\n"
+        . "Is this candidate the SAME real person as \"{$name}\" in the story? Compare what the story says the person does "
+        . "(job, field, era, country, who they work with) with the candidate's evidence. A name match alone proves nothing. "
+        . "Answer \"same\" when the evidence fits the story, \"different\" when it clearly describes someone else "
+        . "(other job, other era, dead before the events), \"unsure\" otherwise. "
+        . "STRICT JSON: {\"verdict\": \"same\"|\"different\"|\"unsure\", \"why\": \"<12 words\"}"]],
+        ['gemini', 'openrouter', 'nvidia'], 0.0, 60);
+    $j = isset($res['error']) ? null : ai_json($res['content'] ?? '');
+    if (!is_array($j) || !in_array($j['verdict'] ?? null, ['same', 'different', 'unsure'], true)) return false;   // no verdict: not cached
+    $same = ($j['verdict'] === 'same');
+    $cache = vp_cache_load();
+    $cache[$ck] = ['same' => $same, 'qid' => $qid, 'at' => time(), 'photo' => 'n/a'];
+    vp_cache_save($cache);
+    return $same;
+}
+
+function vp_wikidata_p18_guarded(string $name, string $context = ''): ?string {
     $s = wm_api_host('www.wikidata.org', ['action' => 'wbsearchentities', 'search' => $name,
                                           'language' => 'en', 'type' => 'item', 'limit' => 5]);
     $top = $s['search'][0] ?? null;
     if (!$top || empty($top['id'])) return null;
-    $desc = mb_strtolower((string)($top['description'] ?? ''));
-    if ($desc === '') return null;                    // description-less item: unverifiable
-    $isCreator = false;
-    foreach ($creatorish as $w) if (str_contains($desc, $w)) { $isCreator = true; break; }
-    if (!$isCreator) {
-        // historical / clearly-other-era figures are never our story's subject
-        if (preg_match('/\b1[0-8]\d\d\b|\b19[0-6]\d\b|sailor|soldier|navy|military|explorer|navigator|bishop|saint|monarch|missionary|colonel|general\b/', $desc)) {
-            return null;
-        }
-        // require the entity's own description words to appear in the story
-        // context (title + script excerpt) — "American rapper" passes on a rap
-        // story; "australian cricketer" fails on a streamer death story.
-        $ctx = mb_strtolower($name . ' ' . $context);
-        $ok = false;
-        foreach (preg_split('/[^a-z]+/', $desc) ?: [] as $w) {
-            if (mb_strlen($w) >= 5 && !in_array($w, ['american','british','english','canadian','australian'], true)
-                && str_contains($ctx, $w)) { $ok = true; break; }
-        }
-        if (!$ok) return null;
+    // r182b: a prefix hit ("Donald Trump" -> Donald Trump Jr.) is not the name
+    $key = fn(string $v) => preg_replace('/[^\p{L}\p{N}]+/u', '', mb_strtolower($v));
+    if ($key((string)($top['match']['text'] ?? $top['label'] ?? '')) !== $key($name)) return null;
+    $d = (string)($top['description'] ?? '');
+    if ($d === '') return null;                       // description-less item: unverifiable
+    // historical / clearly-other-era figures are never our story's subject
+    if (preg_match('/\b1[0-8]\d\d\b|\b19[0-6]\d\b|sailor|soldier|navy|military|explorer|navigator|bishop|saint|monarch|missionary|colonel|general\b/', mb_strtolower($d))) {
+        return null;
     }
+    // r175: same rule as the site-entity path — creator-shaped, or verified
+    if (!vp_desc_is_creator($d) && !vp_entity_same_person((string)$top['id'], $d, $name, $context)) return null;
     return vp_photo_by_qid((string)$top['id']);
 }
 
@@ -158,6 +259,25 @@ function video_person_photo(string $name, array $sameAs = [], string $context = 
     $cache = vp_cache_load();
     $key = 'photo:' . mb_strtolower($name);
     $hit = $cache[$key] ?? null;
+    // r175: a cached photo that came from the site-entity path is re-checked
+    // once against the namesake guard (the wrong Agent 00 sat cached for 30d)
+    $siteQid = null;
+    foreach ($sameAs as $u) {
+        if (is_string($u) && preg_match('#wikidata\.org/(?:wiki|entity)/(Q\d+)#', $u, $m)) { $siteQid = $m[1]; break; }
+    }
+    if ($hit && !empty($hit['photo']) && str_starts_with((string)($hit['source'] ?? ''), 'wikidata-entity(site)')
+            && empty($hit['fit_checked']) && $siteQid && $liveLookups) {
+        $d = '';
+        try { $d = vp_qid_description($siteQid); } catch (Throwable $e) {}
+        if ($d !== '' && !vp_desc_is_creator($d)
+                && !vp_entity_same_person($siteQid, $d, $name, $context)) {
+            error_log("video_people: cached photo for '$name' came from $siteQid ('$d'), not verified as this story's person; re-resolving");
+            $hit = null;
+        } elseif ($d !== '') {
+            $cache[$key]['fit_checked'] = 1;
+            vp_cache_save($cache);
+        }
+    }
     if ($hit && (time() - (int)($hit['at'] ?? 0)) < (empty($hit['photo']) ? VP_TTL_MISS : VP_TTL_HIT)) {
         return ['photo' => $hit['photo'] ?: null, 'source' => ($hit['source'] ?? 'cache') . ' (cached)'];
     }
@@ -169,6 +289,14 @@ function video_person_photo(string $name, array $sameAs = [], string $context = 
     // (a) site-verified entity QID -> P18 (deepest: zero namesake risk)
     foreach ($sameAs as $u) {
         if (is_string($u) && preg_match('#wikidata\.org/(?:wiki|entity)/(Q\d+)#', $u, $m)) {
+            // r175: "site-verified" is not proof — the same namesake guard as (c)
+            $d = '';
+            try { $d = vp_qid_description($m[1]); } catch (Throwable $e) {}
+            if ($d !== '' && !vp_desc_is_creator($d)
+                    && !vp_entity_same_person($m[1], $d, $name, $context)) {
+                error_log("video_people: site entity {$m[1]} ('$d') not verified as the story's '$name'; namesake skipped");
+                break;   // fall through to (b)/(c)
+            }
             $photo = vp_photo_by_qid($m[1]);
             if ($photo) { $source = 'wikidata-entity(site)'; }
             break;   // one QID per person; a P18-less entity falls through to (b)
@@ -209,15 +337,54 @@ function video_person_photo(string $name, array $sameAs = [], string $context = 
  * same JSON sidecar. CLI-only lookups ($liveLookups=false serves cache only).
  * Returns [['url'=>..., 'title'=>...], ...] (may be empty). Never fatal.
  */
-function video_person_recent_media(string $name, int $max = 4, bool $liveLookups = true): array {
+/**
+ * r180: does a creator's recent VIDEO belong in THIS story? Its thumbnail is
+ * that video's cover art, not a portrait: page 920 put ElRubius's "Fui al
+ * Safari Mas Salvaje de Africa" thumbnail (a cheetah) into a Rockstar North
+ * story and the judge failed "random cheetah filler"; all 12 of Agent 00's
+ * recent videos (pizza, the FBI, cave diving) rode a Nitro Camden story. Same
+ * rule as the maker's clip fit: the video title must share a real word with the
+ * story headline, the person's own name excluded. ("Esto es GTA VI" passes a
+ * "Rockstar North visit and GTA 6" story on "gta".)
+ */
+function vp_video_fits_story(string $videoTitle, string $storyTitle, string $personName): bool {
+    $story = array_diff(vp_title_tokens($storyTitle), vp_title_tokens($personName));
+    return (bool)array_intersect($story, vp_title_tokens($videoTitle));
+}
+
+/** r180 tokens (r184: shared with the Director's clip-to-sentence check). */
+function vp_title_tokens(string $t): array {
+    static $stop = null;
+    if ($stop === null) {
+        $stop = array_flip(['the','and','for','with','from','that','this','his','her','their','they','them',
+            'was','were','has','have','had','are','not','but','all','out','new','how','why','what','who','when',
+            'after','before','over','into','about','just','more','most','video','videos','vlog','epic','live',
+            'stream','streams','streamer','streamers','streaming','twitch','kick','youtube','tiktok','instagram',
+            'twitter','drama','viral','news','update','full','part','official','reaction','explained','timeline',
+            'shorts','short','clip','clips','today','day','days','year','years','time','first','last','best',
+            'world','people','story','incident','controversy','response','details','amid','behind','major',
+            'esto','los','las','del','con','una','por','para','que','mas','mis','the','was','you','your','our']);
+    }
+    $w = preg_split('/[^\p{L}\p{N}]+/u', mb_strtolower($t)) ?: [];
+    return array_values(array_unique(array_filter($w, fn($x) => mb_strlen($x) >= 3 && !isset($stop[$x]))));
+}
+
+function video_person_recent_media(string $name, int $max = 4, bool $liveLookups = true,
+                                   string $storyTitle = ''): array {
     $name = trim($name);
     if (mb_strlen($name) < 2) return [];
     $max = max(1, min(VP_PHOTOS_MAX, $max));   // r29: was hard-capped at 4
     $cache = vp_cache_load();
-    $key = 'media:' . mb_strtolower($name);
+    $key = 'media2:' . mb_strtolower($name);    // r180: rows now keep the real video title
     $hit = $cache[$key] ?? null;
+    $pick = function (array $rows) use ($storyTitle, $name, $max): array {
+        if ($storyTitle === '') return array_slice($rows, 0, $max);
+        $keep = array_values(array_filter($rows, fn($r) =>
+            vp_video_fits_story((string)($r['vtitle'] ?? ''), $storyTitle, $name)));
+        return array_slice($keep, 0, $max);
+    };
     if ($hit && (time() - (int)($hit['at'] ?? 0)) < VP_TTL_MEDIA) {
-        return array_slice((array)($hit['media'] ?? []), 0, $max);
+        return $pick((array)($hit['media'] ?? []));
     }
     if (!$liveLookups) return [];                      // web request: cache only
     $media = [];
@@ -233,15 +400,17 @@ function video_person_recent_media(string $name, int $max = 4, bool $liveLookups
             $u = vp_best_thumb($u);
             $mon = '';
             if (!empty($t['published']) && ($ts = strtotime((string)$t['published']))) $mon = date('M', $ts);
-            $media[] = ['url' => $u, 'title' => 'recent photo of ' . $name
-                . ($mon !== '' ? " (their {$mon} video)" : ' (their recent video)')];
+            $vt = trim((string)($t['title'] ?? ''));
+            $media[] = ['url' => $u, 'vtitle' => $vt, 'title' => 'recent photo of ' . $name
+                . ($mon !== '' ? " (their {$mon} video" : ' (their recent video')
+                . ($vt !== '' ? ': ' . mb_substr($vt, 0, 60) : '') . ')'];
             if (count($media) >= VP_PHOTOS_MAX) break;  // r29: was 4
         }
     } catch (Throwable $e) { $media = []; }
     $cache = vp_cache_load();                          // reload: lookups take seconds
     $cache[$key] = ['media' => $media, 'at' => time()];
     vp_cache_save($cache);
-    return array_slice($media, 0, $max);
+    return $pick($media);
 }
 
 /**
@@ -288,20 +457,32 @@ function vp_names_from_json(?string $peopleJson): array {
 function video_people_resolve(PDO $pdo, int $pageId, ?string $peopleJson,
                               string $title = '', string $context = '', int $max = 4): array {
     $people = vp_names_from_json($peopleJson);
-    if (!$people) {
+    // r189: the AI-read names are MERGED in, not only used when the verified
+    // list is empty. people_json keeps only people with a verified entity, so a
+    // private person the headline is about vanished: page 1022 ("Patrick
+    // Clancy Legal Threats...") listed only Lindsay Clancy while this very
+    // cache held ["Patrick Clancy"], and the video shipped without him.
+    // Verified people stay first; extracted ones join after, deduplicated.
+    $have = [];
+    foreach ($people as $p) $have[mb_strtolower(trim((string)$p['name']))] = 1;
+    $cache = vp_cache_load();
+    $nk = 'names:' . $pageId;
+    $hit = $cache[$nk] ?? null;
+    $extracted = null;
+    if ($hit && (time() - (int)($hit['at'] ?? 0)) < VP_TTL_NAMES) {
+        $extracted = (array)($hit['names'] ?? []);
+    } elseif (PHP_SAPI === 'cli' && $title !== '') {
+        $extracted = [];
+        try { $extracted = vp_people_ai($title, $context); } catch (Throwable $e) {}
         $cache = vp_cache_load();
-        $nk = 'names:' . $pageId;
-        $hit = $cache[$nk] ?? null;
-        if ($hit && (time() - (int)($hit['at'] ?? 0)) < VP_TTL_NAMES) {
-            foreach ((array)($hit['names'] ?? []) as $n) $people[] = ['name' => (string)$n, 'sameAs' => []];
-        } elseif (PHP_SAPI === 'cli' && $title !== '') {
-            $names = [];
-            try { $names = vp_people_ai($title, $context); } catch (Throwable $e) {}
-            $cache = vp_cache_load();
-            $cache[$nk] = ['names' => array_values($names), 'at' => time()];
-            vp_cache_save($cache);
-            foreach ($names as $n) $people[] = ['name' => (string)$n, 'sameAs' => []];
-        }
+        $cache[$nk] = ['names' => array_values($extracted), 'at' => time()];
+        vp_cache_save($cache);
+    }
+    foreach ((array)$extracted as $n) {
+        $k = mb_strtolower(trim((string)$n));
+        if ($k === '' || isset($have[$k])) continue;
+        $people[] = ['name' => trim((string)$n), 'sameAs' => []];
+        $have[$k] = 1;
     }
     $live = (PHP_SAPI === 'cli');
     $out = [];
@@ -316,7 +497,8 @@ function video_people_resolve(PDO $pdo, int $pageId, ?string $peopleJson,
         $photos = $r['photo'] ? [$r['photo']] : [];
         $capPhotos = (int)(defined('VP_PHOTOS_MAX') ? VP_PHOTOS_MAX : 8);
         try {
-            foreach (video_person_recent_media($p['name'], $capPhotos, $live) as $mrow) {
+            // r180: only thumbnails of videos that belong to THIS story
+            foreach (video_person_recent_media($p['name'], $capPhotos, $live, $title) as $mrow) {
                 if (!in_array($mrow['url'], $photos, true)) $photos[] = $mrow['url'];
                 if (count($photos) >= $capPhotos) break;
             }
@@ -334,10 +516,13 @@ function video_people_resolve(PDO $pdo, int $pageId, ?string $peopleJson,
  */
 function vp_known_names(int $pageId, ?string $peopleJson, int $max = 3): array {
     $names = array_column(vp_names_from_json($peopleJson), 'name');
-    if (!$names) {
-        $hit = vp_cache_load()['names:' . $pageId] ?? null;
-        if ($hit && (time() - (int)($hit['at'] ?? 0)) < VP_TTL_NAMES) {
-            $names = array_values(array_filter(array_map('strval', (array)($hit['names'] ?? []))));
+    // r189: union with the AI-read names (cache only here), same as the resolver
+    $hit = vp_cache_load()['names:' . $pageId] ?? null;
+    if ($hit && (time() - (int)($hit['at'] ?? 0)) < VP_TTL_NAMES) {
+        $have = array_flip(array_map(fn($x) => mb_strtolower(trim((string)$x)), $names));
+        foreach ((array)($hit['names'] ?? []) as $n) {
+            $k = mb_strtolower(trim((string)$n));
+            if ($k !== '' && !isset($have[$k])) { $names[] = trim((string)$n); $have[$k] = 1; }
         }
     }
     return array_slice($names, 0, $max);

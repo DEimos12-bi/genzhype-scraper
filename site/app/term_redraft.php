@@ -186,6 +186,15 @@ foreach ($slugs as $slug) {
             if (count(gate_term_valid_citations($citeStore, $term)) >= 3) break;
         }
     }
+    // OWNER 2026-08-29: same social usage tiers as draft_term.php — cached
+    // X + Reddit searches, then live Instagram — judged by the unchanged gate.
+    foreach (['reach_usage_citations', 'ig_usage_citations'] as $tier) {
+        if (count(gate_term_valid_citations($citeStore, $term)) >= 3) break;
+        foreach ($tier($term) as $hc) {
+            if (count(gate_term_valid_citations([$hc], $term)) === 1) $citeStore[] = $hc;
+            if (count(gate_term_valid_citations($citeStore, $term)) >= 3) break;
+        }
+    }
     $pdo->prepare("UPDATE terms SET origin_url=?, origin_date=?, origin_date_src=?, origin_type=?, citations=? WHERE page_id=?")
         ->execute([$artifact['url'] ?? null, $artifact['date'] ?? null, $artifact['date_src'] ?? null,
                    $artifact['type'] ?? null, json_encode($citeStore, JSON_UNESCAPED_UNICODE), $pageId]);

@@ -25,7 +25,7 @@ header('Cache-Control: no-store');
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') { http_response_code(405); echo json_encode(['ok' => false, 'error' => 'POST only']); exit; }
 $IN = json_decode((string)file_get_contents('php://input'), true);
 if (!is_array($IN)) { http_response_code(400); echo json_encode(['ok' => false, 'error' => 'bad json']); exit; }
-if (!hash_equals($CONFIG['ingest_token'] ?? '', (string)($IN['token'] ?? ''))) {
+if (!hash_equals(($CONFIG['ingest_token'] ?? '') ?: random_bytes(32), (string)($IN['token'] ?? ''))) {
     http_response_code(403); echo json_encode(['ok' => false, 'error' => 'bad token']); exit;
 }
 

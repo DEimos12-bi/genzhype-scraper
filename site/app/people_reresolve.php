@@ -53,7 +53,7 @@ foreach ($rows as $r) {
     foreach (array_slice($names, 0, 4) as $name) {
         if (count($have) + count($new) >= 4) break;
         if (isset($haveNames[mb_strtolower($name)])) continue;      // already stored
-        try { $e = entity_resolve_person($pdo, $name); } catch (Throwable $ex) { continue; }
+        try { $e = entity_resolve_person($pdo, $name, (string)$r['h1'] . '. ' . (string)($r['summary'] ?? '')); } catch (Throwable $ex) { continue; }   // r182
         if (empty($e['sameAs'])) continue;                          // still unresolvable -> skip
         $new[] = ['name' => $name,
                   'role' => ($e['description'] ?? '') ?: 'Featured',

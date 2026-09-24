@@ -87,7 +87,26 @@ function page_publish_live(PDO $pdo, int $pageId): bool {
             echo "  PUBLISHED (noindex): single-source story — live on the site, not offered to Google\n";
             return false;
         }
-        echo "  DRAMA CLEARED: framed + multi-sourced; publishing INDEXABLE\n";
+        // r168 (2026-09-13): the live quality judge (quality.php) says "publish
+        // requires a pass", but nothing here ever asked it. Its 5-score verdict
+        // was only a HOLD counter elsewhere, so the night its old failures were
+        // retired, pages 730/734/736 - failed 4 to 6 times each, and near-copies
+        // of pages already live - went straight to Google's index. A story is now
+        // offered to Google only if its LATEST quality verdict is a pass; with no
+        // verdict, or a failing one, it goes live noindex exactly like a
+        // single-source story, and earns index the day it passes.
+        $lq = $pdo->prepare("SELECT passed FROM ai_reviews WHERE page_id = ? AND stage = 'quality'
+                             ORDER BY id DESC LIMIT 1");
+        $lq->execute([$pageId]);
+        $latest = $lq->fetchColumn();
+        if ($latest === false || (int)$latest !== 1) {
+            $pdo->prepare("UPDATE pages SET status='published', robots='noindex',
+                           published_at=NOW(), updated_at=NOW() WHERE id=?")->execute([$pageId]);
+            echo "  PUBLISHED (noindex): " . ($latest === false ? 'no quality verdict yet' : 'latest quality verdict is a fail')
+               . " - live on the site, not offered to Google\n";
+            return false;
+        }
+        echo "  DRAMA CLEARED: framed + multi-sourced + passed the quality judge; publishing INDEXABLE\n";
     }
     // TERM/MEME/GAMING pages get the same treatment the drama lane now gets
     // (owner rule 2026-08-22): a single-source explainer still goes LIVE, it

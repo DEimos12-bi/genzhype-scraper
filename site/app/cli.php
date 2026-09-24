@@ -8,6 +8,15 @@
 //   php app/cli.php sitemap               - regenerate sitemap.xml
 if (PHP_SAPI !== 'cli') { http_response_code(403); exit('cli only'); }
 
+// r186 SILENT-BUG GUARD: PHP's own warnings were invisible here (log_errors
+// Off, display_errors Off), so a deleted prompt branch ran for four days as an
+// unseen "Undefined variable $sys" and simply stopped writing video scripts.
+// Warnings now land in app/error_log beside our own lines; deprecations stay
+// out so the file keeps signal.
+ini_set('log_errors', '1');
+ini_set('error_log', __DIR__ . '/error_log');
+error_reporting(E_ALL & ~E_DEPRECATED & ~E_USER_DEPRECATED);
+
 $GLOBALS['CONFIG'] = require __DIR__ . '/config.php';
 require __DIR__ . '/helpers.php';
 require __DIR__ . '/db.php';
@@ -155,6 +164,23 @@ function cnote(string $m): void {
     if (!empty($GLOBALS['__cnote'])) ($GLOBALS['__cnote'])($m);
 }
 
+/**
+ * r153 PER-LANE QUOTA: lanes take turns. Rows keep their incoming order inside
+ * their own lane, the lane of the first row goes first, and nothing is dropped.
+ */
+function lane_interleave(array $rows, callable $laneOf): array {
+    $byLane = [];
+    foreach ($rows as $r) $byLane[(string)$laneOf($r)][] = $r;
+    $out = [];
+    while ($byLane) {
+        foreach (array_keys($byLane) as $k) {
+            $out[] = array_shift($byLane[$k]);
+            if (!$byLane[$k]) unset($byLane[$k]);
+        }
+    }
+    return $out;
+}
+
 function velocity_drain(PDO $pdo, int &$slots, bool $dry = false): array {
     global $CONFIG;
     if (empty($CONFIG['auto_publish'])) {
@@ -206,6 +232,18 @@ function velocity_drain(PDO $pdo, int &$slots, bool $dry = false): array {
         if ($twin) {
             echo "  HELD-DUPLICATE {$h['path']}: {$twin['reason']} as /{$twin['slug']}/ - not re-judged\n";
             if (!$dry) cnote("HELD-DUPLICATE {$h['path']} -> {$twin['slug']}");
+            // 2026-08-27 QUEUE JAM. The drain reads the OLDEST review pages
+            // first (ORDER BY updated_at ASC, LIMIT slots*2). Duplicates are
+            // the oldest rows in there, so every run spent its whole allowance
+            // re-reading the same copies and never reached the publishable
+            // pages behind them: 86 waiting, 0 published. Recognising a
+            // duplicate is right; letting it hold the front of the line for
+            // ever is not. Touch it so it goes to the BACK. Nothing is
+            // deleted - it just stops blocking real work.
+            if (!$dry) {
+                $pdo->prepare("UPDATE pages SET updated_at=NOW() WHERE id=?")
+                    ->execute([(int)$h['id']]);
+            }
             $retained++;
             continue;
         }
@@ -761,6 +799,129 @@ switch ($cmd) {
         echo "record-backfill: {$n['pages']} page(s), {$n['videos']} video(s) seeded\n";
         break;
 
+    case 'desk': {
+        // desk install | desk judge [cap] | desk report [n] | desk live | desk shadow
+        require_once __DIR__ . '/desk.php';
+        $pdo = db();
+        $sub = $argv[2] ?? 'report';
+        if ($sub === 'install') { desk_install($pdo); echo "desk tables ready\n"; break; }
+        if ($sub === 'live')    { touch(DESK_LIVE_FLAG); echo "desk is LIVE (routing to candidates)\n"; break; }
+        if ($sub === 'shadow')  { @unlink(DESK_LIVE_FLAG); echo "desk is in SHADOW mode (log only)\n"; break; }
+        if ($sub === 'judge')   { print_r(desk_judge_run($pdo, (int)($argv[3] ?? 30), 240)); break; }
+        $r = desk_report($pdo, (int)($argv[3] ?? 40));
+        echo "agree={$r['agree']} DISAGREE={$r['disagree']} door_never_saw={$r['door_never_saw']} desk_dropped={$r['desk_dropped']}\n";
+        foreach ($r['rows'] as $x) printf("  #%-5d %-46s desk=%-32s door=%-40s %s | %s\n", $x['id'], mb_substr($x['name'], 0, 46), $x['desk'], mb_substr($x['door'], 0, 40), $x['verdict'], $x['why']);
+        break;
+    }
+    case 'brain': {
+        // brain run [force] | shadow | live | off | levers | set <key> <value> | report | requests | measure
+        require_once __DIR__ . '/brain.php';
+        $pdo = db(); brain_install($pdo);
+        $sub = $argv[2] ?? 'report';
+        if ($sub === 'run')     { print_r(brain_run($pdo, ($argv[3] ?? '') === 'force')); break; }
+        if ($sub === 'measure') { print_r(brain_measure($pdo)); break; }
+        if ($sub === 'shadow')  { @unlink(BRAIN_OFF_FLAG); @unlink(BRAIN_LIVE_FLAG); echo "brain: SHADOW\n"; break; }
+        if ($sub === 'live')    { @unlink(BRAIN_OFF_FLAG); touch(BRAIN_LIVE_FLAG); echo "brain: LIVE\n"; break; }
+        if ($sub === 'off')     { touch(BRAIN_OFF_FLAG); echo "brain: OFF\n"; break; }
+        if ($sub === 'levers')  { foreach (brain_levers_all($pdo) as $k => $v) printf("  %-22s %s\n", $k, $v); echo brain_levers_env(); break; }
+        if ($sub === 'set')     { $v = brain_set_lever($pdo, (string)($argv[3] ?? ''), (float)($argv[4] ?? 0), 'owner', 'set from the CLI'); echo $v === null ? "refused (unknown lever)\n" : "set {$argv[3]} = $v\n"; break; }
+        $r = brain_report($pdo);
+        echo "mode: {$r['mode']}\n";
+        foreach ($r['actions'] as $a) printf("  %s %-6s %-10s %-20s %s → %s  [%s] %s\n", substr($a['at'], 0, 16), $a['mode'], $a['kind'], (string)$a['lever_key'], (string)$a['before_val'], (string)$a['after_val'], $a['outcome'], mb_substr($a['why'], 0, 90));
+        foreach ($r['requests'] as $q) printf("  REQUEST [%s] %s — %s\n", $q['status'], $q['title'], mb_substr($q['why'], 0, 100));
+        break;
+    }
+    case 'vision': {
+        // vision measure <file> | ours [n] | learn | summary
+        require_once __DIR__ . '/video_eyes.php';
+        $pdo = db();
+        $sub = $argv[2] ?? 'summary';
+        if ($sub === 'measure') { print_r(eyes_measure((string)($argv[3] ?? ''))); break; }
+        if ($sub === 'ours')    { echo 'measured ' . eyes_backfill_ours($pdo, (int)($argv[3] ?? 3)) . " of ours\n"; break; }
+        if ($sub === 'reconcile') { print_r(eyes_reconcile($pdo, (int)($argv[3] ?? 120), (int)($argv[4] ?? 5))); break; }
+        if ($sub === 'verdict')  {
+            $pid = (int)($argv[3] ?? 0);
+            $vp = (string)$pdo->query("SELECT video_path FROM video_scripts WHERE page_id=" . $pid)->fetchColumn();
+            $file = $vp ? dirname(__DIR__) . '/public_html' . $vp : '';
+            if (!$file || !is_file($file)) { echo "no video file for page $pid\n"; break; }
+            $r = eyes_measure_ours($pdo, $pid, $file);
+            if (!$r) { echo "could not measure\n"; break; }
+            printf("page %d: %s\n  moving footage %d%% | stills %d%% | cuts per minute %s | %.0fs long\n  %d distinct pictures across %d sampled seconds | worst picture comes back %dx | longest single hold %ds\n  VERDICT: %s - %s\n",
+                   $pid, (string)$pdo->query("SELECT h1 FROM pages WHERE id=" . $pid)->fetchColumn(),
+                   round($r['live_ratio'] * 100), round($r['still_ratio'] * 100), $r['cuts_per_min'], $r['duration_s'],
+                   $r['pictures'], $r['sampled'], $r['worst_repeat'], $r['longest_hold'], strtoupper($r['verdict']), $r['note']);
+            break;
+        }
+        if ($sub === 'rivals')  { echo 'measured ' . eyes_backfill_rivals($pdo, (int)($argv[3] ?? 6)) . " rival clip(s)\n"; break; }
+        if ($sub === 'label')   {   // vision label <page_id> good|ok|bad
+            $ok = eyes_label_set($pdo, (int)($argv[3] ?? 0), (string)($argv[4] ?? ''));
+            echo $ok ? "labelled\n" : "usage: vision label <page_id> good|ok|bad\n"; break;
+        }
+        if ($sub === 'calib')   {   // what the owner's verdicts taught the judge
+            $c = eyes_calibrate($pdo);
+            printf("labelled=%d (good %d / bad %d)  ready=%s\n", $c['labelled'], $c['good'], $c['bad'], $c['ready'] ? 'YES' : 'no');
+            foreach ($c['metrics'] as $k => $m) printf("  %-13s bad when %s %-7s  agrees %d%%  J=%.2f  misses=%d\n", $k, $m['dir'] === 'high' ? '>=' : '<=', $m['threshold'], round($m['acc'] * 100), $m['j'], $m['misses']);
+            echo '  ' . $c['note'] . "\n"; break;
+        }
+        if ($sub === 'learn')   { print_r(eyes_learn($pdo)); break; }
+        $s = eyes_summary($pdo);
+        foreach ($s['by_kind'] as $r) printf("  %-6s n=%-3d live=%-5s cuts/min=%-5s motion=%s\n", $r['kind'], $r['n'], $r['live'], $r['cpm'], $r['yd']);
+        if ($s['rule']) echo "  RULE: " . $s['rule']['value']['read'] . "  (conf " . $s['rule']['confidence'] . ", " . $s['rule']['evidence'] . ")\n";
+        foreach ($s['top'] as $t) printf("  rival %-16s plays=%-9d live=%-5s cuts/min=%-5s %s\n", '@' . $t['author'], $t['plays'], $t['live_ratio'], $t['cuts_per_min'], mb_substr($t['title'], 0, 40));
+        foreach ($s['ours'] as $t) printf("  ours  p%-5d live=%-5s cuts/min=%-5s %ss %s\n", $t['page_id'], $t['live_ratio'], $t['cuts_per_min'], $t['duration_s'], mb_substr((string)$t['title'], 0, 40));
+        break;
+    }
+    case 'clips': {
+        // clips probe | replan [n] | plan <page_id> | stats | fetch <url> [start]
+        require_once __DIR__ . '/clip_supply.php';
+        require_once __DIR__ . '/clip_fetch.php';
+        $pdo = db();
+        $sub = $argv[2] ?? 'stats';
+        if ($sub === 'probe')  { print_r(clip_probe_routes($pdo)); break; }
+        if ($sub === 'replan') { [$c, $p, $g] = clip_replan($pdo, (int)($argv[3] ?? 3), (int)($argv[4] ?? 600)); echo "replanned $c script(s), $g gained footage, $p fetchable clip(s) planned\n"; break; }
+        if ($sub === 'plan')   { require_once __DIR__ . '/fetch_sources.php'; $did = (int)$pdo->query("SELECT id FROM dramas WHERE page_id=" . (int)($argv[3] ?? 0))->fetchColumn(); foreach (footage_clips_gather($did) as $c) printf("  %-8s start=%-3d %s\n", $c['platform'], $c['start'], $c['url']); break; }
+        if ($sub === 'fetch')  { $p = cf_fetch((string)($argv[3] ?? ''), (int)($argv[4] ?? 0)); echo $p ? "$p (" . round(filesize($p) / 1048576, 1) . " MB)\n" : "no clip\n"; break; }
+        if ($sub === 'hunt')   { $did = (int)$pdo->query("SELECT id FROM dramas WHERE page_id=" . (int)($argv[3] ?? 0))->fetchColumn(); foreach (clip_hunt_tiktok($pdo, $did, (int)($argv[4] ?? 4)) as $c) printf("  %-8s %-5s %s  %s\n", $c['platform'], !empty($c['hunted']) ? 'hunt' : 'src', $c['url'], mb_substr((string)($c['title'] ?? ''), 0, 50)); break; }
+        $st = clip_supply_stats($pdo, 7);
+        echo "ROUTES (daily probe):\n"; foreach ($st['probe'] as $r) printf("  %-10s %-4s %s (%s)\n", $r['route'], $r['ok'] ? 'ok' : 'DOWN', $r['detail'], $r['probed_at']);
+        echo "FETCHES 7d:\n"; foreach ($st['fetch'] as $r) printf("  %-10s tries=%-3d ok=%-3d %s MB  last %s\n", $r['platform'], $r['tries'], $r['ok'], $r['mb'], $r['last']);
+        echo "STAGED 7d:\n"; foreach ($st['stage'] as $r) printf("  %-10s planned=%-3d staged=%-3d %s MB across %s stories\n", $r['platform'], $r['planned'], $r['staged'], $r['mb'], $r['stories']);
+        echo "LAST ERRORS:\n"; foreach ($st['last_errors'] as $r) printf("  %s %-8s %-18s %s  %s\n", $r['at'], $r['platform'], $r['route'], $r['error'], $r['url']);
+        break;
+    }
+    case 'rolodex': {
+        // rolodex install | discover | mentions | match <page_id> | note <person_id> <page_id> [FirstName] | list
+        require_once __DIR__ . '/rolodex.php';
+        $pdo = db();
+        $sub = $argv[2] ?? 'list';
+        if ($sub === 'install')  { rolodex_install($pdo); echo "rolodex tables ready\n"; break; }
+        if ($sub === 'discover') { print_r(rolodex_discover($pdo, 220, 4)); break; }
+        if ($sub === 'mentions') { print_r(rolodex_mentions($pdo)); break; }
+        if ($sub === 'match')    { foreach (rolodex_match($pdo, (int)($argv[3] ?? 0)) as $p) printf("  %-3d #%-4d %-28s %-34s %s\n", $p['score'], $p['id'], mb_substr($p['name'] ?: '(no name)', 0, 28), mb_substr($p['outlet'], 0, 34), $p['status']); break; }
+        if ($sub === 'note')     { $n = rolodex_note($pdo, (int)($argv[3] ?? 0), (int)($argv[4] ?? 0), (string)($argv[5] ?? '')); echo $n ? "SUBJECT: {$n['subject']}\n\n{$n['body']}\n" : "no note\n"; break; }
+        foreach ($pdo->query("SELECT id,name,outlet,kind,status,email,contact_route,evidence_date FROM rolodex_people ORDER BY FIELD(status,'linked','replied','contacted','verified','new','dead'), last_seen DESC LIMIT 60") as $p)
+            printf("  #%-4d %-9s %-10s %-24s %-30s %-28s %s\n", $p['id'], $p['status'], $p['kind'], mb_substr($p['name'] ?: '(no name)', 0, 24), mb_substr($p['outlet'], 0, 30), mb_substr($p['email'] ?: $p['contact_route'], 0, 28), $p['evidence_date'] ?? '');
+        break;
+    }
+    case 'backup': {
+        // Nightly DB dump (hPanel cron): keeps 7, gzipped, ~/backups/genzhype/.
+        // shell_exec is disabled on this host; proc_open works (measured).
+        $d = $GLOBALS['CONFIG']['db'];
+        $dir = '/home/u219414635/backups/genzhype';
+        if (!is_dir($dir)) mkdir($dir, 0700, true);
+        $out = $dir . '/db-' . date('Ymd-Hi') . '.sql.gz';
+        $cmd = ['/usr/bin/mysqldump', '--single-transaction', '--quick', '-h', $d['host'], '-u', $d['user'], '-p' . $d['pass'], $d['name']];
+        $p = proc_open($cmd, [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
+        if (!is_resource($p)) { echo "backup: proc_open failed\n"; break; }
+        $gz = gzopen($out, 'wb6'); $bytes = 0;
+        while (!feof($pipes[1])) { $chunk = fread($pipes[1], 1 << 16); if ($chunk === '' || $chunk === false) continue; gzwrite($gz, $chunk); $bytes += strlen($chunk); }
+        gzclose($gz); $err = stream_get_contents($pipes[2]); fclose($pipes[1]); fclose($pipes[2]); $rc = proc_close($p);
+        if ($rc !== 0 || $bytes < 1000) { @unlink($out); echo "backup FAILED rc=$rc: " . trim($err) . "\n"; break; }
+        $keep = glob($dir . '/db-*.sql.gz'); rsort($keep);
+        foreach (array_slice($keep, 7) as $old) @unlink($old);
+        echo "backup ok: $out (" . round($bytes / 1048576, 1) . " MB raw, " . round(filesize($out) / 1048576, 1) . " MB gz), keeping " . min(7, count($keep)) . "\n";
+        break;
+    }
     case 'candidates':
         $st = $arg ?: 'new';
         $rows = $pdo->prepare("SELECT id, heat_score, status, LEFT(name,68) name, reject_reason FROM candidates WHERE status=? ORDER BY heat_score DESC, id DESC LIMIT 40");
@@ -847,6 +1008,60 @@ switch ($cmd) {
         echo ($g['pass'] && ($v['pass'] ?? false)) ? "  -> READY: php app/cli.php publish {$d['slug']}\n" : "  -> needs review before publish\n";
         break;
 
+    case 'storyposts': {
+        // r152 "Posts about this story": the owner-approved X posts on story pages.
+        //   storyposts                            list what is showing / waiting / hidden
+        //   storyposts refresh [page_id|all]      queue new finds, re-check approved posts on X
+        //   storyposts approve|hide|pending <page_id> <tweet_id> [reason]
+        require_once __DIR__ . '/story_posts.php';
+        $sub = (string)($argv[2] ?? 'list');
+        if ($sub === 'refresh') {
+            $target = (string)($argv[3] ?? 'all');
+            $r = $target === 'all' ? sp_refresh_all($pdo, 600) : sp_refresh_page($pdo, (int)$target);
+            echo json_encode($r) . "\n";
+            break;
+        }
+        if (in_array($sub, ['approve', 'hide', 'pending'], true)) {
+            $to = ['approve' => 'approved', 'hide' => 'hidden', 'pending' => 'pending'][$sub];
+            [$ok, $msg] = sp_set_status($pdo, (int)($argv[3] ?? 0), (string)($argv[4] ?? ''), $to, 'owner', (string)($argv[5] ?? ''));
+            echo ($ok ? '' : 'NOT DONE: ') . $msg . "\n";
+            break;
+        }
+        $c = sp_counts($pdo);
+        echo "story posts: {$c['approved']} showing, {$c['pending']} waiting for approval, {$c['hidden']} hidden\n";
+        foreach ($pdo->query("SELECT page_id, tweet_id, handle, likes, status, decided_by, reason FROM story_posts ORDER BY FIELD(status,'pending','approved','hidden'), page_id, likes DESC") as $r) {
+            printf("  %-8s p%-5d %-20s @%-16s likes=%-6s %s\n", $r['status'], $r['page_id'], $r['tweet_id'], $r['handle'], $r['likes'] ?? '?', $r['decided_by'] !== '' ? "[{$r['decided_by']}] {$r['reason']}" : '');
+        }
+        break;
+    }
+    case 'proofs': {
+        // r155 proof screenshots (owner 2026-09-11): the runner captures each cited source,
+        // api/proofingest.php queues it, this safety-checks and publishes it.
+        //   proofs               counts: cited source URLs, live, pending, failed, gave up
+        //   proofs promote [n]   safety-check and publish up to n pending screenshots (default 6)
+        if (!is_file(__DIR__ . '/proofs_engine.php')) { echo "proofs engine not installed yet\n"; break; }
+        require_once __DIR__ . '/proofs_engine.php';
+        //   proofs export <dir> [n]  write <dir>/jobs.json for the runner (proof-feed branch, git bus)
+        //   proofs ingest-dir <dir>  take the runner's captures from a proof-drop checkout
+        $sub = (string)($argv[2] ?? 'stats');
+        if ($sub === 'promote') {
+            echo json_encode(proofs_promote($pdo, max(1, min(50, (int)($argv[3] ?? 6))), 600)) . "\n";
+            break;
+        }
+        if ($sub === 'export' || $sub === 'ingest-dir') {
+            // r155 GIT BUS: the host firewall answers GitHub runner IPs with a 403 page, so jobs and captures
+            // travel as files on the proof-feed / proof-drop branches (~/genzhype-proofs-bridge.sh).
+            $dir = (string)($argv[3] ?? '');
+            if ($dir === '' || !is_dir($dir)) { echo "usage: proofs {$sub} <existing dir>\n"; break; }
+            if ($sub === 'ingest-dir') { echo json_encode(proofs_ingest_dir($pdo, $dir)) . "\n"; break; }
+            $q = proofs_queue($pdo, max(1, min(40, (int)($argv[4] ?? 25))));
+            file_put_contents(rtrim($dir, '/') . '/jobs.json', json_encode($q, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE));
+            echo 'proof jobs exported: ' . count($q['jobs'] ?? []) . ' (queue remaining ' . (int)($q['remaining'] ?? 0) . ")\n";
+            break;
+        }
+        echo json_encode(proofs_stats($pdo)) . "\n";
+        break;
+    }
     case 'embeds':
         // backfill real embeds for a drama's social-post sources
         if (!$arg) exit("usage: embeds <slug>\n");
@@ -858,6 +1073,43 @@ switch ($cmd) {
         $r = embeds_build_for_drama((int)$did);
         echo "embeds built: {$r['embeds']} | not embeddable (articles etc): {$r['not_embeddable']}\n";
         break;
+
+    case 'embeds-articles': {
+        // r157 real posts from the cited articles (owner 2026-09-11, see embeds_from_cited_articles):
+        //   embeds-articles <slug> | recent <N> | since <YYYY-MM-DD>
+        require_once __DIR__ . '/embeds.php';
+        $mode = (string)($argv[2] ?? '');
+        $base = "SELECT d.id, p.slug FROM pages p JOIN dramas d ON d.page_id=p.id WHERE p.status='published' AND p.type='drama'";
+        if ($mode === 'recent') {
+            $rows = $pdo->query($base . " ORDER BY p.published_at DESC LIMIT " . max(1, min(1000, (int)($argv[3] ?? 20))))->fetchAll(PDO::FETCH_ASSOC);
+        } elseif ($mode === 'since') {
+            $q = $pdo->prepare($base . " AND p.published_at >= ? ORDER BY p.published_at DESC");
+            $q->execute([(string)($argv[3] ?? date('Y-m-01'))]);
+            $rows = $q->fetchAll(PDO::FETCH_ASSOC);
+        } elseif ($mode !== '') {
+            $q = $pdo->prepare($base . " AND p.slug=?");
+            $q->execute([$mode]);
+            $rows = $q->fetchAll(PDO::FETCH_ASSOC);
+        } else { echo "usage: embeds-articles <slug> | recent <N> | since <YYYY-MM-DD>\n"; break; }
+        $tot = ['stories' => 0, 'stories_with_new_posts' => 0, 'posts_added' => 0];
+        foreach ($rows as $row) {
+            $r = embeds_from_cited_articles((int)$row['id']);
+            $tot['stories']++;
+            $tot['posts_added'] += $r['embeds'];
+            if ($r['embeds']) { $tot['stories_with_new_posts']++; echo "  {$row['slug']}: +{$r['embeds']} post(s)\n"; }
+            $pdo = db_alive();   // embed calls are network requests; keep the handle fresh
+        }
+        // The page cache version ignores embed changes (repo_data_version counts pages/ids, not embed_html),
+        // so mark the cache stale: the next page view rebuilds it once (about 2 s). No page data changes.
+        $cf = __DIR__ . '/cache/data.cache';
+        if ($tot['posts_added'] > 0 && is_file($cf)) {
+            $raw = (string)file_get_contents($cf);
+            $nl = strpos($raw, "\n");
+            if ($nl !== false && file_put_contents($cf . '.r157tmp', 'stale-' . time() . substr($raw, $nl)) !== false) rename($cf . '.r157tmp', $cf);
+        }
+        echo json_encode($tot) . "\n";
+        break;
+    }
 
     case 'imgbackfill':
         require_once __DIR__ . '/drama_image.php';
@@ -939,6 +1191,7 @@ switch ($cmd) {
         // 1) AI-select fresh candidates  2) build top-N into ready drafts
         // 3) publish ONLY if config auto_publish=true  4) sitemap refresh
         set_time_limit(1800);
+        $tickT0 = time();   // r145: every stage can ask how much of the 1800s is left
         // MUTUAL EXCLUSION: one tick at a time. A long tick (PSI/vision/AI) must not
         // overlap the next hourly fire — overlap = double-builds + a race on the
         // in-memory velocity $slots that could exceed the daily publish cap (the
@@ -984,6 +1237,25 @@ switch ($cmd) {
         require_once __DIR__ . '/indexnow.php';
         $N = ($arg && ctype_digit($arg)) ? max(1, min(10, (int)$arg)) : 2; // builds per tick (hourly cron x2 = quota-safe steady drip)
         echo "[" . date('c') . "] autopilot tick (N={$N}, auto_publish=" . (!empty($CONFIG['auto_publish']) ? 'ON' : 'off') . ")\n";
+        // r186: one look at the render queue decides this tick's time-share.
+        // An empty queue means every minute spent on terms or stories is a
+        // minute the video line does not get (0 videos rendered on 16 Sep).
+        $GLOBALS['VID_STARVED'] = false;
+        try {
+            require_once __DIR__ . '/video_factory.php';
+            $GLOBALS['VID_STARVED'] = video_queue_starved($pdo);
+            if ($GLOBALS['VID_STARVED']) echo "  video queue empty: video stage gets this tick's time first\n";
+            // 2026-09-24 VIDEO HOURS. Measured: 95 of the last 141 ticks skipped the
+            // video step ("video: skipped at +22m") and 97 stopped the Director, so
+            // no scripts were written on 09-21 or 09-24 and re-planned pages
+            // (1142, 1210) never got a shot list back. The starved check did not
+            // fire because parked pages still count as fresh work. Every third
+            // hour now gives the video step the tick's time, whatever the queue says.
+            elseif ((int)date('G') % 3 === 2) {
+                $GLOBALS['VID_STARVED'] = true;
+                echo "  video hour: video stage gets this tick's time first\n";
+            }
+        } catch (Throwable $e) { error_log('video_queue_starved: ' . $e->getMessage()); }
 
         // ---- REDDIT RADAR: pre-draft comments for new opportunities so the admin
         // never waits on a slow AI call (that caused a 504). Bounded batch; CLI has no
@@ -1091,54 +1363,6 @@ switch ($cmd) {
             }
         } catch (Throwable $e) { echo "  draft-redrain failed: " . $e->getMessage() . "\n"; }
 
-        // ---- VIDEO FACTORY: pre-generate faceless-video voiceover scripts for new dramas so the
-        // maker (GitHub Actions) can render instantly. CLI = full robust AI chain, no web timeout.
-        try {
-            require_once __DIR__ . '/video_factory.php';
-            // Everything above (framing-repair, redrain, verify) spends real time on
-            // AI and network. The handle is often already dead by the time we get
-            // here - which is why the video step failed INSTANTLY on every tick,
-            // before it ever reached an AI call of its own.
-            $pdo = db_alive();
-            $vn = video_scripts_generate($pdo, 2);
-            if ($vn) echo "  video: pre-generated {$vn} video script(s)\n";
-            $pdo = db_alive();   // 2026-08-23: minutes of AI + people lookups just ran; MySQL may have hung up
-            // convert the pre-playbook backlog: rewrite old-style pending scripts (tpl<2)
-            // a few per tick so every future render uses the creator template
-            $vr = video_scripts_retemplate($pdo, 3);
-            if ($vr) { echo "  video: re-templated {$vr} old-style script(s)\n"; cnote("video: re-templated {$vr} scripts to creator playbook"); }
-            $pdo = db_alive();
-            // v4 DIRECTOR backfill: pending creator-era scripts written before the
-            // Director existed get their word-anchored shot list (2/tick, ~2min each)
-            $need = $pdo->query("SELECT v.page_id, d.people_json FROM video_scripts v
-                                 JOIN pages p ON p.id=v.page_id JOIN dramas d ON d.page_id=p.id
-                                 WHERE v.video_status='pending' AND v.tpl>=2 AND v.shotlist IS NULL
-                                 ORDER BY v.created_at DESC LIMIT 2")->fetchAll();
-            $vd = 0;
-            foreach ($need as $nrow) {
-                $ppl = [];
-                foreach ((array)json_decode((string)$nrow['people_json'], true) as $pp) {
-                    $nm = trim((string)(is_array($pp) ? ($pp['name'] ?? '') : $pp));
-                    if ($nm !== '') $ppl[] = $nm;
-                }
-                if (video_write_shotlist($pdo, (int)$nrow['page_id'], $ppl)) $vd++;
-            }
-            if ($vd) { echo "  video: directed {$vd} shot list(s)\n"; cnote("video: DIRECTOR wrote {$vd} shot list(s)"); }
-            $pdo = db_alive();
-            // WAF-proof static job feed: pre-write the maker's next jobs as a plain
-            // /media/ JSON (the api endpoint gets 403'd for runner IPs; media never is)
-            try { require_once __DIR__ . '/video_feed.php'; video_feed_static_write($pdo); }
-            catch (Throwable $e) { echo "  video feed static failed: " . $e->getMessage() . "\n"; }
-        } catch (Throwable $e) { echo "  video script step failed: " . $e->getMessage() . "\n"; }
-        // 2026-08-23 THE SILENT TICK KILLER. The video step above spends minutes
-        // in AI calls and people lookups; MySQL's wait_timeout drops the idle
-        // connection ("2006 server has gone away" - 51 times since July 12). The
-        // very next line used to query the DEAD handle outside any try/catch, so
-        // the whole rest of the tick - velocity, discovery, select, drafting,
-        // every lane - died silently. The site published nothing for days and
-        // the log showed only the tick header. db_alive() already existed for
-        // exactly this (SEO-BATCH-1); it just was never called here.
-        $pdo = db_alive();
 
         // ---- VELOCITY GUARDRAIL: cap pages going LIVE per day (anti scaled-abuse) ----
         require_once __DIR__ . '/gate_term.php';
@@ -1150,6 +1374,21 @@ switch ($cmd) {
         $dr = velocity_drain($pdo, $slots);
         if (!empty($dr['refused'])) echo "  velocity-drain: REFUSED ({$dr['why']})\n";
         echo "velocity: cap={$dailyCap} published_today={$pubToday} slots_left={$slots}\n";
+
+        // ---- GRADUAL REVEAL (owner decision 2026-08-28) -------------------
+        // Repaired pages are already 'published' but noindex, so making them
+        // visible bypasses the velocity cap above. Handing Google ~70 new
+        // indexable URLs in one minute is exactly the burst the cap exists to
+        // stop, so reveals get their own smaller budget and each page must
+        // pass its own gate on the day it is revealed.
+        try {
+            require_once __DIR__ . '/reveal.php';
+            $rv = reveal_run($pdo);
+            if ((int)($rv['revealed'] ?? 0) > 0) {
+                echo "  reveal: {$rv['revealed']} repaired page(s) now visible to Google\n";
+                cnote("reveal: {$rv['revealed']} pages made visible");
+            }
+        } catch (Throwable $e) { echo "  reveal skipped: " . $e->getMessage() . "\n"; }
 
         // NIGHTLY SELF-AUDIT (3am tick): the site re-checks and heals itself,
         // forever, with no human involved. Bad pages get fixed or pulled.
@@ -1194,148 +1433,102 @@ switch ($cmd) {
             if (!empty($ss['pages_socialized'])) echo "social studio: +{$ss['pages_socialized']} pages socialized\n";
         }
 
-        // server-side drama discovery: creator-culture RSS feeds -> keyword filter -> queue
-        require_once __DIR__ . '/discover_dramas.php';
-        try {
-            $dd = discover_dramas_run();
-            echo "drama discovery: seen={$dd['seen']} queued={$dd['queued']} dropped={$dd['dropped']}" . ($dd['dead_feeds'] ? " dead=" . implode(',', $dd['dead_feeds']) : '') . "\n";
-        } catch (Throwable $e) { echo "drama discovery skipped: " . $e->getMessage() . "\n"; }
-        $sel = select_run(15);
-        echo "select: +{$sel['selected']} / -{$sel['rejected']} (errors {$sel['errors']})\n";
-        // 2026-08-23 RETRY BUDGET (Phase 0 of the learning-machine build): a
-        // failing candidate may try 5 times, then retires with its last error
-        // written down — the drama_img_retry pattern (attempts + cap) applied
-        // to drafting. Fresh candidates draft BEFORE repeat offenders, so one
-        // stubborn story can never starve the queue again (#8973 failed 29x).
-        foreach (["ADD COLUMN draft_attempts TINYINT NOT NULL DEFAULT 0",
-                  "ADD COLUMN last_error VARCHAR(255) NULL"] as $alt) {
-            try { $pdo->exec("ALTER TABLE candidates {$alt}"); } catch (Throwable $e) {}
-        }
-        $cands = $pdo->query("SELECT id, name, COALESCE(draft_attempts,0) tries FROM candidates
-                              WHERE status='selected' AND type='drama' AND COALESCE(draft_attempts,0) < 5
-                              ORDER BY COALESCE(draft_attempts,0) ASC, heat_score DESC, id DESC LIMIT 12")->fetchAll();
-        $built = 0; $ready = 0;
-        foreach ($cands as $cd) {
-            if ($built >= $N) break;
-            $src = fetch_sources_for_candidate((int)$cd['id']);
-            if (isset($src['error'])) {
-                echo "  skip #{$cd['id']}: {$src['error']}\n";
-                $pdo->prepare("UPDATE candidates SET status='rejected', reject_reason=? WHERE id=?")->execute(['autopilot: ' . mb_substr($src['error'],0,200), $cd['id']]);
-                continue;
-            }
-            $d = draft_drama($src);
-            if (isset($d['error'])) {
-                echo "  draft fail #{$cd['id']}: {$d['error']}\n";
-                // 2026-08-22 STOP THE RETRY LOOP. A candidate whose page ALREADY
-                // exists fails with 'Duplicate entry ... uniq_path' and was left
-                // 'selected', so every tick re-fetched its sources and re-ran the
-                // AI on it, forever. Four of those per tick ate the whole 30-minute
-                // budget, the run was killed before the SLANG/MEME/GAMING stage
-                // below ever executed — which is why those three lanes have
-                // published nothing for weeks while 307 approved topics waited.
-                if (stripos($d['error'], 'duplicate entry') !== false
-                    || stripos($d['error'], 'already exists') !== false) {
-                    $pdo->prepare("UPDATE candidates SET status='rejected', reject_reason='dup: page already exists' WHERE id=?")
-                        ->execute([$cd['id']]);
-                    echo "    -> retired (page already exists)\n";
-                    continue;
-                }
-                // 2026-08-23 THE OTHER TWO FAILURE CLASSES:
-                // (a) AI chain dead -> not this candidate's fault, and every later
-                //     candidate hits the same dead chain. HALT the drama lane for
-                //     this tick so the budget reaches the slang/meme/gaming lanes
-                //     below (the ai-health watchdog is what alerts on the chain).
-                if (stripos($d['error'], 'all providers failed') !== false) {
-                    echo "    -> AI chain down; halting drama drafts this tick (candidates keep their turns)\n";
-                    break;
-                }
-                // (b) anything else (bad JSON, missing fields, thin sources) ->
-                //     count the attempt; at 5 the candidate retires with its
-                //     last error on record instead of looping forever.
-                $tries = (int)($cd['tries'] ?? 0) + 1;
-                $pdo->prepare("UPDATE candidates SET draft_attempts=?, last_error=? WHERE id=?")
-                    ->execute([$tries, mb_substr((string)$d['error'], 0, 255), $cd['id']]);
-                if ($tries >= 5) {
-                    $pdo->prepare("UPDATE candidates SET status='rejected', reject_reason=? WHERE id=?")
-                        ->execute(['autopilot: gave up after 5 draft attempts: ' . mb_substr((string)$d['error'], 0, 150), $cd['id']]);
-                    echo "    -> retired after {$tries} attempts\n";
-                }
-                continue;
-            }
-            $v = verify_drama((int)$d['page_id']);
-            $q = quality_check_drama((int)$d['page_id']);
-            $g = gate_check_drama((int)$d['page_id']);
-            $ok = ($v['pass'] ?? false) && ($q['pass'] ?? false) && ($g['pass'] ?? false);
-            echo "  built {$d['slug']} | v=" . (($v['pass'] ?? 0)?'P':'i') . " q=" . (($q['pass'] ?? 0)?'P':'F') . " g=" . (($g['pass'] ?? 0)?'P':'F') . ($ok ? "  => READY" : "") . "\n";
-            // 2026-08-23 name the failing check — "g=F" alone hid WHICH gate rule
-            // rejected every page for weeks. One line per failed rule, budget 4.
-            if (!$ok) {
-                $said = 0;
-                foreach (($g['checks'] ?? []) as $ck) {
-                    if (empty($ck['pass']) && $said < 4) { echo "    gate-fail: {$ck['label']}\n"; $said++; }
-                }
-                if (!($q['pass'] ?? false)) {
-                    foreach (($q['flags'] ?? []) as $fl) { if ($said < 6) { echo "    quality-flag: {$fl}\n"; $said++; } }
-                    if (!empty($q['scores'])) echo "    quality-scores: " . json_encode($q['scores']) . "\n";
-                }
-                if (!($v['pass'] ?? false)) {
-                    foreach (array_slice((array)($v['issues'] ?? []), 0, 2) as $iss) {
-                        echo "    verify-issue: " . mb_substr(is_string($iss) ? $iss : json_encode($iss), 0, 160) . "\n";
-                    }
-                }
-            }
-            // THE RECORD (organ 02): the same outcomes, written to the page's story.
-            // Observer only — a record failure must never touch the pipeline.
-            try {
-                require_once __DIR__ . '/record.php';
-                $gateFailed = [];
-                foreach (($g['checks'] ?? []) as $ck) if (empty($ck['pass'])) $gateFailed[] = (string)$ck['label'];
-                record_touch($pdo, 'drama', (int)$d['page_id'], '', 'build', [
-                    'candidate_id' => (int)$cd['id'],
-                    'draft'   => ['provider' => (string)($d['provider'] ?? ''), 'events' => (int)($d['events'] ?? 0)],
-                    'verify'  => ['pass' => (bool)($v['pass'] ?? false), 'issues' => array_slice((array)($v['issues'] ?? []), 0, 5)],
-                    'quality' => ['pass' => (bool)($q['pass'] ?? false), 'scores' => $q['scores'] ?? null, 'flags' => $q['flags'] ?? []],
-                    'gate'    => ['pass' => (bool)($g['pass'] ?? false), 'failed' => $gateFailed],
-                    'ready'   => $ok,
-                ]);
-            } catch (Throwable $e) { error_log('record build hook: ' . $e->getMessage()); }
-            $pdo->prepare("UPDATE candidates SET status='rejected', reject_reason='built' WHERE id=?")->execute([$cd['id']]);
-            if ($ok) {
-                $ready++;
-                if (!empty($CONFIG['auto_publish'])) {
-                    $seo = seo_audit_page((int)$d['page_id']);
-                    if (!$seo['pass']) {
-                        foreach ($seo['fails'] as $sf) echo "  SEO-GATE-FAIL {$d['slug']}: {$sf}\n";
-                    } elseif ($slots > 0) {
-                        $pp = $pdo->prepare("SELECT path FROM pages WHERE id=?"); $pp->execute([(int)$d['page_id']]);
-                        page_publish_live($pdo, (int)$d['page_id']);   // SEO-BATCH-1 choke point
-                        echo "  AUTO-PUBLISHED {$d['slug']}\n";
-                        try { record_touch($pdo, 'drama', (int)$d['page_id'], '', 'build', ['published' => true, 'published_at' => gmdate('c')]); } catch (Throwable $e) {}
-                        indexnow_ping([rtrim($CONFIG['base_url'],'/') . $pp->fetchColumn()]);
-                        $slots--;
-                    } else {
-                        // daily cap reached: hold (built + gate-passed, awaits a later day)
-                        $pdo->prepare("UPDATE pages SET status='review', robots='noindex' WHERE id=?")->execute([(int)$d['page_id']]);
-                        echo "  HELD {$d['slug']} (daily cap reached)\n";
-                    }
-                }
-            }
-            $built++;
-        }
+        // ---- LANE FAIRNESS (owner decision 2026-08-29): TERMS BEFORE DRAMA ----
+        // The slang/meme/gaming stage sat AFTER drama drafting, and drama's
+        // workload (a 300-deep drain, AI drafting, hourly re-judging) now eats
+        // the whole 30-minute host limit - the term stage produced no log line
+        // between Aug 26 23:00 and Aug 29 while its cleaned queue sat ready.
+        // The owner's rule is that all four lanes are equal; drama was starving
+        // the rest by position alone, exactly like the video stage before it.
+        // Terms now run FIRST among the build stages. They are strictly
+        // bounded (2 builds, ~12 attempts) so they cannot starve drama back.
         // ---- SLANG lane: discover fresh terms, then build from the backlog ----
         require_once __DIR__ . '/draft_term.php';
         require_once __DIR__ . '/gate_term.php';
-        require_once __DIR__ . '/discover_terms.php';
+        // BIN DRAIN (2026-09-01, owner: "I do not want to see anything still in
+        // this bin"). The archive is no longer a dead end: each tick takes a few
+        // pages that failed on MATERIAL (too few events / one source), hunts real
+        // new coverage for the story, adds only events an article actually
+        // carries, then re-gates and publishes the ones that now pass. Bounded
+        // to 2 per tick because each page costs a live search plus fetches plus
+        // an AI pass - the same starvation lesson the term and drama loops both
+        // had to learn. A page with genuinely one source in the world stays put.
         try {
-            $disc = discover_terms_run();
-            echo "term discovery: harvested={$disc['harvested']} new={$disc['new']} selected={$disc['selected']}" . (isset($disc['note']) ? " ({$disc['note']})" : '') . "\n";
-        } catch (Throwable $e) { echo "term discovery skipped: " . $e->getMessage() . "\n"; }
+            $pdo = db_alive();
+            require_once __DIR__ . '/drama_deepen.php';
+            $dd = drama_deepen_run($pdo, 1, true);   // r147: 2 → 1 per tick, ~3 min saved per hour
+            if ($dd['checked'] > 0) {
+                echo "bin drain: checked {$dd['checked']}, deepened {$dd['deepened']}, published {$dd['published']}, stuck {$dd['stuck']}\n";
+                cnote("bin drain: published {$dd['published']}");
+            }
+            $pdo = db_alive();   // searches + AI just ran
+        } catch (Throwable $e2) { echo "  bin drain skipped: " . $e2->getMessage() . "\n"; try { $pdo = db_alive(); } catch (Throwable $e3) {} }
+                // 2026-08-30 THE THIRD DEAD-HANDLE SITE. discover_terms_run() above
+        // spends minutes in HTTP + an AI call; MySQL hangs up in the meantime,
+        // and the very next line queried the dead handle OUTSIDE any try/catch
+        // - the 20:00 and 21:00 ticks both printed 'term discovery' and then
+        // died on the spot: no term builds, and (since the lane reorder) no
+        // drama either. Same killer as the video step and the blitz worker;
+        // every long stage must reconnect before touching the DB again.
+        $pdo = db_alive();
         $TN = ($argv[3] ?? null) && ctype_digit((string)$argv[3]) ? max(0, min(10, (int)$argv[3])) : 2;
-        $terms = $pdo->query("SELECT id, name, type FROM candidates WHERE status='selected' AND type IN ('term','meme','gaming','music') AND heat_score >= 50 ORDER BY heat_score DESC, id ASC LIMIT 12")->fetchAll();
+        // 2026-08-31 TWO BUGS IN ONE QUERY, both measured on the live queue:
+        //  (a) it never excluded candidates that have already failed their 5
+        //      attempts - the drama query beside it does - so dead entries were
+        //      re-picked forever. Real case: #8584 "bowen yang oh mary" sat at
+        //      THIRTEEN attempts and was still first in line every hour, each
+        //      try costing five live source fetches and AI screens.
+        //  (b) it never SELECTed draft_attempts, but the failure branch reads
+        //      $tc['tries'] to decide when to retire - always null, so the log
+        //      printed "attempt 1 of 5" on a 13th attempt and the retirement
+        //      the comment promised could never fire for ANY term.
+        // Together they kept a month of July junk (a French beach, a cricket
+        // scorecard) permanently at the head of the queue.
+        $terms = $pdo->query("SELECT id, name, type, COALESCE(draft_attempts,0) tries FROM candidates
+                              WHERE status='selected' AND type IN ('term','meme','gaming','music')
+                                AND heat_score >= 50 AND COALESCE(draft_attempts,0) < 5
+                              ORDER BY heat_score DESC, id ASC LIMIT 40")->fetchAll();
+        // r153 PER-LANE QUOTA (2026-09-11): the desk routes words in bulk (queue at the
+        // switch-on: 14 gaming, 9 meme, 3 slang) and heat alone gave gaming words 8 of
+        // the top 12 places. Lanes now take turns, each in heat order; the attempt cap
+        // below still decides how many are tried this hour.
+        $terms = lane_interleave($terms, fn($r) => (string)$r['type']);
         $tbuilt = 0; $tpub = 0;
+        // 2026-08-31 THE STARVATION CAP, NOW ON THIS SIDE. The identical bug the
+        // drama loop already carries a fix for (see DRAMA_MAX_TRIES below): this
+        // guard counted only SUCCESSES, so a run of FAILURES was unbounded. The
+        // term queue filled with junk that can never build - "cap ferret" (a
+        // French beach), "nep vs ned" (a cricket scorecard), "gooseworks
+        // slander recently" - and each one still costs five live source fetches
+        // plus AI screens. Measured 2026-08-31: the last 12 ticks IN A ROW died
+        // around 22 minutes in, right here, and never reached the drama stage:
+        // drama built=0 for a whole day while 186 ready candidates waited.
+        // Cap the attempts, exactly as drama does, so no lane can eat the tick.
+        $ttried = 0;
+        $TERM_MAX_TRIES = 5;
+        $storiesWaiting = (int)$pdo->query("SELECT COUNT(*) FROM candidates WHERE status='selected' AND type='drama' AND COALESCE(draft_attempts,0) < 5")->fetchColumn();
+        $termCutoff = ((int)date('G') % 2 === 0 && $storiesWaiting > 0) ? 360 : 840;   // r153 time-share, see below
+        // r186: with an empty render queue the video stage comes first - terms
+        // and stories are useless if nothing renders (0 videos on 16 Sep).
+        if (!empty($GLOBALS['VID_STARVED'])) $termCutoff = min($termCutoff, 240);
         foreach ($terms as $tc) {
             if ($tbuilt >= $TN) break;
+            if ($ttried >= $TERM_MAX_TRIES) {
+                echo "  term build: stopping after {$ttried} attempts so drama and video get a turn\n";
+                break;
+            }
+            // r147 TIME BUDGET (2026-09-08, measured: the 21:00 and 22:00 ticks never
+            // printed 'tick done' — the core alone ran past 30 min). A term build costs
+            // minutes; none may start after +14m so drama, video and the intelligence
+            // stages keep their turn.
+            // r153 TIME-SHARE (2026-09-11): +14m still starved stories. Redrain runs 2-4 min
+            // before this stage and discovery + select run after it, so the drama build (no
+            // start after +20m) was cut before its first attempt in 5 of the 7 runs from 11:00
+            // to 17:00. On even hours, while stories wait, no term may start after +6m.
+            if (time() - $tickT0 > $termCutoff) { echo '  term build: stopping at +' . (int)round((time() - $tickT0) / 60) . "m to keep time for drama, video and intelligence" . ($termCutoff < 840 ? ' (even hour: stories first)' : '') . "\n"; break; }
+            $ttried++;
             $d = draft_term(['term' => $tc['name'], 'lane' => lane_for_cand_type($tc['type']) ?? 'slang']);
+            $pdo = db_alive();   // draft_term = minutes of HTTP+AI; the handle may be dead
             if (isset($d['error'])) {
                 echo "  term skip '{$tc['name']}': {$d['error']}\n";
                 // A PERMANENT VERDICT IS NOT A TRANSIENT FAILURE. The old rule retired
@@ -1357,7 +1550,15 @@ switch ($cmd) {
                     $pdo->prepare("UPDATE candidates SET draft_attempts=COALESCE(draft_attempts,0)+1,
                                    last_error=? WHERE id=?")->execute([mb_substr($err, 0, 255), $tc['id']]);
                     $try = (int)($tc['tries'] ?? 0) + 1;
-                    echo "    -> attempt {$try} of 5" . ($try >= 5 ? " - retired, it cannot be built" : "") . "\n";
+                    // 2026-08-31: the message promised retirement at 5 but nothing
+                    // ever performed it - say it AND do it.
+                    if ($try >= 5) {
+                        $pdo->prepare("UPDATE candidates SET status='rejected', reject_reason=? WHERE id=?")
+                            ->execute(['retired: 5 failed build attempts', $tc['id']]);
+                        echo "    -> attempt {$try} of 5 - RETIRED, it cannot be built\n";
+                    } else {
+                        echo "    -> attempt {$try} of 5\n";
+                    }
                 }
                 continue;
             }
@@ -1475,7 +1676,294 @@ switch ($cmd) {
             } catch (Throwable $e) { echo "  receipts: {$slugR} error: " . $e->getMessage() . "\n"; }
         }
         echo "sitemap: " . sitemap_build() . "\n";
-        echo "tick done | drama built={$built} ready={$ready} | terms built={$tbuilt} published={$tpub}\n";
+
+        // server-side drama discovery: creator-culture RSS feeds -> keyword filter -> queue
+        require_once __DIR__ . '/discover_dramas.php';
+        try {
+            $dd = discover_dramas_run();
+            echo "drama discovery: seen={$dd['seen']} queued={$dd['queued']} dropped={$dd['dropped']}" . ($dd['dead_feeds'] ? " dead=" . implode(',', $dd['dead_feeds']) : '') . "\n";
+        } catch (Throwable $e) { echo "drama discovery skipped: " . $e->getMessage() . "\n"; }
+        $sel = select_run(15);
+        echo "select: +{$sel['selected']} / -{$sel['rejected']} (errors {$sel['errors']})\n";
+        // 2026-08-23 RETRY BUDGET (Phase 0 of the learning-machine build): a
+        // failing candidate may try 5 times, then retires with its last error
+        // written down — the drama_img_retry pattern (attempts + cap) applied
+        // to drafting. Fresh candidates draft BEFORE repeat offenders, so one
+        // stubborn story can never starve the queue again (#8973 failed 29x).
+        foreach (["ADD COLUMN draft_attempts TINYINT NOT NULL DEFAULT 0",
+                  "ADD COLUMN last_error VARCHAR(255) NULL"] as $alt) {
+            try { $pdo->exec("ALTER TABLE candidates {$alt}"); } catch (Throwable $e) {}
+        }
+        // r153 (desk switched on 2026-09-10, owner decision "breaking -> publish fast"):
+        // a story the desk judged BREAKING is drafted first, ahead of older retries.
+        // The gates are untouched: breaking goes first, it does not go through easier.
+        $cands = $pdo->query("SELECT id, name, COALESCE(draft_attempts,0) tries, signals FROM candidates
+                              WHERE status='selected' AND type='drama' AND COALESCE(draft_attempts,0) < 5
+                              ORDER BY (JSON_UNQUOTE(JSON_EXTRACT(signals, '$.urgency')) = 'breaking') DESC,
+                                       COALESCE(draft_attempts,0) ASC, heat_score DESC, id DESC LIMIT 1000")->fetchAll();
+        // r153 PER-LANE QUOTA (2026-09-11): gaming publications enter this queue at heat 55
+        // and a creator story with one keyword at 50, so all top 40 of the 593 waiting were
+        // gaming news and the xQc stories the editor picked never got a turn. Breaking stories
+        // still go first; after them the drama and gaming lanes take turns, each in the order
+        // above. The whole queue is read, not a top slice: a slice held one lane only.
+        // The lane test is the one the page is published under (fs_story_lane).
+        require_once __DIR__ . '/fetch_sources.php';
+        $brk = []; $rest = [];
+        foreach ($cands as $cd) {
+            $sg = json_decode((string)($cd['signals'] ?? ''), true) ?: [];
+            if (($sg['urgency'] ?? '') === 'breaking') $brk[] = $cd; else $rest[] = $cd;
+        }
+        $cands = array_merge($brk, lane_interleave($rest, fn($cd) => fs_story_lane(json_decode((string)($cd['signals'] ?? ''), true) ?: [])));
+        $built = 0; $ready = 0;
+
+        // 2026-08-26 THE STARVATION CAP. Every tick for 12 hours died inside this
+        // loop - the host kills the process partway through and NOTHING after it
+        // ever runs: not the slang/meme/gaming stage, not the video stage, not even
+        // the closing 'tick done'. That is why the term lanes published nothing
+        // since 5 August, and why a term-lane fix deployed yesterday never fired
+        // once: the code is simply never reached.
+        // The old guard counted only SUCCESSES ($built >= $N), so a run of failures
+        // was unbounded - 12 candidates each costing a source fetch plus a full AI
+        // draft. Attempts are now capped too, so this stage can never eat the whole
+        // tick and starve every stage behind it.
+        $tried = 0;
+        $DRAMA_MAX_TRIES = 4;
+        foreach ($cands as $cd) {
+            if ($built >= $N) break;
+            if ($tried >= $DRAMA_MAX_TRIES) {
+                echo "  drama build: stopping after {$tried} attempts so the later stages get a turn\n";
+                cnote("drama build: capped at {$tried} attempts");
+                break;
+            }
+            if (time() - $tickT0 > (!empty($GLOBALS['VID_STARVED']) ? 600 : 1200)) { echo '  drama build: stopping at +' . (int)round((time() - $tickT0) / 60) . "m to keep time for video and intelligence\n"; cnote('drama build: stopped by the time budget'); break; }   // r147
+            $tried++;
+            $src = fetch_sources_for_candidate((int)$cd['id']);
+            if (isset($src['error'])) {
+                echo "  skip #{$cd['id']}: {$src['error']}\n";
+                $pdo->prepare("UPDATE candidates SET status='rejected', reject_reason=? WHERE id=?")->execute(['autopilot: ' . mb_substr($src['error'],0,200), $cd['id']]);
+                continue;
+            }
+            // r151: an exception escaping draft_drama() ended the WHOLE hourly run
+            // with no message (this file has no exception handler). Since
+            // 2026-08-10 every run that wrote a story died on this line and only
+            // runs that wrote nothing reached "tick done". Make it an ordinary,
+            // logged draft failure so the rest of the run still happens.
+            try { $d = draft_drama($src); }
+            catch (Throwable $e) { $d = ['error' => 'draft crashed: ' . get_class($e) . ': ' . $e->getMessage()]; }
+            $pdo = db_alive();   // drafting = minutes of AI; refresh before any DB write
+            if (!isset($d['error'])) echo "  embeds built: " . (int)($d['embeds'] ?? 0) . " for {$d['slug']}\n";
+            if (isset($d['error'])) {
+                echo "  draft fail #{$cd['id']}: {$d['error']}\n";
+                // 2026-08-22 STOP THE RETRY LOOP. A candidate whose page ALREADY
+                // exists fails with 'Duplicate entry ... uniq_path' and was left
+                // 'selected', so every tick re-fetched its sources and re-ran the
+                // AI on it, forever. Four of those per tick ate the whole 30-minute
+                // budget, the run was killed before the SLANG/MEME/GAMING stage
+                // below ever executed — which is why those three lanes have
+                // published nothing for weeks while 307 approved topics waited.
+                if (stripos($d['error'], 'duplicate entry') !== false
+                    || stripos($d['error'], 'already exists') !== false) {
+                    $pdo->prepare("UPDATE candidates SET status='rejected', reject_reason='dup: page already exists' WHERE id=?")
+                        ->execute([$cd['id']]);
+                    echo "    -> retired (page already exists)\n";
+                    continue;
+                }
+                // 2026-08-23 THE OTHER TWO FAILURE CLASSES:
+                // (a) AI chain dead -> not this candidate's fault, and every later
+                //     candidate hits the same dead chain. HALT the drama lane for
+                //     this tick so the budget reaches the slang/meme/gaming lanes
+                //     below (the ai-health watchdog is what alerts on the chain).
+                if (stripos($d['error'], 'all providers failed') !== false) {
+                    echo "    -> AI chain down; halting drama drafts this tick (candidates keep their turns)\n";
+                    break;
+                }
+                // (b) anything else (bad JSON, missing fields, thin sources) ->
+                //     count the attempt; at 5 the candidate retires with its
+                //     last error on record instead of looping forever.
+                $tries = (int)($cd['tries'] ?? 0) + 1;
+                $pdo->prepare("UPDATE candidates SET draft_attempts=?, last_error=? WHERE id=?")
+                    ->execute([$tries, mb_substr((string)$d['error'], 0, 255), $cd['id']]);
+                if ($tries >= 5) {
+                    $pdo->prepare("UPDATE candidates SET status='rejected', reject_reason=? WHERE id=?")
+                        ->execute(['autopilot: gave up after 5 draft attempts: ' . mb_substr((string)$d['error'], 0, 150), $cd['id']]);
+                    echo "    -> retired after {$tries} attempts\n";
+                }
+                continue;
+            }
+            $v = verify_drama((int)$d['page_id']);
+            $q = quality_check_drama((int)$d['page_id']);
+            $g = gate_check_drama((int)$d['page_id']);
+            $ok = ($v['pass'] ?? false) && ($q['pass'] ?? false) && ($g['pass'] ?? false);
+            echo "  built {$d['slug']} | v=" . (($v['pass'] ?? 0)?'P':'i') . " q=" . (($q['pass'] ?? 0)?'P':'F') . " g=" . (($g['pass'] ?? 0)?'P':'F') . ($ok ? "  => READY" : "") . "\n";
+            // 2026-08-23 name the failing check — "g=F" alone hid WHICH gate rule
+            // rejected every page for weeks. One line per failed rule, budget 4.
+            if (!$ok) {
+                $said = 0;
+                foreach (($g['checks'] ?? []) as $ck) {
+                    if (empty($ck['pass']) && $said < 4) { echo "    gate-fail: {$ck['label']}\n"; $said++; }
+                }
+                if (!($q['pass'] ?? false)) {
+                    foreach (($q['flags'] ?? []) as $fl) { if ($said < 6) { echo "    quality-flag: {$fl}\n"; $said++; } }
+                    if (!empty($q['scores'])) echo "    quality-scores: " . json_encode($q['scores']) . "\n";
+                }
+                if (!($v['pass'] ?? false)) {
+                    foreach (array_slice((array)($v['issues'] ?? []), 0, 2) as $iss) {
+                        echo "    verify-issue: " . mb_substr(is_string($iss) ? $iss : json_encode($iss), 0, 160) . "\n";
+                    }
+                }
+            }
+            // THE RECORD (organ 02): the same outcomes, written to the page's story.
+            // Observer only — a record failure must never touch the pipeline.
+            try {
+                require_once __DIR__ . '/record.php';
+                $gateFailed = [];
+                foreach (($g['checks'] ?? []) as $ck) if (empty($ck['pass'])) $gateFailed[] = (string)$ck['label'];
+                record_touch($pdo, 'drama', (int)$d['page_id'], '', 'build', [
+                    'candidate_id' => (int)$cd['id'],
+                    'draft'   => ['provider' => (string)($d['provider'] ?? ''), 'events' => (int)($d['events'] ?? 0)],
+                    'verify'  => ['pass' => (bool)($v['pass'] ?? false), 'issues' => array_slice((array)($v['issues'] ?? []), 0, 5)],
+                    'quality' => ['pass' => (bool)($q['pass'] ?? false), 'scores' => $q['scores'] ?? null, 'flags' => $q['flags'] ?? []],
+                    'gate'    => ['pass' => (bool)($g['pass'] ?? false), 'failed' => $gateFailed],
+                    'ready'   => $ok,
+                ]);
+            } catch (Throwable $e) { error_log('record build hook: ' . $e->getMessage()); }
+            $pdo->prepare("UPDATE candidates SET status='rejected', reject_reason='built' WHERE id=?")->execute([$cd['id']]);
+            if ($ok) {
+                $ready++;
+                if (!empty($CONFIG['auto_publish'])) {
+                    $seo = seo_audit_page((int)$d['page_id']);
+                    if (!$seo['pass']) {
+                        foreach ($seo['fails'] as $sf) echo "  SEO-GATE-FAIL {$d['slug']}: {$sf}\n";
+                    } elseif ($slots > 0) {
+                        $pp = $pdo->prepare("SELECT path FROM pages WHERE id=?"); $pp->execute([(int)$d['page_id']]);
+                        page_publish_live($pdo, (int)$d['page_id']);   // SEO-BATCH-1 choke point
+                        echo "  AUTO-PUBLISHED {$d['slug']}\n";
+                        try { record_touch($pdo, 'drama', (int)$d['page_id'], '', 'build', ['published' => true, 'published_at' => gmdate('c')]); } catch (Throwable $e) {}
+                        indexnow_ping([rtrim($CONFIG['base_url'],'/') . $pp->fetchColumn()]);
+                        $slots--;
+                    } else {
+                        // daily cap reached: hold (built + gate-passed, awaits a later day)
+                        $pdo->prepare("UPDATE pages SET status='review', robots='noindex' WHERE id=?")->execute([(int)$d['page_id']]);
+                        echo "  HELD {$d['slug']} (daily cap reached)\n";
+                    }
+                }
+            }
+            $built++;
+        }
+        // A breadcrumb in cron_events: if this never appears, the tick died before
+        // the term lanes again and the cap above needs to be tighter.
+        cnote("reached the slang/meme/gaming stage");
+        echo "  --- reached the slang/meme/gaming stage ---\n";
+
+        // ---- ORDER (owner decision 2026-08-27): PAGES BEFORE VIDEO ----
+        // The video factory used to run BEFORE the drama and slang/meme/gaming
+        // stages. Nobody chose that; it was just where the code sat. The effect
+        // was that drama drafted first and every other lane queued behind a step
+        // that spends minutes in AI calls - and when that step dropped the MySQL
+        // connection, the lanes behind it died with it. The website is the
+        // product and every lane is equal, so ALL page work now happens first
+        // and video generation runs last, on whatever the tick has time for.
+        // ---- VIDEO FACTORY: pre-generate faceless-video voiceover scripts for new dramas so the
+        // maker (GitHub Actions) can render instantly. CLI = full robust AI chain, no web timeout.
+        try {
+            require_once __DIR__ . '/video_factory.php';
+            // Everything above (framing-repair, redrain, verify) spends real time on
+            // AI and network. The handle is often already dead by the time we get
+            // here - which is why the video step failed INSTANTLY on every tick,
+            // before it ever reached an AI call of its own.
+            $pdo = db_alive();
+            // r186/r187: the whole tick is SIGKILLed at 1800s by the cron wrapper
+            // (timeout -s 9 1800), and one script write measured 525s, one
+            // Director pass up to ~540s. So nothing AI-heavy may START after
+            // +20m or it dies mid-call. The starvation flag buys the video stage
+            // its time by cutting terms (240s) and stories (600s) short instead.
+            $vCut = 1200;
+            $vn = (time() - $tickT0 < $vCut) ? video_scripts_generate($pdo, 2) : 0;   // r147: not after +25m
+            if (time() - $tickT0 >= $vCut) echo '  video: skipped at +' . (int)round((time() - $tickT0) / 60) . "m (time budget)\n";
+            if ($vn) echo "  video: pre-generated {$vn} video script(s)\n";
+            // r186 SECOND LOOK: nothing new to write and nothing to render ->
+            // re-gate one story skipped before its people were resolved
+            if (!$vn && !empty($GLOBALS['VID_STARVED']) && time() - $tickT0 < $vCut) {
+                $pdo = db_alive();
+                $vres = video_rescue_skipped($pdo, 1);
+                if ($vres) echo "  video: rescued {$vres} skipped story(ies) that have people now\n";
+                $pdo = db_alive();
+            }
+            $pdo = db_alive();   // 2026-08-23: minutes of AI + people lookups just ran; MySQL may have hung up
+            // convert the pre-playbook backlog: rewrite old-style pending scripts (tpl<2)
+            // a few per tick so every future render uses the creator template
+            $vr = video_scripts_retemplate($pdo, 3);
+            if ($vr) { echo "  video: re-templated {$vr} old-style script(s)\n"; cnote("video: re-templated {$vr} scripts to creator playbook"); }
+            $pdo = db_alive();
+            // 2026-09-24 NOTHING WAITS FOREVER. A pending script that needs a shot
+            // list and has had none for 7 days is set aside with a reason instead of
+            // sitting in the queue: term pages (114 since 09-05, 1092, 1128) can never
+            // get one (the Director below plans drama stories only), and a story
+            // that old is no longer news. One cheap UPDATE per tick.
+            try {
+                $aged = $pdo->exec("UPDATE video_scripts SET video_status='skipped',
+                                           skip_reason='no shot list after 7 days (the Director never planned it)'
+                                     WHERE video_status='pending' AND tpl>=2 AND shotlist IS NULL
+                                       AND created_at < NOW() - INTERVAL 7 DAY");
+                if ($aged) echo "  video: set aside {$aged} script(s) with no shot list after 7 days\n";
+            } catch (Throwable $e) { echo "  video age-out failed: " . $e->getMessage() . "\n"; }
+            // v4 DIRECTOR backfill: pending creator-era scripts written before the
+            // Director existed get their word-anchored shot list (2/tick, ~2min each)
+            $need = $pdo->query("SELECT v.page_id, d.people_json FROM video_scripts v
+                                 JOIN pages p ON p.id=v.page_id JOIN dramas d ON d.page_id=p.id
+                                 WHERE v.video_status='pending' AND v.tpl>=2 AND v.shotlist IS NULL
+                                 ORDER BY v.created_at DESC LIMIT 2")->fetchAll();
+            $vd = 0;
+            require_once __DIR__ . '/video_people.php';
+            foreach ($need as $nrow) {
+                // r187: a Director pass runs up to ~9 min and the tick is killed at
+                // 1800s, so never START one past the same +20m line
+                if (time() - $tickT0 >= $vCut) { echo '  video: Director stopped at +' . (int)round((time() - $tickT0) / 60) . "m (tick is killed at +30m)\n"; break; }
+                // r158: people_json first, else the names the video gate's AI extraction
+                // cached for this page, so a streamer story is not directed as "(none)"
+                $ppl = vp_known_names((int)$nrow['page_id'], (string)$nrow['people_json'], 4);
+                if (video_write_shotlist($pdo, (int)$nrow['page_id'], $ppl)) $vd++;
+            }
+            if ($vd) { echo "  video: directed {$vd} shot list(s)\n"; cnote("video: DIRECTOR wrote {$vd} shot list(s)"); }
+            $pdo = db_alive();
+            // WAF-proof static job feed: pre-write the maker's next jobs as a plain
+            // /media/ JSON (the api endpoint gets 403'd for runner IPs; media never is)
+            try { require_once __DIR__ . '/video_feed.php'; video_feed_static_write($pdo); }
+            catch (Throwable $e) { echo "  video feed static failed: " . $e->getMessage() . "\n"; }
+        } catch (Throwable $e) { echo "  video script step failed: " . $e->getMessage() . "\n"; }
+        // 2026-08-23 THE SILENT TICK KILLER. The video step above spends minutes
+        // in AI calls and people lookups; MySQL's wait_timeout drops the idle
+        // connection ("2006 server has gone away" - 51 times since July 12). The
+        // very next line used to query the DEAD handle outside any try/catch, so
+        // the whole rest of the tick - velocity, discovery, select, drafting,
+        // every lane - died silently. The site published nothing for days and
+        // the log showed only the tick header. db_alive() already existed for
+        // exactly this (SEO-BATCH-1); it just was never called here.
+        $pdo = db_alive();
+        // ---- CLIP SUPPLY, MOVED HERE (r159, 2026-09-11, owner: the videos must be
+        // built out of real CLIPS). It used to sit last, inside the intelligence block
+        // behind scout + term discovery + desk + rolodex, and it was reached in 18 of
+        // the 97 ticks since 09-08 - while 09-11 alone wrote 16 scripts, 9 of them with
+        // no clip at all. Nothing ABOVE this line moves: drama discovery, the drama
+        // builds, the slang/meme/gaming lanes and the video factory have all already
+        // run, so this stage cannot starve them. It can only take time from the stages
+        // BELOW it (governor, scout, desk, rolodex, eyes, brain), every one of which
+        // has its own time guard and skips itself cleanly. Three brakes: it does not
+        // start after +25m, it carries its own 300s wall clock, and it is wrapped so
+        // its failure cannot end the tick.
+        $clipsEarly = false;
+        if (time() - $tickT0 < 1560) {
+            try {
+                require_once __DIR__ . '/clip_supply.php';
+                $pdo = db_alive();
+                [$ck, $pl, $gn] = clip_replan($pdo, 6, 300);
+                $clipsEarly = true;
+                echo "clips: replanned {$ck} script(s), {$gn} gained footage, {$pl} fetchable clip(s) planned\n";
+                if ($gn) cnote("clips: {$gn} story(ies) gained footage the server can fetch");
+                $pdo = db_alive();
+            } catch (Throwable $e) { echo '  clips skipped: ' . $e->getMessage() . "\n"; try { $pdo = db_alive(); } catch (Throwable $e2) {} }
+        } else { echo '  clips: skipped at +' . (int)round((time() - $tickT0) / 60) . "m (time budget)\n"; }
+        echo "tick done (+" . (int)round((time() - $tickT0) / 60) . "m) | drama built={$built} ready={$ready} | terms built={$tbuilt} published={$tpub}\n";
 
         // ---- THE GOVERNOR (organ 13). Rides the tick that already exists rather
         // than adding a cron of its own - the host is shared with other people's
@@ -1504,6 +1992,157 @@ switch ($cmd) {
             }
             foreach ($gr['cleared'] as $c) echo "governor: cleared {$c}\n";
         } catch (Throwable $e) { echo '  governor failed: ' . $e->getMessage() . "\n"; }
+        // ---- THE EYES, RECONCILED (r148, 2026-09-09). The owner watched a video
+        // the machine had passed and found it was mostly one repeated picture. The
+        // eyes had never measured it: the measure hook sat on one of the two
+        // delivery doors and the catch-up lived in the block this tick keeps
+        // skipping. A RECONCILIATION LOOP cannot miss a door - it asks which
+        // finished videos have no measurement and closes the gap, whatever route
+        // they arrived by. It runs OUTSIDE the skippable block on its own budget,
+        // because a watchman that only watches on quiet days is not a watchman.
+        try {
+            require_once __DIR__ . '/video_eyes.php';
+            $pdo = db_alive();
+            $ey = eyes_reconcile($pdo, 120, 5);
+            if (!empty($ey['busy'])) echo "eyes: another run holds the lock; skipping\n";
+            elseif ($ey['measured'] || $ey['left'] || $ey['missing_file'])
+                echo "eyes: measured {$ey['measured']} video(s)" . ($ey['bad'] ? ", {$ey['bad']} BAD" : '') . ($ey['weak'] ? ", {$ey['weak']} weak" : '') . ($ey['missing_file'] ? ", {$ey['missing_file']} file missing" : '') . ", {$ey['left']} still unseen\n";
+            $pdo = db_alive();
+        } catch (Throwable $e) { echo '  eyes skipped: ' . $e->getMessage() . "\n"; try { $pdo = db_alive(); } catch (Throwable $e2) {} }
+        // ---- INTELLIGENCE STAGES, MOVED HERE (r145, 2026-09-06). Measured: since
+        // Sep 4 the tick was killed at its 1800s limit during the term builds,
+        // because scout + desk + clips + eyes + brain + rolodex ran BEFORE the
+        // core (drama discovery, drama builds, video, governor) and ate ~25 min.
+        // No new drama story was discovered by the tick for two days and the
+        // Governor went silent. Core first; intelligence last, only with time left.
+        if (time() - $tickT0 < 1620) {
+        echo 'intelligence stages start at +' . (int)round((time() - $tickT0) / 60) . "m\n";
+        // THE SCOUT (2026-08-30, owner: "built the scout") — social-native
+        // discovery: burst detection over the runner's listening harvest, then
+        // an AI screen that infers meaning from the POSTS THEMSELVES. Promoted
+        // terms land in candidates as selected; their posts become citations.
+        if (time() - $tickT0 < 1380) try {
+            require_once __DIR__ . '/scout.php';
+            $pdo = db_alive();
+            $sc = scout_run($pdo, 10);   // 2026-09-05: was 6. Measured 819 words past the burst bar waiting; 6/h = a 5-day queue, and slang went to zero behind it. Each screen is one cheap AI call.
+            echo "scout: {$sc['posts']} posts heard, {$sc['tracked']} terms tracked, {$sc['screened']} screened, {$sc['promoted']} promoted\n";
+            $pdo = db_alive();   // screening = AI calls, handle may be stale
+        } catch (Throwable $e) { echo "  scout skipped: " . $e->getMessage() . "\n"; try { $pdo = db_alive(); } catch (Throwable $e2) {} }
+        require_once __DIR__ . '/discover_terms.php';
+        if (time() - $tickT0 < 1380) try {
+            $disc = discover_terms_run();
+        // ---- HIDDEN-PAGE REPAIR (2026-08-27) ----------------------------
+        // 79 finished pages are live but noindex, 45 of them slang. They fail
+        // on citations / on-topic sources because they were BUILT BEFORE the
+        // retrieval was repaired (the topical screen was reading cookie
+        // banners). Re-fetching sources fixes them, but it costs live HTTP
+        // plus an AI screen per page - a one-shot run over all 79 wrote
+        // nothing in 7 minutes and had to be killed. So it runs HERE, a few
+        // per tick, for as long as it takes. Non-fatal by construction.
+        try {
+            $pdo = db_alive();   // discovery above = minutes of AI; the handle is dead by now (2026-08-29, measured)
+            require_once __DIR__ . '/term_resource.php';
+            $tr = term_resource_run($pdo, 2);
+            if ((int)($tr['checked'] ?? 0) > 0) {
+                echo "  hidden-page repair: checked {$tr['checked']}, improved {$tr['improved']}\n";
+                cnote("hidden-page repair: {$tr['improved']} improved");
+            }
+        } catch (Throwable $e) { echo "  hidden-page repair skipped: " . $e->getMessage() . "\n"; }
+            echo "term discovery: harvested={$disc['harvested']} new={$disc['new']} selected={$disc['selected']}" . (isset($disc['note']) ? " ({$disc['note']})" : '') . "\n";
+        } catch (Throwable $e) { echo "term discovery skipped: " . $e->getMessage() . "\n"; }
+        // THE DESK (2026-09-05, owner go): the one general judge over every
+        // signal the fetchers above dropped into the intake. SHADOW until
+        // app/DESK_LIVE exists: verdicts are logged beside the doors' own,
+        // nothing downstream changes. Budget: 30 cards, 240s, ≤3 AI calls.
+        if (time() - $tickT0 < 1440) try {
+            require_once __DIR__ . '/desk.php';
+            $pdo = db_alive();
+            $dk = desk_judge_run($pdo, 30, 240);
+            echo "desk: {$dk['due']} cards due, {$dk['judged']} judged, {$dk['something']} something, {$dk['routed']} routed" . ($dk['live'] ? ' [LIVE]' : ' [shadow]') . ($dk['failed'] ? " ({$dk['failed']} batch failed)" : '') . "\n";
+            $pdo = db_alive();
+        } catch (Throwable $e) { echo "  desk skipped: " . $e->getMessage() . "\n"; try { $pdo = db_alive(); } catch (Throwable $e2) {} }
+        // THE ROLODEX (2026-09-06, owner go): once a day, the mention alarm
+        // (GA4 referrers) and the people-finder (search → read → AI extract).
+        // Budget 220s, non-fatal, stamps itself so it never runs twice a day.
+        if (time() - $tickT0 < 1560) try {
+            require_once __DIR__ . '/rolodex.php';
+            $pdo = db_alive();
+            $rx = rolodex_daily($pdo, 220);
+            if ($rx) echo 'rolodex: mentions ' . json_encode($rx['mentions']) . ' | finder ' . json_encode($rx['discover']) . "\n";
+            $pdo = db_alive();
+        } catch (Throwable $e) { echo "  rolodex skipped: " . $e->getMessage() . "\n"; try { $pdo = db_alive(); } catch (Throwable $e2) {} }
+        // CLIP ROUTES (r140, 2026-09-06, owner: "fix the clip supply first"), and the
+        // stages nested in this try ride with it. r159: the re-plan itself moved up to
+        // the core, above the governor. What stays here is the daily route doctor plus
+        // a TOP-UP re-plan for the ticks where the core one was already out of time.
+        // The guard stays at +26m on purpose: this block still owns the eyes, story
+        // posts, proofs and brain, and taking the expensive re-plan out of it is what
+        // makes those MORE likely to be reached, not a later start. Non-fatal.
+        if (time() - $tickT0 < 1560) try {
+            require_once __DIR__ . '/clip_supply.php';
+            $pdo = db_alive();
+            [$ck, $pl] = empty($clipsEarly) ? clip_replan($pdo, 3, 150) : [0, 0];
+            $probeStamp = __DIR__ . '/cache/clip_probe_last.txt';
+            $probed = '';
+            if (time() - (int)@file_get_contents($probeStamp) > 20 * 3600) {
+                @file_put_contents($probeStamp, (string)time());
+                $pr = clip_probe_routes($pdo);
+                $probed = ' | routes: ' . implode(' ', array_map(fn($k, $v) => $k . '=' . ($v ? 'ok' : 'DOWN'), array_keys($pr), $pr));
+            }
+            if ($ck || $probed !== '') echo "clip routes: top-up replanned $ck script(s), $pl clip(s)" . $probed . "\n";
+            $pdo = db_alive();
+            // THE EYES (r141, 2026-09-06): measure a few of our own videos per
+            // tick, learn once a day from the TikToks on our topics vs ours.
+            try {
+                require_once __DIR__ . '/video_eyes.php';
+                $eb = 0;   // r148: our own videos are reconciled above, outside this block
+                $er = eyes_backfill_rivals($pdo, 4);
+                $eyesStamp = __DIR__ . '/cache/eyes_learn_last.txt';
+                $el = '';
+                if (time() - (int)@file_get_contents($eyesStamp) > 20 * 3600) {
+                    @file_put_contents($eyesStamp, (string)time());
+                    $lr = eyes_learn($pdo);
+                    $el = ' | learn: ' . ($lr['written'] ? 'visual_shape written (' . $lr['rivals'] . ' rivals vs ' . $lr['ours'] . ' ours)' : ($lr['note'] ?? 'nothing'));
+                }
+                echo "eyes: $er rival clip(s) measured" . $el . "\n";
+                $pdo = db_alive();
+            } catch (Throwable $e) { echo "  eyes skipped: " . $e->getMessage() . "\n"; try { $pdo = db_alive(); } catch (Throwable $e2) {} }
+            // POSTS ABOUT THIS STORY (r152, 2026-09-10): once a day, queue the X posts the
+            // video pipeline found for the owner's approval and re-check the ones showing on
+            // pages, so a post its author deletes on X leaves the page. Bounded to 90 seconds.
+            try {
+                $spStamp = __DIR__ . '/cache/story_posts_last.txt';
+                if (time() - (int)@file_get_contents($spStamp) > 20 * 3600) {
+                    @file_put_contents($spStamp, (string)time());
+                    require_once __DIR__ . '/story_posts.php';
+                    $pdo = db_alive();
+                    $spr = sp_refresh_all($pdo, 90);
+                    echo "story posts: {$spr['pages']} page(s) checked, {$spr['new_pending']} new waiting for approval, {$spr['approved_gone']} removed (deleted on X)" . ($spr['stopped_early'] ? ' (time budget reached)' : '') . "\n";
+                    $pdo = db_alive();
+                }
+            } catch (Throwable $e) { echo "  story posts skipped: " . $e->getMessage() . "\n"; try { $pdo = db_alive(); } catch (Throwable $e2) {} }
+            // PROOF SCREENSHOTS (r155, 2026-09-11, owner: show the posts used as proofs): publish up
+            // to 6 screenshots the runner captured, after the same safety check the receipts use.
+            // Bounded to 90 seconds; does nothing until app/proofs_engine.php exists.
+            if (time() - $tickT0 < 1500 && is_file(__DIR__ . '/proofs_engine.php')) try {
+                require_once __DIR__ . '/proofs_engine.php';
+                $pdo = db_alive();
+                $prf = proofs_promote($pdo, 6, 90);
+                if (($prf['promoted'] ?? 0) || ($prf['rejected'] ?? 0)) echo "proofs: " . (int)$prf['promoted'] . " published, " . (int)$prf['rejected'] . " rejected, " . (int)($prf['left'] ?? 0) . " waiting\n";
+                $pdo = db_alive();
+            } catch (Throwable $e) { echo "  proofs skipped: " . $e->getMessage() . "\n"; try { $pdo = db_alive(); } catch (Throwable $e2) {} }
+            // THE BRAIN (organ 14, 2026-09-06): once a day, one bounded action,
+            // measured and reversible. Shadow until app/BRAIN_LIVE exists.
+            try {
+                require_once __DIR__ . '/brain.php';
+                $pdo = db_alive();
+                $br = brain_run($pdo, false);
+                if (isset($br['action'])) echo "brain [{$br['mode']}]: {$br['action']}" . ($br['lever'] ? " {$br['lever']}={$br['value']}" : '') . ($br['acted'] ? '' : ' (recorded only)') . ' | ' . mb_substr((string)$br['why'], 0, 120) . ($br['refused'] ? " | refused: {$br['refused']}" : '') . "\n";
+                elseif (isset($br['note']) && $br['note'] !== 'already ran today') echo "brain: {$br['note']}\n";
+                $pdo = db_alive();
+            } catch (Throwable $e) { echo "  brain skipped: " . $e->getMessage() . "\n"; try { $pdo = db_alive(); } catch (Throwable $e2) {} }
+        } catch (Throwable $e) { echo "  clips skipped: " . $e->getMessage() . "\n"; try { $pdo = db_alive(); } catch (Throwable $e2) {} }
+        } else { echo 'intelligence stages skipped: tick already at +' . (int)round((time() - $tickT0) / 60) . "m\n"; }
         break;
 
     case 'watchdog':

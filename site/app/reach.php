@@ -81,6 +81,25 @@ function reach_exa_search(string $query, int $n = 5): array {
     return $out;
 }
 
+/** Exa's own page reader (web_fetch_exa, keyless): full page as clean markdown.
+ *  Added 2026-09-06 when Jina answered 403 (Cloudflare) from this server and
+ *  publishers refused the direct fetch. null on any failure. */
+function reach_exa_fetch(string $url, int $timeout = 40): ?string {
+    static $sid = null;
+    if ($sid === null) $sid = reach_exa_session() ?: '';
+    if ($sid === '') return null;
+    $call = json_encode(['jsonrpc' => '2.0', 'id' => 4, 'method' => 'tools/call',
+        'params' => ['name' => 'web_fetch_exa', 'arguments' => ['urls' => [$url], 'maxCharacters' => 3500]]]);
+    $r = reach_http('https://mcp.exa.ai/mcp',
+        ['Content-Type: application/json', 'Accept: application/json, text/event-stream', 'mcp-session-id: ' . $sid], $call, $timeout);
+    if ($r['code'] !== 200) { $sid = null; return null; }
+    $json = null;
+    foreach (explode("\n", $r['body']) as $line) if (str_starts_with(trim($line), 'data:')) $json = trim(substr(trim($line), 5));
+    $j = $json ? json_decode($json, true) : null;
+    $text = $j['result']['content'][0]['text'] ?? '';
+    if (!is_string($text) || mb_strlen($text) < 200 || !empty($j['result']['isError'])) return null;
+    return $text;
+}
 /** Keyless readable fetch of any URL as markdown. null on failure. */
 function reach_jina_read(string $url, int $timeout = 30): ?string {
     if (!preg_match('#^https?://#i', $url)) $url = 'https://' . $url;

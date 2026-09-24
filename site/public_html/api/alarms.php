@@ -29,7 +29,7 @@ header('Cache-Control: no-store');
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') { http_response_code(405); echo json_encode(['ok' => false, 'error' => 'POST only']); exit; }
 $IN = json_decode((string)file_get_contents('php://input'), true);
 if (!is_array($IN)) { http_response_code(400); echo json_encode(['ok' => false, 'error' => 'bad json']); exit; }
-if (!hash_equals($CONFIG['ingest_token'] ?? '', (string)($IN['token'] ?? ''))) {
+if (!hash_equals(($CONFIG['ingest_token'] ?? '') ?: random_bytes(32), (string)($IN['token'] ?? ''))) {
     http_response_code(403); echo json_encode(['ok' => false, 'error' => 'bad token']); exit;
 }
 
@@ -61,5 +61,5 @@ try {
     http_response_code(400); echo json_encode(['ok' => false, 'error' => 'unknown action']);
 } catch (Throwable $e) {
     http_response_code(500);
-    echo json_encode(['ok' => false, 'error' => 'board failed', 'detail' => mb_substr($e->getMessage(), 0, 200)]);
+    require_once dirname(__DIR__, 2) . '/app/api_error.php'; echo json_encode(['ok' => false, 'error' => 'board failed', 'detail' => api_error_ref($e, 'alarms')]);
 }

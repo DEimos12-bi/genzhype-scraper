@@ -26,7 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $body = json_decode((string)file_get_contents('php://input'), true);
     if (is_array($body)) $IN = $body + $_GET;
 }
-if (!hash_equals($CONFIG['ingest_token'] ?? '', (string)($IN['token'] ?? ''))) {
+if (!hash_equals(($CONFIG['ingest_token'] ?? '') ?: random_bytes(32), (string)($IN['token'] ?? ''))) {
     http_response_code(403); echo json_encode(['error' => 'bad token']); exit;
 }
 
@@ -45,5 +45,5 @@ try {
                      JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 } catch (Throwable $e) {
     http_response_code(500);
-    echo json_encode(['error' => 'record export failed', 'detail' => mb_substr($e->getMessage(), 0, 200)]);
+    require_once dirname(__DIR__, 2) . '/app/api_error.php'; echo json_encode(['error' => 'record export failed', 'detail' => api_error_ref($e, 'records')]);
 }

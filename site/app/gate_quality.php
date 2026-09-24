@@ -137,14 +137,40 @@ function gate_quality(int $page_id, bool $withAI = false): array {
     $spell = qg_spelling_ratio($body);
     $title = $page['title_tag']; $meta = $page['meta_desc'];
 
+    // r167: THE SAME BLINDNESS THE AI EDITOR HAD. A drama page IS its summary plus
+    // its dated timeline; `background` is the preamble. The hard checks below were
+    // counting the preamble alone, so page 716 - a sourced, dated assault timeline -
+    // measured 141 words and 0 sources and could never publish. The Competitive Edge
+    // department already knew this (see its comment); the gate's own floor did not.
+    $fullWords = $read['words'];
+    $srcAll = $jd($row['sources'] ?? '');
+    $srcCount = count($srcAll);
+    if (!$isTerm && !empty($row['id'])) {
+        $fullWords += str_word_count((string)($page['summary'] ?? ''));
+        $evText = '';
+        foreach ($pdo->query("SELECT title, description FROM events WHERE drama_id=" . (int)$row['id']) as $e)
+            $evText .= ' ' . ($e['title'] ?? '') . ' ' . ($e['description'] ?? '');
+        $fullWords += str_word_count(strip_tags($evText));
+        try {
+            $cited = (int)$pdo->query("SELECT COUNT(DISTINCT e.source_id) FROM events e
+                                       WHERE e.drama_id=" . (int)$row['id'] . " AND e.source_id IS NOT NULL")->fetchColumn();
+            $srcCount = max($srcCount, $cited);
+        } catch (Throwable $e) { /* the JSON count stands */ }
+    }
+
     $dept = [];
 
     // DEPT 1 — Depth & Coverage
     $dept['Depth & Coverage'] = [
-        ['label' => 'body >= 380 words', 'pass' => $read['words'] >= 380, 'detail' => "{$read['words']} words", 'weight' => 3, 'hard' => true],
-        ['label' => 'ideal depth 550-1100', 'pass' => $read['words'] >= 550 && $read['words'] <= 1100, 'detail' => "{$read['words']} words", 'weight' => 2, 'hard' => false],
+        ['label' => 'body >= 380 words', 'pass' => $fullWords >= 380, 'detail' => "{$fullWords} words", 'weight' => 3, 'hard' => true],
+        ['label' => 'ideal depth 550-1100', 'pass' => $fullWords >= 550 && $fullWords <= 1100, 'detail' => "{$fullWords} words", 'weight' => 2, 'hard' => false],
         ['label' => 'examples >= 2', 'pass' => count($jd($row['examples'] ?? '')) >= 2, 'detail' => count($jd($row['examples'] ?? '')) . '', 'weight' => 2, 'hard' => false],
-        ['label' => 'FAQs >= 2', 'pass' => count($jd($row['faqs'] ?? '')) >= 2, 'detail' => count($jd($row['faqs'] ?? '')) . '', 'weight' => 2, 'hard' => true],
+        ['label' => 'FAQs >= 2', 'pass' => count($jd($row['faqs'] ?? '')) >= 2, 'detail' => count($jd($row['faqs'] ?? '')) . '',
+         // r167: HARD for a term page, where FAQs are the format. For a drama it is a
+         // GEO bonus our own competitor data puts at 0% of rivals, and no drama draft
+         // has ever produced one - so it was a hard wall in front of every story with
+         // nothing behind it. Scored, not a floor. Hard gates are for truth and safety.
+         'weight' => 2, 'hard' => $isTerm],
     ];
 
     // DEPT 2 — Readability & Writing
@@ -179,9 +205,9 @@ function gate_quality(int $page_id, bool $withAI = false): array {
     ];
 
     // DEPT 5 — Trust & Sourcing (E-E-A-T)
-    $sources = $jd($row['sources'] ?? '');
+    $sources = $srcAll;
     $dept['Trust & Sourcing'] = [
-        ['label' => '>= 2 cited sources', 'pass' => count($sources) >= 2, 'detail' => count($sources) . ' sources', 'weight' => 3, 'hard' => true],
+        ['label' => '>= 2 cited sources', 'pass' => $srcCount >= 2, 'detail' => $srcCount . ' sources', 'weight' => 3, 'hard' => true],
         ['label' => 'published/updated dates', 'pass' => !empty($page['published_at']) && !empty($page['updated_at']), 'detail' => '', 'weight' => 1, 'hard' => false],
         ['label' => 'byline / author set', 'pass' => !empty($page['author_id']), 'detail' => '', 'weight' => 1, 'hard' => false],
     ];

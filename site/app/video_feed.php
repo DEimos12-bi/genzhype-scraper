@@ -28,7 +28,9 @@ function video_feed_build_post(PDO $pdo, array $r): array {
         // visuals expander (per-person recent imagery) reads right after.
         try {
             $people = video_people_resolve($pdo, (int)$r['page_id'], (string)$m['people_json'],
-                                           (string)$r['title'], mb_substr((string)$r['script'], 0, 200));
+                                           // r175: the whole script, so the entity check
+                                           // sees the sentences that name each person
+                                           (string)$r['title'], mb_substr((string)$r['script'], 0, 1500));
         } catch (Throwable $e) { $people = []; }
         [$visuals, $vtitles] = video_event_visuals($pdo, (int)$m['did'], (string)$r['image']);
     }
@@ -84,7 +86,14 @@ function video_feed_static_write(PDO $pdo): int {
     $rows = $pdo->query("SELECT v.page_id, v.slug, v.title, v.hook, v.script, v.image, v.broll, v.shotlist, v.gravity, v.force_render, v.footage_clips, v.visual_plan
                          FROM video_scripts v JOIN pages p ON p.id=v.page_id
                          WHERE p.status='published' AND v.video_status='pending'
-                         ORDER BY (v.shotlist IS NOT NULL) DESC, (v.tpl >= 2) DESC, v.created_at DESC
+                           AND NOT (v.tpl >= 2 AND v.shotlist IS NULL)   -- r176: awaiting the Director
+                         -- r188 (owner 2026-09-16: render the newest pages first). Measured that
+                         -- day: our delivered videos were on average 33 DAYS old at render
+                         -- (slowest 96), while freshness is an official ranking factor for
+                         -- news. The queue sorted by when the SCRIPT was written; a backlog of
+                         -- old scripts therefore outranked today's story. The STORY's publish
+                         -- date now decides.
+                         ORDER BY (v.shotlist IS NOT NULL) DESC, (v.tpl >= 2) DESC, p.published_at DESC, v.created_at DESC
                          LIMIT 8")->fetchAll();
     $posts = [];
     foreach ($rows as $r) {
@@ -117,6 +126,11 @@ function video_feed_static_write(PDO $pdo): int {
         file_put_contents($tmp, $bytes);
         @rename($tmp, $dir . '/' . $name);   // atomic swap per file
         @chmod($dir . '/' . $name, 0644);
+    }
+    // 2026-09-24: the file names carry the key, so after a key change the old
+    // files would stay public forever under the old key's name. Remove them.
+    foreach (glob($dir . '/vfeed-*') ?: [] as $f) {
+        if (!str_contains(basename($f), $token)) @unlink($f);
     }
     return count($posts);
 }

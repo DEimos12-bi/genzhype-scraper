@@ -253,11 +253,47 @@ function fs_harvest_embeds(string $html, int $max = 6): array
 
 function footage_clips_gather(int $drama_id, int $max = 8): array {
     $pdo = db();
+    $clips = []; $seen = [];
+    // r140 (2026-09-06) DIRECT SOURCES FIRST. The story's own sources already
+    // hold the platform links (145 stories carry an X post; a TikTok or YouTube
+    // link sits in the sources of 27) and this planner never read them — it
+    // only crawled article HTML for embeds, and most articles answer 403 to
+    // this server. Tonight's feed had 6 stories and 0 clips. Now: every event
+    // source that IS a platform post is a clip candidate; X posts are checked
+    // for video through the syndication CDN (server-side, keyless, measured).
+    require_once __DIR__ . '/clip_supply.php';
+    require_once __DIR__ . '/clip_fetch.php';
+    $direct = $pdo->prepare(
+        "SELECT DISTINCT s.url, e.event_date FROM events e JOIN sources s ON s.id=e.source_id
+         WHERE e.drama_id=? AND s.url IS NOT NULL ORDER BY e.event_date, e.sort_order");
+    $direct->execute([$drama_id]);
+    foreach ($direct->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        if (count($clips) >= $max) break;
+        $u = (string)$row['url'];
+        $plat = clip_platform($u);
+        if ($plat === 'x') {
+            if (!preg_match('#/status/(\\d+)#', $u, $tm)) continue;
+            $u = preg_replace('#\\?.*$#', '', $u);
+            if (isset($seen[$u])) continue;
+            $seen[$u] = 1;
+            if (!cf_resolve_x($tm[1])) continue;      // a tweet without video is a card, not a clip
+            $clips[] = ['platform' => 'x', 'url' => $u, 'embed' => false, 'start' => 0,
+                         'author' => fs_clip_author($u), 'src' => $u, 'direct' => true];
+            continue;
+        }
+        if (!in_array($plat, ['tiktok', 'youtube', 'twitch', 'kick'], true)) continue;
+        if ($plat === 'tiktok' && !preg_match('#/video/\\d+#', $u)) continue;
+        if ($plat === 'youtube' && !preg_match('#(watch\\?v=|shorts/|youtu\\.be/)#', $u)) continue;
+        if (isset($seen[$u])) continue;
+        $seen[$u] = 1;
+        $clips[] = ['platform' => $plat, 'url' => $u, 'embed' => false, 'start' => 0,
+                     'author' => fs_clip_author($u), 'src' => $u, 'direct' => true];
+    }
     $arts = $pdo->prepare(
         "SELECT DISTINCT s.url FROM events e JOIN sources s ON s.id=e.source_id
-         WHERE e.drama_id=? AND s.url IS NOT NULL AND s.url NOT LIKE '%/status/%'");
+         WHERE e.drama_id=? AND s.url IS NOT NULL AND s.url NOT LIKE '%/status/%'
+           AND s.url NOT LIKE '%tiktok.com/%' AND s.url NOT LIKE '%youtube.com/%' AND s.url NOT LIKE '%youtu.be/%'");
     $arts->execute([$drama_id]);
-    $clips = []; $seen = [];
     foreach ($arts->fetchAll(PDO::FETCH_COLUMN) as $artUrl) {
         if (count($clips) >= $max) break;
         $html = fs_http_get($artUrl);
@@ -290,6 +326,8 @@ function footage_clips_gather(int $drama_id, int $max = 8): array {
                         'author' => fs_clip_author($u), 'src' => $artUrl];
         }
     }
+    // r145: deliverable clips first (the maker tries the first three for the hook)
+    $clips = clip_supply_sort($clips);
     // find the page_id for the video_scripts row
     $pid = (int)$pdo->query("SELECT page_id FROM dramas WHERE id=" . (int)$drama_id)->fetchColumn();
     if ($pid) {
@@ -559,6 +597,10 @@ function fetch_sources_for_candidate(int $cand_id, int $want = 4): array {
         'people'  => $verdict['primary_people'] ?? [],
         'sources' => $sources,
         'cand_id' => $cand_id,
+        // 2026-08-31: which timeline lane this story belongs to. A story that
+        // arrived from a gaming publication is gaming news and publishes under
+        // /gaming/; everything else stays creator drama under /drama/.
+        'lane'    => fs_story_lane($signals),   // r153: the lane test now lives in fs_story_lane() below
     ];
 }
 
@@ -764,4 +806,24 @@ function clip_hunt(int $drama_id, int $max_new = 4): int
             ->execute([json_encode($clips, JSON_UNESCAPED_SLASHES), (int)$r['page_id']]);
     }
     return $added;
+}
+
+/**
+ * Which timeline lane a story candidate publishes under: 'gaming' (/gaming/) or
+ * 'drama' (/drama/). r153: lifted out of the source fetcher's return array so the
+ * build queue's per-lane quota in cli.php uses the very same test.
+ */
+function fs_story_lane(array $sig): string {
+    // r153 (2026-09-10, desk switched on): a story the desk routed carries the
+    // desk's own lane decision (source 'desk:...', signals.lane). Honour it, or
+    // desk-routed gaming news would publish under /drama/. No other door writes
+    // a lane key (0 rows checked), so every other story keeps the rule below.
+    $src = (string)($sig['source'] ?? '');
+    if (strpos($src, 'desk:') === 0 && in_array(($sig['lane'] ?? ''), ['gaming', 'drama'], true)) return $sig['lane'];
+    if (strpos($src, 'rss:') === 0) {
+        require_once __DIR__ . '/discover_dramas.php';
+        if (in_array(substr($src, 4), DD_GAMING_FEEDS, true)) return 'gaming';
+    }
+    if ($src === 'scout:r/gta6' || $src === 'scout:r/gamingleaksandrumours') return 'gaming';
+    return 'drama';
 }

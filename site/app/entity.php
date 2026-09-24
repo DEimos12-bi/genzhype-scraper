@@ -33,7 +33,7 @@ function entity_backfill_run(PDO $pdo, int $budget = 200): array {
         $out = [];
         try {
             foreach (array_slice(drama_people_ai($r['h1'], $r['summary'] ?? ''), 0, 4) as $name) {
-                $e = entity_resolve_person($pdo, $name);
+                $e = entity_resolve_person($pdo, $name, (string)$r['h1'] . '. ' . (string)($r['summary'] ?? ''));
                 if (!empty($e['sameAs'])) $out[] = ['name' => $name, 'role' => $e['description'] ?: 'Featured', 'sameAs' => $e['sameAs']];
             }
         } catch (Throwable $ex) { continue; }
@@ -77,7 +77,7 @@ function entity_cached(PDO $pdo, string $kind, string $name): array {
  * entity is a human (P31=Q5) so a same-named company/song never leaks in. 2 API
  * calls, then cached. Returns ['qid'=>?, 'sameAs'=>[...]].
  */
-function entity_resolve_person(PDO $pdo, string $name): array {
+function entity_resolve_person(PDO $pdo, string $name, string $context = ''): array {
     entity_init($pdo);
     $name = trim($name);
     if ($name === '' || mb_strlen($name) < 2) return ['qid' => null, 'sameAs' => []];
@@ -104,8 +104,24 @@ function entity_resolve_person(PDO $pdo, string $name): array {
     // notability signal). Wikidata returns candidates in relevance order, so the
     // famous bearer of a name still wins. Still never claims a non-human.
     $pass1 = []; $pass2 = [];
+    $nameKey = fn(string $v) => preg_replace('/[^\p{L}\p{N}]+/u', '', mb_strtolower($v));
+    // a handle with digits is written both ways ("Agent 00" / "Agent00"); the
+    // spaced search never returns the streamer, so the compact form is searched too
+    $compact = preg_replace('/\s+/u', '', $name);
+    if ($compact !== $name && preg_match('/\d/', $name)) {
+        $s2 = wm_api_host('www.wikidata.org', ['action' => 'wbsearchentities', 'search' => $compact,
+            'language' => 'en', 'type' => 'item', 'limit' => 5]);
+        $seen = array_column((array)($s['search'] ?? []), 'id');
+        foreach ((array)($s2['search'] ?? []) as $c2) if (!in_array($c2['id'] ?? '', $seen, true)) $s['search'][] = $c2;
+    }
     foreach (($s['search'] ?? []) as $cand) {
         if (empty($cand['id'])) continue;
+        // r182b EXACT NAME, NOT PREFIX: the search also returns prefix hits, so
+        // "Donald Trump" returned Q3713655 Donald Trump Jr., whose description
+        // ("reality television personality") passed the figure filter ahead of
+        // the president. A candidate counts only when its matched label or
+        // alias IS the name (entity-linking candidate generation by alias).
+        if ($nameKey((string)($cand['match']['text'] ?? $cand['label'] ?? '')) !== $nameKey($name)) continue;
         if (preg_match($figure, (string)($cand['description'] ?? ''))) $pass1[] = $cand;
         else $pass2[] = $cand;
     }
@@ -123,6 +139,22 @@ function entity_resolve_person(PDO $pdo, string $name): array {
             if (!$isHuman) continue;
             if ($needWiki && empty($e['sitelinks']['enwiki']['url'])) continue;
             $description = $e['descriptions']['en']['value'] ?? ($cand['description'] ?? '');
+            // r182 SAME PERSON, NOT SAME NAME. A name search takes the first
+            // public-figure hit, story unseen: "Agent 00" (a Twitch streamer)
+            // became Q739412 "Jamaican dancehall DJ", Ateez's San a "South
+            // Korean porn film director", a 2026 disappearance a CFL player who
+            // died in 2012 - and the story page shows that role and links the
+            // Wikipedia article. With the story's own text, a candidate is kept
+            // only when its description is creator-shaped or an entity check
+            // confirms it is the person the story names (video_people.php);
+            // otherwise the next candidate is tried, and none beats a namesake.
+            if ($context !== '') {
+                require_once __DIR__ . '/video_people.php';
+                if (!vp_desc_is_creator((string)$description)
+                        && !vp_entity_same_person($q, (string)$description, $name, $context)) {
+                    continue;
+                }
+            }
 
             $qid = $q;
             $sameAs[] = "https://www.wikidata.org/wiki/$q";
@@ -147,7 +179,7 @@ function entity_resolve_person(PDO $pdo, string $name): array {
     $pdo->prepare("INSERT INTO entities (kind,name,qid,same_as,fetched_at) VALUES ('person',?,?,?,NOW())
                    ON DUPLICATE KEY UPDATE qid=VALUES(qid), same_as=VALUES(same_as), fetched_at=NOW()")
         ->execute([$name, $qid, json_encode($sameAs, JSON_UNESCAPED_SLASHES)]);
-    return ['qid' => $qid, 'sameAs' => $sameAs, 'description' => $description ?? ''];
+    return ['qid' => $qid, 'sameAs' => $sameAs, 'description' => $qid ? ($description ?? '') : ''];
 }
 
 /**

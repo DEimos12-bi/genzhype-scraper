@@ -229,6 +229,9 @@ function gate_term_platform_hosts(): array {
         'reddit'    => ['reddit.com'],
         'twitch'    => ['twitch.tv'],
         'facebook'  => ['facebook.com'],
+        // 2026-08-30: Steam player reviews are citable evidence for the gaming
+        // lane — a review resolves to steamcommunity.com/profiles/{id}/recommended/{app}/
+        'steam'     => ['steamcommunity.com', 'steampowered.com'],
     ];
 }
 

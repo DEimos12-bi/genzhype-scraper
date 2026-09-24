@@ -337,19 +337,12 @@ function strategist_run(PDO $pdo): ?array {
     return $report;
 }
 
-/** SMTP credentials, read AT SEND TIME from the one place they already live
- *  (the agency site's mailer). Deliberately not copied into this project's
- *  config: a secret that exists in one file can be rotated in one file, and
- *  the first version of this feature proved plain mail() on this host is a
- *  black hole — "accepted" and never delivered. */
+/** SMTP credentials. Plain mail() on this host is a black hole ("accepted",
+ *  never delivered). Since 2026-09-24 the lookup lives in app/mailer.php, the
+ *  one place every owner mail takes its login from. */
 function strategist_smtp(): ?array {
-    $src = '/home/u219414635/domains/vsfagency.tech/public_html/send_mail.php';
-    $s = @file_get_contents($src);
-    if (!$s) { return null; }
-    if (!preg_match("/Username\s*=\s*'([^']+)'/", $s, $u)) { return null; }
-    if (!preg_match("/Password\s*=\s*'([^']+)'/", $s, $p)) { return null; }
-    return ['host' => 'smtp.hostinger.com', 'port' => 465,
-            'user' => $u[1], 'pass' => $p[1]];
+    require_once __DIR__ . '/mailer.php';
+    return mailer_smtp();
 }
 
 /** r124 — one generic "tell the owner now" mail, reusing the exact SMTP path

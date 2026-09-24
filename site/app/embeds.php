@@ -148,3 +148,107 @@ function embeds_build_for_drama(int $drama_id): array {
     }
     return ['embeds' => $made, 'not_embeddable' => $skipped];
 }
+
+/**
+ * r157 REAL POSTS FROM THE CITED ARTICLES (owner 2026-09-11, pointing at the June/July pages: "it wasn't
+ * only screenshots"). A story showed a post only when an event's own source WAS the post: 12% of events
+ * in June, 3% in September, because new stories cite news articles. Those articles embed the posts
+ * themselves (the reporter's receipts): 130 of 189 September stories cite an article whose body embeds an
+ * X, TikTok, YouTube or Reddit post. Only embed markup is read (blockquote.twitter-tweet,
+ * blockquote.tiktok-embed, youtube iframes, blockquote.reddit-embed), never menu, footer or share links,
+ * and never the publisher's own account. Article order is kept. Returns [['platform','url','handle'], ...].
+ */
+function embed_posts_in_article(string $html, string $articleHost = ''): array {
+    $h = str_replace(['\\u003c', '\\u003e', '\\u0026', '\\/', '&amp;', '&#038;'], ['<', '>', '&', '/', '&', '&'], $html);
+    $own = explode('.', (string)preg_replace('/^(www|m|amp)\./', '', strtolower($articleHost)))[0];
+    $found = [];   // byte offset => [platform, url, handle]
+    if (preg_match_all('#<blockquote[^>]*twitter-tweet[^>]*>(.*?)</blockquote>#is', $h, $m, PREG_OFFSET_CAPTURE)) {
+        foreach ($m[1] as $in) {
+            if (preg_match_all('#(?:twitter|x)\.com/([A-Za-z0-9_]{1,15})/status/(\d+)#', $in[0], $mm, PREG_SET_ORDER)) {
+                $last = end($mm);
+                $found[$in[1]] = ['twitter', "https://x.com/{$last[1]}/status/{$last[2]}", $last[1]];
+            }
+        }
+    }
+    if (preg_match_all('#<blockquote[^>]*tiktok-embed[^>]*>#is', $h, $m, PREG_OFFSET_CAPTURE)) {
+        foreach ($m[0] as $tag) {
+            if (preg_match('#cite="(https://www\.tiktok\.com/@([\w.\-]+)/video/\d+)#', $tag[0], $mm)) $found[$tag[1]] = ['tiktok', $mm[1], $mm[2]];
+        }
+    }
+    if (preg_match_all('#<iframe[^>]*src="[^"]*youtube(?:-nocookie)?\.com/embed/([\w\-]{11})#is', $h, $m, PREG_OFFSET_CAPTURE)) {
+        foreach ($m[1] as $id) $found[$id[1]] = ['youtube', 'https://www.youtube.com/watch?v=' . $id[0], ''];
+    }
+    if (preg_match_all('#<blockquote[^>]*reddit-embed[^>]*>(.*?)</blockquote>#is', $h, $m, PREG_OFFSET_CAPTURE)) {
+        foreach ($m[1] as $in) {
+            if (preg_match('#href="(https://www\.reddit\.com/r/\w+/comments/\w+[^"?]*)#', $in[0], $mm)) $found[$in[1]] = ['reddit', $mm[1], ''];
+        }
+    }
+    ksort($found);
+    $out = []; $seen = [];
+    foreach ($found as [$plat, $url, $handle]) {
+        if (isset($seen[$url])) continue;
+        if ($handle !== '' && strlen($own) >= 4 && stripos($handle, $own) !== false) continue;   // the publisher's own account
+        $seen[$url] = true;
+        $out[] = ['platform' => $plat, 'url' => $url, 'handle' => $handle];
+    }
+    return $out;
+}
+
+/** Post identity (platform:id) so the same post never shows twice on one page. Null for non-posts. */
+function embed_post_id(string $urlOrHtml): ?string {
+    if (preg_match('#(?:twitter|x)\.com/[A-Za-z0-9_]{1,15}/status/(\d+)#', $urlOrHtml, $m)) return 'x:' . $m[1];
+    if (preg_match('#tiktok\.com/@[\w.\-]+/video/(\d+)#', $urlOrHtml, $m)) return 'tt:' . $m[1];
+    if (preg_match('#(?:videoid="|youtube\.com/watch\?v=|youtu\.be/|youtube(?:-nocookie)?\.com/embed/)([\w\-]{11})#', $urlOrHtml, $m)) return 'yt:' . $m[1];
+    if (preg_match('#reddit\.com/r/\w+/comments/(\w+)#', $urlOrHtml, $m)) return 'rd:' . $m[1];
+    return null;
+}
+
+/**
+ * Give each event with no embed the next unused post embedded in the article it cites (see
+ * embed_posts_in_article). The article is read from its archived copy (source_archive), so a backfill
+ * sends no request to the publisher; $liveFetch allows a live fetch when no copy exists. One post per
+ * event, at most $maxPerPage new posts per story, never a post already on the page. Only providers the
+ * story page renders live (X, TikTok, YouTube, Reddit) are written.
+ */
+function embeds_from_cited_articles(int $drama_id, int $maxPerPage = 6, bool $liveFetch = false): array {
+    require_once __DIR__ . '/source_archive.php';
+    $pdo = db();
+    $st = $pdo->prepare("SELECT e.id, e.embed_html, e.source_id, s.url FROM events e LEFT JOIN sources s ON s.id=e.source_id
+                         WHERE e.drama_id=? ORDER BY e.event_date, e.sort_order, e.id");
+    $st->execute([$drama_id]);
+    $events = $st->fetchAll(PDO::FETCH_ASSOC);
+    $onPage = [];
+    foreach ($events as $ev) {
+        if (!empty($ev['embed_html']) && ($pid = embed_post_id((string)$ev['embed_html']))) $onPage[$pid] = true;
+    }
+    $articlePosts = []; $made = 0; $noPost = 0; $noCopy = 0;
+    foreach ($events as $ev) {
+        if ($made >= $maxPerPage) break;
+        if (!empty($ev['embed_html']) || empty($ev['source_id']) || empty($ev['url'])) continue;
+        $url = (string)$ev['url'];
+        if (embed_post_id($url)) continue;                    // the source IS a post: embeds_build_for_drama's job
+        $sid = (int)$ev['source_id'];
+        if (!isset($articlePosts[$sid])) {
+            $html = sa_snapshot_html($pdo, $sid);
+            if ($html === null && $liveFetch) {
+                require_once __DIR__ . '/fetch_sources.php';
+                $html = fs_http_get($url) ?: null;
+            }
+            $articlePosts[$sid] = $html === null ? [] : embed_posts_in_article($html, (string)parse_url($url, PHP_URL_HOST));
+            if ($html === null) $noCopy++;
+        }
+        $emb = null;
+        while ($articlePosts[$sid]) {
+            $post = array_shift($articlePosts[$sid]);
+            $pid = embed_post_id($post['url']);
+            if ($pid === null || isset($onPage[$pid])) continue;
+            $try = embed_for_url($post['url']);
+            if ($try && in_array($try['provider'], ['twitter', 'tiktok', 'youtube', 'reddit'], true)) { $emb = $try; $onPage[$pid] = true; break; }
+        }
+        if (!$emb) { $noPost++; continue; }
+        $pdo->prepare("UPDATE events SET embed_html=?, embed_provider=? WHERE id=? AND (embed_html IS NULL OR embed_html='')")
+            ->execute([$emb['html'], $emb['provider'], (int)$ev['id']]);
+        $made++;
+    }
+    return ['embeds' => $made, 'events_without_post' => $noPost, 'articles_without_copy' => $noCopy];
+}

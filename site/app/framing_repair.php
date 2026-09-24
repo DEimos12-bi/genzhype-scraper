@@ -28,7 +28,7 @@ require_once __DIR__ . '/gate.php';
 const FR_FRAMING_RX = 'alleg|reportedly|claims?|according to|unverified|appears to';
 
 /** Repair up to $cap unframed events. Returns a plain report array. */
-function framing_repair_run(PDO $pdo, int $cap = 24): array {
+function framing_repair_run(PDO $pdo, int $cap = 24, int $onlyPageId = 0): array {
     $rows = $pdo->query(
         "SELECT e.id, e.description, d.page_id, p.slug
            FROM events e
@@ -41,7 +41,13 @@ function framing_repair_run(PDO $pdo, int $cap = 24): array {
           -- what was ALREADY published meant the fix never reached the
           -- stories it could actually rescue. Drafts first — they are the
           -- ones with a deadline.
-          WHERE p.type='drama' AND p.status IN ('published','draft','review')
+          -- 2026-08-29: ARCHIVED TOO. 441 pages (60%% of everything ever made) were
+          -- destroyed by the old first-failure archive rule, and a sample says
+          -- the single biggest reason they cannot come back is unframed claims
+          -- - 13 of 30 - which is precisely what this function fixes. Repairing
+          -- only the living pages left the graveyard unreachable.
+          WHERE p.type='drama' AND p.status IN ('published','draft','review','archived')
+            AND (" . ($onlyPageId > 0 ? "p.id = " . $onlyPageId : "1=1") . ")
             AND e.is_confirmed = 0
             AND e.description NOT REGEXP '" . FR_FRAMING_RX . "'
           ORDER BY (p.status='draft') DESC, p.published_at DESC

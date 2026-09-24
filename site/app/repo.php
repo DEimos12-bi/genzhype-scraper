@@ -1,9 +1,68 @@
 <?php
+require_once __DIR__ . '/lanes.php';   // timeline_url() is used from line ~116 onward (2026-08-31)
 // GenZHype | DB read-layer. Assembles the same $DATA shape app/data.php used,
 // so templates need no changes. Small site = load-all is fine; optimize later.
 
 require_once __DIR__ . '/db.php';
 
+/* r146 (2026-09-07) THE 2-SECOND PAGE. Measured on the live host: every request
+ * ran repo_load_all() from scratch — 3,617 queries, 14 MB of assembled content,
+ * 1.9 s wall for 0.27 s CPU (the rest = socket round trips to MySQL) — on the
+ * home page, on every story, for every Googlebot hit. Static files answer in
+ * 20 ms. Google's crawl doc: "if the site slows down ... the limit goes down";
+ * 497 pages sat in "Discovered - currently not indexed" ("Google wanted to crawl
+ * the URL but this was expected to overload the site; therefore Google
+ * rescheduled the crawl").
+ * FIX: the assembled content is cached to one file and reused until the content
+ * changes. Version = newest page update + published count + newest event/source/
+ * faq ids + tag-link count (two cheap queries), plus a 10-minute safety TTL.
+ * Rebuild under a lock (no stampede); a stale copy is served while another
+ * process rebuilds. Atomic write. One rebuild (~2 s) per content change. */
+const REPO_CACHE_FILE = __DIR__ . '/cache/data.cache';
+const REPO_CACHE_TTL  = 600;
+
+function repo_data_version(PDO $pdo): string {
+    try {
+        $a = $pdo->query("SELECT COUNT(*) c, MAX(updated_at) u FROM pages WHERE status='published'")->fetch(PDO::FETCH_ASSOC);
+        $b = $pdo->query("SELECT (SELECT MAX(id) FROM events) e, (SELECT MAX(id) FROM sources) s, (SELECT MAX(id) FROM faqs) f, (SELECT COUNT(*) FROM drama_tags) t")->fetch(PDO::FETCH_ASSOC);
+        return md5(json_encode([$a, $b]));
+    } catch (Throwable $e) { return 'v-' . (int)(time() / REPO_CACHE_TTL); }
+}
+
+function repo_load_all_cached(): array {
+    $pdo = db();
+    $ver = repo_data_version($pdo);
+    $file = REPO_CACHE_FILE;
+    // r148: the VERSION decides, not the clock. The first version also required
+    // the file to be younger than the TTL, so an unchanged site still rebuilt
+    // every 10 minutes and one visitor an hour paid 2 seconds for nothing —
+    // and that visitor can be Googlebot. The TTL survives only as the safety net
+    // for the case where the version query itself failed (it returns a value
+    // that rotates on its own).
+    if (is_file($file)) {
+        $raw = (string)@file_get_contents($file);
+        if ($raw !== '' && str_starts_with($raw, $ver . "\n")) {
+            $data = @unserialize(substr($raw, strlen($ver) + 1), ['allowed_classes' => false]);
+            if (is_array($data) && isset($data['dramas'])) return $data;
+        }
+    }
+    @mkdir(dirname($file), 0755, true);
+    $lock = @fopen($file . '.lock', 'c');
+    $have = $lock && flock($lock, LOCK_EX | LOCK_NB);
+    if (!$have && is_file($file)) {           // another process is rebuilding: serve what exists
+        $raw = (string)@file_get_contents($file);
+        $data = $raw !== '' ? @unserialize(substr($raw, strpos($raw, "\n") + 1), ['allowed_classes' => false]) : null;
+        if ($lock) fclose($lock);
+        if (is_array($data) && isset($data['dramas'])) return $data;
+    }
+    $data = repo_load_all();
+    try {
+        $tmp = $file . '.' . getmypid() . '.tmp';
+        if (@file_put_contents($tmp, $ver . "\n" . serialize($data)) !== false) @rename($tmp, $file);
+    } catch (Throwable $e) {}
+    if ($lock) { if ($have) flock($lock, LOCK_UN); fclose($lock); }
+    return $data;
+}
 function repo_load_all(): array {
     $pdo = db();
     $data = ['dramas' => [], 'creators' => [], 'terms' => []];
@@ -32,7 +91,8 @@ function repo_load_all(): array {
     // dramas
     $rows = $pdo->query("SELECT p.id page_id, p.slug, p.h1, p.title_tag, p.meta_desc, p.summary, p.cover, p.featured_img,
                                 p.published_at, p.updated_at, p.robots, p.cover_credit, p.cover_credit_url,
-                                d.id drama_id, d.title, d.lifecycle, d.background, d.people_json
+                                d.id drama_id, d.title, d.lifecycle, d.background, d.people_json,
+                                COALESCE(d.lane, 'drama') lane
                          FROM pages p JOIN dramas d ON d.page_id = p.id
                          WHERE p.type='drama' AND p.status='published'
                          ORDER BY p.updated_at DESC")->fetchAll();
@@ -98,21 +158,21 @@ function repo_load_all(): array {
         // sibling timelines — dramas had NO related, starving crawl paths + internal PageRank on the
         // deeper pages Google left "Discovered - not indexed". Prefer dramas sharing a creator; fall
         // back to recent ones so EVERY timeline links out to 4 others.
-        $sib = $pdo->prepare("SELECT p.slug, d2.title, p.meta_desc FROM dramas d2 JOIN pages p ON p.id=d2.page_id
+        $sib = $pdo->prepare("SELECT p.slug, d2.title, p.meta_desc, COALESCE(d2.lane,'drama') lane FROM dramas d2 JOIN pages p ON p.id=d2.page_id
             WHERE p.status='published' AND p.robots='index' AND d2.id<>?
               AND d2.id IN (SELECT drama_id FROM parties WHERE creator_id IN (SELECT creator_id FROM parties WHERE drama_id=?))
             ORDER BY p.published_at DESC LIMIT 4");
         $sib->execute([$did, $did]);
         $sibRows = $sib->fetchAll();
         if (count($sibRows) < 4) {
-            $fill = $pdo->prepare("SELECT p.slug, d2.title, p.meta_desc FROM dramas d2 JOIN pages p ON p.id=d2.page_id
+            $fill = $pdo->prepare("SELECT p.slug, d2.title, p.meta_desc, COALESCE(d2.lane,'drama') lane FROM dramas d2 JOIN pages p ON p.id=d2.page_id
                 WHERE p.status='published' AND p.robots='index' AND d2.id<>? ORDER BY p.published_at DESC LIMIT 7");
             $fill->execute([$did]);
             $have = array_column($sibRows, 'slug');
             foreach ($fill->fetchAll() as $fr) { if (count($sibRows) >= 4) break; if (!in_array($fr['slug'], $have, true)) $sibRows[] = $fr; }
         }
         foreach ($sibRows as $sr) {
-            $related[] = ['url' => '/drama/' . $sr['slug'] . '/', 'title' => $sr['title'], 'desc' => mb_substr($sr['meta_desc'] ?: 'Related timeline', 0, 80)];
+            $related[] = ['url' => timeline_url($sr['slug'], $sr['lane'] ?? 'drama'), 'title' => $sr['title'], 'desc' => mb_substr($sr['meta_desc'] ?: 'Related timeline', 0, 80)];
         }
 
         // 'developing' (option A, 2026-08-22): a story published from 3-5 dated
@@ -144,6 +204,11 @@ function repo_load_all(): array {
             'related'       => $related,
             'robots'        => $r['robots'],
             'page_id'       => (int)$r['page_id'],
+            // r151: the lane was selected above but never copied here, so
+            // index.php's /gaming/ route (which needs lane === 'gaming') could
+            // never match and all 8 published gaming stories rendered "Page not
+            // found" while the sitemap sent Google to them.
+            'lane'          => $r['lane'],
         ];
     }
 
@@ -360,12 +425,13 @@ function repo_rail(int $excludePageId = 0): array {
                     'short_def' => $r['short_def'] ?? '', 'featured_img' => $r['featured_img']];
     }
     $dramas = [];
-    $st = $pdo->prepare("SELECT p.id, p.slug, p.h1, p.summary, p.featured_img, p.cover FROM pages p
+    $st = $pdo->prepare("SELECT p.id, p.slug, p.h1, p.summary, p.featured_img, p.cover, COALESCE(d.lane,'drama') lane
+                         FROM pages p JOIN dramas d ON d.page_id=p.id
                          WHERE p.type='drama' AND p.status='published' AND p.robots='index' AND p.id != ?
                          ORDER BY p.updated_at DESC LIMIT 2");
     $st->execute([$excludePageId]);
     foreach ($st->fetchAll() as $r) {
-        $dramas[] = ['url' => '/drama/' . $r['slug'] . '/', 'term' => $r['h1'],
+        $dramas[] = ['url' => timeline_url($r['slug'], $r['lane'] ?? 'drama'), 'term' => $r['h1'],
                      'short_def' => $r['summary'] ?? '', 'featured_img' => $r['featured_img'] ?: $r['cover']];
     }
     // categories box (KYM pattern): lanes with live entry counts

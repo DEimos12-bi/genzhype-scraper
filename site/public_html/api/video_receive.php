@@ -23,7 +23,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') { http_response_code(405); ec
 $json  = json_decode(file_get_contents('php://input') ?: '', true);
 $isJson = is_array($json) && isset($json['video_b64']);
 $tok   = is_array($json) ? (string)($json['token'] ?? ($_POST['token'] ?? '')) : (string)($_POST['token'] ?? '');
-if (!hash_equals($CONFIG['ingest_token'] ?? '', $tok)) { http_response_code(403); echo json_encode(['error' => 'bad token']); exit; }
+if (!hash_equals(($CONFIG['ingest_token'] ?? '') ?: random_bytes(32), $tok)) { http_response_code(403); echo json_encode(['error' => 'bad token']); exit; }
 
 // r29 HEARTBEAT: the maker POSTs its current render stage every few seconds so
 // a hang can be pinpointed to the exact stage (Actions logs need admin to read).
@@ -198,5 +198,10 @@ if ($isJson && !empty($json['report']['style'])) {
 }
 $pdo->prepare("UPDATE video_scripts SET video_path=?, video_status='ready', video_made_at=NOW(), force_render=0 WHERE page_id=?")
     ->execute([$rel, $pageId]);
+
+// r188c: the delivery email lives in app/video_notify.php so the video-drop
+// route (app/video_bridge.php) sends it too
+require_once dirname(__DIR__, 2) . '/app/video_notify.php';
+video_notify_delivered($pdo, (int)$pageId, (string)$rel, (int)$fsize, 'direct');
 
 echo json_encode(['ok' => true, 'url' => url($rel), 'bytes' => $fsize], JSON_UNESCAPED_SLASHES);

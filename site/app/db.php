@@ -11,6 +11,8 @@ function db(bool $force = false) {
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
         PDO::ATTR_EMULATE_PREPARES   => false,
     ]);
+    // PROBE_PROFILE=1 (CLI diagnostics only): per-query timings via SHOW PROFILES
+    if (PHP_SAPI === 'cli' && getenv('PROBE_PROFILE')) { try { $pdo->exec('SET profiling=1, profiling_history_size=100'); } catch (Throwable $e) {} }
     return $pdo;
 }
 

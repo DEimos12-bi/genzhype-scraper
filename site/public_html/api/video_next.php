@@ -25,16 +25,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (is_array($body)) $IN = $body + $_GET;
 }
 
-if (!hash_equals($CONFIG['ingest_token'] ?? '', (string)($IN['token'] ?? ''))) { http_response_code(403); echo json_encode(['error' => 'bad token']); exit; }
+if (!hash_equals(($CONFIG['ingest_token'] ?? '') ?: random_bytes(32), (string)($IN['token'] ?? ''))) { http_response_code(403); echo json_encode(['error' => 'bad token']); exit; }
 
 $pdo = db();
 try { video_factory_install($pdo); } catch (Throwable $e) {}
 $done = array_filter(array_map('intval', explode(',', (string)($IN['done'] ?? ''))));
 
-// newest ready script whose page is still published+indexed and not already made
+// newest ready script whose page is still published+indexed and not already made.
+// 2026-09-24: only PENDING scripts, with the static feed's shot-list rule. This
+// fallback ignored video_status, so when the feed failed it could hand the maker
+// a video already made ('ready') and the render would overwrite the published mp4.
 $rows = $pdo->query("SELECT v.page_id, v.slug, v.title, v.hook, v.script, v.image, v.broll, v.shotlist, v.gravity, v.force_render
                      FROM video_scripts v JOIN pages p ON p.id=v.page_id
                      WHERE p.status='published' AND p.robots='index'
+                       AND v.video_status='pending' AND NOT (v.tpl >= 2 AND v.shotlist IS NULL)
                      ORDER BY (v.shotlist IS NOT NULL) DESC, (v.tpl >= 2) DESC, v.created_at DESC LIMIT 40")->fetchAll();
 // directed scripts ALWAYS outrank undirected ones: a manual run must never burn a
 // script in fallback mode while a fully-directed video sits waiting

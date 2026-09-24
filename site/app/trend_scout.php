@@ -64,7 +64,7 @@ function ts_add_candidate(PDO $pdo, string $type, string $name, string $angle, i
 /** Google Trends daily RSS: title + approx traffic + supporting headline. */
 function ts_google_trends(PDO $pdo): array {
     $out = ['seen' => 0, 'added' => 0];
-    $xml = @file_get_contents('https://trends.google.com/trending/rss?geo=US');
+    $xml = @file_get_contents('https://trends.google.com/trending/rss?geo=US', false, stream_context_create(['http' => ['timeout' => 15]]));   // 2026-09-24: 15 s cap (default was 60 s)
     if (!$xml) return $out + ['error' => 'rss unreachable'];
     if (!preg_match_all('#<item>(.*?)</item>#s', $xml, $items)) return $out;
     foreach ($items[1] as $item) {

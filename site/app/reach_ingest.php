@@ -32,9 +32,28 @@ foreach (($xj['data'] ?? []) as $tw) {
     ];
 }
 
+// THE SCOUT (2026-08-30): raw listening posts for server-side burst detection
+// (app/scout.php reads reach_cache['scout_posts'] on the hourly tick).
+$sp = json_decode((string)@file_get_contents($dir . '/scout-posts.json'), true);
+if (is_array($sp['posts'] ?? null)) $out['scout_posts'] = array_slice($sp['posts'], 0, 700);   // 2026-08-30: 16 listening subs now; 400 truncated the later ones
+
+// TIKTOK EAR (2026-08-30): Creative Center trending hashtags (probe+harvest —
+// may be empty until the anon path proves out or the owner supplies cookies).
+$tt = json_decode((string)@file_get_contents($dir . '/tiktok-trends.json'), true);
+if (is_array($tt)) {
+    $out['tiktok_trends'] = array_slice((array)($tt['hashtags'] ?? []), 0, 50);
+    $out['tiktok_status'] = ['method' => $tt['method'] ?? null, 'status' => $tt['status'] ?? []];
+}
+
+// PER-TERM USAGE (2026-08-29): the runner's per-term X + Reddit searches —
+// real posts USING each wanted term. reach_usage.php turns these into
+// social_post citation candidates; the unchanged gate judges every row.
+$tu = json_decode((string)@file_get_contents($dir . '/term-usage.json'), true);
+if (is_array($tu['terms'] ?? null)) $out['term_usage'] = $tu['terms'];
+
 file_put_contents(__DIR__ . '/reach_cache.json', json_encode($out, JSON_UNESCAPED_UNICODE));
-printf("reach ingest: %d reddit title(s), %d x post(s) -> app/reach_cache.json\n",
-       count($out['reddit_titles']), count($out['x_posts']));
+printf("reach ingest: %d reddit title(s), %d x post(s), %d term-usage set(s) -> app/reach_cache.json\n",
+       count($out['reddit_titles']), count($out['x_posts']), count($out['term_usage'] ?? []));
 
 // ---------------------------------------------------------------------------
 // REACH-POWERED VIDEO (2026-08-05): x-pages.json = per-pending-page X post

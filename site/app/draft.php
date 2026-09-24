@@ -75,6 +75,15 @@ SVG;
  * Returns ['page_id'=>..,'slug'=>..] or ['error'=>..].
  */
 function draft_drama(array $input): array {
+    // TIMELINE LANES (2026-08-31, owner: "put the gaming news under /gaming/").
+    // The story engine used to hard-code "/drama/$slug/" as the URL, which is
+    // why gaming news had no home: /gaming/ held only dictionary entries, and a
+    // story could not be published anywhere else. The lane travels with the
+    // candidate (fetch_sources_for_candidate reads it from the feed it came
+    // from) and timeline_url() is the single source of truth for the path.
+    require_once __DIR__ . '/lanes.php';
+    $__lane = in_array(($input['lane'] ?? 'drama'), array_keys(timeline_lanes()), true)
+            ? ($input['lane'] ?? 'drama') : 'drama';
     if (empty($input['topic']) || count($input['sources'] ?? []) < 2) {
         return ['error' => 'need a topic and >= 2 sources with excerpts'];
     }
@@ -115,7 +124,9 @@ function draft_drama(array $input): array {
             ['role' => 'system', 'content' => "Rewrite the {$what} to be between {$min} and {$max} characters. Keep the same facts and neutral tone. Reply with ONLY the rewritten text, no quotes, no commentary."],
             ['role' => 'user',   'content' => $text],
         ], ['gemini', 'openrouter', 'nvidia'], 0.2);
-        $out = isset($r['content']) ? trim($r['content'], " \n\"'") : $text;
+        // r153: never store a reasoning model's notes as page text (see ai_text in ai.php).
+        $clean = isset($r['content']) ? ai_text((string)$r['content']) : null;
+        $out = $clean ?? $text;
         $l = mb_strlen($out);
         if ($l > $max) $out = truncate_words($out, $max);                       // word-safe: no "...and Un." mid-word cut
         if (mb_strlen($out) < $min && mb_strlen($text) >= $min) $out = truncate_words($text, $max);
@@ -188,19 +199,21 @@ function draft_drama(array $input): array {
         }
     } catch (Throwable $e) { /* branded card stays */ }
 
+    // r151: source URLs to archive once the story is safely committed (see below).
+    $toArchive = [];
     $pdo->beginTransaction();
     try {
         $pdo->prepare("INSERT INTO pages (type,slug,path,h1,title_tag,meta_desc,summary,status,robots,author_id,cover,cover_credit,cover_credit_url,published_at,updated_at)
                        VALUES ('drama',?,?,?,?,?,?,'draft','noindex',1,?,?,?,NOW(),NOW())")
-            ->execute([$slug, "/drama/$slug/", $j['title'], $j['title_tag'], $j['meta_desc'], $j['summary'], $cover, $credit, $credit_url]);
+            ->execute([$slug, timeline_url($slug, $__lane), $j['title'], $j['title_tag'], $j['meta_desc'], $j['summary'], $cover, $credit, $credit_url]);
         $pageId = (int)$pdo->lastInsertId();
         if (!empty($GLOBALS['__drama_featured'])) {
             $pdo->prepare("UPDATE pages SET featured_img=? WHERE id=?")->execute([$GLOBALS['__drama_featured'], $pageId]);
             unset($GLOBALS['__drama_featured']);
         }
 
-        $pdo->prepare("INSERT INTO dramas (page_id,title,lifecycle,started_on,primary_kw,background,mood)
-                       VALUES (?,?,?,?,?,?,?)")
+        $pdo->prepare("INSERT INTO dramas (page_id,title,lifecycle,started_on,primary_kw,background,mood,lane)
+                       VALUES (?,?,?,?,?,?,?,?)")
             ->execute([
                 $pageId, $j['title'],
                 in_array($j['lifecycle'] ?? '', ['ongoing','resolved','dormant']) ? $j['lifecycle'] : 'ongoing',
@@ -208,6 +221,7 @@ function draft_drama(array $input): array {
                 mb_substr(strtolower($input['topic']), 0, 180),
                 json_encode($j['background'] ?? [], JSON_UNESCAPED_UNICODE),
                 $mood,
+                $__lane,
             ]);
         $dramaId = (int)$pdo->lastInsertId();
 
@@ -231,13 +245,16 @@ function draft_drama(array $input): array {
             // had moved or never existed at that address. Fetching each one
             // now both keeps a copy and makes an invented URL fail LOUDLY at
             // write time — you cannot archive a page that is not there.
-            try {
-                require_once __DIR__ . '/source_archive.php';
-                [$st, $note] = sa_capture($pdo, $map[$i + 1], (string)$s['url']);
-                if ($st === 'dead') {
-                    error_log("SOURCE DEAD AT WRITE TIME ({$note}): {$s['url']}");
-                }
-            } catch (Throwable $e) { /* never block drafting on the archive */ }
+            //
+            // r151 (2026-09-10): the fetch now runs AFTER commit. Called here it ran
+            // sa_install()'s CREATE TABLE inside this transaction, and on MariaDB a
+            // CREATE TABLE silently commits whatever transaction is open. commit()
+            // then threw "There is no active transaction", the bare rollBack() threw
+            // a second time, nothing caught it, and the process died: every drama
+            // drafted since 2026-08-10 lost its embed step (157 pages before, 31 with
+            // embeds; 299 after, 0) and every hourly run that wrote a story ended
+            // without reaching "tick done" (15 of 103 runs finished).
+            $toArchive[] = [$map[$i + 1], (string)$s['url']];
         }
 
         $order = 1;
@@ -284,14 +301,35 @@ function draft_drama(array $input): array {
 
         $pdo->commit();
     } catch (Throwable $e) {
-        $pdo->rollBack();
+        // r151: the guard draft_term.php already had. A bare rollBack() on a
+        // transaction the server already ended throws a SECOND exception.
+        try { if ($pdo->inTransaction()) $pdo->rollBack(); } catch (Throwable $ignored) {}
         return ['error' => 'db insert failed: ' . $e->getMessage()];
+    }
+
+    // r93 archive-at-capture, moved out of the transaction by r151 (see above).
+    // Same behaviour: keep a copy of every source, shout when one is dead.
+    if ($toArchive) {
+        require_once __DIR__ . '/source_archive.php';
+        foreach ($toArchive as [$archSrcId, $archUrl]) {
+            try {
+                [$st, $note] = sa_capture($pdo, $archSrcId, $archUrl);
+                if ($st === 'dead') error_log("SOURCE DEAD AT WRITE TIME ({$note}): {$archUrl}");
+            } catch (Throwable $e) { /* never block drafting on the archive */ }
+        }
     }
 
     // turn social-post sources into real embeds (cached in DB, lazy-rendered)
     require_once __DIR__ . '/embeds.php';
-    try { embeds_build_for_drama($dramaId); } catch (Throwable $e) { /* best-effort */ }
+    // r151: this stage failed invisibly for five weeks. Report what it did.
+    $embedStat = ['embeds' => 0, 'not_embeddable' => 0];
+    try { $embedStat = embeds_build_for_drama($dramaId); }
+    catch (Throwable $e) { error_log("draft_drama: embed build failed for drama {$dramaId}: " . $e->getMessage()); }
+    // r157: then the real posts the cited articles embed (a news-only story showed none, 3% of September events)
+    try { $embedStat['embeds'] += (int)(embeds_from_cited_articles($dramaId)['embeds'] ?? 0); }
+    catch (Throwable $e) { error_log("draft_drama: article posts failed for drama {$dramaId}: " . $e->getMessage()); }
 
     ai_log($pageId, 'draft', $res, ['fields' => array_keys($j), 'events' => count($j['events'])], true);
-    return ['page_id' => $pageId, 'slug' => $slug, 'events' => count($j['events']), 'provider' => $res['provider']];
+    return ['page_id' => $pageId, 'slug' => $slug, 'events' => count($j['events']), 'provider' => $res['provider'],
+            'embeds' => (int)($embedStat['embeds'] ?? 0)];
 }

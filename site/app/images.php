@@ -456,7 +456,7 @@ function stock_photo(string $query): ?array {
     }
     $pix = $CONFIG['pixabay_key'] ?? '';
     if ($pix !== '') {
-        $raw = @file_get_contents('https://pixabay.com/api/?image_type=photo&orientation=horizontal&per_page=3&key=' . urlencode($pix) . '&q=' . urlencode($query));
+        $raw = @file_get_contents('https://pixabay.com/api/?image_type=photo&orientation=horizontal&per_page=3&key=' . urlencode($pix) . '&q=' . urlencode($query), false, stream_context_create(['http' => ['timeout' => 15]]));   // 2026-09-24: 15 s cap (default was 60 s)
         $j = $raw ? json_decode($raw, true) : null;
         $h = $j['hits'][0] ?? null;
         if ($h) return [
@@ -473,9 +473,9 @@ function stock_photo(string $query): ?array {
  * Keyless. Perfect for witty slang/concept motifs (a real painting, not a meme).
  */
 function met_pd_art(string $query): ?array {
-    $s = json_decode(@file_get_contents('https://collectionapi.metmuseum.org/public/collection/v1/search?hasImages=true&q=' . urlencode($query)) ?: 'null', true);
+    $s = json_decode(@file_get_contents('https://collectionapi.metmuseum.org/public/collection/v1/search?hasImages=true&q=' . urlencode($query), false, stream_context_create(['http' => ['timeout' => 15]])) ?: 'null', true);   // 15 s cap
     foreach (array_slice($s['objectIDs'] ?? [], 0, 8) as $oid) {
-        $o = json_decode(@file_get_contents("https://collectionapi.metmuseum.org/public/collection/v1/objects/{$oid}") ?: 'null', true);
+        $o = json_decode(@file_get_contents("https://collectionapi.metmuseum.org/public/collection/v1/objects/{$oid}", false, stream_context_create(['http' => ['timeout' => 15]])) ?: 'null', true);   // 15 s cap
         if (!$o || empty($o['isPublicDomain']) || empty($o['primaryImage'])) continue;
         return [
             'url'      => $o['primaryImage'],

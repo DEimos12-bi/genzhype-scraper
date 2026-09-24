@@ -42,6 +42,11 @@ const SA_TIMEOUT   = 25;
 const SA_MAX_BYTES = 3000000;      // 3 MB of HTML is already an outlier
 
 function sa_install(PDO $pdo): void {
+    // r151: once per process. This ran CREATE TABLE on every single capture,
+    // and CREATE TABLE ends any open transaction on MariaDB (see draft.php).
+    static $done = false;
+    if ($done) return;
+    $done = true;
     $pdo->exec("CREATE TABLE IF NOT EXISTS source_archive (
         id INT AUTO_INCREMENT PRIMARY KEY,
         source_id INT NOT NULL,

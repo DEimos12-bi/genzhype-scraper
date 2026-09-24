@@ -560,6 +560,8 @@ function gov_round(PDO $pdo, bool $apply = true, string $logPath = ''): array {
         'stuck_loop'    => fn() => gov_check_stuck_rejudging($pdo),
         'reward_hack'   => fn() => gov_check_reward_hack($pdo),
         'backlog'       => fn() => gov_check_backlog($pdo),
+        'brain'         => function () use ($pdo) { require_once __DIR__ . '/brain.php'; return brain_governor_check($pdo); },
+        'eyes'          => function () use ($pdo) { require_once __DIR__ . '/video_eyes.php'; return eyes_governor_check($pdo); },
     ];
 
     $findings = [];

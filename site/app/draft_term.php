@@ -9,6 +9,8 @@ require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/fetch_sources.php';
 require_once __DIR__ . '/gate_term.php';   // SEO-BATCH-1: commodity-source test + truth gate
 require_once __DIR__ . '/lanes.php';
+require_once __DIR__ . '/reach_ig.php';     // OWNER 2026-08-29: owner-session Instagram usage evidence
+require_once __DIR__ . '/reach_usage.php';  // OWNER 2026-08-29: X + Reddit usage from the runner cache
 
 function term_slugify(string $s): string {
     $s = strtolower(trim($s));
@@ -798,9 +800,38 @@ function fetch_term_sources(string $term, int $want = 3, string $lane = 'slang',
     // against itself and cheerfully keeps the wrong-topic sources.
     if (trim($senseHint) === '') {
         $mc = meaning_currency_check($term, '', '');
-        $senseHint = trim((string)($mc['dominant_meaning'] ?? ''));
+        // 2026-08-30 MEASURED: asked with NO drafted definition, this check has
+        // no sources to consult and answers FROM MODEL MEMORY — the one thing
+        // this whole pipeline forbids everywhere else. On "backseat gaming" it
+        // returned "someone who consistently ruins or causes failure in video
+        // games" (wrong; it means telling someone how to play while watching),
+        // and the screen below then rejected all five genuinely-correct
+        // sources for not matching that invention. A hallucinated yardstick
+        // measuring real evidence. Only trust the hint when the check actually
+        // had something to compare against; otherwise let the screen judge the
+        // plain term + lane, which is what it falls back to.
+        $grounded = ($mc['verdict'] ?? 'unknown') !== 'unknown';
+        $senseHint = $grounded ? trim((string)($mc['dominant_meaning'] ?? '')) : '';
     }
     $keep = sources_topical_fit($term, $lane, $senseHint, $sources);
+    // FAIL-OPEN SAFETY (2026-08-30): when EVERY source is rejected but the
+    // sources do contain the term, the screen is far likelier to be wrong than
+    // the retrieval — five independent publishers writing about a word do not
+    // all miss the point. Keep the term-bearing ones and say so loudly, rather
+    // than handing the drafter nothing and failing the page for "no usable
+    // source". A wrong-sense source that slips through is still judged by the
+    // truth gate downstream; a page with zero sources cannot be written at all.
+    if (!$keep && $sources) {
+        $rescued = [];
+        foreach ($sources as $i => $s) {
+            if (mb_stripos((string)($s['excerpt'] ?? ''), $term) !== false) $rescued[] = $i;
+        }
+        if ($rescued) {
+            echo '  SCREEN OVERRULED: it rejected all ' . count($sources)
+               . ' sources, but ' . count($rescued) . " contain the term — keeping those\n";
+            $keep = $rescued;
+        }
+    }
     $dropped = count($sources) - count($keep);
     foreach ($sources as $i => $s0) {
         if (!in_array($i, $keep, true)) {
@@ -810,6 +841,32 @@ function fetch_term_sources(string $term, int $want = 3, string $lane = 'slang',
     $sources = array_values(array_intersect_key($sources, array_flip($keep)));
     foreach ($sources as $k => $v) $sources[$k]['topical_fit'] = true;   // gate backstop
     if ($dropped > 0) echo "  topical fit: kept " . count($sources) . ", dropped {$dropped}\n";
+
+    // THE SCOUT (2026-08-30, owner): for slang/meme, social media IS the
+    // primary source — "that's where they be made." When the runner or the
+    // Scout holds real posts using this term, hand the drafter a LIVE USAGE
+    // source so it infers the current meaning from actual usage, with the
+    // web sources as the added references. Skips the topical screen: every
+    // post already had to CONTAIN the term to be collected, and the AI screen
+    // sits downstream at the gate. Marked topical_fit so the gate backstop
+    // does not drop what we ourselves harvested.
+    require_once __DIR__ . '/reach_usage.php';
+    $usage = reach_usage_citations($term, 6);
+    if ($usage) {
+        $lines = [];
+        foreach ($usage as $u) {
+            $lines[] = "[{$u['platform']} {$u['date']}] {$u['handle']}: {$u['quote']}";
+        }
+        $sources[] = [
+            'url'         => $usage[0]['url'],
+            'publisher'   => 'Live social usage (X/Reddit, harvested by our own runner)',
+            'title'       => "Real posts using \"$term\"",
+            'date'        => $usage[0]['date'],
+            'excerpt'     => "Verbatim recent posts by different people using \"$term\" naturally:\n" . implode("\n", $lines),
+            'topical_fit' => true,
+        ];
+        echo '  social-usage source attached: ' . count($usage) . " real posts\n";
+    }
     return $sources;
 }
 
@@ -1011,16 +1068,32 @@ function fetch_term_sources_raw(string $term, int $want = 3, string $lane = 'sla
             if (preg_match('#<title\b[^>]*>(.*?)</title>#is', $html, $t)) {
                 $title = trim(html_entity_decode(strip_tags($t[1]), ENT_QUOTES, 'UTF-8'));
             }
-        } else {
-            // REACH (2026-08-05): bot-walled publisher -> Jina Reader fallback
-            // (keyless readable markdown; live-verified on Cambridge from this
-            // host). Markdown IS readable text; title/date parsed from its
-            // header lines, date stays '' when the page declares none.
+        }
+        // REACH v2 (2026-08-30, agent-reach re-study). The old rule tried Jina
+        // ONLY when the download failed outright — but bot-walled publishers
+        // do not fail, they answer 200 with a cookie-wall shell and no article.
+        // Measured: The Independent returned 214KB of HTML whose extracted
+        // text (4,279 chars) did not contain the term at all; the code called
+        // that a success, skipped Jina, and dropped a genuinely on-topic
+        // source. Jina now fires whenever the extracted text is UNUSABLE
+        // (too short, or the term is absent), not only when HTTP failed.
+        $unusable = mb_strlen($text) < 350
+                 || stripos($text, explode(' ', $term)[0]) === false;
+        if ($unusable) {
             $md = reach_jina_read($u, 25);
             if ($md) {
-                if (preg_match('/^Title:\s*(.+)$/m', $md, $t)) $title = trim($t[1]);
-                if (preg_match('/^Published Time:\s*(\d{4}-\d{2}-\d{2})/mi', $md, $p)) $date = $p[1];
-                $text = trim(preg_replace('/\s+/', ' ', preg_replace('/^(Title|URL Source|Published Time|Markdown Content):.*$/mi', '', $md)));
+                $jTitle = ''; $jDate = '';
+                if (preg_match('/^Title:\s*(.+)$/m', $md, $t)) $jTitle = trim($t[1]);
+                if (preg_match('/^Published Time:\s*(\d{4}-\d{2}-\d{2})/mi', $md, $p)) $jDate = $p[1];
+                $jText = trim(preg_replace('/\s+/', ' ', preg_replace('/^(Title|URL Source|Published Time|Markdown Content):.*$/mi', '', $md)));
+                // keep Jina's version only if it is actually better
+                if (mb_strlen($jText) >= 350
+                    && stripos($jText, explode(' ', $term)[0]) !== false) {
+                    $text = $jText;
+                    if ($jTitle !== '') $title = $jTitle;
+                    if ($jDate !== '' && $date === '') $date = $jDate;
+                    echo "  JINA rescue: " . substr($u, 0, 70) . "\n";
+                }
             }
         }
         if (mb_strlen($text) < 350) continue;
@@ -1185,6 +1258,14 @@ function draft_term(array $input): array {
         . "5) Provide REAL example sentences that show natural usage (you may compose natural example sentences that demonstrate the meaning; mark them as examples, not as quotes from real people). "
         . "6) status_label is the lifecycle: emerging (new), mainstream (everyone uses it), peaking (everywhere right now), fading (on the way out), cringe (now used to mock). Pick from the sources' sense of how current it is. "
         . "7) DEPTH where the sources support it: aim for the best page on this term. Meaning is knowable from usage, so give it as 2-3 full paragraphs of real nuance and the different ways it's used; give origin + why_trending ONLY the substance the sources actually support; write AT LEAST 4 example sentences and AT LEAST 3 FAQs. But NEVER manufacture length by inventing an origin story, a creator, a date, or a view count — a tight, fully-grounded page beats a padded, fabricated one. If origin is undocumented, say so in one honest line instead of inventing it. "
+        // 2026-08-30 MEASURED FIX: the publish gate counts meaning + origin +
+        // why_trending and needs 380 words. Origin is USUALLY EMPTY by the
+        // owner's own rule (never invent one), so those two sections alone must
+        // carry the whole floor — and with no number in the prompt the model
+        // kept landing just under it (pov-meme 327, backseat-gaming 355: two
+        // complete, well-sourced pages held for a shortfall nobody had told
+        // the writer about). State the number, and aim past it.
+        . "7b) LENGTH FLOOR, non-negotiable: the meaning paragraphs plus why_trending MUST total MORE THAN 420 words (do not count examples, FAQs or the definition line). Pages under this are rejected before publication, so treat 420 as the minimum and write past it. Reach it ONLY with real substance the excerpts support: the distinct senses and shades of the term, who says it and to whom, the tone it carries (joking, affectionate, hostile), how the usage in the quoted posts actually differs, what it is often confused with, and how it reads to someone outside the group. If the sources genuinely cannot carry 420 words, write everything they DO support rather than padding with invented specifics — rule 1 always wins over this one. "
         . "8) Output STRICT JSON only, no commentary.";
 
     // Competitor Engine: append the live competitive bar so term pages outrank rival entries.
@@ -1311,18 +1392,31 @@ function draft_term(array $input): array {
         foreach (['meaning', 'origin', 'why_trending'] as $f) foreach ((array)($x[$f] ?? []) as $p) $t .= ' ' . (is_string($p) ? $p : '');
         return str_word_count(strip_tags($t));
     };
-    if ($bodyWords($j) < 400) {
+    // 2026-08-30 MEASURED FIX. This pass existed but kept losing: pov-meme
+    // landed at 327 words and backseat-gaming at 355 — two complete,
+    // well-sourced pages HELD by the 380-word gate. Two defects, both here:
+    //   (1) the expansion prompt never stated a NUMBER ("be richer" only), so
+    //       the model had no idea what it was aiming at — the redrafter's twin
+    //       of this pass does name one, and that is why redrafts clear it;
+    //   (2) it ran ONCE. A pass that gains 40 words on a 60-word shortfall
+    //       still fails, and nothing tried again.
+    // Now: state the target, and retry while it keeps improving (cap 3 — the
+    // AI budget matters more than one page).
+    for ($pass = 1; $pass <= 3 && $bodyWords($j) < 400; $pass++) {
+        $have = $bodyWords($j);
+        $need = 420 - $have;
         $r2 = ai_chat([
             ['role' => 'system', 'content' => "Expand a slang/culture entry. Rewrite ONLY the 'meaning', 'origin', 'why_trending' and 'examples' fields to be richer: deepen MEANING/usage (always knowable from usage) for the substance, add origin/why_trending detail ONLY where the sources support it, and NEVER invent a person, date, or view/follower count to hit any length; 'examples' has at least 4 entries. Keep the exact JSON keys. Output STRICT JSON: {\"meaning\":[..],\"origin\":[..],\"why_trending\":[..],\"examples\":[{\"text\":..,\"context\":..}]}"],
-            ['role' => 'user',   'content' => "SOURCES:\n{$srcBlock}\nCURRENT (too short):\n" . json_encode(['meaning' => $j['meaning'] ?? [], 'origin' => $j['origin'] ?? [], 'why_trending' => $j['why_trending'] ?? [], 'examples' => $j['examples'] ?? []], JSON_UNESCAPED_SLASHES)],
+            ['role' => 'user',   'content' => "SOURCES:\n{$srcBlock}\n"
+                . "LENGTH TARGET: 'meaning' + 'origin' + 'why_trending' currently total {$have} words. They MUST exceed 420 — add at least {$need} more words of REAL substance from the sources above. Good material to add: the distinct senses and shades of the term, who says it and to whom, the tone it carries (joking, affectionate, hostile), how the usage in the quoted posts differs, what it gets confused with, how it reads to an outsider. If the sources cannot honestly carry that, write everything they DO support — never pad with invented specifics.\n\n"
+                . "CURRENT (too short):\n" . json_encode(['meaning' => $j['meaning'] ?? [], 'origin' => $j['origin'] ?? [], 'why_trending' => $j['why_trending'] ?? [], 'examples' => $j['examples'] ?? []], JSON_UNESCAPED_SLASHES)],
         ], ['nvidia_director', 'gemini', 'openrouter', 'nvidia'], 0.5);
-        if (!isset($r2['error'])) {
-            $j2 = ai_json($r2['content']);
-            if ($j2 && !empty($j2['meaning']) && $bodyWords($j2) > $bodyWords($j)) {
-                $j2 = term_clean($j2);
-                foreach (['meaning', 'origin', 'why_trending', 'examples'] as $f) if (!empty($j2[$f])) $j[$f] = $j2[$f];
-            }
-        }
+        if (isset($r2['error'])) break;
+        $j2 = ai_json($r2['content']);
+        if (!$j2 || empty($j2['meaning']) || $bodyWords($j2) <= $have) break;   // no gain -> stop burning quota
+        $j2 = term_clean($j2);
+        foreach (['meaning', 'origin', 'why_trending', 'examples'] as $f) if (!empty($j2[$f])) $j[$f] = $j2[$f];
+        echo "  depth pass {$pass}: {$have} -> " . $bodyWords($j) . " words\n";
     }
 
     // auto-repair exact char limits (same approach as drama drafter)
@@ -1333,7 +1427,9 @@ function draft_term(array $input): array {
             ['role' => 'system', 'content' => "Rewrite the {$what} to be between {$min} and {$max} characters. Keep the meaning and the confident, non-cringe tone. Reply with ONLY the rewritten text, no quotes."],
             ['role' => 'user',   'content' => $text],
         ], ['nvidia_director', 'gemini', 'openrouter', 'nvidia'], 0.2);
-        $out = isset($r['content']) ? trim($r['content'], " \n\"'") : $text;
+        // r153: never store a reasoning model's notes as page text (see ai_text in ai.php).
+        $clean = isset($r['content']) ? ai_text((string)$r['content']) : null;
+        $out = $clean ?? $text;
         if (mb_strlen($out) > $max) $out = truncate_words($out, $max);          // word-safe: no "...and Un." mid-word cut
         if (mb_strlen($out) < $min && mb_strlen($text) >= $min) $out = truncate_words($text, $max);
         return $out;
@@ -1447,6 +1543,20 @@ function draft_term(array $input): array {
         $validNow = gate_term_valid_citations($citeStore, $term);
         if (count($validNow) < 3) {
             foreach (term_harvest_citations($sources, $term, $citeStore) as $hc) {
+                if (count(gate_term_valid_citations([$hc], $term)) === 1) $citeStore[] = $hc;
+                if (count(gate_term_valid_citations($citeStore, $term)) >= 3) break;
+            }
+        }
+        // OWNER 2026-08-29: social usage tiers — the "casual usage lives on
+        // TikTok/Reddit/X, none of which we can retrieve" evidence the
+        // 2026-08-22 owner decision lamented; now retrievable. First the
+        // runner's cached X + Reddit searches (reach_usage.php — X ids are
+        // re-verified live by the gate), then Instagram read live through the
+        // owner's session (reach_ig.php). Same contract throughout: only rows
+        // that independently clear the unchanged gate are appended.
+        foreach (['reach_usage_citations', 'ig_usage_citations'] as $tier) {
+            if (count(gate_term_valid_citations($citeStore, $term)) >= 3) break;
+            foreach ($tier($term) as $hc) {
                 if (count(gate_term_valid_citations([$hc], $term)) === 1) $citeStore[] = $hc;
                 if (count(gate_term_valid_citations($citeStore, $term)) >= 3) break;
             }

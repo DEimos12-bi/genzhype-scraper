@@ -49,6 +49,8 @@ function social_style_hints(): array {
             $v = json_decode((string)$rows['title_shape']['rule_value'], true) ?: [];
             $t = (int)($v['median_chars_outlier'] ?? 0);
             if ($t >= 20) $cache['title_target_chars'] = max(24, min(70, $t));
+            // r143 THE BRAIN: an explicit lever beats the learned value (0 = learned)
+            try { require_once __DIR__ . '/brain.php'; $ov = (int)round(brain_lever('title_target_chars', 0.0)); if ($ov >= 24) $cache['title_target_chars'] = min(70, $ov); } catch (Throwable $e) {}
             // The gaps ARE the finding: how many points more often a winner
             // does something than a normal video. Only gaps big enough to be
             // more than noise become instructions.
