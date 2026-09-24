@@ -569,10 +569,24 @@ CAPTION_CENTER_Y = int(H * 0.62)   # lower-middle band, well inside the safe are
 # on the card's own text. The card anchors top (y=240, below the 220px UI zone)
 # and is capped so its bottom lands <=1350; captions on those scenes drop to the
 # cleared band below it, centered here (band ~1420-1540, above the y1600 bottom UI).
-CARD_TOP_Y       = 190     # r25: cards (screenshots/posts) start higher and
+# r153 (2026-09-11). Judge on page 110, frame 3: "headline at top 'News of 'Rickroll'
+# meme death greatly' is cut off by the dark date box overlaying it". At 190 the card's
+# top-left corner, where a screenshot's headline sits, lay under the date chip (badge
+# rows 274-348), and the frame-centred push-in lifted it another 7% toward the top
+# (y 170 by the end of a scene, inside the top platform-UI band). 400 is the smallest
+# top that clears the chip at the END of the push-in:
+#     (1 + CARD_ZOOM) * top - CARD_ZOOM * H / 2 >= 348 + 12
+# Cost: a 4:5 screenshot shows at 832x1040 instead of 948x1185. Wide cards keep their
+# size and only sit lower.
+CARD_TOP_Y       = 400     # r25: cards (screenshots/posts) start higher and
 CARD_MAX_BOTTOM  = 1440     # extend lower so a real proof FILLS the phone
 CARD_CAPTION_Y   = 1500     # (owner: "not fitting the phone"); caption band
                             # sits just below the enlarged card, no overlap
+# r153: article screenshots are viewport captures and post cards clip their caption,
+# so a card's last line of text ends mid-sentence at its bottom edge. Judge on page
+# 76, frame 7: "bottom caption text box is cropped or cut off at the bottom edge by
+# the frame". The bottom 14% of every card now fades into the card's own page colour.
+CARD_FADE_FRAC   = 0.14
 
 # --- v2: people photos (Wikidata, image_engine.py's proven flow) ---
 # r11: 8 -> 16. The server now floods the feed with real story imagery
@@ -724,6 +738,14 @@ CLIP_HUNT_MIN = int(os.environ.get("VIDEO_CLIP_HUNT_MIN", "3"))
 CLIP_FRAME_MIN_DIFF = int(os.environ.get("VIDEO_CLIP_FRAME_MIN_DIFF", "14"))
 
 POOL_NO_REPEAT_WINDOW = 3      # r11: an image never reappears within 3 scenes
+# r169 USE CAP: the judge samples one frame per shot and rejects an image seen in
+# 3+ frames. last_used only knows WHEN an image last appeared, never HOW OFTEN,
+# so a photo could leave the no-repeat window and come back again and again
+# (page 814: one photo in 4 frames; page 977: one artwork in 4). Every picker
+# now counts shots per image and prefers one under this cap. 99 turns it off.
+IMAGE_MAX_USES = int(os.environ.get("VIDEO_IMAGE_MAX_USES", "2"))
+# r183: longest a photo beat may be held to avoid showing a capped picture again
+REPEAT_HOLD_MAX_S = float(os.environ.get("VIDEO_REPEAT_HOLD_MAX_S", "5.0"))
 # r42: the window and the max-share below were tuned when a story had 4-6 images
 # and HAD to recycle. The people-resolver fix (athletes were being dropped from
 # their own stories) now yields ~24 distinct visuals for ~23 shots, so recycling
@@ -773,6 +795,20 @@ JUDGE_FRAMES = int(os.environ.get("VIDEO_JUDGE_FRAMES", "12"))
 # ("page_id count" lines, committed like video_done.txt); at REPLAN_CAP the
 # video is delivered anyway with a loud log — the loop is never infinite.
 REPLAN_FILE = os.environ.get("VIDEO_REPLAN_FILE", ".social/video_replans.txt")
+# r177 DEAD-LETTER, NOT DONE. An abandoned page used to be appended to the DONE
+# list, so it was never tried again even after the code that failed it was
+# fixed (2026-09-14: pages 6, 740, 823, 122, 692 sat pending forever while r170-
+# r176 fixed their rejection causes). A dead-letter queue parks a failed job and
+# releases it when the failure cause changes: abandons are now recorded per
+# RENDERER REVISION (a hash of this file) and replan attempts are counted per
+# revision, so a new renderer gives each parked page one fresh attempt cycle.
+# Bounded: no retry without a code change.
+ABANDON_FILE = os.environ.get("VIDEO_ABANDON_FILE", ".social/video_abandoned.txt")
+try:
+    with open(os.path.abspath(__file__), "rb") as _mf:
+        MAKER_REV = hashlib.sha1(_mf.read()).hexdigest()[:10]
+except Exception:  # noqa: BLE001
+    MAKER_REV = "unknown"
 REPLAN_CAP = int(os.environ.get("VIDEO_REPLAN_CAP", "3"))
 
 # r16: the judge pairs sampled frames with the EDL shot phrases spoken under
@@ -1758,7 +1794,11 @@ def resolve_font():
 # v10 REAL-SOURCE SCREENSHOTS (owner round-10: evidence = original pixels)
 # ============================================================================
 REAL_SHOTS = os.environ.get("VIDEO_REAL_SHOTS", "1") != "0"
-SHOT_TOTAL_BUDGET_S = 45.0     # wall-clock across ALL screenshots per video
+# r173e: 45 -> 60. Bakeoff 34790874177 vs the cf9cbe1 baseline on the same 8
+# sources: networkidle + lazy scroll + image wait raised the mean page from
+# 8.0s to 9.3s, and a desktop re-shoot costs ~10s more; 45s would now drop
+# the last proof of a 5-article story to the og photo.
+SHOT_TOTAL_BUDGET_S = 60.0     # wall-clock across ALL screenshots per video
 # r30: shoot at a REAL desktop width. At 1080 many news layouts overflow their
 # min-width container, so a headline line can physically extend past x=1080 —
 # the r29 "full 1080 band" then cut it mid-word anyway (judge failed exactly
@@ -1775,9 +1815,18 @@ SHOT_TOTAL_BUDGET_S = 45.0     # wall-clock across ALL screenshots per video
 # at high resolution, so after normalizing to the 1080 card the text arrives
 # ~1.1x its CSS size instead of 0.75x. The height cap below (headline + lede,
 # never a wall of body copy) stays — that half of r76 was right.
-SHOT_VIEW_W = int(os.environ.get("VIDEO_SHOT_VIEW_W", "1440"))
+# r173d (bakeoff 34790538947, same 8 failing sources shot at both widths):
+# at 760px the responsive layout drops the right rail and runs headline +
+# photo edge to edge — mid-day's ad rail and Dexerto's white void are gone,
+# IGN/Daily Hive/Korea JoongAng text reads at card size — and 760 x 1.4211
+# is exactly the 1080px card, so nothing is rescaled. r76's failure is kept
+# in mind, not repeated: a page that hides its headline at tablet width is
+# re-shot at the r81 desktop settings (SHOT_FALLBACK_*), same budget.
+SHOT_VIEW_W = int(os.environ.get("VIDEO_SHOT_VIEW_W", "760"))
 SHOT_VIEW_H = int(os.environ.get("VIDEO_SHOT_VIEW_H", "1800"))
-SHOT_DSF    = float(os.environ.get("VIDEO_SHOT_DSF", "1.4"))
+SHOT_DSF    = float(os.environ.get("VIDEO_SHOT_DSF", str(round(1080 / 760, 4))))
+SHOT_FALLBACK_VIEW_W = int(os.environ.get("VIDEO_SHOT_FALLBACK_VIEW_W", "1440"))
+SHOT_FALLBACK_DSF    = float(os.environ.get("VIDEO_SHOT_FALLBACK_DSF", "1.4"))
 # Cap a card at headline + lede rather than a whole article, as a multiple of
 # its own width. 1.25 keeps the story's first beat and drops the long tail.
 SHOT_MAX_H_RATIO = float(os.environ.get("VIDEO_SHOT_MAX_H_RATIO", "1.25"))
@@ -1811,17 +1860,24 @@ SHOT_PAD    = 28               # breathing room around the measured text/photo
 READABILITY_JS = os.environ.get("VIDEO_READABILITY_JS", "vendor/Readability.js")
 _READABILITY_COL_JS = """() => {
   try {
-    if (typeof Readability !== 'function') return null;
+    if (typeof Readability !== 'function') return {err: 'Readability is not defined in the page'};
     const nodes = document.querySelectorAll('*');
     for (let i = 0; i < nodes.length; i++) nodes[i].setAttribute('data-gzid', String(i));
     const clone = document.cloneNode(true);
     const art = new Readability(clone, {serializer: (el) => el,
                                         keepClasses: true,
                                         charThreshold: 200}).parse();
-    if (!art || !art.content || !art.content.querySelectorAll) return null;
+    if (!art || !art.content || !art.content.querySelectorAll) return {err: 'parse() returned no article'};
     const marked = art.content.querySelectorAll('[data-gzid]');
     const sx = window.scrollX;
     let L = Infinity, R = -Infinity, n = 0;
+    // r173: Readability keeps WRAPPER divs too, and a wrapper that also holds
+    // the right rail made the "column" page-wide (mid-day shipped its Latest
+    // Headlines rail + ad in the proof). Reader-view content is paragraphs:
+    // measure those first, the old all-node union only when there are too few.
+    const LEAF = {P: 1, LI: 1, BLOCKQUOTE: 1, H2: 1, H3: 1, FIGURE: 1,
+                  FIGCAPTION: 1, IMG: 1, PICTURE: 1};
+    let lL = Infinity, lR = -Infinity, ln = 0;
     for (const m of marked) {
       const live = document.querySelector('[data-gzid="' + m.getAttribute('data-gzid') + '"]');
       if (!live) continue;
@@ -1830,10 +1886,16 @@ _READABILITY_COL_JS = """() => {
       const txt = (live.textContent || '').trim();
       if (txt.length < 40 && live.tagName !== 'IMG') continue;
       L = Math.min(L, b.left + sx); R = Math.max(R, b.right + sx); n++;
+      if (LEAF[live.tagName]) {
+        lL = Math.min(lL, b.left + sx); lR = Math.max(lR, b.right + sx); ln++;
+      }
     }
-    if (!n || !isFinite(L) || R - L < 260) return null;
+    if (ln >= 3 && isFinite(lL) && lR - lL >= 260) {
+      return {l: lL, r: lR, n: ln, title: String(art.title || '').slice(0, 120)};
+    }
+    if (!n || !isFinite(L) || R - L < 260) return {err: 'no measurable nodes (' + marked.length + ' marked)'};
     return {l: L, r: R, n: n, title: String(art.title || '').slice(0, 120)};
-  } catch (e) { return null; }
+  } catch (e) { return {err: 'threw: ' + String(e).slice(0, 160)}; }
 }"""
 
 _CROP_JS = """(node, rcol) => {
@@ -1908,6 +1970,23 @@ _CROP_JS = """(node, rcol) => {
     if (b.t > hl.bo + 520) continue;
     img = b; break;
   }
+  // r173: the "column" ancestor is often a header wrapper holding only the
+  // headline and byline; the lead photo sits in a sibling block, so root never
+  // contains it (bakeoff: lead-img False on 7 of 8 pages, and the crop ran
+  // 4:5 down into body text instead of stopping under the photo). Same rules,
+  // whole document, but the photo must sit under the headline's column.
+  let imgScope = root;
+  if (!img) {
+    for (const im of Array.from(document.querySelectorAll('img')).slice(0, 120)) {
+      const b = box(im), w = b.r - b.l, h = b.bo - b.t;
+      if (w < 260 || h < 140) continue;
+      if (b.t < hl.bo - 8 || b.t > hl.bo + 520) continue;
+      if (b.r <= col.l || b.l >= col.r) continue;
+      const cs = getComputedStyle(im);
+      if (cs.display === 'none' || cs.visibility === 'hidden') continue;
+      img = b; imgScope = document; break;
+    }
+  }
 
   const pad = 24;
   let L = Math.max(0, Math.min(col.l, img ? img.l : col.l) - pad);
@@ -1922,8 +2001,9 @@ _CROP_JS = """(node, rcol) => {
   const target = T + (R - L) * 1.25;
   if (B < target) {
     let limit = target;
-    for (const im of root.querySelectorAll('img, iframe, video')) {
+    for (const im of imgScope.querySelectorAll('img, iframe, video')) {
       const b = box(im);
+      if (b.r <= L || b.l >= R) continue;          // r173: only what the crop holds
       if (b.t >= B + 4 && b.t < limit) limit = b.t - 8;
     }
     B = Math.max(B, Math.min(target, limit));
@@ -1993,11 +2073,25 @@ def _is_ad_host(url):
     return any(sub in host for sub in _AD_HOST_SUBSTRINGS)
 
 
+# r173 (owner: "the login for Google is showing" in the proof screenshots):
+# Google's One Tap sign-in prompt is a script + iframe from these paths. Not an
+# ad host, so the host list never caught it; the screenshot APIs block it as a
+# popup. Aborting the request means the prompt never mounts.
+_SIGNIN_PROMPT_URLS = ("accounts.google.com/gsi/", "accounts.google.com/o/oauth2/iframe")
+# r173e: article text-to-speech players mount their own widget over the lead
+# (Korea JoongAng Daily's BeyondWords "Audio report ... read by AI" bar pushed
+# the photo out of the crop). Vendor hosts, blocked like the ad hosts.
+_ARTICLE_AUDIO_HOSTS = ("beyondwords", "trinityaudio", "instaread", "remixd")
+
+
 def _block_ads(route):
     """Playwright route handler: abort ad/tracker requests, let the rest pass.
     Never raises — on any doubt the request is allowed to continue."""
     try:
-        if _is_ad_host(route.request.url):
+        _u = route.request.url
+        if (_is_ad_host(_u) or any(s in _u for s in _SIGNIN_PROMPT_URLS)
+                or any(h in (urllib.parse.urlparse(_u).hostname or "")
+                       for h in _ARTICLE_AUDIO_HOSTS)):
             route.abort()
             return
     except Exception:  # noqa: BLE001
@@ -2006,6 +2100,89 @@ def _block_ads(route):
         route.continue_()
     except Exception:  # noqa: BLE001
         pass
+
+
+# r173 CAPTURE WHEN LOADED, NOT WHEN TOLD (owner, 2026-09-13: "it takes the
+# screenshot when it's not finished loading, or the ads are showing"). Measured
+# on the delivered proof cards: page 920's IGN card has a white hole where the
+# lead photo never loaded; 827/830's Daily Hive card is under an "ALLOW ADS"
+# wall with the page dimmed behind it; 823's card shows a spinning widget. The
+# capture waited a fixed 1.5s after DOMContentLoaded and hid fixed overlays only
+# when they started >150px down, which keeps exactly the full-screen modals.
+# What the screenshot services do instead (ScreenshotOne options: wait_until
+# networkidle, full_page_scroll "to trigger lazy loading",
+# block_banners_by_heuristics, block_cookie_banners):
+SHOT_IDLE_MS = int(os.environ.get("VIDEO_SHOT_IDLE_MS", "3000"))
+SHOT_IMG_WAIT_MS = int(os.environ.get("VIDEO_SHOT_IMG_WAIT_MS", "3500"))
+
+# scroll two viewports down and back so lazy loaders start the lead image
+_LAZY_SCROLL_JS = """async () => {
+  const step = Math.max(200, Math.floor(window.innerHeight * 0.8));
+  for (let y = step; y <= window.innerHeight * 2; y += step) {
+    window.scrollTo(0, y);
+    await new Promise(r => setTimeout(r, 150));
+  }
+  window.scrollTo(0, 0);
+}"""
+
+# overlays: fixed/sticky boxes below the masthead (old rule) PLUS any fixed/
+# sticky box covering a fifth of the viewport wherever it sits (modal, scrim,
+# adblock wall, sign-in sheet), and the scroll lock those modals leave behind
+_OVERLAY_HIDE_JS = """() => {
+  const vw = window.innerWidth, vh = window.innerHeight;
+  for (const el of document.querySelectorAll('*')) {
+    const s = getComputedStyle(el);
+    if (s.position !== 'fixed' && s.position !== 'sticky') continue;
+    const r = el.getBoundingClientRect();
+    const ow = Math.min(r.right, vw) - Math.max(r.left, 0);
+    const oh = Math.min(r.bottom, vh) - Math.max(r.top, 0);
+    const covers = ow > 0 && oh > 0 && ow * oh > 0.2 * vw * vh;
+    if (r.top > 150 || covers) el.style.visibility = 'hidden';
+  }
+  for (const el of [document.documentElement, document.body]) {
+    if (el && getComputedStyle(el).overflow === 'hidden') el.style.overflow = 'visible';
+  }
+}"""
+
+# every visible <img> of real size inside the crop has finished decoding, and
+# the web fonts are in (a half-loaded font reflows the headline mid-shot)
+_CLIP_READY_JS = """(clip) => {
+  if (document.fonts && document.fonts.status !== 'loaded') return false;
+  const x0 = clip.x, y0 = clip.y, x1 = clip.x + clip.width, y1 = clip.y + clip.height;
+  for (const img of Array.from(document.images)) {
+    const r = img.getBoundingClientRect();
+    if (r.width * r.height < 40000) continue;
+    const s = getComputedStyle(img);
+    if (s.display === 'none' || s.visibility === 'hidden') continue;
+    const L = r.left + window.scrollX, T = r.top + window.scrollY;
+    if (L + r.width <= x0 || L >= x1 || T + r.height <= y0 || T >= y1) continue;
+    // lazy loaders hold opacity 0 and a 1px placeholder until the real photo
+    // lands, so neither counts as loaded
+    if (!(img.complete && img.naturalWidth >= 50) || s.opacity === '0') return false;
+  }
+  return true;
+}"""
+
+
+def _clip_ready(page, clip):
+    """Bring the crop into view (lazy loaders fire on intersection), wait for its
+    images + fonts, return to the top where the crop was measured. False = the
+    lead image never loaded inside SHOT_IMG_WAIT_MS."""
+    ok = True
+    try:
+        page.evaluate("y => window.scrollTo(0, Math.max(0, y - 200))",
+                      float(clip["y"]))
+        page.wait_for_function(_CLIP_READY_JS, arg=clip,
+                               timeout=SHOT_IMG_WAIT_MS)
+    except Exception:  # noqa: BLE001 — timeout = still loading
+        ok = False
+    try:
+        page.evaluate("() => window.scrollTo(0, 0)")
+        page.evaluate(_OVERLAY_HIDE_JS)        # late modals mount while we wait
+        page.wait_for_timeout(150)
+    except Exception:  # noqa: BLE001
+        pass
+    return ok
 
 
 def _shot_is_blank(path):
@@ -2105,7 +2282,62 @@ def _shot_dead_zone_fix(path):
         return True
 
 
-def screenshot_articles(targets, page_id, topic_kw=None):
+def _shot_blank_band_fix(path):
+    """r173 BLANK-BAND BACKSTOP, the light twin of r61's black dead zone. The
+    player kill hides an in-article video but its aspect-ratio wrapper keeps
+    the height, so the card shipped a page-coloured hole between the dek and
+    the byline (page 920's IGN card; reproduced on the runner by the bakeoff).
+    Same deterministic splice as r61: find the tallest run of rows that are
+    flat (row std < 2.5) AND the same colour as each other, at least
+    max(80px, 12% of the frame); cut it, keeping 24px so text blocks do not
+    touch. A real photo never has 12% of full-width rows with zero texture.
+    Returns True if the file is usable (possibly rewritten)."""
+    try:
+        im = Image.open(path).convert("RGB")
+        g = np.asarray(im.convert("L")).astype("float32")
+        h, w = g.shape
+        if h < 200:
+            im.close()
+            return True
+        flat = g.std(axis=1) < 2.5
+        means = g.mean(axis=1)
+        best_s, best_e, s = 0, 0, -1
+        for y in range(h + 1):
+            ok = y < h and flat[y] and (s < 0 or abs(means[y] - means[s]) < 3.0)
+            if ok:
+                if s < 0:
+                    s = y
+            else:
+                if s >= 0 and y - s > best_e - best_s:
+                    best_s, best_e = s, y
+                s = y if (y < h and flat[y]) else -1
+        band = best_e - best_s
+        if band < max(80, int(h * 0.12)):
+            im.close()
+            return True
+        cut_s, cut_e = best_s + 12, best_e - 12
+        top = im.crop((0, 0, w, cut_s))
+        bot = im.crop((0, cut_e, w, h))
+        fixed = Image.new("RGB", (w, top.height + bot.height))
+        fixed.paste(top, (0, 0))
+        fixed.paste(bot, (0, top.height))
+        im.close()
+        if fixed.height < 260:
+            log.info("SHOT BLANK-BAND: only %dpx of page survives; rejected "
+                     "(%s)", fixed.height, os.path.basename(path))
+            return False
+        fixed.save(path)
+        log.info("SHOT BLANK-BAND: removed %dpx empty band at y=%d (%s)",
+                 cut_e - cut_s, cut_s, os.path.basename(path))
+        return True
+    except Exception as exc:  # noqa: BLE001 — never block a shot on infra
+        log.info("blank-band check failed open (%s)", str(exc)[:60])
+        return True
+
+
+def _screenshot_articles_at(targets, page_id, topic_kw=None, view_w=None,
+                            dsf=None, deadline=None, retry=None,
+                            head_shot=None):
     """Screenshot REAL article pages (masthead + headline + lead image, as the
     site actually renders) — the drama-genre confidence move: FOUND evidence,
     not made evidence. ONE chromium session for all targets, hard wall-clock
@@ -2115,15 +2347,20 @@ def screenshot_articles(targets, page_id, topic_kw=None):
     crop locks onto the headline that CONTAINS one (the MAIN article), so a
     'trending now' module's unrelated headline can't be shot by mistake. Every
     failure is silent; the og-photo / subject chain covers misses downstream.
-    targets: {receipt_idx: url} -> returns {receipt_idx: png_path}."""
+    targets: {receipt_idx: url} -> returns {receipt_idx: png_path}.
+    r173d: view_w/dsf = the viewport for this pass; deadline = the shared
+    wall clock; retry = a set that collects URLs whose headline was not found
+    (the caller re-shoots those at the desktop fallback)."""
     topic_kw = topic_kw or []
+    view_w = int(view_w or SHOT_VIEW_W)
+    dsf = float(dsf or SHOT_DSF)
     out = {}
     try:
         from playwright.sync_api import sync_playwright
     except Exception:
         log.info("playwright not installed; og-photo/subject chain only")
         return out
-    deadline = time.time() + SHOT_TOTAL_BUDGET_S
+    deadline = deadline or (time.time() + SHOT_TOTAL_BUDGET_S)
     try:
         with sync_playwright() as pw:
             # r91 STOP LOOKING LIKE A BOT. Measured in the PixelRAG bake-off:
@@ -2143,8 +2380,8 @@ def screenshot_articles(targets, page_id, topic_kw=None):
                 args=["--disable-blink-features=AutomationControlled",
                       "--disable-features=IsolateOrigins,site-per-process"])
             ctx = browser.new_context(
-                viewport={"width": SHOT_VIEW_W, "height": SHOT_VIEW_H},
-                device_scale_factor=SHOT_DSF,      # r81: hi-dpi = legible text
+                viewport={"width": view_w, "height": SHOT_VIEW_H},
+                device_scale_factor=dsf,           # r81: hi-dpi = legible text
                 user_agent=SHOT_UA, locale="en-US",
                 timezone_id="America/New_York",
                 extra_http_headers={
@@ -2169,7 +2406,14 @@ def screenshot_articles(targets, page_id, topic_kw=None):
             # sites) cannot block it the way it would block add_script_tag.
             if os.path.isfile(READABILITY_JS):
                 try:
-                    ctx.add_init_script(path=READABILITY_JS)
+                    # r173d: add_init_script runs the file in its own scope,
+                    # so its top-level `function Readability` never became a
+                    # page global — the column JS saw "Readability is not
+                    # defined" on every page since r32. Export it explicitly.
+                    with open(READABILITY_JS, encoding="utf-8") as _rfh:
+                        ctx.add_init_script(
+                            script=_rfh.read() + "\n;try { window.Readability ="
+                                   " Readability; } catch (e) {}\n")
                     log.info("Readability injected from %s", READABILITY_JS)
                 except Exception as exc:  # noqa: BLE001
                     log.info("Readability inject failed (%s); ancestor "
@@ -2178,7 +2422,11 @@ def screenshot_articles(targets, page_id, topic_kw=None):
                 log.info("Readability.js absent (%s); ancestor heuristic only",
                          READABILITY_JS)
             url_shot = {}                  # r22: SAME url -> SAME file (path-
+            # r173: SAME headline -> SAME file; r173e: shared by both passes,
+            # or a copy re-shot at desktop is never matched to its original
+            head_shot = {} if head_shot is None else head_shot
             for i, url in targets.items():  # based scene caps finally bite)
+                h1_txt = ""
                 if url in url_shot:
                     if url_shot[url]:
                         out[i] = url_shot[url]
@@ -2230,6 +2478,17 @@ def screenshot_articles(targets, page_id, topic_kw=None):
                             continue
                     except Exception:  # noqa: BLE001
                         pass
+                    # r173: wait for the network to settle (bounded: ad-blocked
+                    # pages still poll), then scroll so lazy images start
+                    try:
+                        page.wait_for_load_state("networkidle",
+                                                 timeout=SHOT_IDLE_MS)
+                    except Exception:  # noqa: BLE001 — busy page; carry on
+                        pass
+                    try:
+                        page.evaluate(_LAZY_SCROLL_JS)
+                    except Exception:  # noqa: BLE001
+                        pass
                     # best-effort cookie-banner dismissal
                     for sel in ("#onetrust-accept-btn-handler",
                                 "button[id*='accept' i]",
@@ -2241,17 +2500,10 @@ def screenshot_articles(targets, page_id, topic_kw=None):
                             break
                         except Exception:
                             pass
-                    # hide sticky overlays below the masthead (keep top nav)
+                    # hide sticky overlays below the masthead (keep top nav);
+                    # r173: and any modal/scrim/wall covering the viewport
                     try:
-                        page.evaluate("""() => {
-                          for (const el of document.querySelectorAll('*')) {
-                            const s = getComputedStyle(el);
-                            if ((s.position === 'fixed' || s.position === 'sticky')
-                                && el.getBoundingClientRect().top > 150) {
-                              el.style.visibility = 'hidden';
-                            }
-                          }
-                        }""")
+                        page.evaluate(_OVERLAY_HIDE_JS)
                     except Exception:
                         pass
                     # r17 AD-KILL (owner: article shots grabbed ads/page
@@ -2314,7 +2566,20 @@ def screenshot_articles(targets, page_id, topic_kw=None):
                             'blockquote.tiktok-embed', '[class*="tiktok-embed" i]',
                             'blockquote.twitter-tweet', '.instagram-media',
                             '[class*="social-embed" i]', '[class*="embed-container" i]',
+                            // r173c: every embed family (TOI's "vdo_embedd" video
+                            // box shipped as a spinner under "Watch"; WordPress
+                            // wp-block-embed, Bootstrap embed-responsive) and the
+                            // standard still-loading markers
+                            '[class*="embed" i]', '[aria-busy="true"]',
+                            '[role="progressbar"]', '[class*="spinner" i]',
+                            '[class*="skeleton" i]',
                             '[aria-label*="advertisement" i]',
+                            // r173: Google sign-in prompt + "Add as a preferred
+                            // source on Google" / follow buttons (740, 823, 920)
+                            '#credential_picker_container',
+                            '[id*="credential_picker" i]',
+                            'a[href*="google.com/preferences/source" i]',
+                            'a[href*="news.google.com/publications" i]',
                             'aside',
                             'a[href*="shop" i]', 'a[href*="/store" i]',
                             'a[href*="merch" i]', 'a[href*="amazon" i]',
@@ -2436,7 +2701,7 @@ def screenshot_articles(targets, page_id, topic_kw=None):
                             if topic_kw:
                                 for bb, txt, el in cands:
                                     if any(kw in txt for kw in topic_kw):
-                                        h1, h1_el = bb, el
+                                        h1, h1_el, h1_txt = bb, el, txt
                                         break
                                 if h1 is None and cands:
                                     log.info("screenshot: no ON-TOPIC headline "
@@ -2452,17 +2717,21 @@ def screenshot_articles(targets, page_id, topic_kw=None):
                                     # the screenshot stage runs against a hard
                                     # wall-clock budget, i.e. the waste is taken
                                     # straight out of other proofs' chances.
+                                    if retry is not None:
+                                        retry.add(url)
                                     url_shot[url] = None
                                     page.close()
                                     continue
                             elif cands:
-                                h1, h1_el = cands[0][0], cands[0][2]
+                                h1, h1_el, h1_txt = cands[0][0], cands[0][2], cands[0][1]
                         except Exception:  # noqa: BLE001
                             h1, h1_el = None, None
                         if not h1:
                             log.info("screenshot: no headline block found; "
                                      "skipping (no raw-page fallback): %s",
                                      url[:90])
+                            if retry is not None:
+                                retry.add(url)
                             url_shot[url] = None      # r58: also deterministic
                             page.close()
                             continue
@@ -2475,11 +2744,20 @@ def screenshot_articles(targets, page_id, topic_kw=None):
                             rcol = None
                             try:                    # r32: Readability's column
                                 rcol = page.evaluate(_READABILITY_COL_JS)
+                                if rcol and rcol.get("err"):
+                                    # r173c: this returned null silently on every
+                                    # page since r32 (0 "Readability column" lines
+                                    # in production); say why it has no column
+                                    log.info("Readability column unavailable (%s) "
+                                             "on %s", rcol["err"], url[:55])
+                                    rcol = None
                                 if rcol:
                                     log.info("Readability column %.0f..%.0f "
                                              "(%d nodes) on %s", rcol["l"],
                                              rcol["r"], rcol["n"], url[:55])
-                            except Exception:  # noqa: BLE001
+                            except Exception as _rexc:  # noqa: BLE001
+                                log.info("Readability column evaluate failed (%s)",
+                                         str(_rexc)[:120])
                                 rcol = None
                             try:
                                 crop = h1_el.evaluate(_CROP_JS, rcol)
@@ -2536,7 +2814,7 @@ def screenshot_articles(targets, page_id, topic_kw=None):
                             except Exception:  # noqa: BLE001
                                 tb = None
                         tb = tb or {}
-                        doc_w = float(tb.get("docw") or SHOT_VIEW_W)
+                        doc_w = float(tb.get("docw") or view_w)
                         doc_h = float(tb.get("doch") or SHOT_VIEW_H)
                         t_left = float(tb.get("left", h1["x"]))
                         t_right = float(tb.get("right", h1["x"] + h1["width"]))
@@ -2549,7 +2827,7 @@ def screenshot_articles(targets, page_id, topic_kw=None):
                         right = (max(t_right, img_bb["x"] + img_bb["width"])
                                  if img_bb else t_right)
                         x = max(0.0, left - SHOT_PAD)
-                        right = min(right + SHOT_PAD, doc_w, float(SHOT_VIEW_W))
+                        right = min(right + SHOT_PAD, doc_w, float(view_w))
                         width = max(560.0, right - x)
                         # r27 (owner: "dexerto is our COMPETITOR, why are we
                         # giving them views/brand on our back"): crop from just
@@ -2569,7 +2847,7 @@ def screenshot_articles(targets, page_id, topic_kw=None):
                         if crop:                       # r30c measured geometry
                             x = float(crop["x"])
                             y = float(crop["y"])
-                            width = min(float(crop["w"]), float(SHOT_VIEW_W) - x)
+                            width = min(float(crop["w"]), float(view_w) - x)
                             height = min(float(crop["h"]),
                                          max(1.0, float(crop["doch"]) - y))
                             doc_h = float(crop["doch"])
@@ -2589,6 +2867,15 @@ def screenshot_articles(targets, page_id, topic_kw=None):
                         # width — a whole-article card is unreadable at 9:16.
                         height = min(height, float(width) * SHOT_MAX_H_RATIO)
                         clip = {"x": x, "y": y, "width": width, "height": height}
+                        # r173: never shoot a crop whose lead image is still
+                        # loading; the og-photo/subject chain covers the proof
+                        if not _clip_ready(page, clip):
+                            log.info("screenshot: crop images/fonts still loading "
+                                     "after %dms; og/subject fallback: %s",
+                                     SHOT_IMG_WAIT_MS, url[:80])
+                            url_shot[url] = None
+                            page.close()
+                            continue
                         page.screenshot(path=path, clip=clip)
                         # normalize the column crop to card width (1440-wide
                         # layouts shoot WIDER than 1080 now, so downscale too)
@@ -2626,12 +2913,31 @@ def screenshot_articles(targets, page_id, topic_kw=None):
                 if not _shot_dead_zone_fix(path):
                     url_shot[url] = None
                     continue
+                if not _shot_blank_band_fix(path):       # r173: the light twin
+                    url_shot[url] = None
+                    continue
                 # r29 AD BACKSTOP: vision-verify the shot is clean of ad / merch /
                 # furniture; unclean -> drop it so the og:image (guaranteed clean
                 # article photo) covers this proof instead of shipping the ad.
                 if not screenshot_is_clean(path):
                     url_shot[url] = None
                     continue
+                # r173 COPY SITES (page 740: tigerjek.com republished the Dexerto
+                # article word for word; both were shot, so the same headline and
+                # photo filled a third scene and the judge failed it for
+                # repetition). One article is one proof card: a copy's index
+                # points at the original's file, so the per-file evidence cap
+                # counts them together.
+                _hk = re.sub(r"[^a-z0-9]", "", h1_txt or "")[:160]
+                if len(_hk) >= 30 and _hk in head_shot:
+                    log.info("COPY SITE: %s repeats the headline already shot "
+                             "for %s; one card for both", url[:60],
+                             os.path.basename(head_shot[_hk]))
+                    out[i] = head_shot[_hk]
+                    url_shot[url] = head_shot[_hk]
+                    continue
+                if len(_hk) >= 30:
+                    head_shot[_hk] = path
                 log.info("REAL source screenshot: %s", url[:100])
                 out[i] = path
                 url_shot[url] = path
@@ -2639,6 +2945,29 @@ def screenshot_articles(targets, page_id, topic_kw=None):
     except Exception as exc:  # noqa: BLE001
         log.info("screenshot engine unavailable (%s); article receipts fall "
                  "back to og photos / subject", str(exc)[:100])
+    return out
+
+
+def screenshot_articles(targets, page_id, topic_kw=None):
+    """Tablet-width proof screenshots with a desktop re-shoot for any page that
+    hid its headline at tablet width (r173d; see SHOT_VIEW_W). One shared
+    SHOT_TOTAL_BUDGET_S across both passes.
+    targets: {receipt_idx: url} -> returns {receipt_idx: png_path}."""
+    deadline = time.time() + SHOT_TOTAL_BUDGET_S
+    retry, heads = set(), {}
+    out = _screenshot_articles_at(targets, page_id, topic_kw=topic_kw,
+                                  view_w=SHOT_VIEW_W, dsf=SHOT_DSF,
+                                  deadline=deadline, retry=retry,
+                                  head_shot=heads)
+    again = {i: u for i, u in targets.items() if u in retry and i not in out}
+    if (again and SHOT_FALLBACK_VIEW_W and SHOT_FALLBACK_VIEW_W != SHOT_VIEW_W
+            and time.time() < deadline - 6):
+        log.info("screenshot: %d page(s) showed no headline at %dpx; re-shooting "
+                 "at desktop %dpx", len(again), SHOT_VIEW_W, SHOT_FALLBACK_VIEW_W)
+        out.update(_screenshot_articles_at(again, page_id, topic_kw=topic_kw,
+                                           view_w=SHOT_FALLBACK_VIEW_W,
+                                           dsf=SHOT_FALLBACK_DSF,
+                                           deadline=deadline, head_shot=heads))
     return out
 
 
@@ -3038,8 +3367,71 @@ def dhash_distance(a, b):
     return bin(a ^ b).count("1") if a is not None and b is not None else 64
 
 
+# r185 PICTURE IN A PROOF (judge c, run 476: 692's Twitch-logo photo aired as a
+# still AND inside the BBC article screenshot, each twice; 740's podcast photo
+# inside a Yahoo screenshot). dHash compares whole frames, so a photo inside a
+# screenshot was a different picture to the use cap and the same picture to the
+# viewer. OpenCV ORB keypoints + a RANSAC homography find a photo inside a card
+# at any scale. Measured on 692/740's real files: every containing pair 21-283
+# inliers, every other pair <= 9. Cards are only ever matched against PHOTOS:
+# two pages of one site share logos and type, which is not the same picture.
+ORB_CONTAIN_MIN_INLIERS = int(os.environ.get("VIDEO_ORB_CONTAIN_MIN", "15"))
+ORB_CONTAIN_BUDGET_S = 20.0
+_ORB_CACHE = {}
+
+
+def is_proof_card_path(p):
+    """A rendered proof card: an article screenshot or a real-post card."""
+    return bool(re.match(r"^(shot|receipt)-\d+-\d+\.png$",
+                         os.path.basename(str(p or ""))))
+
+
+def image_orb_features(path, max_w):
+    key = (path, max_w)
+    if key in _ORB_CACHE:
+        return _ORB_CACHE[key]
+    out = None
+    try:
+        import cv2
+        import numpy as np
+        g = Image.open(path).convert("L")
+        if g.width > max_w:
+            g = g.resize((max_w, max(1, int(g.height * max_w / g.width))))
+        arr = np.array(g)
+        g.close()
+        kp, des = cv2.ORB_create(2000).detectAndCompute(arr, None)
+        if des is not None and len(kp) >= 20:
+            out = (np.float32([k.pt for k in kp]), des)
+    except Exception:  # noqa: BLE001
+        out = None
+    _ORB_CACHE[key] = out
+    return out
+
+
+def orb_contains(card_path, photo_path):
+    """Inlier count of photo_path found inside card_path (0 = not inside)."""
+    try:
+        import cv2
+        fc = image_orb_features(card_path, 1080)
+        fp = image_orb_features(photo_path, 700)
+        if not fc or not fp:
+            return 0
+        pairs = cv2.BFMatcher(cv2.NORM_HAMMING).knnMatch(fp[1], fc[1], k=2)
+        good = [m[0] for m in pairs
+                if len(m) == 2 and m[0].distance < 0.75 * m[1].distance]
+        if len(good) < 10:
+            return 0
+        src = fp[0][[g.queryIdx for g in good]].reshape(-1, 1, 2)
+        dst = fc[0][[g.trainIdx for g in good]].reshape(-1, 1, 2)
+        _h, mask = cv2.findHomography(src, dst, cv2.RANSAC, 5.0)
+        return int(mask.sum()) if mask is not None else 0
+    except Exception:  # noqa: BLE001
+        return 0
+
+
 _STILL_REL_CACHE = {}
 _STILL_REL_CALLS = [0]
+_STILL_REL_LAST = [""]      # r175: why the last still_is_relevant answered as it did
 STILL_REL_MAX_CALLS = int(os.environ.get("VIDEO_STILL_REL_MAX", "8"))
 
 
@@ -3200,12 +3592,16 @@ def still_is_relevant(path, topic, strict=False):
     keyword matches) an unanswerable identity question must keep the image OUT
     — wrong-person imagery is worse than a thin pool."""
     if not (GEMINI_API_KEY and path and topic):
+        _STILL_REL_LAST[0] = "no key"
         return not strict
     if path in _STILL_REL_CACHE:
+        _STILL_REL_LAST[0] = "judged (cached)"
         return _STILL_REL_CACHE[path]
     if _STILL_REL_CALLS[0] >= STILL_REL_MAX_CALLS:
+        _STILL_REL_LAST[0] = "call cap %d spent" % STILL_REL_MAX_CALLS
         return not strict
     ok = not strict
+    _STILL_REL_LAST[0] = "no answer"
     try:
         import io
         im = Image.open(path).convert("RGB")
@@ -3236,9 +3632,12 @@ def still_is_relevant(path, topic, strict=False):
                 if txt.lower().startswith("json"):
                     txt = txt[4:].strip()
             ok = bool(json.loads(txt).get("relevant", not strict))
+            _STILL_REL_LAST[0] = "judged"
     except Exception:  # noqa: BLE001
         ok = not strict
-    _STILL_REL_CACHE[path] = ok
+        _STILL_REL_LAST[0] = "error"
+    if _STILL_REL_LAST[0] == "judged":       # r175: only real verdicts are cached
+        _STILL_REL_CACHE[path] = ok
     return ok
 
 
@@ -3574,7 +3973,15 @@ def build_visual_pool(post, page_id):
                                 "mentioned in the story" % _names
                                 if _names else ""))
                 if not still_is_relevant(p, _topic, strict=len(pool) >= 2):
-                    log.info("STILL GATE: off-topic stock dropped: %s", u[:100])
+                    # r175: say whether a model judged it or nothing did. Page
+                    # 740 logged five "off-topic" drops with ZERO vision calls
+                    # (the budget was spent by the previous video in the batch)
+                    # and lost its real Dexerto article photos that way.
+                    if _STILL_REL_LAST[0].startswith("judged"):
+                        log.info("STILL GATE: judged off-topic, dropped: %s", u[:100])
+                    else:
+                        log.info("STILL GATE: UNJUDGED (%s), dropped by the "
+                                 "fail-closed default: %s", _STILL_REL_LAST[0], u[:100])
                     continue
             # r36 CONTENT DEDUP: same pixels under a second URL do not enter
             # the pool twice (distance <= 6 of 64 bits = same image, resized
@@ -4029,6 +4436,51 @@ _STORY_CLIP_START = {}
 # which on page 192 threw away BOTH of the story's TikToks as "off-topic" and
 # left a clips-first video with zero footage.
 _STORY_CLIP_SRC = set()
+# r172 CLIP FIT (render 34776749400, page 738: the attack clip, cut at 12s,
+# played over "then he was spotted at Adin"; scenes 2/7/8 carried hunted
+# clips titled "Cinna Tells Agent About Her First Time..." and "REACT TO
+# AGENT00 CLASS..." over a story about a streamer attacked by his mother).
+# The opportunistic clip step took the next clip in list order and only
+# asked whether it suited the story TITLE. PBS Editorial Standards: producers
+# "should not make editorial choices that could mislead or deceive the
+# audience" or encourage "false inferences". A clip now plays over a beat only
+# when its own title names this story's people AND shares a distinctive
+# non-name word with THAT beat's words (a name alone says who, never which
+# moment). Clips without a real title cannot prove a beat; they stay for the
+# opener, which is judged against the whole story.
+_STORY_CLIP_TEXT = {}      # clip url -> its own title/caption
+_STORY_NAME_WORDS = set()  # distinctive words of the story's people's names
+_STORY_TITLE_WORDS = set() # distinctive words of the story title (no-people fallback)
+_PLACEHOLDER_TITLE = re.compile(r"^\s*(tiktok\s*-\s*make your day|twitch|x|youtube)\s*$", re.I)
+_HASHTAG = re.compile(r"#\w+")
+
+
+def clip_fits_words(url, phrase):
+    """True when the clip's own title is about this story's people (the
+    identity rule the server's timeline binder already applies) AND names
+    something THIS beat says. Hashtags are dropped first: they are discovery
+    labels, not a description of what the clip shows (measured: a GTA-map
+    TikTok matched "visited Rockstar North" through #rockstar alone, and
+    "jr almost getting arrested" matched "Gonzalez was arrested")."""
+    text = (_STORY_CLIP_TEXT.get(url)
+            or _STORY_CLIP_TEXT.get(str(url or "").split("#", 1)[0]) or "")
+    if not text or _PLACEHOLDER_TITLE.match(text):
+        return False
+    text = _HASHTAG.sub(" ", text)
+    beat = distinctive_words(phrase) - _STORY_NAME_WORDS
+    if not beat:
+        return False
+    if _STORY_NAME_WORDS:
+        return (title_is_topical(text, _STORY_NAME_WORDS)
+                and title_is_topical(text, beat))
+    # r176: a story with no named people has no WHO to anchor on, and one shared
+    # word is the coincidence r87 warned about: page 692 ("Twitch Data Breach")
+    # took "Breach - Oscrix on Twitch", a Path of Exile gameplay clip, on the
+    # single word "breach". Require two distinct story words in the clip title.
+    hits = [w for w in _STORY_TITLE_WORDS if title_is_topical(text, {w})]
+    return len(hits) >= 2 and title_is_topical(text, beat)
+
+
 _HOOK_CLIP = [None]        # (path, src_off) of the clip chosen to open the video
 _CLIP_ARTIFACT_FRAMES = []  # jpgs of each clip beat's REAL video, shipped
                             # with delivery for the carousel (joined by
@@ -4047,6 +4499,8 @@ _TIMELINE_MODE = [False]   # TIMELINE CONTRACT (2026-08-06): shotlist meta
 _CLIP_FRAMES_DONE = [False]   # r57: the supply harvest runs once per story
 _FOOTAGE_REL_CACHE = {}    # r28 smart gate: clip path -> is-it-on-topic
 _FOOTAGE_REL_CALLS = [0]
+_FOOTAGE_REL_LAST = [""]    # r176: why the last footage_is_relevant answered as it did
+_CLIP_OFFTOPIC_URLS = set() # r176: clips a model judged off-topic for THIS story
 FOOTAGE_REL_MAX_CALLS = 5  # cap Gemini relevance checks per render (speed)
 
 
@@ -4058,12 +4512,16 @@ def footage_is_relevant(clip_path, topic):
     wrong clip. No key / over the call cap / any error -> True (never blocks
     footage on infra problems). Cached per clip."""
     if not (GEMINI_API_KEY and clip_path and topic):
+        _FOOTAGE_REL_LAST[0] = "no key"
         return True
     if clip_path in _FOOTAGE_REL_CACHE:
+        _FOOTAGE_REL_LAST[0] = "judged (cached)"
         return _FOOTAGE_REL_CACHE[clip_path]
     if _FOOTAGE_REL_CALLS[0] >= FOOTAGE_REL_MAX_CALLS:
+        _FOOTAGE_REL_LAST[0] = "call cap %d spent" % FOOTAGE_REL_MAX_CALLS
         return True
     ok = True
+    _FOOTAGE_REL_LAST[0] = "no answer"
     try:
         import io
         from moviepy import VideoFileClip
@@ -4100,13 +4558,31 @@ def footage_is_relevant(clip_path, topic):
                 if txt.lower().startswith("json"):
                     txt = txt[4:].strip()
             ok = bool(json.loads(txt).get("related", True))
+            _FOOTAGE_REL_LAST[0] = "judged"
             if not ok:
                 log.info("FOOTAGE GATE: off-topic clip rejected (%s)",
                          os.path.basename(clip_path))
     except Exception as e:  # noqa: BLE001
         ok = True
-    _FOOTAGE_REL_CACHE[clip_path] = ok
+        _FOOTAGE_REL_LAST[0] = "error"
+    if _FOOTAGE_REL_LAST[0] == "judged":     # r176: an error is not a verdict
+        _FOOTAGE_REL_CACHE[clip_path] = ok
     return ok
+
+
+def footage_verified_relevant(clip_path, topic):
+    """r176: True only when a model actually said the clip belongs to the
+    story. footage_is_relevant() answers True on no key / cap / error so the
+    opener never starves; a clip dropped into the MIDDLE of a story over a
+    specific sentence is found footage and needs a real yes (PBS: no editorial
+    choice that encourages a false inference)."""
+    ok = footage_is_relevant(clip_path, topic)
+    return bool(ok) and _FOOTAGE_REL_LAST[0].startswith("judged")
+
+
+def clip_base_url(u):
+    """A clip and its slices (#t=...) are one piece of content."""
+    return str(u or "").split("#", 1)[0]
 
 
 _SHOT_CLEAN_CACHE = {}
@@ -4210,6 +4686,9 @@ SEARCH_STOP = {
     "america", "american", "update", "updates", "response", "incident",
     "rise", "fallout", "drama", "viral", "trend", "trending", "internet",
     "reaction", "explained", "tiktok", "twitter", "youtube", "instagram",
+    # r176: the other platforms our clips come from, same reason — every Twitch
+    # clip title ends "- <streamer> on Twitch", so the word proves nothing
+    "twitch", "kick", "stream", "streams", "streamer", "streamers", "streaming",
 }
 
 
@@ -4715,6 +5194,196 @@ def _yunet():
     return _YUNET
 
 
+# r171 TEXT AVOID (render 34776749400). Judge on page 920, frame 2: "caption
+# text overlaps and cuts off behind the main title box"; page 830 shipped our
+# captions right under a TikTok creator's own burned-in captions. Borrowed clips
+# (and the stills harvested from them) carry their creator's text, and our hook
+# and captions sat on fixed rows whatever was underneath. The broadcast rule is
+# explicit: FCC 47 CFR 79.1(j)(2)(iv), captioning "shall not block other
+# important visual content on the screen, including ... featured text"; Netflix
+# Timed Text Style Guide, subtitles are "positioned accordingly to avoid overlap
+# with onscreen text", and where overlap is impossible "placed where easier to
+# read". Detection is OpenCV Zoo's PP-OCRv3 text detector (Apache-2.0, same zoo
+# and loader pattern as YuNet) with the zoo demo's own parameters, run on the
+# COMPOSED scene frames (zoom/crop/contain already applied) before any of our
+# overlays exist. Missing model or any error = the old fixed rows, never fatal.
+TEXT_AVOID = os.environ.get("VIDEO_TEXT_AVOID", "1") != "0"
+TEXT_DET_MODEL = os.environ.get("VIDEO_TEXT_DET_MODEL",
+                                "models/text_detection_en_ppocrv3_2023may.onnx")
+TEXT_DET_IN = (544, 960)   # DB input must be multiples of 32; 9:16 like the frame
+TEXT_MIN_BOX_H = 20        # frame px; shorter boxes are UI dust, not featured text
+TEXT_PAD = 16              # clearance kept between their text and ours
+CHIP_CLEAR_Y = 360         # r153: the date chip's rows end at 348 (+12)
+_TEXTDET = None
+
+
+def _textdet():
+    global _TEXTDET
+    if _TEXTDET is None:
+        import cv2
+        m = cv2.dnn_TextDetectionModel_DB(cv2.dnn.readNet(TEXT_DET_MODEL))
+        m.setBinaryThreshold(0.3)
+        m.setPolygonThreshold(0.5)
+        m.setUnclipRatio(2.0)
+        m.setMaxCandidates(200)
+        m.setInputSize(TEXT_DET_IN)
+        m.setInputMean((123.675, 116.28, 103.53))
+        m.setInputScale(1.0 / 255.0 / np.array([0.229, 0.224, 0.225]))
+        _TEXTDET = m
+    return _TEXTDET
+
+
+def frame_text_boxes(rgb):
+    """Burned-in text boxes [(x0, y0, x1, y1)] in frame pixels for one RGB
+    frame. The zoo demo feeds cv.imread BGR, so the frame is converted."""
+    import cv2
+    h, w = rgb.shape[:2]
+    bgr = cv2.cvtColor(np.ascontiguousarray(rgb[:, :, :3]).astype(np.uint8),
+                       cv2.COLOR_RGB2BGR)
+    small = cv2.resize(bgr, TEXT_DET_IN, interpolation=cv2.INTER_AREA)
+    polys, _conf = _textdet().detect(small)
+    sx, sy = w / float(TEXT_DET_IN[0]), h / float(TEXT_DET_IN[1])
+    out = []
+    for p in polys:
+        p = np.asarray(p, dtype=float).reshape(-1, 2)
+        x0, x1 = p[:, 0].min() * sx, p[:, 0].max() * sx
+        y0, y1 = p[:, 1].min() * sy, p[:, 1].max() * sy
+        if y1 - y0 >= TEXT_MIN_BOX_H:
+            out.append((max(0, int(x0)), max(0, int(y0)),
+                        min(w, int(x1)), min(h, int(y1))))
+    return out
+
+
+CLIP_FRAME_TEXT_MAX = float(os.environ.get("VIDEO_CLIP_FRAME_TEXT_MAX", "0.10"))
+
+
+def frame_text_fraction(path):
+    """r181: share of a still covered by burned-in text (0..1), or None when
+    the detector is unavailable. Measured on real harvested frames: page 649's
+    Notes-app statement 29-30% and YouTube comment screens 15-17%, a person
+    talking under one caption line 1-2%."""
+    if not os.path.isfile(TEXT_DET_MODEL):
+        return None
+    try:
+        with Image.open(path) as im:
+            arr = np.asarray(im.convert("RGB"))
+        h, w = arr.shape[:2]
+        mask = np.zeros((h, w), dtype=np.uint8)
+        for x0, y0, x1, y1 in frame_text_boxes(arr):
+            mask[max(0, y0):min(h, y1), max(0, x0):min(w, x1)] = 1
+        return float(mask.mean())
+    except Exception:  # noqa: BLE001 — never block a still on infra
+        return None
+
+
+def scene_text_windows(scenes, scene_clips):
+    """[(start, end, boxes)] for every scene whose composed frames carry
+    burned-in text: the union of boxes over 3 frames (in, middle, out — the
+    push-in moves text monotonically, so the ends bound it). Receipt cards are
+    skipped: v9 already drops captions below the card for those."""
+    if not TEXT_AVOID:
+        return []
+    if not os.path.isfile(TEXT_DET_MODEL):
+        log.info("TEXT AVOID off: no text model at %s (fixed caption rows)",
+                 TEXT_DET_MODEL)
+        return []
+    wins, t0 = [], time.time()
+    for i, (sc, clip) in enumerate(zip(scenes, scene_clips)):
+        if sc.get("type") == "receipt":
+            continue
+        if tuple(getattr(clip, "size", (0, 0))) != (W, H):
+            log.info("TEXT AVOID: scene %d clip is %s, not the frame; skipped",
+                     i + 1, getattr(clip, "size", None))
+            continue
+        dur = max(0.05, float(sc["end"]) - float(sc["start"]))
+        boxes = []
+        for lt in sorted({min(0.12, dur / 2), dur / 2, max(dur - 0.12, dur / 2)}):
+            try:
+                boxes.extend(frame_text_boxes(clip.get_frame(lt)))
+            except Exception as exc:  # noqa: BLE001 — never fatal
+                log.info("TEXT AVOID: scene %d frame %.2fs unreadable (%s)",
+                         i + 1, lt, str(exc)[:80])
+        if boxes:
+            wins.append((float(sc["start"]), float(sc["end"]), boxes))
+    log.info("TEXT AVOID: burned-in text on %d of %d scene(s) (%.1fs)",
+             len(wins), len(scenes), time.time() - t0)
+    return wins
+
+
+def _text_covered(c, block_h, boxes, x0=SAFE_X, x1=W - SAFE_X):
+    """Pixels of burned-in text a centred block (center y c) would sit on,
+    TEXT_PAD clearance included."""
+    half = block_h / 2.0
+    a, b = c - half - TEXT_PAD, c + half + TEXT_PAD
+    tot = 0.0
+    for bx0, by0, bx1, by1 in boxes:
+        if bx1 <= x0 or bx0 >= x1:
+            continue
+        ov = min(b, by1) - max(a, by0)
+        if ov > 0:
+            tot += ov * (min(x1, bx1) - max(x0, bx0))
+    return tot
+
+
+def clear_text_y(default_c, block_h, boxes, lo=CHIP_CLEAR_Y,
+                 hi=H - SAFE_BOTTOM, x0=SAFE_X, x1=W - SAFE_X):
+    """CENTER y for a centred text block of height block_h: the default row
+    when it covers no burned-in text, else the clear row nearest to it inside
+    the platform-safe band, else (Netflix: overlap impossible) the row that
+    covers the least text. r174: used for the one-off HOOK only; captions
+    follow caption_event_y (two homes, one position per caption event)."""
+    half = block_h / 2.0
+
+    def covered(c):
+        return _text_covered(c, block_h, boxes, x0, x1)
+
+    if not boxes or covered(default_c) == 0:
+        return default_c
+    lo_c, hi_c = lo + half, hi - half
+    if hi_c < lo_c:
+        return default_c
+    cands = [lo_c + 10.0 * k for k in range(int((hi_c - lo_c) // 10) + 1)]
+    cands.append(hi_c)
+    return min(cands, key=lambda c: (covered(c), abs(c - default_c)))
+
+
+def caption_event_y(span_s, span_e, cap_h, card_windows=None, text_windows=None,
+                    x0=SAFE_X, x1=W - SAFE_X):
+    """r174 CAPTION EVENTS. One caption chunk is one subtitle event: it takes
+    ONE position for everything it is on screen over, decided from every shot
+    it overlaps. r171 decided per word from the word's MIDPOINT, so a word
+    that straddled a cut drew at the next shot's row over the previous shot
+    (page 649, 25.2s: "LATER EXPOSING THE BRUTAL" at y 446 on top of an
+    article card's headline), and it picked the nearest clear row per shot,
+    so one video's captions sat at seven different heights.
+
+    The professional model: Netflix places subtitles "at either the top or
+    bottom of the screen", moves one only "to avoid overlap with onscreen
+    text", and where both are covered puts it "where easier to read"; subtitles
+    "sit neatly within shots". Short-form caption tools likewise keep one home
+    per video. Viewers' eyes learn where captions live; an event never jumps
+    while it is read. So: a proof card anywhere in the span -> the v9 row below
+    the card; otherwise the lower-middle HOME, else the TOP home (just under
+    the date chip), else whichever of the two covers less text.
+    Returns (center_y, reason)."""
+    for cw_s, cw_e in (card_windows or []):
+        if span_s < cw_e and span_e > cw_s:
+            return CARD_CAPTION_Y, "card"
+    boxes = [b for s, e, bx in (text_windows or [])
+             if span_s < e and span_e > s for b in bx]
+    if not boxes:
+        return CAPTION_CENTER_Y, "home"
+    top = int(round(CHIP_CLEAR_Y + cap_h / 2.0 + TEXT_PAD))
+    cov = [(_text_covered(CAPTION_CENTER_Y, cap_h, boxes, x0, x1),
+            CAPTION_CENTER_Y, "home"),
+           (_text_covered(top, cap_h, boxes, x0, x1), top, "top")]
+    for c, y, why in cov:
+        if c == 0:
+            return y, why
+    c, y, why = min(cov, key=lambda t: t[0])      # ties keep the home
+    return y, why + "-least-covered"
+
+
 def _profile_cascade():
     """r31: the frontal cascade misses a turned head, a tilted head, shades or
     a hat brim — exactly how our subjects are photographed. Every miss fell
@@ -4792,6 +5461,32 @@ def detect_face_box(path):
         log.warning("face detection unavailable (%s); center framing", exc)
     _FACE_CACHE[path] = box
     return box
+
+
+FACE_BORDER_FRAC = 0.02   # r178: a face within 2% of the image edge is cut by it
+
+
+def face_touches_border(path, frac=FACE_BORDER_FRAC):
+    """r178: True when any detected face runs into the SOURCE image's own edge.
+    No crop can repair that face — it is already cut in the picture. Page 692
+    shipped such a still: a Twitch stream frame whose webcam face (61x83 at
+    x990 y519 of 1080x608) sat 6px above the bottom border, and the judge
+    failed the video for a sliced face. r48's edge-safe crop only shifts a
+    crop window between two or more faces, so a single face cut by the frame
+    itself was never caught. Uses the faces detect_face_box() already found."""
+    try:
+        if detect_face_box(path) is None:
+            return False
+        faces = _FACE_ALL.get(path) or []
+        with Image.open(path) as im:
+            w, h = im.size
+        mx, my = w * frac, h * frac
+        for fx, fy, fw, fh in faces:
+            if fx <= mx or fy <= my or fx + fw >= w - mx or fy + fh >= h - my:
+                return True
+    except Exception:  # noqa: BLE001 — never block a still on infra
+        return False
+    return False
 
 
 def cover_fit_headroom(pil_img, tw, th, bias=0.14):
@@ -5819,10 +6514,23 @@ def harvest_clip_frames(clip_path, pool, want=12, label="event footage"):
                    for kh in kept_hashes):
                 log.info("clip frame too similar to one already kept; skipped")
                 continue
+            if face_touches_border(fp):
+                log.info("clip frame skipped: a face is cut by the frame's own "
+                         "edge (%s)", os.path.basename(fp))
+                continue
+            # r181 (page 649 aired a creator's Notes-app statement as three
+            # "photos" and the judge failed caption-on-text; frozen walls of
+            # someone else's words are screenshots, not event photos)
+            _tf = frame_text_fraction(fp)
+            if _tf is not None and _tf >= CLIP_FRAME_TEXT_MAX:
+                log.info("clip frame skipped: %.0f%% of it is burned-in text (%s)",
+                         100 * _tf, os.path.basename(fp))
+                continue
             kept_hashes.append(dh)
             entry = {"path": fp, "textish": False, "url": None,
                      "person": None, "designed": False,
-                     "dhash": dh, "quality": image_quality(fp)}
+                     "dhash": dh, "quality": image_quality(fp),
+                     "family": "clip:" + os.path.basename(clip_path)}   # r179
             try:
                 entry["has_face"] = detect_face_box(fp) is not None
             except Exception:  # noqa: BLE001
@@ -5931,6 +6639,73 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
     consec_footage = 0             # r25: footage scenes in a row (own cap)
     foot_n, foot_s = 0, 0.0        # r13: footage scenes / borrowed seconds
     last_used = {}                 # r11 LRU: pool path -> last scene index
+    use_count = {}                 # r169: image FAMILY -> how many shots it already fills
+    # r179 IMAGE FAMILIES. The judge counts "the same underlying image", not the
+    # same file: page 695 failed on one breach graphic that arrived as a pool
+    # photo, a Director pin and two og report photos (4 paths), and page 694 on
+    # ten freeze-frames of ONE commentator's talking-head clip (dHash apart, the
+    # same shot to a viewer). The use cap therefore counts families: stills
+    # harvested from one clip share that clip; any other picture joins an
+    # earlier one within dHash 6/64 (r36's same-image line).
+    _fam_cache, _fam_reps = {}, []
+
+    def _fam(p):
+        if not p:
+            return p
+        if p in _fam_cache:
+            return _fam_cache[p]
+        key = None
+        for _e in pool:
+            if _e.get("path") == p and _e.get("family"):
+                key = _e["family"]
+                break
+        if key is None and not str(p).lower().endswith((".mp4", ".webm", ".mov")):
+            _dh = image_dhash(p)
+            if _dh is not None:
+                for _rdh, _rkey in _fam_reps:
+                    if dhash_distance(_dh, _rdh) <= 6:
+                        key = _rkey
+                        break
+                if key is None:
+                    _fam_reps.append((_dh, p))
+        _fam_cache[p] = key or p
+        return _fam_cache[p]
+
+    # r185 PICTURE IN A PROOF (see orb_contains): before any pick, a proof
+    # card that SHOWS one of the story's photos joins that photo's family, so
+    # the card and the photo spend one shared 2-shot allowance.
+    _photos = []
+    for _e in list(pool) + list(visual_map.values()):
+        if isinstance(_e, dict) and _e.get("path") and not _e.get("textish") \
+                and not _e.get("designed") and not is_proof_card_path(_e["path"]) \
+                and not str(_e["path"]).lower().endswith((".mp4", ".webm", ".mov")):
+            _photos.append(_e["path"])
+    for _pv in person_map.values():
+        for _e in (_pv if isinstance(_pv, list) else [_pv]):
+            if isinstance(_e, dict) and _e.get("path"):
+                _photos.append(_e["path"])
+    for _rv in receipts.values():
+        if isinstance(_rv, dict) and _rv.get("path"):
+            _photos.append(_rv["path"])
+    _photos = [p for p in dict.fromkeys(_photos) if os.path.exists(p)]
+    _orb_t0 = time.time()
+    for _rv in receipts.values():
+        if not isinstance(_rv, str) or not is_proof_card_path(_rv) \
+                or not os.path.exists(_rv) or _rv in _fam_cache:
+            continue
+        if time.time() - _orb_t0 > ORB_CONTAIN_BUDGET_S:
+            log.info("PICTURE IN PROOF: time budget spent; remaining cards unchecked")
+            break
+        _best, _bn = None, 0
+        for _pp in _photos:
+            _n = orb_contains(_rv, _pp)
+            if _n > _bn:
+                _best, _bn = _pp, _n
+        if _best is not None and _bn >= ORB_CONTAIN_MIN_INLIERS:
+            _fam_cache[_rv] = _fam(_best)
+            log.info("PICTURE IN PROOF: %s shows %s (%d matching points); one "
+                     "picture to the use cap", os.path.basename(_rv),
+                     os.path.basename(_best), _bn)
     evidence_scene_uses = {}       # r21: evidence image -> scenes it backs (cap 2)
     person_rot = {}                # r11: per-person rotation cursor
 
@@ -6029,6 +6804,40 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
             _faces = [e for e in cands if e.get("has_face")]
             if len(_faces) >= 2:
                 cands = _faces
+        # r169 USE CAP: an image already filling IMAGE_MAX_USES shots is the
+        # judge's repetition fail waiting to happen. Prefer one under the cap;
+        # if every fresh candidate is capped, an under-cap image just inside the
+        # window still beats a third use (never the immediately previous one).
+        _under = [e for e in cands if use_count.get(_fam(e["path"]), 0) < IMAGE_MAX_USES]
+        if _under:
+            cands = _under
+        else:
+            _prev = scenes[-1].get("path") if scenes else None
+            # r170 (render 34776749400, page 920: pool of 4 real stills all at
+            # the cap by scene 22, so clipfr-0 went on screen a 3rd time while
+            # 7 downloaded story images sat at 0-1 uses): the Director's story
+            # images are spent before any third use. YouTube thumbnails stay
+            # out — unpinned, they are the off-topic-frame risk r25 names.
+            _story = [e for e in visual_map.values()
+                      if e.get("path") and not e.get("designed")
+                      and not e.get("textish")
+                      and "ytimg.com/vi" not in str(e.get("url") or "")
+                      and use_count.get(_fam(e["path"]), 0) < IMAGE_MAX_USES]
+            _fresh_story = [e for e in _story if e["path"] not in recent]
+            _anyu = ([e for e in base if use_count.get(_fam(e["path"]), 0) < IMAGE_MAX_USES
+                      and e["path"] != _prev]
+                     or [e for e in _story if e["path"] != _prev])
+            if _fresh_story:
+                log.info("IMAGE CAP: pool stills all fill %d shot(s); spending an "
+                         "under-used story image instead", IMAGE_MAX_USES)
+                cands = _fresh_story
+            elif _anyu:
+                log.info("IMAGE CAP: fresh candidates all fill %d shot(s); reusing an "
+                         "under-cap image inside the window instead", IMAGE_MAX_USES)
+                cands = _anyu
+            else:
+                log.info("IMAGE CAP: every real image fills %d shot(s); a repeat "
+                         "is the last resort", IMAGE_MAX_USES)
         if not cands:
             prev = scenes[-1].get("path") if scenes else None
             cands = [e for e in base if e["path"] != prev] or base
@@ -6176,7 +6985,13 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                 _hp = fetch_platform_clip(_money)
                 if _hp and footage_is_relevant(_hp, title):
                     _HOOK_CLIP[0] = _hp
-                    harvest_clip_frames(_hp, pool, label="money-moment clip")
+                    # r176: the opener may play on a lenient answer, but stills
+                    # mined from it are reused all over the story: real yes only
+                    if _FOOTAGE_REL_LAST[0].startswith("judged"):
+                        harvest_clip_frames(_hp, pool, label="money-moment clip")
+                    else:
+                        log.info("CLIP FRAMES: opener %s not harvested (UNJUDGED: %s)",
+                                 os.path.basename(_hp), _FOOTAGE_REL_LAST[0])
                     try:
                         clip_pool.remove(_money)
                     except ValueError:
@@ -6189,6 +7004,10 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                              os.path.basename(_hp),
                              _STORY_CLIP_START.get(_money, 0))
                     break
+                if _hp and _FOOTAGE_REL_LAST[0].startswith("judged"):
+                    # r176: the verdict belongs to the CLIP, not to this file;
+                    # its slices must not come back later as "new" footage
+                    _CLIP_OFFTOPIC_URLS.add(clip_base_url(_money))
                 log.info("HOOK: candidate unavailable (%s); trying next",
                          "off-topic" if _hp else "fetch failed")
             if _HOOK_CLIP[0] is None:
@@ -6206,8 +7025,20 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                 and not _TIMELINE_MODE[0]):     # money clip already harvested
             _CLIP_FRAMES_DONE[0] = True
             _got = 0
-            for _cu in list(clip_pool)[:2]:
+            for _cu in [u for u in clip_pool
+                        if clip_base_url(u) not in _CLIP_OFFTOPIC_URLS][:2]:
                 _cp = fetch_platform_clip(_cu)
+                # r176 (page 692: 8 stills of Path of Exile gameplay were mined
+                # from the "Breach - Oscrix on Twitch" clip the hook had just
+                # judged off-topic, and two aired as story photos)
+                if _cp and not footage_verified_relevant(_cp, title):
+                    if _FOOTAGE_REL_LAST[0].startswith("judged"):
+                        _CLIP_OFFTOPIC_URLS.add(clip_base_url(_cu))
+                    log.info("CLIP FRAMES: %s not harvested (%s)",
+                             os.path.basename(_cp),
+                             "judged off-topic" if _FOOTAGE_REL_LAST[0].startswith("judged")
+                             else "UNJUDGED: " + _FOOTAGE_REL_LAST[0])
+                    continue
                 if _cp and harvest_clip_frames(_cp, pool,
                                                label="story clip"):
                     _got = 1
@@ -6250,6 +7081,13 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
             elif path and evidence_scene_uses.get(path, 0) >= EVIDENCE_MAX_SCENES:
                 log.info("receipt image already in 2 scenes; subject photo "
                          "for variety")
+                path = None
+            elif path and use_count.get(_fam(path), 0) >= IMAGE_MAX_USES:
+                # r179: the same picture may already be on screen as a pool
+                # photo or a pin under another path
+                log.info("IMAGE CAP: receipt %s shows a picture already in %d "
+                         "shot(s); subject photo instead", sh.get("receipt_i"),
+                         use_count.get(_fam(path), 0))
                 path = None
             elif path and path in _recent_paths():
                 # r12 selfcheck law: the SAME card twice inside the no-repeat
@@ -6318,14 +7156,16 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                 # first-not-recent rule when they have all been used.
                 for k in range(len(p_entries)):
                     cand = p_entries[(start + k) % len(p_entries)]
-                    if cand["path"] not in recent and cand["path"] not in last_used:
+                    if cand["path"] not in recent and cand["path"] not in last_used \
+                            and use_count.get(_fam(cand["path"]), 0) < IMAGE_MAX_USES:
                         entry = cand
                         person_rot[pname] = (start + k + 1) % len(p_entries)
                         break
                 if entry is None:
                     for k in range(len(p_entries)):    # first of theirs not recent
                         cand = p_entries[(start + k) % len(p_entries)]
-                        if cand["path"] not in recent:
+                        if cand["path"] not in recent \
+                                and use_count.get(_fam(cand["path"]), 0) < IMAGE_MAX_USES:
                             entry = cand
                             person_rot[pname] = (start + k + 1) % len(p_entries)
                             break
@@ -6355,6 +7195,11 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
             # r12: widened from back-to-back to the FULL no-repeat window —
             # a pinned image inside the window is exactly the "same image
             # again and again" defect the selfcheck now hard-fails on.
+            if entry is not None and use_count.get(_fam(entry["path"]), 0) >= IMAGE_MAX_USES:
+                log.info("IMAGE CAP: %s already fills %d shot(s); LRU pool pick instead",
+                         os.path.basename(entry["path"]), use_count.get(_fam(entry["path"]), 0))
+                entry = None
+                planned_here = False
             if entry is not None and entry["path"] in _recent_paths():
                 log.info("pinned image would repeat within %d scenes; LRU "
                          "pool pick instead", POOL_NO_REPEAT_WINDOW)
@@ -6574,14 +7419,40 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                                  cookies=True, runtime_s=runtime_s,
                                  consec_footage=consec_footage):
                 cpath = None
-                while clip_pool and cpath is None:
-                    cand = fetch_platform_clip(clip_pool.pop(0))
+                # r172 CLIP FIT: only a clip whose own title matches THIS
+                # beat's words; the rest stay in the pool for a beat they fit
+                _fit = [u for u in clip_pool
+                        if clip_base_url(u) not in _CLIP_OFFTOPIC_URLS
+                        and clip_fits_words(u, sh.get("phrase", ""))]
+                if not _fit:
+                    log.info("CLIP FIT: no clip's title matches scene %d's words "
+                             "(%r); the planned still stands", si + 1,
+                             str(sh.get("phrase", ""))[:48])
+                for _cu in _fit:
+                    clip_pool.remove(_cu)
+                    cand = fetch_platform_clip(_cu)
                     # r28 SMART GATE here too: an article-embedded clip can still
                     # be a music video (the reporter used it as b-roll). Vision-
                     # check it against the topic; off-topic -> try the next clip.
-                    if (cand and cand not in _recent_paths()
-                            and footage_is_relevant(cand, title)):
-                        cpath = cand
+                    if not cand or cand in _recent_paths():
+                        continue
+                    if not footage_verified_relevant(cand, title):
+                        # r176: judged off-topic -> the whole clip is out for
+                        # this story; no verdict -> not placed (found footage
+                        # needs a real yes), but it may still be judged later
+                        if _FOOTAGE_REL_LAST[0].startswith("judged"):
+                            _CLIP_OFFTOPIC_URLS.add(clip_base_url(_cu))
+                        log.info("CLIP FIT: scene %d clip %s not placed (%s)",
+                                 si + 1, os.path.basename(cand),
+                                 "judged off-topic" if _FOOTAGE_REL_LAST[0].startswith("judged")
+                                 else "UNJUDGED: " + _FOOTAGE_REL_LAST[0])
+                        continue
+                    cpath = cand
+                    log.info("CLIP FIT: scene %d words %r match clip title %r",
+                             si + 1, str(sh.get("phrase", ""))[:40],
+                             (_STORY_CLIP_TEXT.get(_cu)
+                              or _STORY_CLIP_TEXT.get(clip_base_url(_cu), ""))[:48])
+                    break
                 if cpath:
                     path, typ, textish = cpath, "broll", False
                     motion, footage = "punch_build", True
@@ -6630,6 +7501,10 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
         # to (broll/receipt/photo) on the shared EDL dict — the judge's
         # per-frame expectation follows reality, not the dead original plan
         sh["resolved"] = typ if not textish else "receipt"
+        # r170: count the image that went ON SCREEN. r169 counted at pick time,
+        # so a pick later replaced by footage or a still-hold swap still spent
+        # a use (page 920 scene 3) and the pool hit the cap early.
+        use_count[_fam(path)] = use_count.get(_fam(path), 0) + 1
         prev_motion = motion
 
     # r46 SPEND THE POOL (owner, watching the scene plan: "fix the picker so it
@@ -6641,25 +7516,104 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
     # 4, 5 AND 10 while other pool images were never touched.
     # Receipts (textish) and footage are exempt — a proof card is chosen for what
     # it PROVES, and footage is not interchangeable with a still.
+    # r183: "used" means the picture FAMILY is on screen (r179). Keyed by path,
+    # 7 freeze-frames of ONE podcast clip each looked unused, so this pass put
+    # the same studio shot on scenes 7/9/12/16/17/18/19 of page 740 (run 475,
+    # judge: c. REPETITION on frames 4, 5, 10, 12).
+    # r185: the Director's story images (visual_map, e.g. visidx-740-4, used
+    # once while 740 re-showed its clip) are real swap targets too; unpinned
+    # YouTube thumbnails stay out (r170's off-topic-frame rule).
+    _swap_src = list(pool) + [e for e in visual_map.values()
+                              if isinstance(e, dict) and e.get("path")
+                              and "ytimg.com/vi" not in str(e.get("url") or "")]
     if scenes and pool:
         _used, _swapped = {}, 0
         for sc in scenes:
             p = sc.get("path")
-            if not p or sc.get("textish") or sc.get("footage"):
+            if not p or sc.get("footage"):
                 continue
-            if p in _used:
-                _fresh = [e for e in pool
-                          if e.get("path") and e["path"] not in _used
+            if sc.get("type") != "photo":
+                _used[_fam(p)] = 1     # r185: a card showing a photo has shown it
+                continue
+            if _fam(p) in _used:
+                _fresh = [e for e in _swap_src
+                          if e.get("path") and _fam(e["path"]) not in _used
                           and not e.get("designed") and not e.get("textish")]
                 if _fresh:
                     sc["path"] = _fresh[0]["path"]
-                    _used[sc["path"]] = 1
+                    _used[_fam(sc["path"])] = 1
                     _swapped += 1
                     continue
-            _used[p] = 1
+            _used[_fam(p)] = 1
         if _swapped:
             log.info("SPEND THE POOL: %d repeat(s) swapped for unused images "
                      "(%d distinct stills now on screen)", _swapped, len(_used))
+            # r170: swaps changed what is on screen; the pacing split below
+            # reads use_count, so recount from the scenes as they now stand
+            use_count.clear()
+            for sc in scenes:
+                if sc.get("path"):
+                    use_count[_fam(sc["path"])] = use_count.get(_fam(sc["path"]), 0) + 1
+
+    # r183 REPEAT -> HOLD: when a story has fewer pictures than photo beats
+    # (740: 13 photo beats, 6 picture families) the picker's last resort put a
+    # picture on screen a THIRD time, the judge's rule c. r50's rule instead:
+    # one honest longer shot beats a fake cut back to the same picture. A beat
+    # whose family already filled IMAGE_MAX_USES shots stays on the photo beat
+    # before it. Cards, footage, planned clip beats and a beat carrying its own
+    # date chip are never folded; a hold stops at REPEAT_HOLD_MAX_S. First, a
+    # picture with a use left (outside the no-repeat window) takes the beat:
+    # 740 showed its clip 7x while three story photos were on screen once.
+    if scenes and IMAGE_MAX_USES > 0:
+        def _is_still(s):
+            # r185b: a TEXT-STYLE POOL IMAGE is still a picture, not a proof.
+            # 692 aired its "DATA BREACH" graphic on 4 scenes because textish
+            # excluded it here, so the cap saw it and could never move it. Only
+            # a receipt scene (the card that proves a fact) is untouchable.
+            return (bool(s.get("path")) and s.get("type") == "photo"
+                    and not s.get("footage"))
+        def _is_shown(s):              # r185: cards spend their photo's uses too
+            return bool(s.get("path")) and not s.get("footage")
+        _tot = {}
+        for sc in scenes:
+            if _is_shown(sc):
+                _tot[_fam(sc["path"])] = _tot.get(_fam(sc["path"]), 0) + 1
+        _seen, _kept, _folded, _moved = {}, [], 0, 0
+        for sc in scenes:
+            still = _is_still(sc)
+            if still and _seen.get(_fam(sc["path"]), 0) >= IMAGE_MAX_USES:
+                _near = {_fam(s.get("path")) for s in _kept[-POOL_NO_REPEAT_WINDOW:]}
+                _alt = [e for e in _swap_src
+                        if e.get("path") and not e.get("designed") and not e.get("textish")
+                        and _tot.get(_fam(e["path"]), 0) < IMAGE_MAX_USES
+                        and _fam(e["path"]) not in _near]
+                prev = _kept[-1] if _kept else {}
+                if _alt:
+                    _a = min(_alt, key=lambda e: _tot.get(_fam(e["path"]), 0))
+                    _tot[_fam(sc["path"])] -= 1
+                    _tot[_fam(_a["path"])] = _tot.get(_fam(_a["path"]), 0) + 1
+                    sc["path"], sc["contain"] = _a["path"], bool(_a.get("contain"))
+                    _moved += 1
+                elif (_is_still(prev) and not sc.get("is_clip_beat")
+                        and not sc.get("card_hold")
+                        and str(sc.get("date") or "") in ("", str(prev.get("date") or ""))
+                        and float(sc["end"]) - float(prev["start"]) <= REPEAT_HOLD_MAX_S):
+                    prev["end"] = sc["end"]
+                    _tot[_fam(sc["path"])] -= 1
+                    _folded += 1
+                    continue
+            if _is_shown(sc):
+                _seen[_fam(sc["path"])] = _seen.get(_fam(sc["path"]), 0) + 1
+            _kept.append(sc)
+        if _folded or _moved:
+            log.info("REPEAT HOLD: %d beat(s) moved to a picture with a use left, %d "
+                     "held on the previous picture (cap %d shots)",
+                     _moved, _folded, IMAGE_MAX_USES)
+            scenes = _kept
+            use_count.clear()
+            for sc in scenes:
+                if sc.get("path"):
+                    use_count[_fam(sc["path"])] = use_count.get(_fam(sc["path"]), 0) + 1
 
     # r43 PACING: split long STILLS into ~SCENE_SPLIT_TARGET_S beats, each with a
     # different image, so the picture changes at short-form rhythm instead of
@@ -6691,7 +7645,8 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                               for s in split_scenes[-POOL_NO_REPEAT_WINDOW:]}
                     cands = [e for e in pool
                              if e.get("path") and e["path"] not in recent
-                             and not e.get("designed") and not e.get("textish")]
+                             and not e.get("designed") and not e.get("textish")
+                             and use_count.get(_fam(e["path"]), 0) < IMAGE_MAX_USES]   # r169
                     if not cands:
                         # r50 FROZEN GUARD: a beat with no fresh image would
                         # inherit the parent's, and 3 identical consecutive
@@ -6711,6 +7666,7 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                     sub["footage"] = False
                     sub["src_off"] = None
                     last_used[alt["path"]] = si_here
+                    use_count[_fam(alt["path"])] = use_count.get(_fam(alt["path"]), 0) + 1   # r169/r179
                     # one-shot cues belong to the parent's first beat only
                     sub["sfx"] = None
                     sub["emph_t"] = None
@@ -7265,6 +8221,20 @@ def contain_scene_clip(image_path, start, end, xfade=None, card=False,
             scale = min(want, fit_w / w * COVER_MAX_UPSCALE)
     fg = pil.resize((max(1, int(w * scale)), max(1, int(h * scale))),
                     Image.Resampling.LANCZOS)
+    if card:
+        # r153: fade the cut bottom edge (see CARD_FADE_FRAC). Done on fg, which
+        # both card paths (parallax panel and flat canvas) are built from.
+        try:
+            _rgb = np.asarray(fg, dtype=np.float32).copy()
+            _band = max(8, int(_rgb.shape[0] * CARD_FADE_FRAC))
+            if _rgb.shape[0] > _band * 2:
+                # median, not mean: dark text pixels must not tint the page colour
+                _edge = np.median(_rgb[-6:].reshape(-1, 3), axis=0)
+                _ramp = (np.linspace(0.0, 1.0, _band, dtype=np.float32) ** 1.6)[:, None, None]
+                _rgb[-_band:] = _rgb[-_band:] * (1.0 - _ramp) + _edge * _ramp
+                fg = Image.fromarray(np.clip(_rgb, 0, 255).astype(np.uint8))
+        except Exception as exc:  # noqa: BLE001
+            log.warning("card bottom fade skipped (%s)", exc)
     canvas = bg.copy()
     if card:
         # r31: pinning a SHORT card to CARD_TOP_Y leaves the rest of the phone
@@ -7611,9 +8581,10 @@ def date_chip_clip(date_label, start, end, font_path):
         return None
 
 
-def hook_clip(text, start, end, font_path):
+def hook_clip(text, start, end, font_path, text_boxes=None):
     """The oversized HOOK card over the first ~2s (kept from v1): TextClip with
-    pre-wrapped text, slide-up + CrossFadeIn."""
+    pre-wrapped text, slide-up + CrossFadeIn. r171: text_boxes = burned-in
+    text under the hook's window; the block moves off it (clear_text_y)."""
     from moviepy import TextClip, vfx
 
     text = text.strip()
@@ -7647,6 +8618,20 @@ def hook_clip(text, start, end, font_path):
     # staggered title-card entrance every produced short uses). Single-line
     # hooks and any failure keep the exact pre-v2 single-clip path below.
     lines = [ln for ln in render_text.split("\n") if ln.strip()]
+    if text_boxes and th > 0:
+        # r171: the block's real height in whichever path renders it below
+        # (stacked lines overlap by one stroke; the single clip is padded)
+        if DEPTH_PARALLAX and len(lines) > 1 and dur > 0.6:
+            _pad = stroke * 2 + 8
+            block_h = sum(_text_block_size(ln, font_path, HOOK_FONT, stroke)[1]
+                          + 2 * _pad - stroke for ln in lines) + stroke
+        else:
+            block_h = th + 2 * (stroke * 2 + 8)
+        _c = clear_text_y(base_y + block_h / 2.0, block_h, text_boxes)
+        if abs((_c - block_h / 2.0) - base_y) >= 1:
+            log.info("TEXT AVOID: hook moved off burned-in text, top y %d -> %d",
+                     int(base_y), int(_c - block_h / 2.0))
+            base_y = float(int(_c - block_h / 2.0))
     if DEPTH_PARALLAX and len(lines) > 1 and dur > 0.6:
         try:
             clips = []
@@ -7801,7 +8786,10 @@ def render_chunk_frame(words, hot_idx, font_path, hot_boost=1.0):
     return np.array(canvas)
 
 
-def chunk_caption_clips(beats, hook_end, duration, font_path, card_windows=None):
+def chunk_caption_clips(beats, hook_end, duration, font_path, card_windows=None,
+                        text_windows=None):
+    # r174: text_windows = [(start, end, burned-in text boxes)]; every chunk
+    # is placed once by caption_event_y over its whole on-screen span
     """Word-pop captions: for every chunk, one ImageClip per word-state (the
     spoken word accent-colored + larger). Each state runs from its word's
     start to the next word's start; the chunk's last state holds until the
@@ -7815,22 +8803,32 @@ def chunk_caption_clips(beats, hook_end, duration, font_path, card_windows=None)
         if body:
             chunks.extend(_chunk_words(body))
     clips = []
+    _cap_h = None
+    _cx0 = (W - int(W * 0.88)) // 2          # render_chunk_frame's max width
+    _placed = {}
     for ci, chunk in enumerate(chunks):
         if ci + 1 < len(chunks):
             chunk_end = chunks[ci + 1][0][1]
         else:
             chunk_end = max(duration, chunk[-1][2])
         chunk_words = [wt[0] for wt in chunk]
+        # r174: one position for the whole caption event (see caption_event_y)
+        if text_windows and _cap_h is None:
+            try:
+                _cap_h = render_chunk_frame(["WORD", "WORD"], 0, font_path,
+                                            hot_boost=1.22).shape[0]
+            except Exception:  # noqa: BLE001 — measured estimate instead
+                _cap_h = int(CHUNK_FONT * HOT_SCALE * 1.22 * 1.35)
+        chunk_y, _why = caption_event_y(chunk[0][1], chunk_end, _cap_h or 0,
+                                        card_windows, text_windows,
+                                        x0=_cx0, x1=W - _cx0)
+        _placed[_why] = _placed.get(_why, 0) + 1
         for k, (_, ws, _we) in enumerate(chunk):
             st = ws
             en = chunk[k + 1][1] if k + 1 < len(chunk) else chunk_end
             en = max(en, st + 0.05)
             mid = (st + en) / 2.0
-            y_center = CAPTION_CENTER_Y
-            for cw_s, cw_e in (card_windows or []):
-                if cw_s <= mid < cw_e:      # v9: this word plays over a card
-                    y_center = CARD_CAPTION_Y
-                    break
+            y_center = chunk_y
             # TREATMENT V2 kinetic pop: the spoken word lands as a brief
             # OVERSHOOT state (hot word at 1.22x its accent size for the
             # first 90ms) then settles to the normal accent state — the
@@ -7874,6 +8872,9 @@ def chunk_caption_clips(beats, hook_end, duration, font_path, card_windows=None)
                 ic = ImageClip(_canvas, transparent=True)
                 ic = ic.with_start(s_st).with_end(s_en).with_position((0, 0))
                 clips.append(ic)
+    if text_windows or card_windows:
+        log.info("CAPTION PLACEMENT: %d caption event(s) by position: %s",
+                 len(chunks), json.dumps(_placed, sort_keys=True))
     return clips
 
 
@@ -8644,7 +9645,20 @@ def compose_video(pool, broll_terms, mp3_path, hook, script, word_timings,
     # text is now 4-8 words (readable in ~1s per TikTok's own 5-10 words/sec
     # guidance), so it needs at most ~2.2s on screen — then it clears and the
     # opening clip carries the frame while the voice finishes the loop.
-    hc = hook_clip(hook.upper(), 0.0, min(hook_end, HOOK_TEXT_MAX_S), font_path)
+    # r171 TEXT AVOID: find the creators' burned-in text on the composed scene
+    # frames, then keep the hook and the captions off it (see frame_text_boxes)
+    hook_s = min(hook_end, HOOK_TEXT_MAX_S)
+    text_windows, hook_boxes = [], []
+    try:
+        _tw = scene_text_windows(scenes, scene_clips)
+        hook_boxes = [b for s, e, bx in _tw if s < hook_s and e > 0.0 for b in bx]
+        # r174: captions are placed per caption event from these boxes
+        text_windows = [(s, e, bx) for s, e, bx in _tw]
+    except Exception as exc:  # noqa: BLE001 — never fatal: fixed rows as before
+        log.warning("TEXT AVOID failed (%s); fixed caption rows", str(exc)[:120])
+        text_windows, hook_boxes = [], []
+
+    hc = hook_clip(hook.upper(), 0.0, hook_s, font_path, text_boxes=hook_boxes)
     if hc is not None:
         # treatment v2: the kinetic hook returns one clip PER LINE
         layers.extend(hc if isinstance(hc, list) else [hc])
@@ -8654,7 +9668,8 @@ def compose_video(pool, broll_terms, mp3_path, hook, script, word_timings,
     card_windows = [(sc["start"], sc["end"]) for sc in scenes
                     if sc.get("type") == "receipt"]
     layers.extend(chunk_caption_clips(beats, hook_end, duration, font_path,
-                                      card_windows=card_windows))
+                                      card_windows=card_windows,
+                                      text_windows=text_windows))
 
     video = CompositeVideoClip(layers, size=(W, H)).with_duration(total)
     if v4_mode and EDGE_FADE_S > 0:
@@ -9005,28 +10020,56 @@ def read_replans():
             with open(REPLAN_FILE, "r", encoding="utf-8") as f:
                 for line in f:
                     parts = line.split()
-                    if (len(parts) == 2 and parts[0].isdigit()
-                            and parts[1].isdigit()):
-                        counts[parts[0]] = int(parts[1])
+                    if (len(parts) == 2 and parts[1].isdigit()
+                            and re.fullmatch(r"\d+(@[0-9a-f]{6,40}|@unknown)?", parts[0])):
+                        # r183: union-merged books may hold a key twice; the
+                        # count only rises, so the highest line is the truth
+                        counts[parts[0]] = max(counts.get(parts[0], 0), int(parts[1]))
     except Exception as exc:  # noqa: BLE001
         log.warning("replan state unreadable (%s); treating as empty", exc)
     return counts
 
 
+def _replan_key(page_id):
+    return f"{page_id}@{MAKER_REV}"          # r177: attempts count per renderer
+
+
 def replan_count(page_id):
-    return read_replans().get(str(page_id), 0)
+    return read_replans().get(_replan_key(page_id), 0)
 
 
 def bump_replan(page_id):
     """Increment this page's replan count and rewrite the state file. Returns
     the new count."""
     counts = read_replans()
-    counts[str(page_id)] = counts.get(str(page_id), 0) + 1
+    key = _replan_key(page_id)
+    counts[key] = counts.get(key, 0) + 1
     os.makedirs(os.path.dirname(REPLAN_FILE) or ".", exist_ok=True)
     with open(REPLAN_FILE, "w", encoding="utf-8") as f:
-        for k in sorted(counts, key=int):
+        for k in sorted(counts, key=lambda x: (int(x.split("@")[0]), x)):
             f.write(f"{k} {counts[k]}\n")
-    return counts[str(page_id)]
+    return counts[key]
+
+
+def read_abandoned():
+    """r177: {(page_id_str, rev)} parked by the dead-letter rule."""
+    out = set()
+    try:
+        if os.path.exists(ABANDON_FILE):
+            with open(ABANDON_FILE, "r", encoding="utf-8") as f:
+                for line in f:
+                    parts = line.split()
+                    if len(parts) >= 2 and parts[0].isdigit():
+                        out.add((parts[0], parts[1]))
+    except Exception as exc:  # noqa: BLE001
+        log.warning("abandon book unreadable (%s); treating as empty", exc)
+    return out
+
+
+def append_abandoned(page_id):
+    os.makedirs(os.path.dirname(ABANDON_FILE) or ".", exist_ok=True)
+    with open(ABANDON_FILE, "a", encoding="utf-8") as f:
+        f.write(f"{page_id} {MAKER_REV}\n")
 
 
 def request_replan(page_id, reasons):
@@ -9109,6 +10152,9 @@ def _get_json(url, params):
     raise RuntimeError(f"fetch_next failed after retries: {last}")
 
 
+_MADE_THIS_RUN = set()      # r149: page ids already rendered by THIS process
+
+
 def fetch_next(done_ids):
     """PRIMARY: the static /media/ job feed — a plain JSON asset, indistinguishable
     from the media files the WAF lets this runner download every day (the /api/
@@ -9125,6 +10171,9 @@ def fetch_next(done_ids):
         f"{BASE}/media/vfeed-{INGEST_TOKEN}.json",
     ]
     done_set = {str(d) for d in done_ids}
+    # r177: pages parked under THIS renderer are skipped like done ones; pages
+    # parked under an older renderer get their fresh attempt
+    done_set |= {pid for pid, rev in read_abandoned() if rev == MAKER_REV}
     try:
         data = None
         # r37: the repo-staged feed (video-feed branch) FIRST — it needs no
@@ -9155,6 +10204,13 @@ def fetch_next(done_ids):
         if data is None:
             raise RuntimeError("no static feed candidate parsed")
         for post in data.get("posts") or []:
+            # r149: force means "ignore the PERSISTENT done-list", never "render me
+            # again inside the same run". With VIDEO_BATCH>1 every iteration re-picked
+            # the first forced post: a judging batch of 4 rendered ONE story four times
+            # (identical render reports at 00:41, 00:47, 00:53, 00:58) while the other
+            # three never ran. The per-run set is the only thing force may not override.
+            if str(post.get("page_id")) in _MADE_THIS_RUN:
+                continue
             # r19: force=true = the SERVER requeued this story for a re-render —
             # the local done-list must not veto it (no more diary editing).
             if post.get("force") or str(post.get("page_id")) not in done_set:
@@ -9375,7 +10431,19 @@ def make_one(post, font_path):
     # the scene planner pulls these in as REAL MOVING footage matched to the
     # story, each fetched with its proper method (fetch_platform_clip).
     global _STORY_CLIPS, _STORY_CLIP_START, _STORY_CLIP_SRC
+    global _STORY_CLIP_TEXT, _STORY_NAME_WORDS, _STORY_TITLE_WORDS
     _HOOK_CLIP[0] = None          # r57: per-story, not per-process
+    # r175 PER-VIDEO VISION BUDGETS. The caps below were written per render
+    # ("cap Gemini relevance checks per render") but the counters were never
+    # reset, so in a batch run the FIRST video spent them and every later one
+    # ran blind: page 740 (2nd of 3 in run 34789392254) made 0 still-relevance
+    # calls and dropped 5 real article photos unjudged, which starved its pool
+    # into a wrong-person photo; screenshot_is_clean and footage_is_relevant
+    # silently failed OPEN for the same reason.
+    _STILL_REL_CALLS[0] = 0
+    _FOOTAGE_REL_CALLS[0] = 0
+    _SHOT_CLEAN_CALLS[0] = 0
+    _CLIP_OFFTOPIC_URLS.clear()
     _CLIP_FRAMES_DONE[0] = False
     _STORY_CLIPS = [c.get("url") for c in (post.get("clips") or [])
                     if isinstance(c, dict) and platform_of(c.get("url"))]
@@ -9383,9 +10451,16 @@ def make_one(post, font_path):
     # clips lead the feed list, so _STORY_CLIPS[0] is normally the money moment.
     _STORY_CLIP_START = {}
     _STORY_CLIP_SRC = set()
+    _STORY_CLIP_TEXT = {}         # r172 CLIP FIT
+    _STORY_NAME_WORDS = distinctive_words(
+        *[str(p.get("name") if isinstance(p, dict) else p or "")
+          for p in (post.get("people") or [])])
+    _STORY_TITLE_WORDS = distinctive_words(post.get("title"))
     for c in (post.get("clips") or []):
         if not isinstance(c, dict) or not c.get("url"):
             continue
+        if str(c.get("title") or "").strip():
+            _STORY_CLIP_TEXT[c["url"]] = str(c["title"]).strip()
         if int(c.get("start") or 0) > 0:
             _STORY_CLIP_START[c["url"]] = int(c["start"])
         if str(c.get("src") or "").startswith("http"):
@@ -9743,10 +10818,11 @@ def make_one(post, font_path):
             prev = replan_count(page_id)
             if prev >= REPLAN_CAP:
                 log.error(
-                    "ABANDON page %s after %d attempts — judge still fails "
-                    "(weird=%s mism=%s); marking done so the queue advances.",
-                    page_id, prev, weird[:3], mism[:3])
-                append_done(page_id)
+                    "ABANDON page %s after %d attempts on renderer %s — judge "
+                    "still fails (weird=%s mism=%s); parked until the renderer "
+                    "changes, so the queue advances.",
+                    page_id, prev, MAKER_REV, weird[:3], mism[:3])
+                append_abandoned(page_id)   # r177: dead letter, not done
                 return                   # green run; next run renders the next page
             now = bump_replan(page_id)
             if len(mism) >= 2:
@@ -9780,6 +10856,7 @@ def main():
     _start_heartbeat()          # r29: server-side stage tracing for hang diagnosis
     font_path = resolve_font()
     made = 0
+    failed = 0
     for _ in range(VIDEO_BATCH):
         done = read_done()
         try:
@@ -9799,6 +10876,7 @@ def main():
             break
         log.info("processing page_id=%s slug=%s", post.get("page_id"),
                  post.get("slug"))
+        _MADE_THIS_RUN.add(str(post.get("page_id")))   # r149: taken, never twice
         try:
             make_one(post, font_path)
             made += 1
@@ -9825,9 +10903,15 @@ def main():
             except Exception:  # noqa: BLE001
                 pass
             # Do NOT mark done on failure — it will be retried next run.
-            return 1
-    log.info("done. made %d video(s)", made)
-    return 0
+            # r149: but do NOT abandon the rest of the batch either. Page 76 was
+            # rejected by the vision judge (a caption cropped at the bottom edge —
+            # the gate working correctly) and that single refusal took page 110 down
+            # with it, leaving a judging batch of three with one video. One bad
+            # story is one bad story; the run continues and reports at the end.
+            failed += 1
+            continue
+    log.info("done. made %d video(s), %d failed", made, failed)
+    return 0 if made or not failed else 1
 
 
 if __name__ == "__main__":

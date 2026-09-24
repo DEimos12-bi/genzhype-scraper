@@ -33,9 +33,8 @@ function social_init(PDO $pdo): void {
         link VARCHAR(400) NULL,
         status ENUM('queued','posted','skipped') NOT NULL DEFAULT 'queued',
         created_at DATETIME NOT NULL,
-        scheduled_at DATETIME NULL,
         posted_at DATETIME NULL,
-        UNIQUE KEY uniq_pp (page_id, platform), KEY st (status, created_at), KEY sched (scheduled_at)
+        UNIQUE KEY uniq_pp (page_id, platform), KEY st (status, created_at)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 }
 
@@ -99,30 +98,6 @@ function social_image_variant(string $coverRel, string $shape): ?string {
 }
 
 /** Generate the full per-platform post set for one published page. Returns count stored. */
-/** Calculate the next peak-hour slot for the daily 15-video stream. */
-function social_get_next_slot(int $currentDailyCount): string {
-    $slots = [
-        ['start' => '08:00', 'end' => '10:00', 'weight' => 4], // Morning Wake-up
-        ['start' => '12:00', 'end' => '14:00', 'weight' => 4], // Lunch Scroll
-        ['start' => '16:00', 'end' => '18:00', 'weight' => 3], // After-Work
-        ['start' => '21:00', 'end' => '23:00', 'weight' => 4], // Nightcap
-    ];
-
-    $totalSlots = array_sum(array_column($slots, 'weight'));
-    $index = $currentDailyCount % $totalSlots;
-
-    $sum = 0;
-    foreach ($slots as $i => $slot) {
-        $sum += $slot['weight'];
-        if ($index < $sum) {
-            $hour = (int)explode(':', $slot['start'])[0];
-            $min = rand(0, 59);
-            return date('Y-m-d ', strtotime('today')) . sprintf('%02d:%02d:00', $hour + rand(0, 2), $min);
-        }
-    }
-    return date('Y-m-d H:i:s');
-}
-
 function social_generate(PDO $pdo, int $pageId): array {
     social_init($pdo);
     $p = $pdo->prepare("SELECT p.type, p.h1, p.summary, p.path, p.cover, p.featured_img, d.mood
@@ -138,11 +113,6 @@ function social_generate(PDO $pdo, int $pageId): array {
                'hype' => '#B5468C', 'neutral' => '#C71F12'][$pg['mood'] ?? 'neutral'] ?? '#C71F12';
     $platforms = social_platforms();
 
-    // Get current count for the day to determine the next scheduling window
-    $today = date('Y-m-d');
-    $count = (int)$pdo->query("SELECT COUNT(*) FROM social_posts WHERE DATE(created_at) = '$today'")->fetchColumn();
-    $scheduledAt = social_get_next_slot($count);
-
     // ONE AI call -> all platform versions (the cheap path)
     $specs = '';
     foreach ($platforms as $k => $v) $specs .= "- $k (<= {$v['limit']} chars): {$v['hint']}\n";
@@ -153,9 +123,9 @@ function social_generate(PDO $pdo, int $pageId): array {
     $j = ai_json($res['content'] ?? '');
     if (!is_array($j)) return ['error' => 'model did not return JSON'];
 
-    $ins = $pdo->prepare("INSERT INTO social_posts (page_id,source_type,platform,content,image_path,link,status,created_at,scheduled_at)
-                          VALUES (?,?,?,?,?,?, 'queued', NOW(), ?)
-                          ON DUPLICATE KEY UPDATE content=VALUES(content), image_path=VALUES(image_path), status='queued', scheduled_at=VALUES(scheduled_at)");
+    $ins = $pdo->prepare("INSERT INTO social_posts (page_id,source_type,platform,content,image_path,link,status,created_at)
+                          VALUES (?,?,?,?,?,?, 'queued', NOW())
+                          ON DUPLICATE KEY UPDATE content=VALUES(content), image_path=VALUES(image_path), status='queued'");
     // real photo (drama -hero / term -featured) becomes the card background; card-only pages stay solid
     $photoAbs = social_is_real_photo($cover) ? dirname(__DIR__) . '/public_html' . $cover : null;
     $imgCache = []; $n = 0;
@@ -167,7 +137,7 @@ function social_generate(PDO $pdo, int $pageId): array {
         // real-photo branded card per shape; fall back to a resized cover if node is down
         $img = $imgCache[$v['img']] ?? ($imgCache[$v['img']] =
             social_card_render($pg['h1'], $v['img'], $accent, $slug, $photoAbs) ?: social_image_variant((string)$cover, $v['img']));
-        $ins->execute([$pageId, $pg['type'], $k, mb_substr($txt, 0, 4000), $img, $link, $scheduledAt]);
+        $ins->execute([$pageId, $pg['type'], $k, mb_substr($txt, 0, 4000), $img, $link]);
         $n++;
     }
     return ['ok' => true, 'page_id' => $pageId, 'platforms' => $n, 'h1' => $pg['h1']];

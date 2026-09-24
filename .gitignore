@@ -1,2 +1,10 @@
 __pycache__/
 *.pyc
+
+# r186: the renderer unpacks the job feed into feeddir/ at run time; these are
+# working files that belong on the video-feed branch, never in main (a bug kept
+# committing 780 MB of downloaded clips and article images to this public repo).
+feed.json
+clips/
+visuals/
+feeddir/

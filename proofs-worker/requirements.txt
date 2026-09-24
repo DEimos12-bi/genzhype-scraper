@@ -1,0 +1,8 @@
+# proofs-worker (r155). video_maker.py's top-level imports need numpy, requests
+# and Pillow (verified: it imports with only those three). playwright and
+# curl_cffi are imported lazily by video_maker and by proofs.py.
+numpy>=1.26
+requests>=2.31
+Pillow>=10.3
+playwright
+curl_cffi>=0.7

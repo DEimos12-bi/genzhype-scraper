@@ -29,7 +29,11 @@ name: video-maker
 
 on:
   schedule:
-    - cron: "17 */6 * * *"      # every 6 hours
+    # r188 (owner 2026-09-16: "I need the 5 videos a day across all platforms
+    # back"): 4 runs x 1 video was a hard ceiling of 4/day, and judge rejects
+    # made it 2-3 - measured 2026-09-11..16: fb/ig/tt 2-3 a day, yt 0-2.
+    # Six runs leaves ~5 delivered after the usual rejections.
+    - cron: "17 */4 * * *"      # every 4 hours
   # On-demand render trigger: a push that touches the sentinel file
   # .social/render-trigger starts a run. Lets the maintainer kick a test
   # render straight from the server (git push) without the Actions UI. The
@@ -56,7 +60,7 @@ permissions:
 jobs:
   make:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 62   # r149: a judging batch renders up to 5 in one run
     env:
       INGEST_TOKEN: ${{ secrets.INGEST_TOKEN }}
       VIDEO_BATCH: ${{ github.event.inputs.batch || '1' }}
@@ -144,6 +148,14 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # r183: without a ref, checkout takes the sha the run was CREATED at.
+          # Run 475 (a schedule run created 21:53, queued behind run 474 by the
+          # concurrency group) started at 22:16 on 6daab8f, older than 474's
+          # dedup commit, so it read stale done/replan/abandon books and
+          # re-rendered 740 + 823 as "attempt 1/1" instead of parking them.
+          # The branch ref is resolved when this step runs: the newest main.
+          ref: main
 
       - name: Verify ffmpeg + fonts (preinstalled on ubuntu-latest)
         # Resolve the runner's REAL ffmpeg path dynamically — hardcoding /usr/bin/ffmpeg
@@ -400,9 +412,23 @@ jobs:
         run: |
           if git fetch --depth 1 origin video-feed 2>/dev/null; then
             rm -rf feeddir && mkdir feeddir
-            git --work-tree=feeddir checkout FETCH_HEAD -- . 2>/dev/null || true
+            # r183: `git --work-tree=feeddir checkout FETCH_HEAD -- .` also STAGED
+            # the feed (feed.json, clips/, visuals/) in main's index, so every
+            # dedup commit pushed it to main, and run 475's rebase stopped on
+            # feed.json. An archive unpacks the files without touching the index.
+            git archive FETCH_HEAD | tar -x -C feeddir 2>/dev/null || true
             ls -la feeddir/ || true
             echo "VIDEO_FEED_DIR=$GITHUB_WORKSPACE/feeddir" >> "$GITHUB_ENV"
+            # r143 THE BRAIN: numeric levers the server's Executive set travel in
+            # feed/levers.env. Whitelisted VIDEO_* keys with numeric values only,
+            # so nothing but a bounded number can ever reach the maker from here.
+            if [ -f feeddir/levers.env ]; then
+              while IFS= read -r line; do
+                if printf '%s' "$line" | grep -Eq '^VIDEO_(FOOTAGE_FRAC|FOOTAGE_MAX_SCENES|FOOTAGE_CONSEC|CLIP_HUNT_MIN)=[0-9]+(\.[0-9]+)?$'; then
+                  echo "$line" >> "$GITHUB_ENV"; echo "lever: $line"
+                fi
+              done < feeddir/levers.env
+            fi
           else
             echo "no video-feed branch; HTTP feed only"
           fi
@@ -415,9 +441,13 @@ jobs:
             "https://media.githubusercontent.com/media/opencv/opencv_zoo/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx" || true
           curl -sSL --max-time 60 -o vendor/Readability.js \
             "https://unpkg.com/@mozilla/readability@0.6.0/Readability.js" || true
+          # r171 TEXT AVOID: PP-OCRv3 text detector, same zoo (Apache-2.0),
+          # keeps our hook/captions off creators' burned-in text. 2,423,490 bytes.
+          curl -sSL --max-time 60 -o models/text_detection_en_ppocrv3_2023may.onnx \
+            "https://media.githubusercontent.com/media/opencv/opencv_zoo/main/models/text_detection_ppocr/text_detection_en_ppocrv3_2023may.onnx" || true
           # a git-lfs pointer or a 404 page is worse than no file: the driver
           # would load it and throw. Drop anything implausibly small.
-          for f in models/face_detection_yunet_2023mar.onnx vendor/Readability.js; do
+          for f in models/face_detection_yunet_2023mar.onnx models/text_detection_en_ppocrv3_2023may.onnx vendor/Readability.js; do
             if [ ! -s "$f" ] || [ "$(stat -c%s "$f")" -lt 20000 ]; then
               echo "discarding $f ($(stat -c%s "$f" 2>/dev/null || echo 0) bytes)"; rm -f "$f"
             else
@@ -449,11 +479,28 @@ jobs:
           echo "egress HTTP=$code body=$(cat /tmp/eg.txt 2>/dev/null)"
 
       - name: Render + post video(s)
-        timeout-minutes: 18         # r29: give the still-motion encode room to FINISH;
+        timeout-minutes: 55         # r29: give the still-motion encode room to FINISH;
                                     # the in-process compose watchdog (900s) is the real
-                                    # guard. This is just the hard backstop.
+                                    # guard. This is just the hard backstop. r149: raised
+                                    # from 18 so a multi-video judging batch fits.
         run: |
           set -o pipefail
+          # r149 ON-DEMAND BATCH: the push trigger cannot carry a workflow input, so
+          # the server asks for a bigger batch by committing a digit into
+          # .social/render-batch. Absent (the normal state) = 1 video per run.
+          # NEVER let this read fail the step. GitHub runs `run:` under `bash -e`,
+          # so a redirection from a file that does not exist aborts the whole step
+          # BEFORE python starts. Deleting the batch file after the judging batch
+          # silently killed 7 consecutive scheduled renders (09-09 04:49 -> 09-10
+          # 16:29) — every run failed at this line with no render log to show why.
+          B=""
+          if [ -f .social/render-batch ]; then
+            B=$(tr -cd '0-9' < .social/render-batch | head -c 1 || true)
+          fi
+          if [ -n "$B" ] && [ "$B" -ge 1 ] && [ "$B" -le 5 ]; then
+            export VIDEO_BATCH="$B"
+            echo "render-batch file asks for $B video(s) this run"
+          fi
           mkdir -p "$VIDEO_WORKDIR"     # tee must not fail the render itself
           python video_maker.py 2>&1 | tee "$VIDEO_WORKDIR/render.log"
 
@@ -532,19 +579,33 @@ jobs:
           # r16: the replan book (.social/video_replans.txt) commits alongside
           # the done-list; the || true guards keep an absent file from ever
           # failing this step.
-          if [ -n "$(git status --porcelain .social/video_done.txt .social/video_replans.txt 2>/dev/null || true)" ]; then
+          # r177: the dead-letter book (.social/video_abandoned.txt) commits too
+          if [ -n "$(git status --porcelain .social/video_done.txt .social/video_replans.txt .social/video_abandoned.txt 2>/dev/null || true)" ]; then
+            git reset -q || true   # r183: commit the three books and nothing else
             git add .social/video_done.txt || true
             git add .social/video_replans.txt || true
+            git add .social/video_abandoned.txt || true
             git commit -m "video-maker: update dedup state [skip ci]"
             # r25: the on-demand render trigger means the maintainer may push to
             # main WHILE a render runs, so main can advance under us -> the plain
             # push was rejected (non-fast-forward) and turned the whole run red
             # even though the video delivered fine. Rebase + retry a few times so
             # this bookkeeping commit never fails the run.
+            # r183: run 475's rebase stopped on a conflict and every retry then
+            # failed at once on the half-done rebase, so the step "succeeded"
+            # with nothing pushed (122's delivery and 740/823's attempts lost).
+            # The books merge by union (.gitattributes); a failed rebase is
+            # aborted before the retry, and a total failure is reported.
+            pushed=0
             for i in 1 2 3 4 5; do
-              git pull --rebase --autostash origin main && git push && break
+              if git pull --rebase --autostash origin main && git push; then pushed=1; break; fi
+              git rebase --abort 2>/dev/null || true
               echo "push race (attempt $i); retrying"; sleep $((RANDOM % 4 + 2))
             done
+            if [ "$pushed" != "1" ]; then
+              echo "::error::dedup state was NOT pushed after 5 attempts"
+              exit 1
+            fi
           else
             echo "no dedup changes to commit"
           fi

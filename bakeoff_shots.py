@@ -25,30 +25,42 @@ import time
 # Four are from the AI-actress render (two worked, one was ad-rejected, one
 # was skipped); the rest are the sites named in earlier failures.
 CASES = [
-    {"url": "https://trending.knowyourmeme.com/editorials/meme-review/"
-            "the-weekly-meme-roundup-brooke-sullivan-sekiro-and-more",
-     "kw": ["brooke", "sullivan", "meme"], "was": "we succeeded"},
-    {"url": "https://www.yahoo.com/entertainment/articles/"
-            "weekly-meme-roundup-brooke-sullivan-163000129.html",
-     "kw": ["brooke", "sullivan", "meme"], "was": "we succeeded"},
-    {"url": "https://www.linkedin.com/posts/martech-ai-newsletter_"
-            "millions-of-people-remember-an-actress-activity-7346061117063139328-hqZP",
-     "kw": ["brooke", "sullivan", "actress"], "was": "we skipped it: no headline block"},
-    # r90b: round one used three HOMEPAGES (kotaku.com, gamerant.com, TOI's
-    # front page). Our screenshotter refuses a homepage on purpose — there is
-    # no single article headline to lock onto — so scoring those as misses
-    # measured nothing. These are real article URLs taken from our own events
-    # table: the exact pages the pipeline screenshots.
-    {"url": "https://variety.com/2026/digital/news/mrbeast-beast-industries-sued-sexual-harassment-lawsuit/",
-     "kw": ["mrbeast", "lawsuit", "beast"], "was": "live source, MrBeast story"},
-    {"url": "https://apnews.com/article/mrbeast-lawsuit-harassment-beast-industries",
-     "kw": ["mrbeast", "lawsuit", "beast"], "was": "live source, MrBeast story"},
-    {"url": "https://timesofindia.indiatimes.com/technology/social/ethan-kleins-"
-            "reported-1m-lawsuit-against-idubbbz-hit-a-wall-over-the-h3-snark-subreddit/"
-            "articleshow/126354200.cms",
-     "kw": ["ethan", "klein", "idubbbz", "lawsuit"], "was": "live source, Ethan Klein story"},
-    {"url": "https://www.azfamily.com/2026/07/23/pigeons-dyed-blue-gender-reveal-spotted-salt-river/",
-     "kw": ["pigeons", "dyed", "gender"], "was": "live source, dyed pigeons story"},
+    # r173 (2026-09-13, owner: "it takes the screenshot when it's not finished
+    # loading, or the ads are showing, or login for Google is showing"). The
+    # exact sources behind the bad proof cards on pages 827/830/920/823/814/
+    # 740/649 — shoot them with the code under test and look at every one.
+    {"url": "https://dailyhive.com/edmonton/better-baker-edmonton-viral-video",
+     "kw": ["baker", "edmonton", "appropriation"], "was": "827/830: ALLOW ADS wall over the article"},
+    {"url": "https://in.ign.com/grand-theft-auto-vi/269189/gta-6-gameplay-and-map-appear-to-leak-online-group-reportedly-responsible-threatens-rockstar-over-al",
+     "kw": ["gta 6", "gta vi", "leak"], "was": "920: lead photo not loaded (white hole)"},
+    {"url": "https://timesofindia.indiatimes.com/tv/news/hindi/rapper-santy-sharmas-youtube-channel-suspended-cjp-remarks-row-triggers-online-buzz/articleshow/132518067.cms",
+     "kw": ["santy", "sharma"], "was": "823: Watch widget still spinning"},
+    {"url": "https://www.mid-day.com/entertainment/bollywood-news/article/santy-sharma-claims-youtube-deleted-his-channel-announces-cjp-related-press-conference-23641219",
+     "kw": ["santy", "sharma"], "was": "823: sidebar ads + black unloaded box"},
+    {"url": "https://www.dexerto.com/twitch/agent-00-offers-to-help-viral-1-viewer-twitch-streamer-after-incident-with-mom-3401116/",
+     "kw": ["agent", "nitro", "twitch"], "was": "740: narrow column + white space + Google buttons"},
+    {"url": "https://www.koreajoongangdaily.com/entertainment/kiss-of-life-controversy-reignites-debate-over-cultural-appropriation-in-k-pop/12306620",
+     "kw": ["kiss of life", "appropriation"], "was": "827/830: audio-player widget + tiny text"},
+    {"url": "https://www.moneycontrol.com/entertainment/rapper-santy-sharma-youtube-permanently-deleted-links-action-to-cjp-controversy-article-13978460.html",
+     "kw": ["santy", "sharma"], "was": "823: Join/Follow/Google source buttons"},
+    {"url": "https://www.dexerto.com/youtube/roblox-youtuber-meganplays-flooded-with-donations-after-best-friend-apologizes-for-affair-with-husband-3401026/",
+     "kw": ["meganplays", "roblox"], "was": "649: narrow column + white space"},
+    # r173d: the three sites whose headline detection died under ~1024px in
+    # r76 — the tablet-first capture must re-shoot these at desktop if needed
+    {"url": "https://gamerant.com/should-i-let-my-boyfriend-get-gta-6/",
+     "kw": ["gta 6", "boyfriend"], "was": "r76: no headline block at tablet width"},
+    {"url": "https://www.netinfluencer.com/youtuber-syndicate-faces-copyright-claims-on-nearly-3000-videos-after-outro-song-acquired-by-new-rights-holder/",
+     "kw": ["syndicate", "copyright"], "was": "r76: no headline block at tablet width"},
+    {"url": "https://kotaku.com/the-legend-of-zelda-majoras-masks-art-director-gets-blow-back-for-using-ai-in-prototyping-test-2000734003",
+     "kw": ["majora", "imamura", "art director"], "was": "r76 era: Kotaku legibility"},
+]
+# r173: a copy site republishing the same article must not become a SECOND
+# proof card (page 740: tigerjek.com's copy of the Dexerto piece put the same
+# headline and photo on screen a third time). Shot together, in one call.
+PAIRS = [
+    ("https://www.dexerto.com/twitch/agent-00-offers-to-help-viral-1-viewer-twitch-streamer-after-incident-with-mom-3401116/",
+     "https://tigerjek.com/agent-00-offers-to-help-viral-1-viewer-twitch-streamer-after-incident-with-mom/",
+     ["agent", "nitro", "twitch"]),
 ]
 
 OUT = "bakeoff_out"
@@ -74,10 +86,16 @@ def shrink(src, dst, maxw=900):
 
 
 # ---------------------------------------------------------------- METHOD A
-def run_ours():
-    print("=== METHOD A: our screenshot_articles() ===", flush=True)
+def run_ours(prefix="A", view_w=None, dsf=None):
+    print(f"=== METHOD {prefix}: our screenshot_articles() "
+          f"(viewport {view_w or 'default'}, dsf {dsf or 'default'}) ===", flush=True)
     try:
         import video_maker as vm
+        if view_w:                      # r173c: module globals are read per call
+            vm.SHOT_VIEW_W = int(view_w)
+            vm.SHOT_FALLBACK_VIEW_W = int(view_w)   # one width only, no retry
+        if dsf:
+            vm.SHOT_DSF = float(dsf)
     except Exception as exc:                                   # noqa: BLE001
         print(f"  cannot import video_maker: {exc}")
         for c in CASES:
@@ -87,16 +105,16 @@ def run_ours():
     for i, c in enumerate(CASES):
         t0 = time.time()
         try:
-            got = vm.screenshot_articles({0: c["url"]}, page_id=900 + i,
+            got = vm.screenshot_articles({0: c["url"]}, page_id=(900 if prefix == "A" else 950) + i,
                                          topic_kw=c["kw"])
         except Exception as exc:                               # noqa: BLE001
             got = {}
             print(f"  [{i}] threw: {exc}")
         ms = int((time.time() - t0) * 1000)
         p = got.get(0)
-        size = shrink(p, f"{OUT}/A{i}.jpg") if p and os.path.isfile(p) else 0
-        report.append({"url": c["url"], "was": c["was"], "method": "ours",
-                       "ok": bool(size), "ms": ms, "file": f"A{i}.jpg" if size else None})
+        size = shrink(p, f"{OUT}/{prefix}{i}.jpg") if p and os.path.isfile(p) else 0
+        report.append({"url": c["url"], "was": c["was"], "method": f"ours-{prefix}",
+                       "ok": bool(size), "ms": ms, "file": f"{prefix}{i}.jpg" if size else None})
         print(f"  [{i}] {'OK  ' if size else 'MISS'} {ms:>6}ms  {c['url'][:64]}",
               flush=True)
 
@@ -145,13 +163,36 @@ def run_pixelshot():
             print(f"       stderr: {r.stderr.strip()[-200:]}")
 
 
+def run_pairs():
+    print("=== COPY-SITE PAIRS: same article on two domains ===", flush=True)
+    try:
+        import video_maker as vm
+    except Exception as exc:                                   # noqa: BLE001
+        print(f"  cannot import video_maker: {exc}")
+        return
+    for k, (a, b, kw) in enumerate(PAIRS):
+        got = vm.screenshot_articles({0: a, 1: b}, page_id=990 + k, topic_kw=kw)
+        same = bool(got.get(0)) and got.get(0) == got.get(1)
+        for j in (0, 1):
+            if got.get(j) and os.path.isfile(got[j]):
+                shrink(got[j], f"{OUT}/P{k}_{j}.jpg")
+        report.append({"pair": [a, b], "method": "pair", "files": [got.get(0), got.get(1)],
+                       "copy_reuses_original": same})
+        print(f"  [pair {k}] original={got.get(0)} copy={got.get(1)} reuses_original={same}",
+              flush=True)
+
+
 if __name__ == "__main__":
     run_ours()
+    run_pairs()
+    # r173d: A = production default (760 tablet-first, desktop re-shoot on a
+    # headline miss); D = the old 1440 desktop-only capture for comparison
+    run_ours(prefix="D", view_w=1440, dsf=1.4)
     run_pixelshot()
     with open(f"{OUT}/report.json", "w") as fh:
         json.dump(report, fh, indent=2)
 
-    ours = [r for r in report if r["method"] == "ours" and r.get("ok")]
+    ours = [r for r in report if r["method"] == "ours-A" and r.get("ok")]
     pix = [r for r in report if r["method"] == "pixelshot" and r.get("ok")]
     print(f"\nSCORE  ours: {len(ours)}/{len(CASES)}   "
           f"pixelshot: {len(pix)}/{len(CASES)}")
