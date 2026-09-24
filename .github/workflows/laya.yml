@@ -1,0 +1,100 @@
+name: laya
+
+# Laya (github.com/NandhaKishorM/laya, PyPI "laya", Apache-2.0, by Convai
+# Innovations): a fast classifier - text + a typed question -> a decision with
+# a calibrated probability. Owner-approved 2026-09-24 to run HERE, on GitHub's
+# machines, never on the Hostinger server that hosts the live sites (no GPU,
+# a hard process cap, and a ~1.7 GB model).
+#
+# SECURITY SHAPE. The package was 6 days old with 28 releases when this was
+# written, so it is treated as untrusted code:
+#   - the version is PINNED; upgrading is a deliberate edit, never automatic;
+#   - `classify` (the only job that installs or runs Laya) gets READ-ONLY repo
+#     access, no secrets, and does not keep the checkout credential;
+#   - `publish` never installs Laya: it takes the result files as an artifact
+#     and pushes them to the side branch `laya-drop` (main is protected by the
+#     "protect main" ruleset: no force-push, no deletion).
+# Results are read from the server with `git fetch origin laya-drop`, never by
+# polling the GitHub API (that burned the 60/h unauthenticated limit before).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".social/laya-trigger"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: laya
+  cancel-in-progress: false
+
+jobs:
+  classify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Cache the Laya model files
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: laya-hf-0.3.20
+
+      - name: Install Laya (pinned) on CPU-only torch
+        run: |
+          set -o pipefail
+          mkdir -p laya-out
+          python -m pip install --upgrade pip 2>&1 | tail -2
+          # the CPU wheel is ~200 MB; the default CUDA build is ~2.5 GB
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu 2>&1 | tail -5 | tee laya-out/install.log
+          python -m pip install "laya==0.3.20" 2>&1 | tail -15 | tee -a laya-out/install.log
+          python -m pip show laya torch transformers 2>&1 | grep -E "^(Name|Version)" | tee -a laya-out/install.log
+
+      - name: Run the guard bench
+        run: python laya_run.py
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: laya-out
+          path: laya-out/
+          retention-days: 7
+          if-no-files-found: warn
+
+  publish:
+    needs: classify
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: laya-out
+          path: laya-out
+
+      - name: Push results to the laya-drop branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          cd laya-out
+          git init -q
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -q -b laya-drop
+          git add -A
+          git commit -q -m "laya results $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          git push -qf "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" laya-drop
