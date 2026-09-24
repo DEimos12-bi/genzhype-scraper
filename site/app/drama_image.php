@@ -36,7 +36,7 @@ function drama_is_sensitive(string $title, string $summary): bool {
  * grab "Reckless Ben UnRedacted" or a fan/clips channel). Returns ['url','name',
  * 'source','channel_id'] or null.
  */
-function yt_creator_face(string $name): ?array {
+function yt_creator_face(string $name, string $context = ''): ?array {
     $key = $GLOBALS['CONFIG']['youtube_key'] ?? '';
     if (!$key || mb_strlen(trim($name)) < 2) return null;
     $raw = fs_http_get('https://www.googleapis.com/youtube/v3/search?part=snippet&type=channel&maxResults=5&q='
@@ -60,19 +60,93 @@ function yt_creator_face(string $name): ?array {
     // same-named personal channel (the wrong "Alicia Brown") has ~no subscribers ->
     // skip it. This is the only safe signal when we have no reference photo to verify.
     $cid = $best['id']['channelId'] ?? '';
+    $subs = 0;
     if ($cid) {
         $st = fs_http_get('https://www.googleapis.com/youtube/v3/channels?part=statistics&id=' . $cid . '&key=' . $key, 12);
         $sj = $st ? json_decode($st, true) : null;
         $subs = (int)($sj['items'][0]['statistics']['subscriberCount'] ?? 0);
         if ($subs < 10000) return null;       // not an established creator -> too risky
     }
+    // the parts of the channel the identity check reads (kept by callers that cache)
+    $item = ['id' => ['channelId' => $cid],
+             'snippet' => ['title' => (string)($best['snippet']['title'] ?? ''),
+                           'description' => mb_substr((string)($best['snippet']['description'] ?? ''), 0, 400)]];
+    // 2026-09-24: a name match + 10k subscribers is not identity (see
+    // yt_channel_same_person). With the story's text, the channel must pass.
+    if ($context !== '' && !yt_channel_same_person($item, $subs, $name, $context)) return null;
     $t = $best['snippet']['thumbnails'] ?? [];
     $url = $t['high']['url'] ?? $t['medium']['url'] ?? $t['default']['url'] ?? '';
     if (!$url) return null;
     if (strpos($url, '//') === 0) $url = 'https:' . $url;
     $url = preg_replace('/=s\d+(-c)?/', '=s800', $url);     // larger avatar
     return ['url' => $url, 'name' => $best['snippet']['title'],
-            'source' => 'YouTube channel @' . $best['snippet']['title'], 'channel_id' => $best['id']['channelId'] ?? ''];
+            'source' => 'YouTube channel @' . $best['snippet']['title'], 'channel_id' => $best['id']['channelId'] ?? '',
+            'channel_item' => $item, 'subs' => $subs];
+}
+
+/** A channel's latest upload titles (2 cheap Data API calls; [] on any failure). */
+function yt_channel_recent_titles(string $cid, int $n = 6): array {
+    $key = $GLOBALS['CONFIG']['youtube_key'] ?? '';
+    if (!$key || $cid === '') return [];
+    $raw = fs_http_get('https://www.googleapis.com/youtube/v3/channels?part=contentDetails&id=' . rawurlencode($cid) . '&key=' . $key, 12);
+    $j = $raw ? json_decode($raw, true) : null;
+    $up = (string)($j['items'][0]['contentDetails']['relatedPlaylists']['uploads'] ?? '');
+    if ($up === '') return [];
+    $raw = fs_http_get('https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=' . max(1, min(10, $n))
+        . '&playlistId=' . rawurlencode($up) . '&key=' . $key, 12);
+    $j = $raw ? json_decode($raw, true) : null;
+    $out = [];
+    foreach ((array)($j['items'] ?? []) as $it) {
+        $t = trim((string)($it['snippet']['title'] ?? ''));
+        if ($t !== '') $out[] = mb_substr($t, 0, 90);
+    }
+    return $out;
+}
+
+/**
+ * 2026-09-24 NAMESAKE CHECK FOR CHANNELS. yt_creator_face() picks the channel
+ * whose title matches the name and has 10k+ subscribers, and nothing asked
+ * whether it is the person in the story: "Tatu", a FURIA esports player,
+ * resolved to the channel of t.A.T.u., the Russian pop duo, and two videos
+ * rendered their photo before the judge caught it. Same rule as the Wikidata
+ * path (video_people.php r175): one AI yes/no per channel + story, cached 30
+ * days; only "same" passes. No answer = not verified, because a missing face
+ * is safer than a wrong one. $mayAsk=false (web requests) reads the cache only.
+ */
+function yt_channel_same_person(array $item, int $subs, string $name, string $context, bool $mayAsk = true): bool {
+    $cid = (string)($item['id']['channelId'] ?? '');
+    if ($cid === '' || trim($context) === '') return false;
+    $ck = $cid . ':' . md5(mb_strtolower($name . '|' . mb_substr($context, 0, 900)));
+    $file = __DIR__ . '/cache/yt_channel_verdicts.json';
+    $cache = json_decode((string)@file_get_contents($file), true) ?: [];
+    if (isset($cache[$ck]['same']) && time() - (int)($cache[$ck]['at'] ?? 0) < 30 * 86400) return (bool)$cache[$ck]['same'];
+    if (!$mayAsk) return false;
+    require_once __DIR__ . '/ai.php';
+    $sn = (array)($item['snippet'] ?? []);
+    // the latest video titles are the best evidence: tested 2026-09-24, the real
+    // CBLOL player "Stepz" has an EMPTY channel description and was refused on
+    // description alone, while his uploads are CBLOL match videos
+    $titles = yt_channel_recent_titles($cid, 6);
+    $res = ai_chat([['role' => 'user', 'content' =>
+        "A news story says: \"" . mb_substr($context, 0, 900) . "\"\n\n"
+        . "Candidate YouTube channel: \"" . (string)($sn['title'] ?? '') . "\" (" . number_format($subs) . " subscribers).\n"
+        . "Channel description: \"" . mb_substr((string)($sn['description'] ?? ''), 0, 400) . "\"\n"
+        . "Its latest video titles:\n" . ($titles ? '- ' . implode("\n- ", $titles) : '(none found)') . "\n\n"
+        . "Is this the channel of the SAME real person as \"{$name}\" in the story (their own or official channel)? "
+        . "Compare what the story says the person does (job, field, game or scene, country, team, who they work with) "
+        . "with the channel. A name match alone proves nothing. Answer \"same\" when the channel fits the story's person, "
+        . "\"different\" when it clearly belongs to someone else (another field, a band, a brand, a namesake), "
+        . "\"unsure\" otherwise. STRICT JSON: {\"verdict\": \"same\"|\"different\"|\"unsure\", \"why\": \"<12 words\"}"]],
+        ['gemini', 'openrouter', 'nvidia'], 0.0, 60);
+    $j = isset($res['error']) ? null : ai_json($res['content'] ?? '');
+    if (!is_array($j) || !in_array($j['verdict'] ?? null, ['same', 'different', 'unsure'], true)) return false;   // no verdict: not cached
+    $same = ($j['verdict'] === 'same');
+    $cache = json_decode((string)@file_get_contents($file), true) ?: [];
+    $cache[$ck] = ['same' => $same, 'channel' => (string)($sn['title'] ?? ''), 'name' => $name,
+                   'why' => mb_substr((string)($j['why'] ?? ''), 0, 120), 'at' => time()];
+    @file_put_contents($file, json_encode($cache, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), LOCK_EX);
+    if (!$same) error_log("yt_channel_same_person: '{$name}' -> channel '" . ($sn['title'] ?? '') . "' judged {$j['verdict']}: " . ($j['why'] ?? ''));
+    return $same;
 }
 
 /**
@@ -83,13 +157,14 @@ function yt_creator_face(string $name): ?array {
  * names (the "Ben Schneider the musician on an arrest story" defamation trap). Returns
  * ['channel_id','name','avatar','thumbs'=>[{url,fallback,title}]] or [].
  */
-function drama_channel_media(string $name, int $maxVids = 8): array {
+function drama_channel_media(string $name, int $maxVids = 8, string $context = ""): array {
     $key = $GLOBALS['CONFIG']['youtube_key'] ?? '';
     if (!$key) return [];
-    $face = yt_creator_face($name);                     // resolves the real channel (gated)
+    $face = yt_creator_face($name, $context);           // resolves the real channel (gated; identity-checked when the story is given)
     if (!$face || empty($face['channel_id'])) return [];
     $cid = $face['channel_id'];
-    $out = ['channel_id' => $cid, 'name' => $face['name'], 'avatar' => $face['url'], 'thumbs' => []];
+    $out = ['channel_id' => $cid, 'name' => $face['name'], 'avatar' => $face['url'], 'thumbs' => [],
+            'channel_item' => $face['channel_item'] ?? null, 'subs' => (int)($face['subs'] ?? 0)];
     // uploads playlist for the channel
     $raw = fs_http_get('https://www.googleapis.com/youtube/v3/channels?part=contentDetails&id=' . $cid . '&key=' . $key, 12);
     $j = $raw ? json_decode($raw, true) : null;
@@ -111,11 +186,11 @@ function drama_channel_media(string $name, int $maxVids = 8): array {
 }
 
 /** Unified real face for a person: Wikimedia CC (licensed) first, else YouTube avatar. */
-function drama_person_photo(string $name): ?array {
+function drama_person_photo(string $name, string $context = ''): ?array {
     require_once __DIR__ . '/images.php';
     $w = wikidata_creator_photo($name);
     if ($w && !empty($w['url'])) return ['url' => $w['url'], 'name' => $name, 'source' => $w['source'] ?? 'Wikimedia Commons'];
-    return yt_creator_face($name);
+    return yt_creator_face($name, $context);
 }
 
 /** Extract the real PEOPLE in a drama via the LLM (regex grabs title words too). */
@@ -142,7 +217,7 @@ function drama_real_face_hero(string $slug, array $people, string $mood = '', st
     $people = array_values(array_filter(array_map('trim', $people), fn($p) => mb_strlen($p) >= 3));
     $faces = [];
     foreach (array_slice($people, 0, 3) as $p) {
-        $f = drama_person_photo($p);
+        $f = drama_person_photo($p, $context);   // 2026-09-24: identity-checked against the story
         if (!$f || empty($f['url'])) continue;
         // Wikimedia is self-verified; a YouTube avatar of a COMMON name must be
         // vision-checked that it actually depicts this person/story.
@@ -433,7 +508,7 @@ function drama_image_smart(string $slug, string $title, string $summary, string 
     $haveNames = array_column($faces, 'name');
     foreach (array_slice($people, 0, 3) as $p) {
         if (in_array($p, $haveNames, true)) continue;
-        $av = yt_creator_face($p);
+        $av = yt_creator_face($p, $title . ". " . $summary);   // 2026-09-24: identity-checked against the story
         if ($av && !empty($av['url'])) $faces[] = ['name' => $p, 'url' => $av['url'],
             'credit' => 'Via ' . ($av['source'] ?? 'YouTube channel'),
             'credit_url' => !empty($av['channel_id']) ? 'https://www.youtube.com/channel/' . $av['channel_id'] : ''];
@@ -464,7 +539,7 @@ function drama_image_smart(string $slug, string $title, string $summary, string 
     // unlike a Wikipedia namesake). Gives vision many real frames of the actual creator to
     // choose a clean editorial one from — the main lever for "every drama shows the people".
     foreach (array_slice($people, 0, 2) as $p) {
-        $cm = drama_channel_media($p, 8);
+        $cm = drama_channel_media($p, 8, $title . ". " . $summary);   // 2026-09-24: identity-checked
         foreach (($cm['thumbs'] ?? []) as $t)
             $cands[] = ['url' => $t['url'], 'fallback' => $t['fallback'] ?? '', 'kind' => 'thumb', 'title' => $t['title'],
                 'credit' => 'Via ' . ($cm['name'] ?? $p) . ' on YouTube', 'credit_url' => 'https://www.youtube.com/channel/' . $cm['channel_id']];

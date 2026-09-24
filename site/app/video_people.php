@@ -278,6 +278,22 @@ function video_person_photo(string $name, array $sameAs = [], string $context = 
             vp_cache_save($cache);
         }
     }
+    // 2026-09-24: a YouTube avatar is cached by NAME, but a name can be several
+    // people: "Tatu" (a FURIA player) was saved as t.A.T.u., the pop duo. So a
+    // cached avatar is checked against THIS story every time (the verdict is
+    // cached per channel + story, so it costs one AI call per story). An old
+    // entry saved without its channel details is looked up again.
+    if ($hit && !empty($hit['photo']) && ($hit['source'] ?? '') === 'youtube-avatar') {
+        require_once __DIR__ . '/drama_image.php';
+        $ch = $hit['channel'] ?? null;
+        if (!is_array($ch) || empty($ch['item'])) {
+            if (!$liveLookups) return ['photo' => null, 'source' => 'youtube-avatar (unchecked; web: cache-only)'];
+            $hit = null;
+        } elseif (!yt_channel_same_person((array)$ch['item'], (int)($ch['subs'] ?? 0), $name,
+                                          vp_mention_context($name, $context), $liveLookups)) {
+            return ['photo' => null, 'source' => 'youtube-avatar (not verified as this story\'s person)'];
+        }
+    }
     if ($hit && (time() - (int)($hit['at'] ?? 0)) < (empty($hit['photo']) ? VP_TTL_MISS : VP_TTL_HIT)) {
         return ['photo' => $hit['photo'] ?: null, 'source' => ($hit['source'] ?? 'cache') . ' (cached)'];
     }
@@ -304,12 +320,16 @@ function video_person_photo(string $name, array $sameAs = [], string $context = 
     }
     // (b) the site's unified face resolver: verified Wikidata creator photo,
     //     else YouTube Data API channel avatar (the small-creator fix)
+    $channel = null;
     if (!$photo) {
         $f = null;
-        try { $f = drama_person_photo($name); } catch (Throwable $e) {}
+        // 2026-09-24: the story goes along, so a YouTube avatar must pass the
+        // same-person check (yt_channel_same_person) before it is used
+        try { $f = drama_person_photo($name, vp_mention_context($name, $context)); } catch (Throwable $e) {}
         if ($f && !empty($f['url'])) {
             if (mb_stripos((string)($f['source'] ?? ''), 'youtube') !== false) {
                 $photo = $f['url']; $source = 'youtube-avatar';
+                $channel = ['item' => $f['channel_item'] ?? null, 'subs' => (int)($f['subs'] ?? 0)];
             } elseif (!empty($f['title'])) {          // wm_file_info row -> width-capped URL
                 $photo = vp_commons_url($f['title']); $source = 'wikidata-creator';
             } else {
@@ -324,6 +344,7 @@ function video_person_photo(string $name, array $sameAs = [], string $context = 
     }
     $cache = vp_cache_load();                          // reload: lookups above take seconds
     $cache[$key] = ['photo' => $photo, 'source' => $source, 'at' => time()];
+    if ($source === 'youtube-avatar' && $channel) $cache[$key]['channel'] = $channel;   // for the per-story check
     vp_cache_save($cache);
     return ['photo' => $photo, 'source' => $source];
 }
@@ -383,13 +404,28 @@ function video_person_recent_media(string $name, int $max = 4, bool $liveLookups
             vp_video_fits_story((string)($r['vtitle'] ?? ''), $storyTitle, $name)));
         return array_slice($keep, 0, $max);
     };
+    // 2026-09-24: the thumbnails come from the channel matched by NAME, so they
+    // are checked against THIS story like the avatar (yt_channel_same_person).
+    // An old entry saved without its channel details is fetched again.
+    if ($hit && !empty($hit['media']) && $storyTitle !== '') {
+        $ch = $hit['channel'] ?? null;
+        if (!is_array($ch) || empty($ch['item'])) {
+            if (!$liveLookups) return [];
+            $hit = null;
+        } elseif (!yt_channel_same_person((array)$ch['item'], (int)($ch['subs'] ?? 0), $name, $storyTitle, $liveLookups)) {
+            return [];
+        }
+    }
     if ($hit && (time() - (int)($hit['at'] ?? 0)) < VP_TTL_MEDIA) {
         return $pick((array)($hit['media'] ?? []));
     }
     if (!$liveLookups) return [];                      // web request: cache only
     $media = [];
+    $channel = null;
     try {
-        foreach ((drama_channel_media($name, VP_PHOTOS_MAX * 2)['thumbs'] ?? []) as $t) {
+        $cm = drama_channel_media($name, VP_PHOTOS_MAX * 2, $storyTitle);
+        if (!empty($cm['channel_item'])) $channel = ['item' => $cm['channel_item'], 'subs' => (int)($cm['subs'] ?? 0)];
+        foreach (($cm['thumbs'] ?? []) as $t) {
             // r29 RESOLUTION: hqdefault is 480x360 — once the shot zooms in it
             // turns to mush (the owner saw blurry face crops). Prefer the biggest
             // variant that ACTUALLY exists (maxres 1280x720 -> hq720 -> sd 640x480),
@@ -409,6 +445,7 @@ function video_person_recent_media(string $name, int $max = 4, bool $liveLookups
     } catch (Throwable $e) { $media = []; }
     $cache = vp_cache_load();                          // reload: lookups take seconds
     $cache[$key] = ['media' => $media, 'at' => time()];
+    if ($channel) $cache[$key]['channel'] = $channel;   // for the per-story check
     vp_cache_save($cache);
     return $pick($media);
 }
