@@ -8,7 +8,8 @@
 //   php app/cli.php sitemap               - regenerate sitemap.xml
 if (PHP_SAPI !== 'cli') { http_response_code(403); exit('cli only'); }
 
-$GLOBALS['CONFIG'] = require __DIR__ . '/config.php';
+// Use bootstrap instead of direct config require for .env support
+require_once __DIR__ . '/bootstrap.php';
 require __DIR__ . '/helpers.php';
 require __DIR__ . '/db.php';
 require_once __DIR__ . '/gate.php';
@@ -982,7 +983,7 @@ switch ($cmd) {
         require_once __DIR__ . '/quality.php';
         require_once __DIR__ . '/sitemap_lib.php';
         require_once __DIR__ . '/indexnow.php';
-        $N = ($arg && ctype_digit($arg)) ? max(1, min(10, (int)$arg)) : 2; // builds per tick (hourly cron x2 = quota-safe steady drip)
+        $N = ($arg && ctype_digit($arg)) ? max(1, min(10, (int)$arg)) : 5; // increased from 2 to 5 to support 15/day drip
         echo "[" . date('c') . "] autopilot tick (N={$N}, auto_publish=" . (!empty($CONFIG['auto_publish']) ? 'ON' : 'off') . ")\n";
 
         // ---- REDDIT RADAR: pre-draft comments for new opportunities so the admin

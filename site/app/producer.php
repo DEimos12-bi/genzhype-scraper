@@ -48,9 +48,9 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/db.php';
 
-const PRODUCER_SLOTS      = 5;     // the budget meeting's chairs
-const PRODUCER_MAX_DRAMA  = 3;     // front-page balance: never an all-drama day
-const PRODUCER_MIN_TERM   = 1;     // the slang/meme/gaming lane always eats
+const PRODUCER_SLOTS      = 15;     // the budget meeting's chairs
+const PRODUCER_MAX_DRAMA  = 10;     // front-page balance: allow more drama for growth
+const PRODUCER_MIN_TERM   = 3;      // ensure a stronger slang/meme presence
 const PRODUCER_FLOOR      = 0.12;  // below this a pick is not worth a render
 
 /** Tables. Idempotent; safe to call on every run. */
