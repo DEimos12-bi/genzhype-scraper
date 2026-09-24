@@ -88,19 +88,19 @@ function pb_install(PDO $pdo): void {
  */
 function pb_seed_data(): array {
     return [
-        // kind, slot, key, label, body
+        // kind, slot, key, label, body, parent_skill_key, trigger_metadata
         ['hook', 0, 'hook_in_medias_res', 'IN-MEDIAS-RES',
-         'IN-MEDIAS-RES: open mid-conflict on the NEWEST, most explosive development — zero setup, as if the viewer walked in on the fight'],
+         'IN-MEDIAS-RES: open mid-conflict on the NEWEST, most explosive development — zero setup, as if the viewer walked in on the fight', 'trigger_social_proof', '{"min_people": 3}'],
         ['hook', 1, 'hook_declarative_bomb', 'DECLARATIVE BOMB',
-         'DECLARATIVE BOMB: "[Name] just [did the shocking thing] — and the receipts are worse." Named person + completed action + tension'],
+         'DECLARATIVE BOMB: "[Name] just [did the shocking thing] — and the receipts are worse." Named person + completed action + tension', 'trigger_contradiction', '{"min_conflict": 8}'],
         ['hook', 2, 'hook_stakes_tease', 'STAKES TEASE',
-         'STAKES TEASE: lead with the consequence ("This one screenshot might end his career"), then reveal whose'],
+         'STAKES TEASE: lead with the consequence ("This one screenshot might end his career"), then reveal whose', 'trigger_curiosity_gap', '{"min_mystery": 7}'],
         ['grave_hook', 0, 'grave_factual_explainer', 'FACTUAL EXPLAINER',
-         'FACTUAL EXPLAINER: "What happened to [name], explained." Calm, direct, factual, zero hype.'],
+         'FACTUAL EXPLAINER: "What happened to [name], explained." Calm, direct, factual, zero hype.', 'trigger_sober_truth', '{"gravity": "grave"}'],
         ['grave_hook', 1, 'grave_timeline_opener', 'TIMELINE OPENER',
-         'TIMELINE OPENER: "The [name] case, from the first report to today." Measured, chronological framing.'],
+         'TIMELINE OPENER: "The [name] case, from the first report to today." Measured, chronological framing.', 'trigger_sober_truth', '{"gravity": "grave"}'],
         ['grave_hook', 2, 'grave_confirmed_update', 'CONFIRMED UPDATE',
-         'CONFIRMED UPDATE: "Here is what is actually confirmed in the [name] story." Sober; separates fact from rumor.'],
+         'CONFIRMED UPDATE: "Here is what is actually confirmed in the [name] story." Sober; separates fact from rumor.', 'trigger_sober_truth', '{"gravity": "grave"}'],
     ];
 }
 
@@ -109,11 +109,11 @@ function pb_seed(PDO $pdo): int {
     pb_install($pdo);
     $n = 0;
     $st = $pdo->prepare(
-        "INSERT INTO skill (kind, skill_key, label, body, slot, version, active, source, created_at)
-         VALUES (?,?,?,?,?,1,1,'seeded-from-code',UTC_TIMESTAMP())
-         ON DUPLICATE KEY UPDATE kind=VALUES(kind), label=VALUES(label), slot=VALUES(slot)");
-    foreach (pb_seed_data() as [$kind, $slot, $key, $label, $body]) {
-        $st->execute([$kind, $key, $label, $body, $slot]);
+        "INSERT INTO skill (kind, skill_key, label, body, slot, version, active, source, created_at, parent_skill_key, trigger_metadata)
+         VALUES (?,?,?,?,?,1,1,'seeded-from-code',UTC_TIMESTAMP(),?,?)
+         ON DUPLICATE KEY UPDATE kind=VALUES(kind), label=VALUES(label), slot=VALUES(slot), parent_skill_key=VALUES(parent_skill_key), trigger_metadata=VALUES(trigger_metadata)");
+    foreach (pb_seed_data() as [$kind, $slot, $key, $label, $body, $parent, $meta]) {
+        $st->execute([$kind, $key, $label, $body, $slot, $parent, $meta]);
         $n++;
     }
     return $n;
@@ -266,6 +266,71 @@ function pb_winrates(PDO $pdo, string $kind = ''): array {
     }
     usort($out, fn($a, $b) => [$b['rate'], $b['n']] <=> [$a['rate'], $a['n']]);
     return ['median' => $median, 'skills' => $out];
+}
+
+/**
+ * Attribution loop for Psychological Triggers.
+ * Maps views to the trigger used in the script.
+ */
+function pb_trigger_winrates(PDO $pdo): array {
+    $median = pb_own_median($pdo);
+
+    // Join video_scripts (trigger used) with metrics
+    $rows = $pdo->query("
+        SELECT vs.psychological_trigger, MAX(m.views) as views
+        FROM video_scripts vs
+        JOIN platform_videos pv ON pv.page_id = vs.page_id
+        JOIN platform_metrics m ON m.video_id = pv.id
+        WHERE vs.psychological_trigger IS NOT NULL
+        GROUP BY vs.psychological_trigger
+        HAVING views > 0
+    ")->fetchAll(PDO::FETCH_ASSOC);
+
+    $labels = [];
+    try {
+        foreach ($pdo->query("SELECT skill_key, label FROM skill") as $s)
+            $labels[(string)$s['skill_key']] = $s['label'];
+    } catch (Throwable $e) {}
+
+    $out = [];
+    foreach ($rows as $r) {
+        $trigger = $r['psychological_trigger'];
+        $views = (int)$r['views'];
+
+        // For simplicity in this first pass, we use a simple binary 'above median' count
+        // but we'll need to gather ALL videos for that trigger to get a real rate.
+        $allForTrigger = $pdo->prepare("
+            SELECT MAX(m.views) as v
+            FROM video_scripts vs
+            JOIN platform_videos pv ON pv.page_id = vs.page_id
+            JOIN platform_metrics m ON m.video_id = pv.id
+            WHERE vs.psychological_trigger = ?
+            GROUP BY vs.page_id
+        ");
+        $allForTrigger->execute([$trigger]);
+        $vs = $allForTrigger->fetchAll(PDO::FETCH_COLUMN);
+        $vs = array_map('floatval', $vs);
+
+        $n = count($vs);
+        $above = count(array_filter($vs, fn($v) => $v >= $median));
+        $rate = $n ? $above / $n : 0.0;
+
+        sort($vs);
+        $m = intdiv($n, 2);
+        $skMed = $n % 2 ? ($vs[$m] ?? 0) : (($vs[$m-1] ?? 0) + ($vs[$m] ?? 0)) / 2;
+
+        $out[] = [
+            'trigger_key' => $trigger,
+            'label' => $labels[$trigger] ?? $trigger,
+            'n' => $n,
+            'median' => $skMed,
+            'rate' => round($rate, 3),
+            'verdict' => $n < PB_MIN_SAMPLE ? 'TOO-EARLY' : 'MEASURED'
+        ];
+    }
+
+    usort($out, fn($a, $b) => $b['rate'] <=> $a['rate']);
+    return ['median' => $median, 'triggers' => $out];
 }
 
 /**

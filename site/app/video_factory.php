@@ -155,6 +155,16 @@ function video_write_script(PDO $pdo, array $pick): ?array {
     $summaryTxt = (string)($pick['summary'] ?: $pick['meta_desc']);
     $gravity = video_story_gravity((string)$pick['title'], $summaryTxt, $beats);
 
+    // --- HOOK ENGINE: PSYCHOLOGICAL TRIGGER MATRIX ---
+    // Replace modulo rotation with a metadata-driven trigger lookup.
+    $trigger = video_pick_trigger($pdo, $pick['slug'], $gravity, $summaryTxt, $beats);
+    if ($trigger) {
+        // Record the trigger used for this video to enable the attribution loop.
+        $pdo->prepare("UPDATE video_scripts SET psychological_trigger=? WHERE page_id=?")
+            ->execute([$trigger['skill_key'], (int)$pick['id']]);
+    }
+    // -------------------------------------------------
+
     // ------------------------------------------------------------------
     // r59 LENGTH FOLLOWS THE PICTURES (owner-approved).
     // The video's runtime IS the narration's length — nothing downstream ever
@@ -206,22 +216,28 @@ function video_write_script(PDO $pdo, array $pick): ?array {
               . "{$wLo}-{$wHi} words ({$secs}s) for {$pick['slug']}");
     if ($gravity === 'grave') {
         $death = video_story_involves_death($pick['title'] . ' ' . $summaryTxt . ' ' . $beats);
-        $graveHooks = [
-            'FACTUAL EXPLAINER: "What happened to [name], explained." Calm, direct, factual, zero hype.',
-            'TIMELINE OPENER: "The [name] case, from the first report to today." Measured, chronological framing.',
-            'CONFIRMED UPDATE: "Here is what is actually confirmed in the [name] story." Sober; separates fact from rumor.',
-        ];
-        // THE PLAYBOOK (organ 12). The archetype now comes from the skill library,
-        // which can version and retire one. With every skill active this returns
-        // exactly what the array above returns - proven in pb_selftest, not assumed.
-        // The array stays as the fallback: the library may never be the reason a
-        // video fails to get written.
-        $style = $graveHooks[(crc32($pick['slug']) & 0x7fffffff) % 3];
+
+        // THE PLAYBOOK (organ 12).
+        $style = '';
         try {
             require_once __DIR__ . '/playbook.php';
             $sk = pb_pick($pdo, 'grave_hook', (string)$pick['slug'], true);
-            if ($sk) { $style = (string)$sk['body']; pb_record_use($pdo, (string)$sk['skill_key'], (int)($pick['id'] ?? $pick['page_id'] ?? 0)); }
-        } catch (Throwable $e) { error_log('playbook grave: ' . $e->getMessage()); }
+            if ($sk) {
+                $style = (string)$sk['body'];
+                pb_record_use($pdo, (string)$sk['skill_key'], (int)($pick['id'] ?? $pick['page_id'] ?? 0));
+            } else {
+                $graveHooks = [
+                    'FACTUAL EXPLAINER: "What happened to [name], explained." Calm, direct, factual, zero hype.',
+                    'TIMELINE OPENER: "The [name] case, from the first report to today." Measured, chronological framing.',
+                    'CONFIRMED UPDATE: "Here is what is actually confirmed in the [name] story." Sober; separates fact from rumor.',
+                ];
+                $style = $graveHooks[(crc32($pick['slug']) & 0x7fffffff) % 3];
+            }
+        } catch (Throwable $e) {
+            error_log('playbook grave: ' . $e->getMessage());
+            $style = 'FACTUAL EXPLAINER: "What happened to [name], explained." Calm, direct, factual, zero hype.';
+        }
+
         $sys = "You write the voiceover for a {$secs} second VERTICAL news-recap video (TikTok/Reels/Shorts) for a US Gen Z "
              . "internet-culture channel. THIS IS A GRAVE STORY (a death, serious violence or a serious human tragedy is "
              . "involved): the register is a measured, respectful news explainer. No hype, no drama-tease energy, no jokes. "
@@ -253,17 +269,35 @@ function video_write_script(PDO $pdo, array $pick): ?array {
     // reference_video_creator_playbook): 60-90s master = TikTok-monetizable (60s+ gate)
     // + the documented >1min reach premium + Reels' best band. Hook archetype ROTATES
     // per topic (anti-template variation = the #1 monetization survival rule).
-    $hookStyles = [
-        'IN-MEDIAS-RES: open mid-conflict on the NEWEST, most explosive development — zero setup, as if the viewer walked in on the fight',
-        'DECLARATIVE BOMB: "[Name] just [did the shocking thing] — and the receipts are worse." Named person + completed action + tension',
-        'STAKES TEASE: lead with the consequence ("This one screenshot might end his career"), then reveal whose',
-    ];
-    $style = $hookStyles[crc32($pick['slug']) % 3];
+
+    // --- HOOK ENGINE: PSYCHOLOGICAL TRIGGER MATRIX ---
+    // Use the target trigger (from matrix lookup) to drive the AI's goal.
+    $trigger = $trigger ?? null; // $trigger was already calculated at the top of video_write_script
+    $style = '';
     try {
         require_once __DIR__ . '/playbook.php';
-        $sk = pb_pick($pdo, 'hook', (string)$pick['slug'], false);
-        if ($sk) { $style = (string)$sk['body']; pb_record_use($pdo, (string)$sk['skill_key'], (int)($pick['id'] ?? $pick['page_id'] ?? 0)); }
-    } catch (Throwable $e) { error_log('playbook hook: ' . $e->getMessage()); }
+        // Use the target trigger's specific skill if available, otherwise fallback to the original pb_pick rotation.
+        if ($trigger && isset($trigger['body'])) {
+            $style = $trigger['body'];
+        } else {
+            $sk = pb_pick($pdo, 'hook', (string)$pick['slug'], false);
+            if ($sk) {
+                $style = (string)$sk['body'];
+                pb_record_use($pdo, (string)$sk['skill_key'], (int)($pick['id'] ?? $pick['page_id'] ?? 0));
+            } else {
+                $hookStyles = [
+                    'IN-MEDIAS-RES: open mid-conflict on the NEWEST, most explosive development — zero setup, as if the viewer walked in on the fight',
+                    'DECLARATIVE BOMB: "[Name] just [did the shocking thing] — and the receipts are worse." Named person + completed action + tension',
+                    'STAKES TEASE: lead with the consequence ("This one screenshot might end his career"), then reveal whose',
+                ];
+                $style = $hookStyles[crc32($pick['slug']) % 3];
+            }
+        }
+    } catch (Throwable $e) {
+        error_log('playbook hook: ' . $e->getMessage());
+        $style = 'IN-MEDIAS-RES: open mid-conflict on the NEWEST, most explosive development — zero setup, as if the viewer walked in on the fight';
+    }
+
     // r12 HOOK ARSENAL (DIRECTOR-UPGRADE-RESEARCH.md §2 — MIT-licensed formula corpus,
     // rediumvex/viral-hooks-skill + our validated re-hooks). Rotation is pinned per slug
     // so no two consecutive videos open with the same formula.
@@ -296,6 +330,8 @@ function video_write_script(PDO $pdo, array $pick): ?array {
              . 'PAIRING RULE: the ON-SCREEN text hook uses a stop-scroll class (negation, number, question) while the SPOKEN first sentence uses a retention class (story, stakes); two different classes, never the same line twice. ';
     $sys = "You write the voiceover for a {$secs} second VERTICAL drama-recap video (TikTok/Reels/Shorts) for a US Gen Z "
          . "internet-culture channel, engineered like a top human creator. "
+         . "GOAL: Use the psychological trigger [{$trigger['label']}] to maximize retention. "
+         . "The goal of this trigger is: {$trigger['body']} "
          . "HOOK (first sentence, <=12 spoken words): use this archetype -> {$style}. No greeting, no intro, no channel name. "
          . "BEAT TEMPLATE after the hook: (1) one-sentence catch-up ONLY ('quick context:'), (2) the receipts in RISING-stakes "
          . "order, one specific dated fact per sentence — open at 80% intensity and save the single biggest fact for near the END, "
