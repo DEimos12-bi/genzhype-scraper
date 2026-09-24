@@ -1,8 +1,10 @@
 """r190 HOOK LEARNING LOOP - the learning half, on GitHub's machines.
 
 Input  laya-feed/feed.json (pushed by the server, app/laya_hooks.php):
-         train: posted hooks + label = how the video did (rank within each
-                platform, averaged over the platforms it went to, 0..1)
+         train: r190b - WINNING CREATORS' hooks (YouTube titles, Instagram
+                caption first lines), each ranked 0..1 against that same
+                creator's own posts (owner: our data is too weak to teach)
+         check: our own posted hooks + how they did - a transfer check only
          score: the hooks of videos still waiting (current + alternatives)
 Output laya-out/hooks/report.json   what was learned and how well it tests
        laya-out/hooks/scores.json   a 0..1 score for every waiting hook
@@ -13,10 +15,10 @@ hooks, retraining a 421M-parameter model would memorise them. Laya answers a
 few questions about each hook (would it stop the scroll? does it create
 curiosity? is it specific?), plain text facts are added (length, a number, a
 question mark, capitals), and a logistic regression learns which of those
-actually go with views. It is tested only on hooks it did not train on
-(repeated 5-fold cross-validation) and replaces Laya's raw "stops the scroll"
-answer ONLY if it tests clearly better. Zero-shot baseline measured
-2026-09-24: AUC 0.653 on TikTok top vs bottom third.
+actually go with beating the creator's own normal. It is tested on WHOLE
+CREATORS it never trained on (5-fold, grouped by creator) and replaces Laya's
+raw "stops the scroll" answer ONLY if it tests clearly better. Our own posted
+hooks are scored at the end as a transfer check, never as the teacher.
 """
 import json
 import os
@@ -31,6 +33,7 @@ FEED = "laya-feed/feed.json"
 PREV = "laya-prev/hooks/features.json"
 OUT = "laya-out/hooks"
 MARGIN = 0.02          # the model must beat the zero-shot baseline by this much
+READ_BUDGET_S = 95 * 60 # the first run reads ~2,300 hooks at ~1.1 s; later runs only new ones
 QUESTIONS = {
     "stops_scroll": {"type": "noul", "instructions": "Would the on-screen hook `hook` make a Gen Z viewer stop scrolling on TikTok?"},
     "curiosity": {"type": "noul", "instructions": "Does `hook` create curiosity or tension that makes you need the answer?"},
@@ -72,14 +75,25 @@ def main():
     import laya
     router = laya.Router()
     t0 = time.time()
-    todo = {h for h in [r["hook"] for r in train] + [r["hook"] for r in pending] if h not in cache}
-    for h in sorted(todo):
+    check = feed.get("check", [])
+    # waiting hooks first (they are what we act on), then our check set, then rivals
+    order = [r["hook"] for r in pending] + [r["hook"] for r in check] + [r["hook"] for r in train]
+    todo = [h for h in dict.fromkeys(order) if h not in cache]
+    done = 0
+    for h in todo:
+        if time.time() - t0 > READ_BUDGET_S:
+            say(f"read budget spent; {len(todo) - done} hook(s) left for the next run")
+            break
         try:
             ans = to_plain(router.predict({"hook": h}, QUESTIONS)).get("answers", {})
             cache[h] = {q: ans.get(q, {}).get("noul") for q in QUESTIONS}
         except Exception:  # noqa: BLE001
             say("laya failed on", repr(h[:60]), traceback.format_exc()[-300:])
-    say(f"read {len(todo)} new hook(s) in {time.time() - t0:.0f}s")
+        done += 1
+        if done % 200 == 0:          # a timeout must not throw the work away
+            json.dump(cache, open(os.path.join(OUT, "features.json"), "w", encoding="utf-8"), ensure_ascii=False)
+            say(f"  ...{done}/{len(todo)} read")
+    say(f"read {done} new hook(s) in {time.time() - t0:.0f}s")
     json.dump(cache, open(os.path.join(OUT, "features.json"), "w", encoding="utf-8"), ensure_ascii=False)
 
     names = list(QUESTIONS) + TEXT_FEATURES
@@ -90,22 +104,26 @@ def main():
         return [float(f.get(n) if f.get(n) is not None else 0.5) for n in names]
 
     rows = [r for r in train if r["hook"] in cache]
-    median = statistics.median(r["label"] for r in rows)
     X = [vec(r["hook"]) for r in rows]
-    y = [1 if r["label"] >= median else 0 for r in rows]
+    # label is already a rank inside the creator's own posts: >= 0.5 = beat their median
+    y = [1 if r["label"] >= 0.5 else 0 for r in rows]
+    groups = [r.get("creator", "?") for r in rows]
     zero = [cache[r["hook"]]["stops_scroll"] for r in rows]
-    report = {"date": feed.get("generated"), "n_train": len(rows), "median_label": median,
+    report = {"date": feed.get("generated"), "teacher": "rival creators, each vs their own median",
+              "n_train": len(rows), "n_creators": len(set(groups)),
               "zero_shot_auc": round(auc(zero, y), 3), "features": names}
 
     import numpy as np
     from sklearn.linear_model import LogisticRegression
-    from sklearn.model_selection import RepeatedStratifiedKFold
+    from sklearn.model_selection import GroupKFold
     from sklearn.pipeline import make_pipeline
     from sklearn.preprocessing import StandardScaler
 
     Xa, ya = np.array(X), np.array(y)
     fold_aucs, fold_zero = [], []
-    for tr, te in RepeatedStratifiedKFold(n_splits=5, n_repeats=10, random_state=7).split(Xa, ya):
+    # hold out WHOLE CREATORS: a good score means it learned something that
+    # carries to an account it never saw - which is what our account is
+    for tr, te in GroupKFold(n_splits=5).split(Xa, ya, groups):
         m = make_pipeline(StandardScaler(), LogisticRegression(C=0.5, max_iter=500))
         m.fit(Xa[tr], ya[tr])
         fold_aucs.append(auc(list(m.predict_proba(Xa[te])[:, 1]), list(ya[te])))
@@ -121,6 +139,15 @@ def main():
     say(f"tested on unseen hooks: model AUC {report['model_cv_auc']} vs zero-shot "
         f"{report['zero_shot_cv_auc']} -> scorer = {report['scorer']}")
     say("what the model learned (positive = goes with more views):", report["weights"])
+
+    ours = [r for r in check if r["hook"] in cache]
+    if len(ours) >= 20:
+        med = statistics.median(r["label"] for r in ours)
+        oy = [1 if r["label"] >= med else 0 for r in ours]
+        report["check_on_ours_model_auc"] = round(auc([float(final.predict_proba(np.array([vec(r["hook"])]))[0, 1]) for r in ours], oy), 3)
+        report["check_on_ours_zero_shot_auc"] = round(auc([cache[r["hook"]]["stops_scroll"] for r in ours], oy), 3)
+        say(f"transfer check on our own {len(ours)} posted hooks: model AUC {report['check_on_ours_model_auc']}, "
+            f"zero-shot {report['check_on_ours_zero_shot_auc']} (information only; ours never teach)")
 
     scores = []
     for r in pending:

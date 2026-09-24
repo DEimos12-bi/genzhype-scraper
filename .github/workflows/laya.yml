@@ -18,9 +18,9 @@ name: laya
 # polling the GitHub API (that burned the 60/h unauthenticated limit before).
 
 on:
-  # r190 HOOK LEARNING LOOP: learn from yesterday's views every morning (UTC)
+  # r190 HOOK LEARNING LOOP: learn from the latest views and score waiting hooks
   schedule:
-    - cron: "40 5 * * *"
+    - cron: "40 */4 * * *"      # 23 min after each render slot (17 */4), so fresh scores are ready for the next one
   push:
     branches: [main]
     paths:
@@ -36,7 +36,9 @@ concurrency:
 jobs:
   classify:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # r190b: the first hook-loop run reads ~2,300 rival hooks (~45 min on CPU);
+    # later runs read only new ones from the cache. Public-repo minutes are free.
+    timeout-minutes: 120
     permissions:
       contents: read
     steps:
