@@ -67,6 +67,39 @@ SVG;
     return cover_rasterize($path) ?? ('/assets/covers/' . $slug . '.svg');
 }
 
+/** The drafting prompt: [system, user]. Its own function so a draft can be tested without writing a page. */
+function draft_drama_prompt(array $input): array {
+    $srcBlock = '';
+    foreach ($input['sources'] as $i => $s) {
+        $n = $i + 1;
+        $srcBlock .= "SOURCE {$n}: publisher={$s['publisher']} url={$s['url']} date={$s['date']}\nEXCERPT: {$s['excerpt']}\n\n";
+    }
+
+    $sys = "You are the GenZHype drafting desk. You turn PROVIDED sources into a neutral, dated drama timeline. ABSOLUTE RULES: 1) Use ONLY facts present in the provided source excerpts. NEVER invent names, dates, quotes or events. 2) Neutral tone; no clickbait. 3) Any claim not confirmed by an official/primary statement => is_confirmed=0 AND the description must frame it: name who says so with 'according to <outlet or person>', or use alleged/reportedly/claims when the claim is contested. Frame each event once; do not stack hedges, and do not hedge plain facts nobody disputes (a release date, a view count) beyond naming the source. 4) Title tag must be 50-60 characters. Meta description must be 120-132 characters, one complete sentence. Summary must be 120-420 characters, answer-first (what happened + current status). 5) One event per distinct dated development: a different person acting, or a different statement, post, filing or announcement, is its own event. Include every one the sources support; never split a single post, video or article into several events, never repeat a fact across events, never pad. 6) Each event cites the source number(s) it came from. 7) people = the REAL public figures/creators central to this story, FULL real names (e.g. 'Kai Cenat', 'Jimmy Donaldson'), most important first, max 4 — used to pull their real photos. Only names actually in the sources. Output STRICT JSON only, no commentary.";
+
+    // Competitor Engine: append the live competitive bar (depth/structure/sourcing derived
+    // from real rival pages) so each draft is written to outrank what competitors publish.
+    require_once __DIR__ . '/distill.php';
+    try { $sys .= comp_brief_for_drafter(db()); } catch (Throwable $e) { /* no rules yet -> draft as before */ }
+
+    // 2026-09-24 EDITOR'S STANDARD. The editor (quality.php) failed most drafts on
+    // stale status, unanswered core question, padding and clickbait titles; these
+    // rules write to what it scores. They sit after the competitive bar so a word
+    // or angle target can never force padding on a one-source story.
+    $today = gmdate('F j, Y');
+    $sys .= "\n\nEDITOR'S STANDARD (an editor scores every page on search intent, people-first value, AI-citability, clarity and trust, and rejects it below 7/10 on any one; these rules win over any length or angle target above):"
+          . "\nA) DATES: an event's date is the day it HAPPENED as a source states it. A source's own publish date is not the date of things it describes as happening earlier. An earlier development is an event when a source states its month or year (use the date format given in the JSON shape); backstory with no stated date goes in background, never in events. The report itself may be an event on the article's date (e.g. 'Dexerto reports ...'). List events oldest first."
+          . "\nB) SUMMARY: sentence 1 answers what a searcher wants to know (who did what, when). The last sentence starts 'As of {$today},' and gives the current status, consistent with the latest event."
+          . "\nC) LIFECYCLE: resolved only when a source reports an ending (ruling, settlement, dismissal, release, apology accepted); dormant when the latest event is over 30 days before today and nothing is pending; otherwise ongoing."
+          . "\nD) TITLE, H1, TITLE TAG: say plainly what happened. Use verbs like admits, exposes, confirms, slams or leaks only when a source shows exactly that; no teasers, no questions, nothing the sources do not carry."
+          . "\nE) FAQS: 4 to 6 questions worded the way people search (for example 'Is the X lawsuit over?', 'What did X say about Y?', 'Why did X do Y?'). The first is about the current status and its answer starts 'As of {$today}'. Answers are 1 to 3 direct sentences, each claim attributed. No FAQ may just repeat the summary."
+          . "\nF) BACKGROUND: paragraph 1 = who the people are and the context a newcomer needs; paragraph 2 = why this matters (what is at stake, what it changes for fans, creators or players), only as far as the sources say it."
+          . "\nG) LENGTH FOLLOWS THE SOURCES: a story with one or two short sources gets a short, complete page. Depth comes only from facts in the sources. Never merge or drop distinct developments to make a page shorter.";
+
+    $user = "TODAY: " . gmdate('Y-m-d') . "\nTOPIC: {$input['topic']}\n\n{$srcBlock}\nReturn JSON exactly in this shape:\n{\n \"title\": \"page H1\",\n \"title_tag\": \"50-60 chars\",\n \"meta_desc\": \"120-132 chars\",\n \"summary\": \"answer-first 120-420 chars\",\n \"lifecycle\": \"ongoing|resolved|dormant\",\n \"mood\": \"conflict|scandal|sad|funny|hype|neutral (the story's emotional register)\",\n \"cover_big\": \"2-4 word cover headline\",\n \"cover_sub\": \"short subtitle\",\n \"people\": [\"Real Full Name\"],\n \"background\": [\"para1\",\"para2\"],\n \"events\": [{\"date\":\"YYYY-MM-DD, or YYYY-MM-00 when the sources give only a month, or YYYY-00-00 when they give only a year — NEVER invent a day the sources do not state\",\"title\":\"...\",\"desc\":\"...\",\"source_nums\":[1],\"is_confirmed\":1}],\n \"faqs\": [{\"q\":\"...\",\"a\":\"...\"}]\n}";
+    return [$sys, $user];
+}
+
 /**
  * draft_drama: $input = [
  *   'topic'   => working title / angle,
@@ -88,20 +121,7 @@ function draft_drama(array $input): array {
         return ['error' => 'need a topic and >= 2 sources with excerpts'];
     }
 
-    $srcBlock = '';
-    foreach ($input['sources'] as $i => $s) {
-        $n = $i + 1;
-        $srcBlock .= "SOURCE {$n}: publisher={$s['publisher']} url={$s['url']} date={$s['date']}\nEXCERPT: {$s['excerpt']}\n\n";
-    }
-
-    $sys = "You are the GenZHype drafting desk. You turn PROVIDED sources into a neutral, dated drama timeline. ABSOLUTE RULES: 1) Use ONLY facts present in the provided source excerpts. NEVER invent names, dates, quotes or events. 2) Neutral tone; no clickbait. 3) Any claim not confirmed by an official/primary statement => is_confirmed=0 AND the description must use alleged/reportedly/claims framing. 4) Title tag must be 50-60 characters. Meta description must be 120-132 characters. Summary must be 120-420 characters, answer-first (what happened + current status). 5) As many dated events as the sources genuinely support (target 8+ if supported; never pad). 6) Each event cites the source number(s) it came from. 7) people = the REAL public figures/creators central to this story, FULL real names (e.g. 'Kai Cenat', 'Jimmy Donaldson'), most important first, max 4 — used to pull their real photos. Only names actually in the sources. Output STRICT JSON only, no commentary.";
-
-    // Competitor Engine: append the live competitive bar (depth/structure/sourcing derived
-    // from real rival pages) so each draft is written to outrank what competitors publish.
-    require_once __DIR__ . '/distill.php';
-    try { $sys .= comp_brief_for_drafter(db()); } catch (Throwable $e) { /* no rules yet -> draft as before */ }
-
-    $user = "TOPIC: {$input['topic']}\n\n{$srcBlock}\nReturn JSON exactly in this shape:\n{\n \"title\": \"page H1\",\n \"title_tag\": \"50-60 chars\",\n \"meta_desc\": \"120-132 chars\",\n \"summary\": \"answer-first 120-420 chars\",\n \"lifecycle\": \"ongoing|resolved|dormant\",\n \"mood\": \"conflict|scandal|sad|funny|hype|neutral (the story's emotional register)\",\n \"cover_big\": \"2-4 word cover headline\",\n \"cover_sub\": \"short subtitle\",\n \"people\": [\"Real Full Name\"],\n \"background\": [\"para1\",\"para2\"],\n \"events\": [{\"date\":\"YYYY-MM-DD, or YYYY-MM-00 when the sources give only a month, or YYYY-00-00 when they give only a year — NEVER invent a day the sources do not state\",\"title\":\"...\",\"desc\":\"...\",\"source_nums\":[1],\"is_confirmed\":1}],\n \"faqs\": [{\"q\":\"...\",\"a\":\"...\"}]\n}";
+    [$sys, $user] = draft_drama_prompt($input);
 
     $res = ai_chat([
         ['role' => 'system', 'content' => $sys],
@@ -300,6 +320,8 @@ function draft_drama(array $input): array {
         }
 
         $pdo->commit();
+        // 2026-09-24 the timeline reads oldest first whatever order the model wrote it in
+        try { require_once __DIR__ . '/timeline_order.php'; events_resort($pdo, $dramaId); } catch (Throwable $e) { error_log('draft_drama resort: ' . $e->getMessage()); }
     } catch (Throwable $e) {
         // r151: the guard draft_term.php already had. A bare rollBack() on a
         // transaction the server already ended throws a SECOND exception.

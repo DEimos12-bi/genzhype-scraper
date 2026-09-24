@@ -101,7 +101,8 @@ function framing_repair_run(PDO $pdo, int $cap = 24, int $onlyPageId = 0): array
     foreach ($pages as $pid) {
         try {
             $g = gate_check_drama((int)$pid);
-            if (!empty($g['pass'])) {
+            // 2026-09-24 plus the publish step's own index rules (editor pass included)
+            if (!empty($g['pass']) && drama_index_block($pdo, (int)$pid) === '') {
                 $st = $pdo->prepare("UPDATE pages SET robots='index', updated_at=NOW()
                                       WHERE id=? AND robots='noindex'");
                 $st->execute([(int)$pid]);

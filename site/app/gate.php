@@ -24,6 +24,59 @@ const GATE_SUMMARY_MIN        = 120;
 const GATE_SUMMARY_MAX        = 420;
 
 /**
+ * The three rules a published story must meet before it is offered to Google.
+ * '' = it may be indexed; otherwise the reason it stays noindex. Shared by
+ * page_publish_live() and the nightly watchdog (2026-09-24: the watchdog
+ * re-indexed on the code gate alone, so 64 stories the editor had failed went
+ * to Google in 7 days, around the r168 rule below).
+ */
+function drama_index_block(PDO $pdo, int $pageId): string {
+    $unframed = 0;
+    try {
+        require_once __DIR__ . '/framing_repair.php';
+        $q = $pdo->prepare("SELECT COUNT(*) FROM events e
+                              JOIN dramas d ON d.id = e.drama_id
+                             WHERE d.page_id = ? AND e.is_confirmed = 0
+                               AND e.description NOT REGEXP ?");
+        $q->execute([$pageId, FR_FRAMING_RX]);
+        $unframed = (int)$q->fetchColumn();
+    } catch (Throwable $e) {
+        $unframed = 1;   // cannot verify => treat as unsafe, fail closed
+    }
+    if ($unframed > 0) {
+        return "DRAMA HOLD: published as NOINDEX ({$unframed} unframed claim(s) about real people)";
+    }
+    // the source-count bar lives HERE now: one source is enough to
+    // publish, two independent ones are what we ask before inviting
+    // Google to rank the claim.
+    $dq = $pdo->prepare("SELECT COUNT(DISTINCT s.domain) FROM sources s
+                           JOIN events e ON e.source_id = s.id
+                           JOIN dramas d ON d.id = e.drama_id
+                          WHERE d.page_id = ?");
+    $dq->execute([$pageId]);
+    if ((int)$dq->fetchColumn() < GATE_MIN_SOURCE_DOMAINS) {
+        return "PUBLISHED (noindex): single-source story — live on the site, not offered to Google";
+    }
+    // r168 (2026-09-13): the live quality judge (quality.php) says "publish
+    // requires a pass", but nothing here ever asked it. Its 5-score verdict
+    // was only a HOLD counter elsewhere, so the night its old failures were
+    // retired, pages 730/734/736 - failed 4 to 6 times each, and near-copies
+    // of pages already live - went straight to Google's index. A story is now
+    // offered to Google only if its LATEST quality verdict is a pass; with no
+    // verdict, or a failing one, it goes live noindex exactly like a
+    // single-source story, and earns index the day it passes.
+    $lq = $pdo->prepare("SELECT passed FROM ai_reviews WHERE page_id = ? AND stage = 'quality'
+                         ORDER BY id DESC LIMIT 1");
+    $lq->execute([$pageId]);
+    $latest = $lq->fetchColumn();
+    if ($latest === false || (int)$latest !== 1) {
+        return "PUBLISHED (noindex): " . ($latest === false ? 'no quality verdict yet' : 'latest quality verdict is a fail')
+           . " - live on the site, not offered to Google";
+    }
+    return '';
+}
+
+/**
  * SEO-BATCH-1 HOLDING ACTION (2026-08-04): THE SINGLE PLACE A PAGE GOES LIVE.
  *
  * The drama lane may still draft and archive, but it may NOT publish to index.
@@ -55,55 +108,11 @@ function page_publish_live(PDO $pdo, int $pageId): bool {
     // attribution; anything else publishes noindex exactly as before, and the
     // daily framing repair keeps eating the backlog until it qualifies.
     if ($isDrama) {
-        $unframed = 0;
-        try {
-            require_once __DIR__ . '/framing_repair.php';
-            $q = $pdo->prepare("SELECT COUNT(*) FROM events e
-                                  JOIN dramas d ON d.id = e.drama_id
-                                 WHERE d.page_id = ? AND e.is_confirmed = 0
-                                   AND e.description NOT REGEXP ?");
-            $q->execute([$pageId, FR_FRAMING_RX]);
-            $unframed = (int)$q->fetchColumn();
-        } catch (Throwable $e) {
-            $unframed = 1;   // cannot verify => treat as unsafe, fail closed
-        }
-        if ($unframed > 0) {
+        $why = drama_index_block($pdo, $pageId);
+        if ($why !== '') {
             $pdo->prepare("UPDATE pages SET status='published', robots='noindex',
                            published_at=NOW(), updated_at=NOW() WHERE id=?")->execute([$pageId]);
-            echo "  DRAMA HOLD: published as NOINDEX ({$unframed} unframed claim(s) about real people)\n";
-            return false;
-        }
-        // the source-count bar lives HERE now: one source is enough to
-        // publish, two independent ones are what we ask before inviting
-        // Google to rank the claim.
-        $dq = $pdo->prepare("SELECT COUNT(DISTINCT s.domain) FROM sources s
-                               JOIN events e ON e.source_id = s.id
-                               JOIN dramas d ON d.id = e.drama_id
-                              WHERE d.page_id = ?");
-        $dq->execute([$pageId]);
-        if ((int)$dq->fetchColumn() < GATE_MIN_SOURCE_DOMAINS) {
-            $pdo->prepare("UPDATE pages SET status='published', robots='noindex',
-                           published_at=NOW(), updated_at=NOW() WHERE id=?")->execute([$pageId]);
-            echo "  PUBLISHED (noindex): single-source story — live on the site, not offered to Google\n";
-            return false;
-        }
-        // r168 (2026-09-13): the live quality judge (quality.php) says "publish
-        // requires a pass", but nothing here ever asked it. Its 5-score verdict
-        // was only a HOLD counter elsewhere, so the night its old failures were
-        // retired, pages 730/734/736 - failed 4 to 6 times each, and near-copies
-        // of pages already live - went straight to Google's index. A story is now
-        // offered to Google only if its LATEST quality verdict is a pass; with no
-        // verdict, or a failing one, it goes live noindex exactly like a
-        // single-source story, and earns index the day it passes.
-        $lq = $pdo->prepare("SELECT passed FROM ai_reviews WHERE page_id = ? AND stage = 'quality'
-                             ORDER BY id DESC LIMIT 1");
-        $lq->execute([$pageId]);
-        $latest = $lq->fetchColumn();
-        if ($latest === false || (int)$latest !== 1) {
-            $pdo->prepare("UPDATE pages SET status='published', robots='noindex',
-                           published_at=NOW(), updated_at=NOW() WHERE id=?")->execute([$pageId]);
-            echo "  PUBLISHED (noindex): " . ($latest === false ? 'no quality verdict yet' : 'latest quality verdict is a fail')
-               . " - live on the site, not offered to Google\n";
+            echo "  {$why}\n";
             return false;
         }
         echo "  DRAMA CLEARED: framed + multi-sourced + passed the quality judge; publishing INDEXABLE\n";

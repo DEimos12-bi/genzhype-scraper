@@ -66,6 +66,10 @@ function watchdog_run(int $fixLimit = 4): array {
             if ($r['robots'] === 'index') { $pdo->prepare("UPDATE pages SET robots='noindex' WHERE id=?")->execute([$r['id']]); echo "  WD-PULLED {$r['slug']} (" . implode(',', $fails) . ")\n"; $pulled++; }
         } elseif ($r['type'] === 'drama') {
             $g = gate_check_drama((int)$r['id']);
+            // 2026-09-24 a noindex story earns index back only on the publish step's
+            // own rules (framed, 2+ sources, latest editor verdict a pass). The code
+            // gate alone re-indexed 64 stories the editor had failed in 7 days.
+            if ($g['pass'] && $r['robots'] !== 'index' && drama_index_block($pdo, (int)$r['id']) !== '') { $ok++; continue; }
             if ($g['pass']) { $setIndex($r['id'], $r['robots']); $ok++; continue; }
             if ($r['robots'] === 'index') { $pdo->prepare("UPDATE pages SET robots='noindex' WHERE id=?")->execute([$r['id']]); echo "  WD-PULLED {$r['slug']} (drama)\n"; $pulled++; }
         }
@@ -310,8 +314,12 @@ function velocity_drain(PDO $pdo, int &$slots, bool $dry = false): array {
 
 /** 2026-09-24: one page builder at a time (the hourly run vs the build worker). */
 function build_lock_acquire(): bool {
+    if (!empty($GLOBALS['__build_lock'])) return true;   // this run already holds it
     $GLOBALS['__build_lock'] = @fopen(__DIR__ . '/cache/build.lock', 'c');
-    return $GLOBALS['__build_lock'] && flock($GLOBALS['__build_lock'], LOCK_EX | LOCK_NB);
+    if ($GLOBALS['__build_lock'] && flock($GLOBALS['__build_lock'], LOCK_EX | LOCK_NB)) return true;
+    if ($GLOBALS['__build_lock']) @fclose($GLOBALS['__build_lock']);
+    $GLOBALS['__build_lock'] = null;
+    return false;
 }
 function build_lock_release(): void {
     if (!empty($GLOBALS['__build_lock'])) { @flock($GLOBALS['__build_lock'], LOCK_UN); @fclose($GLOBALS['__build_lock']); }
@@ -1218,10 +1226,20 @@ switch ($cmd) {
         // in-memory velocity $slots that could exceed the daily publish cap (the
         // anti scaled-content-abuse guard). The lock auto-releases on process exit.
         $BUILD_ONLY = !empty($GLOBALS['BUILD_ONLY']);
-        $GLOBALS['__cron_lock'] = fopen(sys_get_temp_dir() . '/genzhype_cron.lock', 'c');
-        if (!$GLOBALS['__cron_lock'] || !flock($GLOBALS['__cron_lock'], LOCK_EX | LOCK_NB)) {
-            echo "[" . date('c') . "] a tick is already running; skipping this fire\n";
-            break;
+        // 2026-09-24 the build worker takes ONLY the build lock. It first took this
+        // hourly lock too, so the 22:00 hourly run found it held and skipped the
+        // whole hour (discovery, video, intelligence).
+        if ($BUILD_ONLY) {
+            if (!build_lock_acquire()) {
+                echo "[" . date('c') . "] build worker: another builder is working; skipping this fire\n";
+                break;
+            }
+        } else {
+            $GLOBALS['__cron_lock'] = fopen(sys_get_temp_dir() . '/genzhype_cron.lock', 'c');
+            if (!$GLOBALS['__cron_lock'] || !flock($GLOBALS['__cron_lock'], LOCK_EX | LOCK_NB)) {
+                echo "[" . date('c') . "] a tick is already running; skipping this fire\n";
+                break;
+            }
         }
         // FLIGHT RECORDER: hPanel's cron discards stdout, which is how a 3-day publish
         // stall stayed invisible (SEO-GATE-FAIL echoed into the void, 2026-07-08..12).
@@ -1397,10 +1415,14 @@ switch ($cmd) {
         require_once __DIR__ . '/gate_term.php';
         require_once __DIR__ . '/quality.php';
         $dailyCap = (int)($CONFIG['daily_publish_cap'] ?? 12);
+        // The drain publishes pages, so it runs under the build lock too: the hourly
+        // run and the build worker never publish against the same count at once.
+        $drainLocked = build_lock_acquire();
         $pubToday = (int)$pdo->query("SELECT COUNT(*) FROM pages WHERE status='published' AND robots='index' AND published_at >= CURDATE()")->fetchColumn();
         $slots = max(0, $dailyCap - $pubToday);
         // drain the HELD queue via the single guarded path (see velocity_drain)
-        $dr = velocity_drain($pdo, $slots);
+        $dr = $drainLocked ? velocity_drain($pdo, $slots) : [];
+        if (!$drainLocked) echo "  velocity-drain: the build worker is working; skipped this run\n";
         if (!empty($dr['refused'])) echo "  velocity-drain: REFUSED ({$dr['why']})\n";
         echo "velocity: cap={$dailyCap} published_today={$pubToday} slots_left={$slots}\n";
         if ($BUILD_ONLY) {
