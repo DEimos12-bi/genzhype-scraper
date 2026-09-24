@@ -1902,7 +1902,7 @@ switch ($cmd) {
             // that old is no longer news. One cheap UPDATE per tick.
             try {
                 $aged = $pdo->exec("UPDATE video_scripts SET video_status='skipped',
-                                           skip_reason='no shot list after 7 days (the Director never planned it)'
+                                           skip_reason='set aside: no shot list after 7 days (the Director never planned it)'
                                      WHERE video_status='pending' AND tpl>=2 AND shotlist IS NULL
                                        AND created_at < NOW() - INTERVAL 7 DAY");
                 if ($aged) echo "  video: set aside {$aged} script(s) with no shot list after 7 days\n";

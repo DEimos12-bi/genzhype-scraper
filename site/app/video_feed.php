@@ -85,7 +85,7 @@ function video_feed_static_write(PDO $pdo): int {
     // remains the gate.
     $rows = $pdo->query("SELECT v.page_id, v.slug, v.title, v.hook, v.script, v.image, v.broll, v.shotlist, v.gravity, v.force_render, v.footage_clips, v.visual_plan
                          FROM video_scripts v JOIN pages p ON p.id=v.page_id
-                         WHERE p.status='published' AND v.video_status='pending'
+                         WHERE p.status='published' AND v.video_status='pending'" . video_parked_sql() . "
                            AND NOT (v.tpl >= 2 AND v.shotlist IS NULL)   -- r176: awaiting the Director
                          -- r188 (owner 2026-09-16: render the newest pages first). Measured that
                          -- day: our delivered videos were on average 33 DAYS old at render
@@ -133,4 +133,19 @@ function video_feed_static_write(PDO $pdo): int {
         if (!str_contains(basename($f), $token)) @unlink($f);
     }
     return count($posts);
+}
+
+/**
+ * 2026-09-24 PARKED PAGES LEAVE THE FEED. The renderer parks a page (dead
+ * letter, see video_maker.py) but that list lived only in a repo file, so parked
+ * pages kept their feed slots (8 static, 6 on the bridge) and newer pending pages
+ * waited behind them (page 692 sat 9th). The renderer now reports its park
+ * generation (heartbeat stage=GEN) and each park (stage=PARKED); a page parked
+ * under the CURRENT generation is left out. When the generation is bumped, the
+ * filter changes with it and parked pages get their fresh attempt.
+ */
+function video_parked_sql(): string {
+    $g = trim((string)@file_get_contents(__DIR__ . '/cache/maker_gen.txt'));
+    if (!preg_match('/^[0-9a-z]{2,40}$/', $g)) return '';
+    return " AND (v.parked_gen IS NULL OR v.parked_gen <> '{$g}')";
 }

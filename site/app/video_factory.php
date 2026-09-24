@@ -33,6 +33,9 @@ function video_factory_install(PDO $pdo): void {
         "ADD COLUMN gravity VARCHAR(10) NOT NULL DEFAULT 'standard'",
         "MODIFY COLUMN video_status ENUM('pending','ready','skipped') NOT NULL DEFAULT 'pending'",   // THE EYES: gated-out stories park here, out of every pending queue
         "ADD COLUMN skip_reason VARCHAR(200) NULL",   // r16: 'grave' = tragedy register (no debate outros)
+        // 2026-09-24: the renderer generation that parked this page (the heartbeat
+        // channel reports it; the job feeds skip pages parked under the current one)
+        "ADD COLUMN IF NOT EXISTS parked_gen VARCHAR(40) NULL",
     ] as $alter) { try { $pdo->exec("ALTER TABLE video_scripts {$alter}"); } catch (Throwable $e) {} }
 }
 
@@ -1631,11 +1634,13 @@ function video_rescue_skipped(PDO $pdo, int $limit = 1): int {
     // in between leaves the row holding a finished script but still marked
     // skipped (page 1012, 16 Sep). A script that exists IS the pending state.
     try {
-        // 2026-09-24: a script set aside ON PURPOSE by the 7-day age-out (cli.php)
+        // 2026-09-24: a script set aside ON PURPOSE (reason 'set aside: ...', e.g. the
+        // 7-day age-out in cli.php; the first age-out run wrote 'no shot list after')
         // also holds a finished script; healing it would bounce it back every
         // video hour, so those stay set aside.
         $healed = $pdo->exec("UPDATE video_scripts SET video_status='pending', skip_reason=NULL
                               WHERE video_status='skipped' AND CHAR_LENGTH(COALESCE(script,'')) > 50
+                                AND COALESCE(skip_reason,'') NOT LIKE 'set aside:%'
                                 AND COALESCE(skip_reason,'') NOT LIKE 'no shot list after%'");
         if ($healed) error_log("video rescue: {$healed} written-but-skipped script(s) released to pending");
     } catch (Throwable $e) {}

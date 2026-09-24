@@ -37,7 +37,7 @@ if ($mode === 'feed') {
     // Same query/shape video_feed_static_write() uses — reuse its builder.
     $rows = $pdo->query("SELECT v.page_id, v.slug, v.title, v.hook, v.script, v.image, v.broll, v.shotlist, v.gravity, v.force_render, v.footage_clips
                          FROM video_scripts v JOIN pages p ON p.id=v.page_id
-                         WHERE p.status='published' AND v.video_status='pending'
+                         WHERE p.status='published' AND v.video_status='pending'" . video_parked_sql() . "
                            -- r176: a Director-template script (tpl>=2) with no shot list is
                            -- waiting for the hourly Director (a judge reject NULLs it for a
                            -- replan). Rendered now it falls back to v3 stock b-roll: page 692,

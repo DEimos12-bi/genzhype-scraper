@@ -14,6 +14,7 @@ $GLOBALS['CONFIG'] = require $APP . '/config.php';
 require $APP . '/helpers.php';
 require $APP . '/db.php';
 require_once $APP . '/video_factory.php';
+require_once $APP . '/video_feed.php';   // video_parked_sql()
 header('Content-Type: application/json');
 
 // Accept params from a JSON POST body as well as GET. Hostinger's WAF intermittently
@@ -38,7 +39,7 @@ $done = array_filter(array_map('intval', explode(',', (string)($IN['done'] ?? ''
 $rows = $pdo->query("SELECT v.page_id, v.slug, v.title, v.hook, v.script, v.image, v.broll, v.shotlist, v.gravity, v.force_render
                      FROM video_scripts v JOIN pages p ON p.id=v.page_id
                      WHERE p.status='published' AND p.robots='index'
-                       AND v.video_status='pending' AND NOT (v.tpl >= 2 AND v.shotlist IS NULL)
+                       AND v.video_status='pending' AND NOT (v.tpl >= 2 AND v.shotlist IS NULL)" . video_parked_sql() . "
                      ORDER BY (v.shotlist IS NOT NULL) DESC, (v.tpl >= 2) DESC, v.created_at DESC LIMIT 40")->fetchAll();
 // directed scripts ALWAYS outrank undirected ones: a manual run must never burn a
 // script in fallback mode while a fully-directed video sits waiting

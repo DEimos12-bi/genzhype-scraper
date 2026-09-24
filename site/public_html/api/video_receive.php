@@ -37,6 +37,18 @@ if (is_array($json) && (string)($json['action'] ?? '') === 'heartbeat') {
     $note = $note !== '' ? ' note=' . preg_replace('/[[:cntrl:]]/', ' ', mb_substr($note, 0, 800)) : '';
     $line = gmdate('Y-m-d\TH:i:s\Z') . " pid=$pid stage=$stg elapsed=" . number_format($el, 1) . "s$note\n";
     @file_put_contents(dirname(__DIR__) . '/media/heartbeat.log', $line, FILE_APPEND | LOCK_EX);
+    // 2026-09-24 PARKS REACH THE DB (see video_parked_sql() in app/video_feed.php):
+    // stage=GEN carries the renderer's park generation at boot, stage=PARKED
+    // marks the page it just parked under that generation.
+    if (($stg === 'GEN' || $stg === 'PARKED') && preg_match('/gen=([0-9a-z]{2,40})/', $note, $gm)) {
+        if ($stg === 'GEN') {
+            @file_put_contents(dirname(__DIR__, 2) . '/app/cache/maker_gen.txt', $gm[1], LOCK_EX);
+        } elseif ($pid > 0) {
+            try {
+                db()->prepare("UPDATE video_scripts SET parked_gen=? WHERE page_id=?")->execute([$gm[1], $pid]);
+            } catch (Throwable $e) { error_log('video_receive: park mark failed: ' . $e->getMessage()); }
+        }
+    }
     echo json_encode(['ok' => true]);
     exit;
 }
