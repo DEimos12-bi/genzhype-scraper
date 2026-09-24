@@ -6,13 +6,25 @@
 
 // 1. Load Configuration from Environment
 if (!isset($_ENV['DB_HOST'])) {
-    $envFile = __DIR__ . '/../../.env';
-    if (file_exists($envFile)) {
-        $lines = file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-        foreach ($lines as $line) {
-            if (strpos(trim($line), '#') === 0) continue;
-            list($name, $value) = explode('=', $line, 2);
-            $_ENV[trim($name)] = trim($value);
+    // Try relative paths for both standard deployment and CLI runs
+    $paths = [
+        __DIR__ . '/../../.env',
+        __DIR__ . '/../.env',
+        '/home/u219414635/.env',
+        dirname(__DIR__, 2) . '/.env',
+    ];
+
+    foreach ($paths as $envFile) {
+        if (file_exists($envFile)) {
+            $lines = file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+            foreach ($lines as $line) {
+                $line = trim($line);
+                if ($line === '' || strpos($line, '#') === 0) continue;
+                if (strpos($line, '=') === false) continue;
+                list($name, $value) = explode('=', $line, 2);
+                $_ENV[trim($name)] = trim($value);
+            }
+            break; // Stop at the first found .env file
         }
     }
 }
