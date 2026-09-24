@@ -42,7 +42,7 @@ def mine_edges(rival_ids):
     cmd = (f"curl -fsSL --max-time 3000 {E_URL} | gzip -dc | "
            f"awk -v ids='{idset}' '{awk}' | sort -u")
     log("streaming + filtering the ~14GB edge graph (this is the slow part)...")
-    out = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, text=True)
+    out = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, text=True, timeout=3300)  # curl caps itself at 3000 s
     per_rival = {}
     for line in out.stdout.splitlines():
         f, r = line.split("\t")

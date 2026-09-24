@@ -40,7 +40,7 @@ OUT = "probe_out"
 os.makedirs(OUT, exist_ok=True)
 report = {"at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "results": [], "wins": []}
 
-ver = subprocess.run(["yt-dlp", "--version"], capture_output=True, text=True).stdout.strip()
+ver = subprocess.run(["yt-dlp", "--version"], capture_output=True, text=True, timeout=60).stdout.strip()
 report["yt_dlp"] = ver
 print("yt-dlp:", ver, flush=True)
 try:

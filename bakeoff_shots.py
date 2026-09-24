@@ -127,7 +127,7 @@ def run_pixelshot():
     exe = None
     for cand in ("pixelshot", os.path.expanduser("~/.local/bin/pixelshot")):
         if subprocess.run(["bash", "-lc", f"command -v {cand}"],
-                          capture_output=True).returncode == 0:
+                          capture_output=True, timeout=30).returncode == 0:
             exe = cand
             break
     if not exe:
