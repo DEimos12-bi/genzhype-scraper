@@ -22,7 +22,7 @@ if not m:
     print("FAIL: enforce_visual_variety not found in video_maker.py")
     sys.exit(1)
 mod = types.ModuleType("variety")
-mod.__dict__["VISUAL_MAX_SHARE"] = 0.34
+mod.__dict__["RUN"] = types.SimpleNamespace(VISUAL_MAX_SHARE=0.34)   # split step 1: knobs live on RUN
 mod.__dict__["log"] = types.SimpleNamespace(info=lambda *a, **k: None)
 exec(m.group(0), mod.__dict__)
 enforce = mod.enforce_visual_variety

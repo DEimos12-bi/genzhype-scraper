@@ -522,6 +522,10 @@ TTS_OUTER_RETRIES = 4          # outer retries around the whole TTS call (403 ri
 # its own stale copies and silently ignore the video's style. The knobs now
 # live on this one object, which every module can share by import.
 STYLE = SimpleNamespace()
+# Split step 1 (2026-09-24): the per-run and per-story values that several
+# functions set and read (story clips and words, the last EDL, the tuned
+# variety knobs, fetch and TTS counters) live here for the same reason.
+RUN = SimpleNamespace()
 
 # --- v2: scenes / motion ---
 MAX_SCENES = int(os.environ.get("VIDEO_MAX_SCENES", "8"))
@@ -702,20 +706,19 @@ TTS_CALL_TIMEOUT_S = int(os.environ.get("VIDEO_TTS_CALL_TIMEOUT", "45"))
 # stage cannot outlive its budget, so it always exits in time to be handled
 # instead of being force-killed by the watchdog at 420s.
 TTS_STAGE_BUDGET_S = int(os.environ.get("VIDEO_TTS_BUDGET", "300"))
-_TTS_DEADLINE = None           # set by tts_begin() when the stage starts
+RUN._TTS_DEADLINE = None           # set by tts_begin() when the stage starts
 
 
 def tts_begin():
     """Start the voice stage's wall clock. Called at _set_stage('tts')."""
-    global _TTS_DEADLINE
-    _TTS_DEADLINE = time.time() + TTS_STAGE_BUDGET_S
+    RUN._TTS_DEADLINE = time.time() + TTS_STAGE_BUDGET_S
 
 
 def tts_left():
     """Seconds of voice-stage budget remaining (inf when no stage clock)."""
-    if _TTS_DEADLINE is None:
+    if RUN._TTS_DEADLINE is None:
         return float("inf")
-    return _TTS_DEADLINE - time.time()
+    return RUN._TTS_DEADLINE - time.time()
 # r52: a photo needing more than this much upscale to COVER the frame is
 # rendered contained on a blurred fill instead of being stretched.
 COVER_MAX_UPSCALE = float(os.environ.get("VIDEO_COVER_MAX_UPSCALE", "1.35"))
@@ -726,7 +729,7 @@ CLIP_HUNT_MIN = int(os.environ.get("VIDEO_CLIP_HUNT_MIN", "3"))
 # the SAME clip. 6 was the pool-wide near-duplicate bar and far too loose here.
 CLIP_FRAME_MIN_DIFF = int(os.environ.get("VIDEO_CLIP_FRAME_MIN_DIFF", "14"))
 
-POOL_NO_REPEAT_WINDOW = 3      # r11: an image never reappears within 3 scenes
+RUN.POOL_NO_REPEAT_WINDOW = 3      # r11: an image never reappears within 3 scenes
 # r169 USE CAP: the judge samples one frame per shot and rejects an image seen in
 # 3+ frames. last_used only knows WHEN an image last appeared, never HOW OFTEN,
 # so a photo could leave the no-repeat window and come back again and again
@@ -820,15 +823,15 @@ REPLAN_CAP = int(os.environ.get("VIDEO_REPLAN_CAP", "3"))
 
 # r16: the judge pairs sampled frames with the EDL shot phrases spoken under
 # them; compose_video parks its final EDL here for make_one to pass along.
-LAST_EDL = None
+RUN.LAST_EDL = None
 
 # --- r12: pre-encode selfcheck (no AI; SELFCHECK log line every run) ---
 # r33 VARIETY LAW: no single still may carry more than this share of the still
 # scenes, and a story must reach VISUAL_POOL_MIN distinct visuals before
 # planning (Openverse tops up a thin pool). Both exist because one photo ran
 # under ~60% of the El Risitas video while the judge's repetition rule slept.
-VISUAL_MAX_SHARE = float(os.environ.get("VIDEO_MAX_VISUAL_SHARE", "0.34"))
-VISUAL_MAX_SHARE_BASE = VISUAL_MAX_SHARE
+RUN.VISUAL_MAX_SHARE = float(os.environ.get("VIDEO_MAX_VISUAL_SHARE", "0.34"))
+VISUAL_MAX_SHARE_BASE = RUN.VISUAL_MAX_SHARE
 # r56 (owner: "look for the ones already built and wire them safely"): the
 # Openverse top-up below IS the "add an image search" advice — key-free and
 # already implemented — but it only fired when the pool was under 4 images.
@@ -856,22 +859,21 @@ def tune_variety_for_pool(n_pool, n_scenes):
     "they keep repeating the same imgs" the owner sees. So: the richer the pool,
     the wider the window and the tighter the per-image share. Thin pools keep
     the old behaviour untouched (never stricter than the base)."""
-    global POOL_NO_REPEAT_WINDOW, VISUAL_MAX_SHARE
     n_pool = max(0, int(n_pool or 0))
     n_scenes = max(1, int(n_scenes or 1))
     if n_pool < 6:                       # thin pool: recycling is unavoidable
-        POOL_NO_REPEAT_WINDOW = POOL_NO_REPEAT_WINDOW_BASE
-        VISUAL_MAX_SHARE = VISUAL_MAX_SHARE_BASE
+        RUN.POOL_NO_REPEAT_WINDOW = POOL_NO_REPEAT_WINDOW_BASE
+        RUN.VISUAL_MAX_SHARE = VISUAL_MAX_SHARE_BASE
         return
     # Never revisit an image until most of the pool has been spent (cap 8 so a
     # huge pool can't starve the picker when some entries fail to download).
-    POOL_NO_REPEAT_WINDOW = max(POOL_NO_REPEAT_WINDOW_BASE, min(8, n_pool - 1))
+    RUN.POOL_NO_REPEAT_WINDOW = max(POOL_NO_REPEAT_WINDOW_BASE, min(8, n_pool - 1))
     # Ideal uses per image if we spread perfectly, +1 slack for pinned shots.
     ideal = math.ceil(n_scenes / float(n_pool))
-    VISUAL_MAX_SHARE = min(VISUAL_MAX_SHARE_BASE,
+    RUN.VISUAL_MAX_SHARE = min(VISUAL_MAX_SHARE_BASE,
                            max(0.10, (ideal + 1) / float(n_scenes)))
     log.info("VARIETY tuned for pool=%d scenes=%d -> window=%d max_share=%.2f",
-             n_pool, n_scenes, POOL_NO_REPEAT_WINDOW, VISUAL_MAX_SHARE)
+             n_pool, n_scenes, RUN.POOL_NO_REPEAT_WINDOW, RUN.VISUAL_MAX_SHARE)
 SELFCHECK_MIN_SHOT_S = 0.8     # scenes shorter than this are logged (warn only)
 CAPTION_COVERAGE_MIN = 0.80    # captions must cover >=80% of speech (warn only)
 
@@ -4114,7 +4116,7 @@ def build_visual_map(post, page_id, pool, shotlist):
 _YTIMG_RE = re.compile(
     r"https?://i\.ytimg\.com/vi(?:_webp)?/([A-Za-z0-9_-]{6,20})/")
 _FOOTAGE_CACHE = {}            # (video_id, window) -> local path or None
-_FOOTAGE_FETCHES = 0           # run-level yt-dlp attempt counter
+RUN._FOOTAGE_FETCHES = 0           # run-level yt-dlp attempt counter
 _YT_COOKIES_LOGGED = [False]   # r24: "footage: cookies active" logged once
 _RENDER_REPORT = {}            # r25: what the planner did (posted back w/ video)
 
@@ -4234,7 +4236,7 @@ def enforce_visual_variety(scenes, alt_paths, max_share=None,
     Pure list-in/list-out over {"path": ...} dicts so it is unit-testable
     offline (tools/variety_test.js has the same cases in JS for the crop; this
     one is exercised by tools/variety_test.py). Returns the number of swaps."""
-    max_share = max_share or VISUAL_MAX_SHARE
+    max_share = max_share or RUN.VISUAL_MAX_SHARE
     idxs = [i for i, s in enumerate(scenes)
             if s.get("path") and s.get("type") != "broll"]
     if len(idxs) < 4:
@@ -4298,7 +4300,6 @@ def fetch_story_footage(video_id, window=0):
     without) and a 2-4s sleep before every yt-dlp spawn when cookies are
     active. The caller ALWAYS has the thumbnail still as fallback. Never
     raises."""
-    global _FOOTAGE_FETCHES
     ck = yt_cookies_file()
     windows = FOOTAGE_WINDOWS_CK if ck else [FOOTAGE_SECTION]
     window = max(0, min(int(window or 0), len(windows) - 1))  # clamp
@@ -4330,13 +4331,13 @@ def fetch_story_footage(video_id, window=0):
     try:
         import shutil
         max_fetches = FOOTAGE_CK_MAX_FETCHES if ck else FOOTAGE_MAX_FETCHES
-        if _FOOTAGE_FETCHES >= max_fetches:
+        if RUN._FOOTAGE_FETCHES >= max_fetches:
             log.info("FOOTAGE fetch cap (%d) reached; thumbnail stills from "
                      "here", max_fetches)
         elif not shutil.which("yt-dlp"):
             log.info("FOOTAGE: yt-dlp not on PATH; thumbnail stills only")
         else:
-            _FOOTAGE_FETCHES += 1
+            RUN._FOOTAGE_FETCHES += 1
             outtmpl = os.path.join(WORKDIR, f"{stem}.%(ext)s")
             base = ["yt-dlp", "--no-playlist", "--quiet", "--no-warnings",
                     "-f", "bv*[height<=720][ext=mp4]/b[height<=720]",
@@ -4397,20 +4398,20 @@ def fetch_story_footage(video_id, window=0):
 # a whole SHORT clip (they are already short) which the scene layer trims+mutes.
 # ============================================================================
 _PLATFORM_CLIP_CACHE = {}
-_STORY_CLIPS = []          # r28: this story's harvested platform clip URLs
+RUN._STORY_CLIPS = []          # r28: this story's harvested platform clip URLs
                            # (Twitch/TikTok/Kick/YouTube), consumed as footage.
 # r45 MONEY MOMENT: url -> the seconds offset the REPORTER embedded the clip at
 # (youtube.com/embed/<id>?start=182 on the Brady/Logan Paul article = the exact
 # second of the slap). That offset is the most valuable number in the story: it
 # is where the event happens, so it is what the HOOK must show.
-_STORY_CLIP_START = {}
+RUN._STORY_CLIP_START = {}
 # r87 PROVENANCE. Clip URLs a reporter EMBEDDED in one of this story's own
 # source articles. Their topicality is established by publication, not by
 # guessing: a journalist writing about this story chose to put this video in
 # the piece. That outranks a vision model's opinion of one sampled frame —
 # which on page 192 threw away BOTH of the story's TikToks as "off-topic" and
 # left a clips-first video with zero footage.
-_STORY_CLIP_SRC = set()
+RUN._STORY_CLIP_SRC = set()
 # r172 CLIP FIT (render 34776749400, page 738: the attack clip, cut at 12s,
 # played over "then he was spotted at Adin"; scenes 2/7/8 carried hunted
 # clips titled "Cinna Tells Agent About Her First Time..." and "REACT TO
@@ -4423,9 +4424,9 @@ _STORY_CLIP_SRC = set()
 # non-name word with THAT beat's words (a name alone says who, never which
 # moment). Clips without a real title cannot prove a beat; they stay for the
 # opener, which is judged against the whole story.
-_STORY_CLIP_TEXT = {}      # clip url -> its own title/caption
-_STORY_NAME_WORDS = set()  # distinctive words of the story's people's names
-_STORY_TITLE_WORDS = set() # distinctive words of the story title (no-people fallback)
+RUN._STORY_CLIP_TEXT = {}      # clip url -> its own title/caption
+RUN._STORY_NAME_WORDS = set()  # distinctive words of the story's people's names
+RUN._STORY_TITLE_WORDS = set() # distinctive words of the story title (no-people fallback)
 _PLACEHOLDER_TITLE = re.compile(r"^\s*(tiktok\s*-\s*make your day|twitch|x|youtube)\s*$", re.I)
 _HASHTAG = re.compile(r"#\w+")
 
@@ -4437,22 +4438,22 @@ def clip_fits_words(url, phrase):
     labels, not a description of what the clip shows (measured: a GTA-map
     TikTok matched "visited Rockstar North" through #rockstar alone, and
     "jr almost getting arrested" matched "Gonzalez was arrested")."""
-    text = (_STORY_CLIP_TEXT.get(url)
-            or _STORY_CLIP_TEXT.get(str(url or "").split("#", 1)[0]) or "")
+    text = (RUN._STORY_CLIP_TEXT.get(url)
+            or RUN._STORY_CLIP_TEXT.get(str(url or "").split("#", 1)[0]) or "")
     if not text or _PLACEHOLDER_TITLE.match(text):
         return False
     text = _HASHTAG.sub(" ", text)
-    beat = distinctive_words(phrase) - _STORY_NAME_WORDS
+    beat = distinctive_words(phrase) - RUN._STORY_NAME_WORDS
     if not beat:
         return False
-    if _STORY_NAME_WORDS:
-        return (title_is_topical(text, _STORY_NAME_WORDS)
+    if RUN._STORY_NAME_WORDS:
+        return (title_is_topical(text, RUN._STORY_NAME_WORDS)
                 and title_is_topical(text, beat))
     # r176: a story with no named people has no WHO to anchor on, and one shared
     # word is the coincidence r87 warned about: page 692 ("Twitch Data Breach")
     # took "Breach - Oscrix on Twitch", a Path of Exile gameplay clip, on the
     # single word "breach". Require two distinct story words in the clip title.
-    hits = [w for w in _STORY_TITLE_WORDS if title_is_topical(text, {w})]
+    hits = [w for w in RUN._STORY_TITLE_WORDS if title_is_topical(text, {w})]
     return len(hits) >= 2 and title_is_topical(text, beat)
 
 
@@ -4964,7 +4965,6 @@ def fetch_platform_clip(url):
     """r28: download a short clip from ANY supported platform with the RIGHT
     method (proven by platform-check). Returns a local video path or None.
     Cached per URL per run; counts toward the run fetch cap; never raises."""
-    global _FOOTAGE_FETCHES
     _staged = _feed_local_clip(url)
     if _staged:
         log.info("CLIP staged by the server: %s (%s)",
@@ -4986,10 +4986,10 @@ def fetch_platform_clip(url):
         import shutil
         ck = yt_cookies_file()
         max_fetches = FOOTAGE_CK_MAX_FETCHES if ck else FOOTAGE_MAX_FETCHES
-        if _FOOTAGE_FETCHES >= max_fetches or not shutil.which("yt-dlp"):
+        if RUN._FOOTAGE_FETCHES >= max_fetches or not shutil.which("yt-dlp"):
             _PLATFORM_CLIP_CACHE[url] = None
             return None
-        _FOOTAGE_FETCHES += 1
+        RUN._FOOTAGE_FETCHES += 1
         stem = f"clip-{plat}-{hashlib.md5(url.encode()).hexdigest()[:12]}"
         outtmpl = os.path.join(WORKDIR, f"{stem}.%(ext)s")
         cmd = ["yt-dlp", "--no-playlist", "--quiet", "--no-warnings",
@@ -5008,7 +5008,7 @@ def fetch_platform_clip(url):
         # download the window AROUND that second rather than the video's opening
         # (a 40-minute panel stream opens on an empty stage; second 182 is the
         # slap). 2s of run-up + 8s after gives the hook something to cut into.
-        _st = _STORY_CLIP_START.get(url, 0)
+        _st = RUN._STORY_CLIP_START.get(url, 0)
         if _st > 0:
             _a = max(0, _st - 2)
             cmd[1:1] = ["--download-sections", f"*{_a}-{_a + 10}",
@@ -6719,7 +6719,7 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
     # upgraded to the next unused clip before falling back to a plain still.
     footage_enabled = (REAL_FOOTAGE
                        and os.environ.get("VIDEO_FOOTAGE_FETCH", "1") != "0")
-    clip_pool = list(_STORY_CLIPS) if footage_enabled else []
+    clip_pool = list(RUN._STORY_CLIPS) if footage_enabled else []
 
     # r17: planned-clip census + PRIORITY PREFETCH — the run-level yt-dlp
     # attempt cap (FOOTAGE_MAX_FETCHES) is spent on the Director's PLAN
@@ -6749,7 +6749,7 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                 s += min(edl[j]["end"] - edl[j]["start"], planned_scene_max)
         return n, s
 
-    def _recent_paths(k=POOL_NO_REPEAT_WINDOW):
+    def _recent_paths(k=RUN.POOL_NO_REPEAT_WINDOW):
         """Image paths of the last k scenes (any type) — the no-repeat window."""
         return {sc.get("path") for sc in scenes[-k:]}
 
@@ -6907,7 +6907,7 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
             # it read both of page 192's clips as "off-topic" and shipped a
             # clips-first video with no clips in it. Provenance wins; the gate
             # still guards every clip we merely FOUND.
-            _trusted = t_curl in _STORY_CLIP_SRC
+            _trusted = t_curl in RUN._STORY_CLIP_SRC
             if _tp and _trusted:
                 log.info("PROVENANCE: beat %d clip kept without a vision vote "
                          "(embedded in this story's own coverage)", si + 1)
@@ -6953,8 +6953,8 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
             # download — one predictable failure and the whole opener fix
             # silently reverted to the frozen still it exists to replace.
             # Money-moment clips (reporter timestamp) still rank first.
-            _cands = ([u for u in clip_pool if _STORY_CLIP_START.get(u)]
-                      + [u for u in clip_pool if not _STORY_CLIP_START.get(u)])
+            _cands = ([u for u in clip_pool if RUN._STORY_CLIP_START.get(u)]
+                      + [u for u in clip_pool if not RUN._STORY_CLIP_START.get(u)])
             for _money in _cands[:3]:
                 _hp = fetch_platform_clip(_money)
                 if _hp and footage_is_relevant(_hp, title):
@@ -6976,7 +6976,7 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                     foot_s += need_s
                     log.info("HOOK = OPENING CLIP: %s (t=%ds)",
                              os.path.basename(_hp),
-                             _STORY_CLIP_START.get(_money, 0))
+                             RUN._STORY_CLIP_START.get(_money, 0))
                     break
                 if _hp and _FOOTAGE_REL_LAST[0].startswith("judged"):
                     # r176: the verdict belongs to the CLIP, not to this file;
@@ -7068,7 +7068,7 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                 # window reads as a frozen frame — subject photo instead.
                 log.info("receipt %s repeats within %d scenes; subject photo "
                          "fallback", sh.get("receipt_i"),
-                         POOL_NO_REPEAT_WINDOW)
+                         RUN.POOL_NO_REPEAT_WINDOW)
                 path = None
             if path:
                 # r21 fix: count WITHOUT consuming the branch (the elif version
@@ -7176,7 +7176,7 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                 planned_here = False
             if entry is not None and entry["path"] in _recent_paths():
                 log.info("pinned image would repeat within %d scenes; LRU "
-                         "pool pick instead", POOL_NO_REPEAT_WINDOW)
+                         "pool pick instead", RUN.POOL_NO_REPEAT_WINDOW)
                 entry = None
                 planned_here = False       # r17: pin lost -> clip order lost
             elif entry is not None and from_pin and entry["path"] in last_used:
@@ -7230,7 +7230,7 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                     # r12 belt-and-suspenders: the used-set already dedups
                     # per URL, but never let ANY path repeat in the window.
                     log.info("broll clip repeats within %d scenes; subject "
-                             "photo fallback", POOL_NO_REPEAT_WINDOW)
+                             "photo fallback", RUN.POOL_NO_REPEAT_WINDOW)
                     path = None
                 if path:
                     typ = "broll"
@@ -7248,7 +7248,7 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                 # r25: in footage-first mode the tiny-pool relief is real story
                 # footage (GAP-FILL below), NOT generic stock — so this stock
                 # borrow is cookie-less-only now.
-                if (entry["path"] in recent_now and pool_variety <= POOL_NO_REPEAT_WINDOW
+                if (entry["path"] in recent_now and pool_variety <= RUN.POOL_NO_REPEAT_WINDOW
                         and consec_broll < 2
                         and not ((ck_mode and story_vids) or footage_off)):
                     bp = fetcher.clip_for(need_s)
@@ -7340,7 +7340,7 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                     # same window file served twice keeps its thumbnail.
                     log.info("FOOTAGE %s w%d repeats within %d scenes; "
                              "thumbnail kept", vid, win,
-                             POOL_NO_REPEAT_WINDOW)
+                             RUN.POOL_NO_REPEAT_WINDOW)
                 elif fpath and not footage_is_relevant(fpath, title):
                     # r28 SMART GATE: this yt-thumbnail's clip is off-topic (a
                     # musician's music video on a feud story) — keep the still.
@@ -7424,8 +7424,8 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                     cpath = cand
                     log.info("CLIP FIT: scene %d words %r match clip title %r",
                              si + 1, str(sh.get("phrase", ""))[:40],
-                             (_STORY_CLIP_TEXT.get(_cu)
-                              or _STORY_CLIP_TEXT.get(clip_base_url(_cu), ""))[:48])
+                             (RUN._STORY_CLIP_TEXT.get(_cu)
+                              or RUN._STORY_CLIP_TEXT.get(clip_base_url(_cu), ""))[:48])
                     break
                 if cpath:
                     path, typ, textish = cpath, "broll", False
@@ -7556,7 +7556,7 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
         for sc in scenes:
             still = _is_still(sc)
             if still and _seen.get(_fam(sc["path"]), 0) >= IMAGE_MAX_USES:
-                _near = {_fam(s.get("path")) for s in _kept[-POOL_NO_REPEAT_WINDOW:]}
+                _near = {_fam(s.get("path")) for s in _kept[-RUN.POOL_NO_REPEAT_WINDOW:]}
                 _alt = [e for e in _swap_src
                         if e.get("path") and not e.get("designed") and not e.get("textish")
                         and _tot.get(_fam(e["path"]), 0) < IMAGE_MAX_USES
@@ -7616,7 +7616,7 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                 if k > 0:
                     si_here = len(split_scenes)
                     recent = {s.get("path")
-                              for s in split_scenes[-POOL_NO_REPEAT_WINDOW:]}
+                              for s in split_scenes[-RUN.POOL_NO_REPEAT_WINDOW:]}
                     cands = [e for e in pool
                              if e.get("path") and e["path"] not in recent
                              and not e.get("designed") and not e.get("textish")
@@ -7681,7 +7681,7 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
         "still_photo_scenes": n_still,
         "card_scenes": n_card,
         "frozen_stills": n_frozen,
-        "footage_fetches": _FOOTAGE_FETCHES,
+        "footage_fetches": RUN._FOOTAGE_FETCHES,
         "seq": "".join(("F" if s.get("gapfill") else
                         "f" if s.get("footage") else
                         "c" if s.get("textish") else "s") for s in scenes),
@@ -7721,7 +7721,7 @@ def _clip_model():
 
 
 def clip_swap_decisions(paths, checkable, pool_paths, score_fn,
-                        window=POOL_NO_REPEAT_WINDOW,
+                        window=RUN.POOL_NO_REPEAT_WINDOW,
                         min_score=CLIP_SWAP_MIN, margin=CLIP_SWAP_MARGIN):
     """Pure r14 swap chooser (unit-testable offline, no model needed).
     paths: current image path per scene (every scene, any type);
@@ -9368,7 +9368,6 @@ def compose_video(pool, broll_terms, mp3_path, hook, script, word_timings,
                   shotlist=None, page_id=0, receipts=None, title="",
                   person_map=None, visual_map=None, gravity="standard"):
     from moviepy import AudioFileClip, CompositeVideoClip, afx, vfx
-    global LAST_EDL
 
     grave = str(gravity).strip().lower() == "grave"   # r16 GRAVITY register
     total = duration + TAIL_SECONDS
@@ -9387,7 +9386,7 @@ def compose_video(pool, broll_terms, mp3_path, hook, script, word_timings,
     edl = build_edl(shotlist, script, word_timings, total, pool_n=_pool_n) \
         if shotlist else None
     v4_mode = edl is not None
-    LAST_EDL = edl if v4_mode else None   # r16: the judge pairs frames<->phrases from this
+    RUN.LAST_EDL = edl if v4_mode else None   # r16: the judge pairs frames<->phrases from this
     if v4_mode:
         scenes = plan_scenes_edl(edl, pool, fetcher, receipts=receipts,
                                  title=title, person_map=person_map,
@@ -9514,7 +9513,7 @@ def compose_video(pool, broll_terms, mp3_path, hook, script, word_timings,
                     + len({sc["path"] for sc in scenes
                            if sc["type"] == "broll"}))
     chk = selfcheck_scenes(scenes, avail_assets, speech_span, caption_gap,
-                           window=POOL_NO_REPEAT_WINDOW,
+                           window=RUN.POOL_NO_REPEAT_WINDOW,
                            min_shot_s=SELFCHECK_MIN_SHOT_S,
                            min_caption_cov=CAPTION_COVERAGE_MIN)
     log.info("SELFCHECK: repeats=%d short_scenes=%s caption_cov=%.0f%% "
@@ -9839,7 +9838,7 @@ def _extract_judge_frames(mp4_path, total_s, n=JUDGE_FRAMES):
     """r19: the judge now inspects ONE FRAME PER SCENE (every cut judged;
     capped at 16 to keep the single vision call sane). Pre-EDL/v3 mode keeps
     the old even spacing. Returns [(path, timestamp_s)]."""
-    times = _scene_midpoints(LAST_EDL, total_s, cap=max(n, 16))
+    times = _scene_midpoints(RUN.LAST_EDL, total_s, cap=max(n, 16))
     return _extract_frames_at(mp4_path, times, prefix="judge")
 
 
@@ -10278,7 +10277,7 @@ def build_filmstrip(mp4_path, total_s, out_path):
                 continue
             words = ""
             try:
-                words = _phrase_at(LAST_EDL, ts) if LAST_EDL else ""
+                words = _phrase_at(RUN.LAST_EDL, ts) if RUN.LAST_EDL else ""
             except Exception:  # noqa: BLE001
                 pass
             label = f"{ts:.1f}s: {words[:52]}" if words else f"{ts:.1f}s"
@@ -10442,8 +10441,6 @@ def make_one(post, font_path):
     # r28: this story's harvested platform clips (Twitch/TikTok/Kick/YouTube) —
     # the scene planner pulls these in as REAL MOVING footage matched to the
     # story, each fetched with its proper method (fetch_platform_clip).
-    global _STORY_CLIPS, _STORY_CLIP_START, _STORY_CLIP_SRC
-    global _STORY_CLIP_TEXT, _STORY_NAME_WORDS, _STORY_TITLE_WORDS
     _HOOK_CLIP[0] = None          # r57: per-story, not per-process
     # r175 PER-VIDEO VISION BUDGETS. The caps below were written per render
     # ("cap Gemini relevance checks per render") but the counters were never
@@ -10457,30 +10454,30 @@ def make_one(post, font_path):
     _SHOT_CLEAN_CALLS[0] = 0
     _CLIP_OFFTOPIC_URLS.clear()
     _CLIP_FRAMES_DONE[0] = False
-    _STORY_CLIPS = [c.get("url") for c in (post.get("clips") or [])
+    RUN._STORY_CLIPS = [c.get("url") for c in (post.get("clips") or [])
                     if isinstance(c, dict) and platform_of(c.get("url"))]
     # r45: carry the reporter's own timestamp for each embedded clip. Embedded
     # clips lead the feed list, so _STORY_CLIPS[0] is normally the money moment.
-    _STORY_CLIP_START = {}
-    _STORY_CLIP_SRC = set()
-    _STORY_CLIP_TEXT = {}         # r172 CLIP FIT
-    _STORY_NAME_WORDS = distinctive_words(
+    RUN._STORY_CLIP_START = {}
+    RUN._STORY_CLIP_SRC = set()
+    RUN._STORY_CLIP_TEXT = {}         # r172 CLIP FIT
+    RUN._STORY_NAME_WORDS = distinctive_words(
         *[str(p.get("name") if isinstance(p, dict) else p or "")
           for p in (post.get("people") or [])])
-    _STORY_TITLE_WORDS = distinctive_words(post.get("title"))
+    RUN._STORY_TITLE_WORDS = distinctive_words(post.get("title"))
     for c in (post.get("clips") or []):
         if not isinstance(c, dict) or not c.get("url"):
             continue
         if str(c.get("title") or "").strip():
-            _STORY_CLIP_TEXT[c["url"]] = str(c["title"]).strip()
+            RUN._STORY_CLIP_TEXT[c["url"]] = str(c["title"]).strip()
         if int(c.get("start") or 0) > 0:
-            _STORY_CLIP_START[c["url"]] = int(c["start"])
+            RUN._STORY_CLIP_START[c["url"]] = int(c["start"])
         if str(c.get("src") or "").startswith("http"):
-            _STORY_CLIP_SRC.add(c["url"])
-    if _STORY_CLIP_SRC:
+            RUN._STORY_CLIP_SRC.add(c["url"])
+    if RUN._STORY_CLIP_SRC:
         log.info("PROVENANCE: %d clip(s) were embedded by reporters in this "
                  "story's own articles; the footage gate cannot veto those",
-                 len(_STORY_CLIP_SRC))
+                 len(RUN._STORY_CLIP_SRC))
     # r70 CLIP HUNTER — the supply fix, measured: one clip yields 12-20 usable
     # frames of the actual event, an article yields ~1 photo (trafilatura found
     # ZERO images inside a real article body), and generic image search yields
@@ -10489,7 +10486,7 @@ def make_one(post, font_path):
     # returned robots and gingerbread houses. Runs here, not on the server,
     # because Hostinger disables shell_exec. Fails closed: no plan, no search.
     _vp = post.get("visual_plan") or {}
-    if (not _vp.get("skip")) and len(_STORY_CLIPS) < CLIP_HUNT_MIN:
+    if (not _vp.get("skip")) and len(RUN._STORY_CLIPS) < CLIP_HUNT_MIN:
         import shutil as _sh
         # r87 TOPICALITY GATE. YouTube answers EVERY query with something, so
         # a search that finds nothing real still returns two videos — and this
@@ -10505,7 +10502,7 @@ def make_one(post, font_path):
               for p in (post.get("people") or [])])
         if _sh.which("yt-dlp") and _hunt_distinct:
             for _q in (_vp.get("clip_queries") or [])[:3]:
-                if len(_STORY_CLIPS) >= CLIP_HUNT_MIN:
+                if len(RUN._STORY_CLIPS) >= CLIP_HUNT_MIN:
                     break
                 try:
                     _r = subprocess.run(
@@ -10529,18 +10526,18 @@ def make_one(post, font_path):
                                      "in the title", _ttl[:58])
                             continue
                         _u = "https://www.youtube.com/watch?v=" + _pp[0]
-                        if _u not in _STORY_CLIPS:
-                            _STORY_CLIPS.append(_u)
+                        if _u not in RUN._STORY_CLIPS:
+                            RUN._STORY_CLIPS.append(_u)
                             log.info("CLIP HUNT: found %s (%r) for %r",
                                      _pp[0], _ttl[:44], _q[:44])
                 except Exception as _e:  # noqa: BLE001 — never fatal
                     log.info("clip hunt failed for %r (%s)", _q[:40], str(_e)[:60])
-            log.info("CLIP HUNT: story now has %d clip(s)", len(_STORY_CLIPS))
+            log.info("CLIP HUNT: story now has %d clip(s)", len(RUN._STORY_CLIPS))
 
-    if _STORY_CLIP_START:
+    if RUN._STORY_CLIP_START:
         log.info("MONEY MOMENT offsets from the source articles: %s",
-                 {u.rsplit("=", 1)[-1]: s for u, s in _STORY_CLIP_START.items()})
-    if len(_STORY_CLIPS) < CLIP_HUNT_MIN:
+                 {u.rsplit("=", 1)[-1]: s for u, s in RUN._STORY_CLIP_START.items()})
+    if len(RUN._STORY_CLIPS) < CLIP_HUNT_MIN:
         # r33: the server harvested nothing for this story (story_vids=0 is why
         # the El Risitas video had no laugh in it). archive.org is reachable
         # from CI with no key, no cookies and no bot-wall — search it for the
@@ -10561,11 +10558,11 @@ def make_one(post, font_path):
         if t:
             terms.append(" ".join(t.split()[:4]))
         for _au in archive_org_clips(terms):
-            if _au not in _STORY_CLIPS:
-                _STORY_CLIPS.append(_au)
-    if _STORY_CLIPS:
-        log.info("story clips available: %d (%s)", len(_STORY_CLIPS),
-                 ", ".join(sorted({platform_of(u) for u in _STORY_CLIPS})))
+            if _au not in RUN._STORY_CLIPS:
+                RUN._STORY_CLIPS.append(_au)
+    if RUN._STORY_CLIPS:
+        log.info("story clips available: %d (%s)", len(RUN._STORY_CLIPS),
+                 ", ".join(sorted({platform_of(u) for u in RUN._STORY_CLIPS})))
     pool, person_map = build_visual_pool(post, page_id)
     # r189 SUBJECT ON SCREEN (owner, watching page 1022: "a video about
     # Patrick Clancy with no image of Patrick should never be allowed").
@@ -10807,7 +10804,7 @@ def make_one(post, font_path):
     # spoken under it (said-vs-seen enforcement).
     _set_stage("judge")
     verdict = vision_judge(out, hook, post.get("title", ""),
-                           duration + TAIL_SECONDS, edl=LAST_EDL)
+                           duration + TAIL_SECONDS, edl=RUN.LAST_EDL)
     if verdict is not None and verdict.get("pass") is not True:
         mism = verdict.get("mismatches") or []
         weird = verdict.get("weird") or []
