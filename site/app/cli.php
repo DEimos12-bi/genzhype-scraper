@@ -1866,6 +1866,15 @@ switch ($cmd) {
                 }
                 continue;
             }
+            // 2026-09-24 the legal framing check failed both stories built at 22:30
+            // (4 unframed events each), one of which the editor had passed. Drama
+            // deepen already chains the framing repair; the build now runs it on the
+            // new page before any check, so the checks see the page readers will.
+            try {
+                require_once __DIR__ . '/framing_repair.php';
+                $fr = framing_repair_run($pdo, 16, (int)$d['page_id']);
+                if (!empty($fr['repaired'])) echo "    framing: {$fr['repaired']} unconfirmed event(s) given alleged/according-to framing\n";
+            } catch (Throwable $e) { echo "    framing repair failed: " . $e->getMessage() . "\n"; }
             $v = verify_drama((int)$d['page_id']);
             $q = quality_check_drama((int)$d['page_id']);
             $g = gate_check_drama((int)$d['page_id']);
