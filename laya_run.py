@@ -22,7 +22,7 @@ import traceback
 
 OUT = "laya-out"
 os.makedirs(OUT, exist_ok=True)
-_log = open(os.path.join(OUT, "run.log"), "w", encoding="utf-8")
+_log = open(os.path.join(OUT, "run.log"), "a", encoding="utf-8")   # append: laya_eval.py imports this module
 
 
 def say(*parts):

@@ -64,6 +64,11 @@ jobs:
       - name: Run the guard bench
         run: python laya_run.py
 
+      # scored benches: every laya-bench/*.json with "questions" (owner taste,
+      # hooks vs TikTok views). Reports AUC per question.
+      - name: Run the scored benches
+        run: python laya_eval.py
+
       - uses: actions/upload-artifact@v4
         if: always()
         with:
