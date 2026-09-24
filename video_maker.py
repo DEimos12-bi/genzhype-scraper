@@ -1206,6 +1206,10 @@ def _start_heartbeat():
     import threading
     threading.Thread(target=_heartbeat_loop, args=(time.time(),),
                      daemon=True).start()
+    # 2026-09-24: tell the server this renderer's park generation, so its job
+    # feeds can leave out the pages parked under it (video_parked_sql()).
+    _hb_post({"token": INGEST_TOKEN, "action": "heartbeat", "page_id": 0,
+              "stage": "GEN", "elapsed": 0, "note": f"gen={MAKER_REV}"})
 
 
 # ============================================================================
@@ -10073,6 +10077,11 @@ def append_abandoned(page_id):
     os.makedirs(os.path.dirname(ABANDON_FILE) or ".", exist_ok=True)
     with open(ABANDON_FILE, "a", encoding="utf-8") as f:
         f.write(f"{page_id} {MAKER_REV} {MAKER_HASH}\n")   # 3rd field: diagnosis only
+    # 2026-09-24: the server marks the page too, so the job feeds stop giving
+    # this page a slot for the rest of the generation. Best effort: the book
+    # above stays the renderer's own truth.
+    _hb_post({"token": INGEST_TOKEN, "action": "heartbeat", "page_id": int(page_id),
+              "stage": "PARKED", "elapsed": 0, "note": f"gen={MAKER_REV}"})
 
 
 def request_replan(page_id, reasons):
