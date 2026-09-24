@@ -18,9 +18,9 @@ name: laya
 # polling the GitHub API (that burned the 60/h unauthenticated limit before).
 
 on:
-  # r190 HOOK LEARNING LOOP: learn from the latest views and score waiting hooks
-  schedule:
-    - cron: "40 */4 * * *"      # 23 min after each render slot (17 */4), so fresh scores are ready for the next one
+  # 2026-09-24: the r190 hook-scoring loop and its 4-hourly schedule are retired
+  # (owner: "useless work, delete it"; its test scored AUC 0.50 = a coin flip).
+  # What remains runs only by hand: the guard and scored benches.
   push:
     branches: [main]
     paths:
@@ -36,9 +36,8 @@ concurrency:
 jobs:
   classify:
     runs-on: ubuntu-latest
-    # r190b: the first hook-loop run reads ~2,300 rival hooks (~45 min on CPU);
-    # later runs read only new ones from the cache. Public-repo minutes are free.
-    timeout-minutes: 120
+    # the benches take ~10 min on CPU (the 120-min hook loop is retired)
+    timeout-minutes: 30
     permissions:
       contents: read
     steps:
@@ -67,37 +66,15 @@ jobs:
           python -m pip install "scikit-learn==1.5.2" 2>&1 | tail -2 | tee -a laya-out/install.log
           python -m pip show laya torch transformers 2>&1 | grep -E "^(Name|Version)" | tee -a laya-out/install.log
 
-      # The guard + scored benches take ~10 min, so they run only when the
-      # trigger file says "bench"; the daily hook loop below always runs.
-      - name: Decide whether to run the benches
-        run: |
-          if [ "${{ github.event_name }}" != "schedule" ] && grep -qi bench .social/laya-trigger 2>/dev/null; then
-            echo "RUN_BENCHES=1" >> "$GITHUB_ENV"; echo "benches: yes"
-          else
-            echo "benches: skipped (daily loop only)"
-          fi
-
+      # Runs only by hand now (the hook loop is retired), so every run is a
+      # bench run: the guard bench, then the scored benches (~10 min).
       - name: Run the guard bench
-        if: env.RUN_BENCHES == '1'
         run: python laya_run.py
 
       # scored benches: every laya-bench/*.json with "questions" (owner taste,
       # hooks vs TikTok views). Reports AUC per question.
       - name: Run the scored benches
-        if: env.RUN_BENCHES == '1'
         run: python laya_eval.py
-
-      # r190: the feed the server published, and yesterday's feature cache.
-      # Both are public side branches; no credential is used or kept.
-      - name: Fetch the hook feed and the previous results
-        run: |
-          mkdir -p laya-feed laya-prev
-          if git fetch -q --depth 1 origin laya-feed 2>/dev/null; then git archive FETCH_HEAD | tar -x -C laya-feed; fi
-          if git fetch -q --depth 1 origin laya-drop 2>/dev/null; then git archive FETCH_HEAD | tar -x -C laya-prev; fi
-          ls -la laya-feed laya-prev/hooks 2>/dev/null || true
-
-      - name: Hook learning loop
-        run: python laya_hooks.py
 
       - uses: actions/upload-artifact@v4
         if: always()
