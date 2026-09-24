@@ -308,6 +308,15 @@ function velocity_drain(PDO $pdo, int &$slots, bool $dry = false): array {
     return ['refused' => false, 'promoted' => $promoted, 'archived' => $archived, 'held' => $retained];
 }
 
+/** 2026-09-24: one page builder at a time (the hourly run vs the build worker). */
+function build_lock_acquire(): bool {
+    $GLOBALS['__build_lock'] = @fopen(__DIR__ . '/cache/build.lock', 'c');
+    return $GLOBALS['__build_lock'] && flock($GLOBALS['__build_lock'], LOCK_EX | LOCK_NB);
+}
+function build_lock_release(): void {
+    if (!empty($GLOBALS['__build_lock'])) { @flock($GLOBALS['__build_lock'], LOCK_UN); @fclose($GLOBALS['__build_lock']); }
+    $GLOBALS['__build_lock'] = null;
+}
 switch ($cmd) {
     case 'list':
         $rows = $pdo->query("SELECT id, type, slug, status, robots, updated_at FROM pages ORDER BY type, id")->fetchAll();
@@ -1166,6 +1175,18 @@ switch ($cmd) {
         echo "done: resolved {$er['dramas']} dramas + {$er['terms']} terms\n";
         break;
 
+    case 'build':
+        // 2026-09-24 BUILD WORKER (owner: "25 to 30 new pages a day"). Measured
+        // that week: ~12 pages a day, with 789 approved stories and 112 terms
+        // waiting. Supply was never the limit; the one hourly run was: the build
+        // stages were cut by the clock in 89 (stories) and 130 (terms) of 157
+        // runs. This is a second schedule (hPanel, at :30) running the SAME
+        // autopilot code with every stage but the page builds skipped. One
+        // builder at a time (build_lock_acquire), today's count re-read under
+        // the lock, the daily cap and every quality gate unchanged, and it stops
+        // for the day at daily_page_target (default 30) indexable pages.
+        $GLOBALS['BUILD_ONLY'] = true;
+        // fall through to 'cron'
     case 'cron':
         // ===================================================================
         // SEO-BATCH-1 PAUSE SWITCH (2026-08-04).
@@ -1196,6 +1217,7 @@ switch ($cmd) {
         // overlap the next hourly fire — overlap = double-builds + a race on the
         // in-memory velocity $slots that could exceed the daily publish cap (the
         // anti scaled-content-abuse guard). The lock auto-releases on process exit.
+        $BUILD_ONLY = !empty($GLOBALS['BUILD_ONLY']);
         $GLOBALS['__cron_lock'] = fopen(sys_get_temp_dir() . '/genzhype_cron.lock', 'c');
         if (!$GLOBALS['__cron_lock'] || !flock($GLOBALS['__cron_lock'], LOCK_EX | LOCK_NB)) {
             echo "[" . date('c') . "] a tick is already running; skipping this fire\n";
@@ -1236,11 +1258,14 @@ switch ($cmd) {
         require_once __DIR__ . '/sitemap_lib.php';
         require_once __DIR__ . '/indexnow.php';
         $N = ($arg && ctype_digit($arg)) ? max(1, min(10, (int)$arg)) : 2; // builds per tick (hourly cron x2 = quota-safe steady drip)
+        if ($BUILD_ONLY && !($arg && ctype_digit($arg))) $N = 4;   // the build worker's own default
+        if ($BUILD_ONLY) echo "[" . date('c') . "] build worker (N={$N})\n";
         echo "[" . date('c') . "] autopilot tick (N={$N}, auto_publish=" . (!empty($CONFIG['auto_publish']) ? 'ON' : 'off') . ")\n";
         // r186: one look at the render queue decides this tick's time-share.
         // An empty queue means every minute spent on terms or stories is a
         // minute the video line does not get (0 videos rendered on 16 Sep).
         $GLOBALS['VID_STARVED'] = false;
+        if ($BUILD_ONLY) goto build_after_vid;   // video hours rule the hourly run, not the builder
         try {
             require_once __DIR__ . '/video_factory.php';
             $GLOBALS['VID_STARVED'] = video_queue_starved($pdo);
@@ -1257,7 +1282,9 @@ switch ($cmd) {
                 echo "  video hour: video stage gets this tick's time first\n";
             }
         } catch (Throwable $e) { error_log('video_queue_starved: ' . $e->getMessage()); }
+        build_after_vid:
 
+        if ($BUILD_ONLY) goto build_velocity;
         // ---- REDDIT RADAR: pre-draft comments for new opportunities so the admin
         // never waits on a slow AI call (that caused a 504). Bounded batch; CLI has no
         // web timeout, so this uses the full robust provider chain (not the fast path).
@@ -1365,6 +1392,7 @@ switch ($cmd) {
         } catch (Throwable $e) { echo "  draft-redrain failed: " . $e->getMessage() . "\n"; }
 
 
+        build_velocity:
         // ---- VELOCITY GUARDRAIL: cap pages going LIVE per day (anti scaled-abuse) ----
         require_once __DIR__ . '/gate_term.php';
         require_once __DIR__ . '/quality.php';
@@ -1375,6 +1403,11 @@ switch ($cmd) {
         $dr = velocity_drain($pdo, $slots);
         if (!empty($dr['refused'])) echo "  velocity-drain: REFUSED ({$dr['why']})\n";
         echo "velocity: cap={$dailyCap} published_today={$pubToday} slots_left={$slots}\n";
+        if ($BUILD_ONLY) {
+            $pageTarget = (int)($CONFIG['daily_page_target'] ?? 30);
+            if ($pubToday >= $pageTarget) { echo "build worker: today's target of {$pageTarget} indexable pages is reached\n"; break; }
+            goto build_terms;
+        }
 
         // ---- GRADUAL REVEAL (owner decision 2026-08-28) -------------------
         // Repaired pages are already 'published' but noindex, so making them
@@ -1435,6 +1468,20 @@ switch ($cmd) {
             if (!empty($ss['pages_socialized'])) echo "social studio: +{$ss['pages_socialized']} pages socialized\n";
         }
 
+        build_terms:
+        // 2026-09-24 ONE BUILDER AT A TIME: the hourly run and the build worker
+        // share this lock; whoever holds it builds, the other skips building.
+        // Today's count is re-read under the lock, so the two can never push
+        // past the daily cap between them.
+        $tbuilt = 0; $built = 0; $ready = 0;
+        $buildLocked = build_lock_acquire();
+        if ($buildLocked) {
+            $pubToday = (int)$pdo->query("SELECT COUNT(*) FROM pages WHERE status='published' AND robots='index' AND published_at >= CURDATE()")->fetchColumn();
+            $slots = max(0, $dailyCap - $pubToday);
+        } else {
+            echo "  builds: the other builder is working; this run skips building\n";
+            goto build_after_terms;
+        }
         // ---- LANE FAIRNESS (owner decision 2026-08-29): TERMS BEFORE DRAMA ----
         // The slang/meme/gaming stage sat AFTER drama drafting, and drama's
         // workload (a 300-deep drain, AI drafting, hourly re-judging) now eats
@@ -1594,6 +1641,8 @@ switch ($cmd) {
             }
             $tbuilt++;
         }
+        build_after_terms:
+        if ($BUILD_ONLY) goto build_dramas;
         // IMAGE QUEUE: the system redoes images by itself, one page per tick
         // (operator order 2026-06-12: bulk image work never runs in chat again).
         // Queue = app/img_queue.txt, one slug per line; anything may append.
@@ -1688,6 +1737,8 @@ switch ($cmd) {
         } catch (Throwable $e) { echo "drama discovery skipped: " . $e->getMessage() . "\n"; }
         $sel = select_run(15);
         echo "select: +{$sel['selected']} / -{$sel['rejected']} (errors {$sel['errors']})\n";
+        build_dramas:
+        if (!$buildLocked) goto build_after_dramas;
         // 2026-08-23 RETRY BUDGET (Phase 0 of the learning-machine build): a
         // failing candidate may try 5 times, then retires with its last error
         // written down — the drama_img_retry pattern (attempts + cap) applied
@@ -1852,6 +1903,12 @@ switch ($cmd) {
                 }
             }
             $built++;
+        }
+        build_after_dramas:
+        build_lock_release();
+        if ($BUILD_ONLY) {
+            echo "build worker done (+" . (int)round((time() - $tickT0) / 60) . "m) | stories built={$built} ready={$ready} | terms built={$tbuilt}\n";
+            break;
         }
         // A breadcrumb in cron_events: if this never appears, the tick died before
         // the term lanes again and the cap above needs to be tighter.
