@@ -9534,6 +9534,11 @@ def compose_video(pool, broll_terms, mp3_path, hook, script, word_timings,
                     CAPTION_COVERAGE_MIN * 100)
 
     xfade = 0.0 if v4_mode else XFADE        # Law 7: hard cuts inside v4
+    # 2026-09-24 COMPOSE TIMERS. Compose is ~70% of a render (median 423 s of
+    # 10 min over 92 runs) and nothing said which part costs it. MoviePy draws
+    # every frame inside write_videofile, so "draw+encode" is frame drawing
+    # (grading, depth motion, captions) plus the x264 encode.
+    _t_prep = time.time()
     layers, open_sources, scene_clips = [], [], []
     for sc in scenes:
         if sc["type"] == "broll":
@@ -9678,6 +9683,7 @@ def compose_video(pool, broll_terms, mp3_path, hook, script, word_timings,
     video = video.with_audio(audio)
 
     tmp = out_path + ".tmp.mp4"
+    _t_draw = time.time()
     # Turbo's encode settings: libx264 + aac + 192k. faststart added on remux.
     video.write_videofile(
         tmp,
@@ -9702,7 +9708,14 @@ def compose_video(pool, broll_terms, mp3_path, hook, script, word_timings,
         except Exception:  # noqa: BLE001
             pass
 
+    _t_remux = time.time()
     _faststart_remux(tmp, out_path)
+    _timing = {"prepare_s": round(_t_draw - _t_prep, 1),
+               "draw_encode_s": round(_t_remux - _t_draw, 1),
+               "remux_s": round(time.time() - _t_remux, 1),
+               "scenes": len(scenes), "seconds": round(float(total), 1)}
+    _RENDER_REPORT["compose_timing"] = _timing
+    log.info("COMPOSE TIMING: %s", _timing)
     try:
         os.remove(tmp)
     except OSError:
