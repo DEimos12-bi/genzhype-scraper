@@ -18,6 +18,9 @@ name: laya
 # polling the GitHub API (that burned the 60/h unauthenticated limit before).
 
 on:
+  # r190 HOOK LEARNING LOOP: learn from yesterday's views every morning (UTC)
+  schedule:
+    - cron: "40 5 * * *"
   push:
     branches: [main]
     paths:
@@ -59,15 +62,40 @@ jobs:
           # the CPU wheel is ~200 MB; the default CUDA build is ~2.5 GB
           python -m pip install torch --index-url https://download.pytorch.org/whl/cpu 2>&1 | tail -5 | tee laya-out/install.log
           python -m pip install "laya==0.3.20" 2>&1 | tail -15 | tee -a laya-out/install.log
+          python -m pip install "scikit-learn==1.5.2" 2>&1 | tail -2 | tee -a laya-out/install.log
           python -m pip show laya torch transformers 2>&1 | grep -E "^(Name|Version)" | tee -a laya-out/install.log
 
+      # The guard + scored benches take ~10 min, so they run only when the
+      # trigger file says "bench"; the daily hook loop below always runs.
+      - name: Decide whether to run the benches
+        run: |
+          if [ "${{ github.event_name }}" != "schedule" ] && grep -qi bench .social/laya-trigger 2>/dev/null; then
+            echo "RUN_BENCHES=1" >> "$GITHUB_ENV"; echo "benches: yes"
+          else
+            echo "benches: skipped (daily loop only)"
+          fi
+
       - name: Run the guard bench
+        if: env.RUN_BENCHES == '1'
         run: python laya_run.py
 
       # scored benches: every laya-bench/*.json with "questions" (owner taste,
       # hooks vs TikTok views). Reports AUC per question.
       - name: Run the scored benches
+        if: env.RUN_BENCHES == '1'
         run: python laya_eval.py
+
+      # r190: the feed the server published, and yesterday's feature cache.
+      # Both are public side branches; no credential is used or kept.
+      - name: Fetch the hook feed and the previous results
+        run: |
+          mkdir -p laya-feed laya-prev
+          if git fetch -q --depth 1 origin laya-feed 2>/dev/null; then git archive FETCH_HEAD | tar -x -C laya-feed; fi
+          if git fetch -q --depth 1 origin laya-drop 2>/dev/null; then git archive FETCH_HEAD | tar -x -C laya-prev; fi
+          ls -la laya-feed laya-prev/hooks 2>/dev/null || true
+
+      - name: Hook learning loop
+        run: python laya_hooks.py
 
       - uses: actions/upload-artifact@v4
         if: always()
