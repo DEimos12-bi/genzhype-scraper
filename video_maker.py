@@ -10934,7 +10934,7 @@ def main():
                              "on this renderer revision)", post.get("page_id"))
                 except Exception:  # noqa: BLE001
                     pass
-            elif not isinstance(exc, (SelfCheckFailed, SubjectMissing)):
+            elif not isinstance(exc, (SelfCheckFailed, SubjectMissing, JudgeRejected)):
                 # 2026-09-24: every other failure was retried every run with no
                 # count ("no usable visuals at all", TTS, ffmpeg...). Counted per
                 # page and generation; at FAIL_CAP the page parks like the rest.
