@@ -8,3 +8,8 @@ feed.json
 clips/
 visuals/
 feeddir/
+
+# 2026-09-24: never publish a token. Posters used to save refreshed tokens in
+# .social/ and their workflows commit .social - so .social/th_token.txt sat in
+# this PUBLIC repo from 07-05 to 09-24. Any *token* file there is now ignored.
+.social/*token*

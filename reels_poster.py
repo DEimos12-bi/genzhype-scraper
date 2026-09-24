@@ -38,7 +38,6 @@ FB_GRAPH = "https://graph.facebook.com/v21.0"
 STATE = ".social"
 IG_DONE = f"{STATE}/reels_posted_ig.txt"
 FB_DONE = f"{STATE}/reels_posted_fb.txt"
-IG_TOKF = f"{STATE}/ig_token.txt"
 
 
 def log(*a):
@@ -143,13 +142,16 @@ def main():
     rc = 0
 
     if IG_ID and IG_TOKEN:
-        token = (open(IG_TOKF).read().strip()
-                 if os.path.exists(IG_TOKF) else IG_TOKEN)
+        # 2026-09-24: the refreshed token used to be saved to .social/ig_token.txt,
+        # which the workflow commits - into this PUBLIC repo (th_token.txt sat here
+        # for 11 weeks the same way). It now lives in memory for this run only;
+        # the server vault stays the one source of the token.
+        token = IG_TOKEN
         ref = call(f"{IG_GRAPH}/refresh_access_token"
                    f"?grant_type=ig_refresh_token&access_token={token}")
         if ref.get("access_token"):
             token = ref["access_token"]
-            open(IG_TOKF, "w").write(token)
+            print(f"::add-mask::{token}", flush=True)
             log(f"IG token refreshed (~{int(ref.get('expires_in', 0)) // 86400}d)")
         done = load_done(IG_DONE)
         todo = [v for v in vids if str(v["page_id"]) not in done]
