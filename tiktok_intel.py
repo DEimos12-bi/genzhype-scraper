@@ -27,7 +27,6 @@ what it got and exits 0. This is a learning input, never a blocker.
 import asyncio
 import json
 import os
-import sys
 import time
 
 # Rivals worth learning from: drama/commentary accounts in our exact lane.

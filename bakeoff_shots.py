@@ -18,7 +18,6 @@ is the right tile obvious to pick? Nothing here changes the pipeline.
 import json
 import os
 import subprocess
-import sys
 import time
 
 # The real cases, with the story keywords our cropper is given.

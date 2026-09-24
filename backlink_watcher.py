@@ -11,7 +11,7 @@ ref_domains stays empty here (that's STAGE 2, the link-opportunity miner).
 Env: BACKLINK_BASE, INGEST_TOKEN, COMPETITORS (csv, optional), CC_RELEASE (optional override).
 No pip deps (stdlib + curl/gzip, present on the runner).
 """
-import os, sys, json, math, re, subprocess
+import os, sys, json, math, subprocess
 
 BASE  = (os.environ.get("BACKLINK_BASE", "https://genzhype.com")).rstrip("/")
 TOKEN = os.environ.get("INGEST_TOKEN", "")

@@ -540,30 +540,15 @@ CHUNK_MAX_WORDS = 3
 #   bottom  TikTok 350 · Shorts 400 · Reels 400   -> take the worst, 400
 #   right   the like/comment/share column, 130-150 on all three
 # The old values (220/320) were both too small AND dead code — nothing read
-# SAFE_BOTTOM at all. They are corrected and now actually enforced by
-# safe_xy(), because a number no code obeys protects nothing: today's layout
-# happens to sit inside these zones, and the next overlay someone adds would
-# have had nothing to stop it.
+# SAFE_BOTTOM at all. They are read where overlays are placed: the face line
+# (FACE_TOP_MIN), the text-avoid band and the hook's top position. (A general
+# clamp, safe_xy(), was written for corner badges but never called; removed
+# 2026-09-24. A new corner overlay must clamp itself against these numbers.)
 SAFE_TOP = 250
 SAFE_BOTTOM = 400
 SAFE_RIGHT = 150
 
 
-def safe_xy(x, y, w=0, h=0):
-    """Clamp a CORNER-ANCHORED overlay into the area no platform covers.
-
-    For badges and chips only — NOT for the captions or the hook. Tested when
-    written: an 880px centred caption fed through this gets shoved 50px left,
-    because the right button column leaves no room for something that wide.
-    Wide centred text is SUPPOSED to run under that column; the buttons are
-    semi-transparent and centred text stays readable. Shifting it would break
-    the centring to solve a problem that does not exist.
-
-    Whole pixels only — fractional offsets are their own encode trap (r82c).
-    """
-    x = min(max(int(round(x)), SAFE_X), max(SAFE_X, W - SAFE_RIGHT - int(w)))
-    y = min(max(int(round(y)), SAFE_TOP), max(SAFE_TOP, H - SAFE_BOTTOM - int(h)))
-    return (x, y)
 CAPTION_CENTER_Y = int(H * 0.62)   # lower-middle band, well inside the safe area
 # v9 (owner round-9): on CARD scenes (receipt/post/promo) captions must never sit
 # on the card's own text. The card anchors top (y=240, below the 220px UI zone)
@@ -3658,70 +3643,6 @@ def still_is_relevant(path, topic, strict=False):
 _PERSON_OK_CACHE = {}
 
 
-def shows_person(path, name):
-    """r75: does this photo show THIS PERSON? Identity only — nothing about
-    the story.
-
-    The Openverse top-up gate used to call still_is_relevant() with the story
-    TITLE, so the model was asked whether a photo belonged to "Tom Brady and
-    Logan Paul's Fanatics Fest Confrontation". A real portrait of Logan Paul
-    from any other day is honestly NOT from that event, so it was rejected —
-    correctly answering the wrong question. Nine of twelve genuine Logan Paul
-    photos were binned that way and the pool starved at 7 for 12 scenes, which
-    is what the judge then failed for repetition.
-
-    Identity is the only thing this gate needs to protect: the r38 bug it was
-    built for was two UNIDENTIFIED men in suits carried for 10 seconds, and
-    wrong-person imagery on a serious story is the defamation risk the image
-    engine exists to prevent. Asking "is this that person?" still stops all of
-    that, while letting ordinary photos of the subject through.
-
-    Fails CLOSED like its predecessor: no key, no answer, over the cap or any
-    error keeps the picture OUT."""
-    if not (GEMINI_API_KEY and path and name):
-        return False
-    ck = (path, name.lower())
-    if ck in _PERSON_OK_CACHE:
-        return _PERSON_OK_CACHE[ck]
-    if _STILL_REL_CALLS[0] >= STILL_REL_MAX_CALLS:
-        return False
-    ok = False
-    try:
-        import io
-        im = Image.open(path).convert("RGB")
-        im.thumbnail((448, 448))
-        buf = io.BytesIO()
-        im.save(buf, "JPEG", quality=80)
-        im.close()
-        _STILL_REL_CALLS[0] += 1
-        prompt = (
-            'Does this photograph show %s? Answer shows=true only if %s is '
-            'visible and recognisable in it. Answer shows=false for a '
-            'different person, for someone you cannot identify, for a crowd '
-            'in which they are not recognisable, and for a logo, product, '
-            'graphic or empty scene with no person in it. It does NOT matter '
-            'what event the photo is from or how old it is. '
-            'Respond ONLY JSON: {"shows": true|false}.' % (name, name))
-        body = {"contents": [{"parts": [
-                    {"text": prompt},
-                    {"inline_data": {"mime_type": "image/jpeg",
-                        "data": base64.b64encode(buf.getvalue()).decode("ascii")}}]}],
-                "generationConfig": {"temperature": 0.0,
-                    "response_mime_type": "application/json"}}
-        txt = vision_post(body, timeout=40, tag="person-identity",
-                          strong_first=True)
-        if txt:
-            if txt.startswith("```"):
-                txt = txt.strip("`").strip()
-                if txt.lower().startswith("json"):
-                    txt = txt[4:].strip()
-            ok = bool(json.loads(txt).get("shows", False))
-    except Exception:  # noqa: BLE001
-        ok = False
-    _PERSON_OK_CACHE[ck] = ok
-    return ok
-
-
 def openverse_photos(query, want=6):
     """r33: more REAL photos of the subject, key-free, from Openverse (the
     WordPress/CC aggregator over Flickr/Wikimedia/etc). A one-photo pool is
@@ -4608,7 +4529,7 @@ def footage_is_relevant(clip_path, topic):
             if not ok:
                 log.info("FOOTAGE GATE: off-topic clip rejected (%s)",
                          os.path.basename(clip_path))
-    except Exception as e:  # noqa: BLE001
+    except Exception:  # noqa: BLE001
         ok = True
         _FOOTAGE_REL_LAST[0] = "error"
     if _FOOTAGE_REL_LAST[0] == "judged":     # r176: an error is not a verdict
@@ -4910,7 +4831,6 @@ def clip_is_caption_free(mp4_path):
     if _STILL_REL_CALLS[0] >= STILL_REL_MAX_CALLS + 4:   # own small headroom
         return False
     try:
-        import io
         parts = [{"text": (
             "These are 3 frames sampled across one short video clip. Does ANY "
             "frame carry burned-in caption/subtitle/joke text composited onto "

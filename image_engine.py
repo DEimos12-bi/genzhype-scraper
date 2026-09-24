@@ -22,7 +22,7 @@ Env: IMG_BASE (https://genzhype.com), INGEST_TOKEN, YOUTUBE_KEY, OPENVERSE_TOKEN
      MAX_DRAMAS(default 6), USE_BING(0/1).
 requirements: see requirements_image.txt
 """
-import io, os, sys, json, time, base64, hashlib, re, urllib.request, urllib.parse
+import io, os, sys, json, base64, hashlib, re, urllib.request, urllib.parse
 
 # Prevent the classic TensorFlow + PyTorch + onnxruntime segfault (multiple OpenMP runtimes
 # in one process — "OMP: Error #15" / exit 139). Must be set BEFORE any ML import.
@@ -84,12 +84,6 @@ def nude_detector():
             log("  nudenet unavailable:", e); _M["nude"] = None
     return _M["nude"]
 
-def nima_scorer():
-    # idealo image-quality-assessment is TF/Keras; if it won't load we fall back to a sharpness proxy
-    if "nima" not in _M:
-        _M["nima"] = None     # optional; quality proxy used if absent (kept simple for v1)
-    return _M["nima"]
-
 # ---- helpers ----
 from PIL import Image
 def load_img(b):
@@ -120,14 +114,14 @@ def same_person(cand_bytes, ref_bytes):
     """deepface.verify -> True if same person. The identity gate."""
     try:
         from deepface import DeepFace
-        import tempfile, numpy as np
+        import tempfile
         paths = []
         for b in (cand_bytes, ref_bytes):
             t = tempfile.NamedTemporaryFile(suffix=".jpg", delete=False); t.write(b); t.close(); paths.append(t.name)
         out = DeepFace.verify(paths[0], paths[1], model_name="ArcFace", detector_backend="ssd", enforce_detection=True)
         for p in paths: os.unlink(p)
         return bool(out.get("verified"))
-    except Exception as e:
+    except Exception:
         return None        # couldn't decide (no face detected / model down) -> caller treats as "unverified"
 
 def clip_scores(img, story, mood):
@@ -162,7 +156,7 @@ def face_crop_webp(b, w=1200, h=630):
     cx, cy = img.width/2, img.height*0.42
     try:
         from deepface import DeepFace
-        import tempfile, numpy as np
+        import tempfile
         t = tempfile.NamedTemporaryFile(suffix=".jpg", delete=False); t.write(b); t.close()
         faces = DeepFace.extract_faces(t.name, detector_backend="ssd", enforce_detection=False); os.unlink(t.name)
         if faces:
