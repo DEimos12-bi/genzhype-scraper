@@ -1253,6 +1253,7 @@ switch ($cmd) {
             // hour now gives the video step the tick's time, whatever the queue says.
             elseif ((int)date('G') % 3 === 2) {
                 $GLOBALS['VID_STARVED'] = true;
+                $GLOBALS['VIDEO_HOUR'] = true;   // no term or story build may START this hour (a started one runs 5-10 min past any cutoff)
                 echo "  video hour: video stage gets this tick's time first\n";
             }
         } catch (Throwable $e) { error_log('video_queue_starved: ' . $e->getMessage()); }
@@ -1511,6 +1512,7 @@ switch ($cmd) {
         // r186: with an empty render queue the video stage comes first - terms
         // and stories are useless if nothing renders (0 videos on 16 Sep).
         if (!empty($GLOBALS['VID_STARVED'])) $termCutoff = min($termCutoff, 240);
+        if (!empty($GLOBALS['VIDEO_HOUR'])) $termCutoff = 0;   // 2026-09-24: measured 20:00, one term started at +4m ran past +14m
         foreach ($terms as $tc) {
             if ($tbuilt >= $TN) break;
             if ($ttried >= $TERM_MAX_TRIES) {
@@ -1735,7 +1737,7 @@ switch ($cmd) {
                 cnote("drama build: capped at {$tried} attempts");
                 break;
             }
-            if (time() - $tickT0 > (!empty($GLOBALS['VID_STARVED']) ? 600 : 1200)) { echo '  drama build: stopping at +' . (int)round((time() - $tickT0) / 60) . "m to keep time for video and intelligence\n"; cnote('drama build: stopped by the time budget'); break; }   // r147
+            if (time() - $tickT0 > (!empty($GLOBALS['VIDEO_HOUR']) ? 0 : (!empty($GLOBALS['VID_STARVED']) ? 600 : 1200))) { echo '  drama build: stopping at +' . (int)round((time() - $tickT0) / 60) . "m to keep time for video and intelligence\n"; cnote('drama build: stopped by the time budget'); break; }   // r147
             $tried++;
             $src = fetch_sources_for_candidate((int)$cd['id']);
             if (isset($src['error'])) {
