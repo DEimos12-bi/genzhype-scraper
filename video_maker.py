@@ -10607,6 +10607,21 @@ def make_one(post, font_path):
             append_abandoned(page_id)
             raise SubjectMissing("no verified picture of %s, the person this "
                                  "story is about" % " or ".join(_subj))
+    # r191 THIN POOL, FAIL FAST. Page 1232 reached a render slot with ONE usable
+    # picture and no clip: its script and shot plan were written, the render
+    # ran for minutes, and the frozen-frame self-check stopped it - one photo
+    # on 6 of 7 scenes - after the work was spent. Deliberately narrow: only a
+    # story with fewer than 2 usable pictures AND no clip at all is parked
+    # here; anything with a clip, or 2+ pictures, still gets planned.
+    _pics = {e["path"] for e in pool if e.get("path")
+             and not e.get("designed") and not e.get("textish")}
+    _has_clips = bool(post.get("clip_files") or post.get("clips"))
+    if len(_pics) < 2 and not _has_clips:
+        log.info("THIN POOL: %d usable picture(s) and no clip; parked instead "
+                 "of rendering one image over the whole video", len(_pics))
+        append_abandoned(page_id)
+        raise SelfCheckFailed("thin pool: %d usable picture(s), no clip - "
+                              "parked before any render work" % len(_pics))
     broll_terms = post.get("broll") if isinstance(post.get("broll"), list) \
         else []
     if not pool and not (broll_terms and (PEXELS_API_KEY or PIXABAY_API_KEY)):
@@ -10934,6 +10949,19 @@ def main():
             made += 1
         except Exception as exc:  # noqa: BLE001
             log.error("failed to make video for %s: %s", post.get("page_id"), exc)
+            # r191: a self-check failure is structural - the same story, the
+            # same pictures, the same failure every run. It was "retried next
+            # run" by design, so page 1232 would have taken a render slot
+            # every 4 hours forever. Parked like a judge rejection instead
+            # (dead-letter per renderer revision: a new maker version still
+            # gets one fresh attempt). The thin-pool check parks on its own.
+            if isinstance(exc, SelfCheckFailed) and "thin pool" not in str(exc):
+                try:
+                    append_abandoned(post.get("page_id"))
+                    log.info("PARKED page %s after a self-check failure (no retry "
+                             "on this renderer revision)", post.get("page_id"))
+                except Exception:  # noqa: BLE001
+                    pass
             traceback.print_exc()
             # r34 CRASH REPORT: a driver death is invisible from outside — the
             # heartbeat thread dies with the process, so the log just STOPS and
