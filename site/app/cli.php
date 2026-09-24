@@ -1128,6 +1128,14 @@ switch ($cmd) {
         break;
     }
 
+    case 'status-refresh':
+        // 2026-09-24 stories whose timeline is newer than their summary. "status-refresh 5" or "status-refresh 5 dry"
+        require_once __DIR__ . '/status_refresh.php';
+        $lim = ($arg && ctype_digit($arg)) ? (int)$arg : 4;
+        $sr = sr_run($pdo, $lim, 270, ($argv[3] ?? '') !== 'dry');
+        echo "status refresh: checked={$sr['checked']} refreshed={$sr['refreshed']} unchanged={$sr['unchanged']} kept-old={$sr['refused']} passed-editor={$sr['passed_editor']}\n";
+        break;
+
     case 'imgbackfill':
         require_once __DIR__ . '/drama_image.php';
         $lim = ($arg && ctype_digit($arg)) ? (int)$arg : 5;
@@ -1482,6 +1490,14 @@ switch ($cmd) {
             $ib = drama_image_backfill_v2($pdo, 2);
             if ($ib['tried'])
                 echo "covers v2: tried={$ib['tried']} photo={$ib['photo']} back-to-card={$ib['back_to_card']} retry={$ib['retry']} (" . implode(', ', $ib['pages']) . ")\n";
+            // STATUS REFRESH (2026-09-24): stories whose timeline is newer than their
+            // summary get the summary, status and status FAQ brought up to date, then
+            // a fresh editor verdict. 4 per tick, ~2 min cap.
+            try {
+                require_once __DIR__ . '/status_refresh.php';
+                $sr = sr_run($pdo, 4, 150);
+                if ($sr['checked']) echo "status refresh: checked={$sr['checked']} refreshed={$sr['refreshed']} unchanged={$sr['unchanged']} kept-old={$sr['refused']} passed-editor={$sr['passed_editor']}\n";
+            } catch (Throwable $e) { echo "  status refresh failed: " . $e->getMessage() . "\n"; }
         }
         // SOCIAL STUDIO: turn the newest pages into the per-platform post queue (admin Social tab).
         if ($hr === 8) {

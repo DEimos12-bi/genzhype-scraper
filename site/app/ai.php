@@ -55,6 +55,15 @@ function ai_providers(): array {
             'key'        => $ai['nvidia_director']['key'] ?? '',
             'max_tokens' => (int)($ai['nvidia_director']['max_tokens'] ?? 16384),
         ],
+        // 2026-09-24 Groq (owner's key, top-level 'groq' in config.php). Only callers
+        // that name it use it: the editor candidate under calibration. gpt-oss is a
+        // reasoning model, so it gets a token budget like the director.
+        'groq' => [
+            'url'        => 'https://api.groq.com/openai/v1/chat/completions',
+            'models'     => $CONFIG['groq']['models'] ?? ['openai/gpt-oss-120b', 'qwen/qwen3.8-27b'],
+            'key'        => (string)($CONFIG['groq']['key'] ?? ''),
+            'max_tokens' => (int)($CONFIG['groq']['max_tokens'] ?? 8192),
+        ],
     ];
     foreach ($defs as &$d) $d['models'] = array_values(array_unique($d['models']));
     unset($d);

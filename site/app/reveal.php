@@ -79,6 +79,9 @@ function reveal_run(PDO $pdo, bool $dry = false): array
             $checked++;
             $g = gate_check_drama((int)$d['id']);
             if (empty($g['pass'])) { continue; }
+            // 2026-09-24 a story the index rules still block is skipped here: calling
+            // page_publish_live() on it re-stamped published_at and updated_at every hour
+            if (drama_index_block($pdo, (int)$d['id']) !== '') { continue; }
             if ($dry) { $revealed++; $names[] = 'drama/' . $d['slug']; continue; }
             $live = false;
             try { $live = page_publish_live($pdo, (int)$d['id']); }

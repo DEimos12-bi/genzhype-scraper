@@ -172,6 +172,9 @@ function drama_deepen_page(PDO $pdo, int $pageId, bool $apply): array {
     if (!$added) return ['ok' => false, 'why' => 'no event survived validation'];
     // 2026-09-24 new events go where their dates put them, not at the end of the timeline
     try { require_once __DIR__ . '/timeline_order.php'; events_resort($pdo, $dramaId); } catch (Throwable $e) { error_log('deepen resort: ' . $e->getMessage()); }
+    // 2026-09-24 the summary, status and status FAQ follow the new events (this run
+    // just searched for coverage, so the status holds as of today); re-judged inside
+    try { require_once __DIR__ . '/status_refresh.php'; drama_status_refresh($pdo, $pageId, gmdate('Y-m-d')); } catch (Throwable $e) { error_log('deepen status refresh: ' . $e->getMessage()); }
 
     $g = gate_check_drama($pageId);
     // A freshly added event often arrives stated as fact when the claim is
