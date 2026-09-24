@@ -14,11 +14,17 @@ class Database {
         }
 
         global $CONFIG;
-        $d = $CONFIG['db'];
-        $dsn = "mysql:host={$d['host']};dbname={$d['name']};charset={$d['charset']}";
+        $d = $CONFIG['db'] ?? [];
+        $host = $d['host'] ?? $_ENV['DB_HOST'] ?? 'localhost';
+        $name = $d['name'] ?? $_ENV['DB_NAME'] ?? 'genzhype';
+        $user = $d['user'] ?? $_ENV['DB_USER'] ?? 'root';
+        $pass = $d['pass'] ?? $_ENV['DB_PASS'] ?? '';
+        $charset = $d['charset'] ?? 'utf8mb4';
+
+        $dsn = "mysql:host={$host};dbname={$name};charset={$charset}";
 
         try {
-            self::$pdo = new PDO($dsn, $d['user'], $d['pass'], [
+            self::$pdo = new PDO($dsn, $user, $pass, [
                 PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
                 PDO::ATTR_EMULATE_PREPARES   => false,
