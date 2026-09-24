@@ -199,9 +199,9 @@ function video_write_script(PDO $pdo, array $pick): ?array {
     } catch (Throwable $e) { $estVis = 0; }
 
     if     ($estVis <= 4)  { $wLo = 55;  $wHi = 70;  $secs = '25-30'; }
-    elseif ($estVis <= 8)  { $wLo = 80;  $wHi = 105; $secs = '35-45'; }
-    elseif ($estVis <= 14) { $wLo = 120; $wHi = 155; $secs = '52-67'; }
-    else                   { $wLo = 155; $wHi = 195; $secs = '67-85'; }
+    elseif ($estVis <= 8)  { $wLo = 60;  $wHi = 85;  $secs = '25-30'; }
+    elseif ($estVis <= 14) { $wLo = 80;  $wHi = 105; $secs = '25-30'; }
+    else                   { $wLo = 100; $wHi = 130; $secs = '25-30'; }
 
     $lenRule = "LENGTH IS A HARD BUDGET, NOT A SUGGESTION: write {$wLo}-{$wHi} "
              . "words (about {$secs} seconds spoken). This story has roughly "
