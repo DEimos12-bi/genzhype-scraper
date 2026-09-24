@@ -4,3 +4,4 @@
 .social/video_done.txt merge=union
 .social/video_replans.txt merge=union
 .social/video_abandoned.txt merge=union
+.social/video_failures.txt merge=union

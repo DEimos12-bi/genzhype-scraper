@@ -580,11 +580,12 @@ jobs:
           # the done-list; the || true guards keep an absent file from ever
           # failing this step.
           # r177: the dead-letter book (.social/video_abandoned.txt) commits too
-          if [ -n "$(git status --porcelain .social/video_done.txt .social/video_replans.txt .social/video_abandoned.txt 2>/dev/null || true)" ]; then
-            git reset -q || true   # r183: commit the three books and nothing else
+          if [ -n "$(git status --porcelain .social/video_done.txt .social/video_replans.txt .social/video_abandoned.txt .social/video_failures.txt 2>/dev/null || true)" ]; then
+            git reset -q || true   # r183: commit the state books and nothing else
             git add .social/video_done.txt || true
             git add .social/video_replans.txt || true
             git add .social/video_abandoned.txt || true
+            git add .social/video_failures.txt || true   # 2026-09-24: failure counts per page
             git commit -m "video-maker: update dedup state [skip ci]"
             # r25: the on-demand render trigger means the maintainer may push to
             # main WHILE a render runs, so main can advance under us -> the plain

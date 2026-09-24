@@ -806,9 +806,23 @@ REPLAN_FILE = os.environ.get("VIDEO_REPLAN_FILE", ".social/video_replans.txt")
 ABANDON_FILE = os.environ.get("VIDEO_ABANDON_FILE", ".social/video_abandoned.txt")
 try:
     with open(os.path.abspath(__file__), "rb") as _mf:
-        MAKER_REV = hashlib.sha1(_mf.read()).hexdigest()[:10]
+        MAKER_HASH = hashlib.sha1(_mf.read()).hexdigest()[:10]
 except Exception:  # noqa: BLE001
-    MAKER_REV = "unknown"
+    MAKER_HASH = "unknown"
+# 2026-09-24 PARK KEY = A GENERATION, NOT THE FILE HASH. Keyed by the hash, every
+# edit to this file (three on 09-24 alone) un-parked every parked page: r191 at
+# 18:01 released 7 of them into the next render slots. MAKER_GEN changes only
+# when someone bumps it on purpose - bump it when a change is meant to give the
+# parked pages their one fresh attempt. The hash is still written next to each
+# park for diagnosis.
+MAKER_GEN = "g1"
+MAKER_REV = MAKER_GEN
+# A page parked under this many generations is never offered again.
+PARK_LIFETIME_CAP = int(os.environ.get("VIDEO_PARK_LIFETIME_CAP", "3"))
+# Failures other than self-check, subject and judge rejections (those park on
+# their own) are counted per page and generation; at this count the page parks.
+FAIL_CAP = int(os.environ.get("VIDEO_FAIL_CAP", "3"))
+FAIL_FILE = os.environ.get("VIDEO_FAIL_FILE", ".social/video_failures.txt")
 REPLAN_CAP = int(os.environ.get("VIDEO_REPLAN_CAP", "3"))
 
 # r16: the judge pairs sampled frames with the EDL shot phrases spoken under
@@ -10042,24 +10056,42 @@ def append_done(page_id):
         f.write(f"{page_id}\n")
 
 
-# --- r16 CLOSED LOOP: replan bookkeeping ('page_id count' lines) -----------
-def read_replans():
-    """{page_id_str: count} from REPLAN_FILE; malformed lines are skipped and
-    a missing/unreadable file is simply an empty book."""
+# --- r16 CLOSED LOOP: replan bookkeeping ('page_id@rev count' lines) -------
+def _read_count_book(path):
+    """{key: count} from a 'page_id@rev count' book; malformed lines are
+    skipped and a missing/unreadable file is simply an empty book."""
     counts = {}
     try:
-        if os.path.exists(REPLAN_FILE):
-            with open(REPLAN_FILE, "r", encoding="utf-8") as f:
+        if os.path.exists(path):
+            with open(path, "r", encoding="utf-8") as f:
                 for line in f:
                     parts = line.split()
+                    # rev = an old 6-40 hex file hash, 'unknown', or a
+                    # generation like 'g1' (2026-09-24). A pattern that
+                    # rejected the new key would silently zero every count
+                    # and the caps would never trigger.
                     if (len(parts) == 2 and parts[1].isdigit()
-                            and re.fullmatch(r"\d+(@[0-9a-f]{6,40}|@unknown)?", parts[0])):
+                            and re.fullmatch(r"\d+(@[0-9a-z]{2,40})?", parts[0])):
                         # r183: union-merged books may hold a key twice; the
                         # count only rises, so the highest line is the truth
                         counts[parts[0]] = max(counts.get(parts[0], 0), int(parts[1]))
     except Exception as exc:  # noqa: BLE001
-        log.warning("replan state unreadable (%s); treating as empty", exc)
+        log.warning("state book %s unreadable (%s); treating as empty", path, exc)
     return counts
+
+
+def _bump_count_book(path, key):
+    counts = _read_count_book(path)
+    counts[key] = counts.get(key, 0) + 1
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        for k in sorted(counts, key=lambda x: (int(x.split("@")[0]), x)):
+            f.write(f"{k} {counts[k]}\n")
+    return counts[key]
+
+
+def read_replans():
+    return _read_count_book(REPLAN_FILE)
 
 
 def _replan_key(page_id):
@@ -10073,14 +10105,13 @@ def replan_count(page_id):
 def bump_replan(page_id):
     """Increment this page's replan count and rewrite the state file. Returns
     the new count."""
-    counts = read_replans()
-    key = _replan_key(page_id)
-    counts[key] = counts.get(key, 0) + 1
-    os.makedirs(os.path.dirname(REPLAN_FILE) or ".", exist_ok=True)
-    with open(REPLAN_FILE, "w", encoding="utf-8") as f:
-        for k in sorted(counts, key=lambda x: (int(x.split("@")[0]), x)):
-            f.write(f"{k} {counts[k]}\n")
-    return counts[key]
+    return _bump_count_book(REPLAN_FILE, _replan_key(page_id))
+
+
+def bump_failure(page_id):
+    """2026-09-24: count a failure that does not park on its own; returns the
+    new count for this page under this generation."""
+    return _bump_count_book(FAIL_FILE, _replan_key(page_id))
 
 
 def read_abandoned():
@@ -10101,7 +10132,7 @@ def read_abandoned():
 def append_abandoned(page_id):
     os.makedirs(os.path.dirname(ABANDON_FILE) or ".", exist_ok=True)
     with open(ABANDON_FILE, "a", encoding="utf-8") as f:
-        f.write(f"{page_id} {MAKER_REV}\n")
+        f.write(f"{page_id} {MAKER_REV} {MAKER_HASH}\n")   # 3rd field: diagnosis only
 
 
 def request_replan(page_id, reasons):
@@ -10204,8 +10235,13 @@ def fetch_next(done_ids):
     ]
     done_set = {str(d) for d in done_ids}
     # r177: pages parked under THIS renderer are skipped like done ones; pages
-    # parked under an older renderer get their fresh attempt
-    done_set |= {pid for pid, rev in read_abandoned() if rev == MAKER_REV}
+    # parked under an older renderer get their fresh attempt - but only until
+    # they have been parked under PARK_LIFETIME_CAP generations (2026-09-24).
+    _gens = {}
+    for pid, rev in read_abandoned():
+        _gens.setdefault(pid, set()).add(rev)
+    done_set |= {pid for pid, revs in _gens.items()
+                 if MAKER_REV in revs or len(revs) >= PARK_LIFETIME_CAP}
     try:
         data = None
         # r37: the repo-staged feed (video-feed branch) FIRST — it needs no
@@ -10254,7 +10290,10 @@ def fetch_next(done_ids):
         return None
     except Exception as e:  # noqa: BLE001
         log.warning("static feed failed (%s); falling back to api endpoint", e)
-    data = _get_json(NEXT_URL, {"token": INGEST_TOKEN, "done": ",".join(done_ids)})
+    # 2026-09-24: the fallback gets the parked pages too (it was sent done_ids
+    # only, so a parked page could come straight back through this door)
+    data = _get_json(NEXT_URL, {"token": INGEST_TOKEN,
+                                "done": ",".join(sorted(done_set, key=str))})
     return data.get("post")
 
 
@@ -10960,6 +10999,22 @@ def main():
                     append_abandoned(post.get("page_id"))
                     log.info("PARKED page %s after a self-check failure (no retry "
                              "on this renderer revision)", post.get("page_id"))
+                except Exception:  # noqa: BLE001
+                    pass
+            elif not isinstance(exc, (SelfCheckFailed, SubjectMissing)):
+                # 2026-09-24: every other failure was retried every run with no
+                # count ("no usable visuals at all", TTS, ffmpeg...). Counted per
+                # page and generation; at FAIL_CAP the page parks like the rest.
+                # The cap is 3, not 1, so a passing outage cannot park the queue.
+                try:
+                    n_fail = bump_failure(post.get("page_id"))
+                    if n_fail >= FAIL_CAP:
+                        append_abandoned(post.get("page_id"))
+                        log.info("PARKED page %s after %d failures on generation %s",
+                                 post.get("page_id"), n_fail, MAKER_REV)
+                    else:
+                        log.info("failure %d/%d for page %s on generation %s",
+                                 n_fail, FAIL_CAP, post.get("page_id"), MAKER_REV)
                 except Exception:  # noqa: BLE001
                     pass
             traceback.print_exc()
