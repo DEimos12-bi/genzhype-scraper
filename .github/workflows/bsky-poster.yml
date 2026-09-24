@@ -9,9 +9,14 @@ on:
   workflow_dispatch:
 permissions:
   contents: write
+# 2026-09-24: two runs at once could post the same video twice
+concurrency:
+  group: bsky-poster
+  cancel-in-progress: false
 jobs:
   post:
     runs-on: ubuntu-latest
+    timeout-minutes: 15   # was GitHub's default of 6 hours
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
