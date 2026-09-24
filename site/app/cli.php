@@ -1114,8 +1114,8 @@ switch ($cmd) {
     case 'imgbackfill':
         require_once __DIR__ . '/drama_image.php';
         $lim = ($arg && ctype_digit($arg)) ? (int)$arg : 5;
-        $ib = drama_image_backfill_run($pdo, $lim);
-        echo "image backfill: tried={$ib['tried']} fixed={$ib['fixed']} still-card={$ib['still']} dignity-final={$ib['dignity_final']}\n";
+        $ib = drama_image_backfill_v2($pdo, $lim);   // 2026-09-24: cover policy v2
+        echo "covers v2: tried={$ib['tried']} photo={$ib['photo']} back-to-card={$ib['back_to_card']} retry={$ib['retry']} (" . implode(', ', $ib['pages']) . ")\n";
         break;
 
     case 'linkaudit':
@@ -1418,14 +1418,15 @@ switch ($cmd) {
             $er = entity_backfill_run($pdo, 180);
             if ($er['dramas'] || $er['terms']) echo "entities: +{$er['dramas']} dramas, +{$er['terms']} terms resolved\n";
         }
-        // SELF-HEALING IMAGES: re-try real photos for dramas stuck on a branded card because
-        // vision was rate-limited at draft time. A few per day (quota-safe); dignity stories
-        // are finalized as cards and never retried.
-        if ($hr === 7) {
+        // COVER POLICY v2 (owner 2026-09-24: "let go of that card... the best one that
+        // fits"; right person guaranteed). Replaces the 3-a-day card retry at 7:00: 2
+        // covers per tick outside video hours (~32/day, ~100 s each), YouTube covers
+        // first (identity risk), then this week's pages, then older cards.
+        if ($hr % 3 !== 2) {
             require_once __DIR__ . '/drama_image.php';
-            $ib = drama_image_backfill_run($pdo, 3);
-            if ($ib['tried'] || $ib['fixed'] || $ib['dignity_final'])
-                echo "image backfill: tried={$ib['tried']} fixed={$ib['fixed']} still-card={$ib['still']} dignity-final={$ib['dignity_final']}\n";
+            $ib = drama_image_backfill_v2($pdo, 2);
+            if ($ib['tried'])
+                echo "covers v2: tried={$ib['tried']} photo={$ib['photo']} back-to-card={$ib['back_to_card']} retry={$ib['retry']} (" . implode(', ', $ib['pages']) . ")\n";
         }
         // SOCIAL STUDIO: turn the newest pages into the per-platform post queue (admin Social tab).
         if ($hr === 8) {

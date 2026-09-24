@@ -37,13 +37,52 @@ function drama_is_sensitive(string $title, string $summary): bool {
  * 'source','channel_id'] or null.
  */
 function yt_creator_face(string $name, string $context = ''): ?array {
+    $ch = yt_channel_lookup($name);
+    if (!$ch) return null;
+    // 2026-09-24: a name match + 10k subscribers is not identity (see
+    // yt_channel_same_person). With the story's text, the channel must pass.
+    if ($context !== '' && !yt_channel_same_person($ch['item'], $ch['subs'], $name, $context)) return null;
+    $url = $ch['thumb'];
+    return ['url' => $url, 'name' => $ch['item']['snippet']['title'],
+            'source' => 'YouTube channel @' . $ch['item']['snippet']['title'], 'channel_id' => $ch['item']['id']['channelId'],
+            'channel_item' => $ch['item'], 'subs' => $ch['subs']];
+}
+
+/**
+ * The channel search behind yt_creator_face(): the channel whose TITLE best
+ * matches the name, gated at 10k subscribers. Returns ['item','subs','thumb']
+ * or null. 2026-09-24 QUOTA: a channel search costs 100 of the 10,000 daily
+ * YouTube API units and the same names come back story after story, so the
+ * result is cached per name for 30 days (a miss for 7) in
+ * app/cache/yt_name_search.json. Identity is NOT decided here: that is the
+ * per-story check in yt_creator_face().
+ */
+function yt_channel_lookup(string $name): ?array {
     $key = $GLOBALS['CONFIG']['youtube_key'] ?? '';
     if (!$key || mb_strlen(trim($name)) < 2) return null;
+    $nl = mb_strtolower(trim($name));
+    $cfile = __DIR__ . '/cache/yt_name_search.json';
+    $cc = json_decode((string)@file_get_contents($cfile), true) ?: [];
+    $c = $cc[$nl] ?? null;
+    if (is_array($c) && time() - (int)($c['at'] ?? 0) < (empty($c['cid']) ? 7 : 30) * 86400) {
+        if (empty($c['cid'])) return null;
+        return ['item' => ['id' => ['channelId' => $c['cid']],
+                           'snippet' => ['title' => (string)$c['title'], 'description' => (string)$c['desc']]],
+                'subs' => (int)$c['subs'], 'thumb' => (string)$c['thumb']];
+    }
+    $save = function (?array $r) use ($cfile, $nl): ?array {
+        $cc = json_decode((string)@file_get_contents($cfile), true) ?: [];
+        $cc[$nl] = $r ? ['cid' => $r['item']['id']['channelId'], 'title' => $r['item']['snippet']['title'],
+                         'desc' => $r['item']['snippet']['description'], 'subs' => $r['subs'], 'thumb' => $r['thumb'], 'at' => time()]
+                      : ['cid' => '', 'at' => time()];
+        @file_put_contents($cfile, json_encode($cc, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), LOCK_EX);
+        return $r;
+    };
     $raw = fs_http_get('https://www.googleapis.com/youtube/v3/search?part=snippet&type=channel&maxResults=5&q='
         . rawurlencode($name) . '&key=' . $key, 15);
     $j = $raw ? json_decode($raw, true) : null;
-    if (!$j || empty($j['items'])) return null;
-    $nl = mb_strtolower(trim($name));
+    if (!$j || !isset($j['items'])) return null;                 // API failure: not cached, retried next time
+    if (empty($j['items'])) return $save(null);
     $best = null; $bestScore = -1;
     foreach ($j['items'] as $it) {
         $title = $it['snippet']['title'] ?? '';
@@ -55,33 +94,26 @@ function yt_creator_face(string $name, string $context = ''): ?array {
         if (preg_match('/\b(unredacted|clips|fan|reacts|highlights|shorts|archive|topic|tribute|edits|fanpage)\b/i', $title)) $score -= 35;
         if ($score > $bestScore) { $bestScore = $score; $best = $it; }
     }
-    if (!$best || $bestScore < 45) return null;
+    if (!$best || $bestScore < 45) return $save(null);
     // REAL-CREATOR gate: a drama subject worth covering has a real channel. A random
     // same-named personal channel (the wrong "Alicia Brown") has ~no subscribers ->
-    // skip it. This is the only safe signal when we have no reference photo to verify.
-    $cid = $best['id']['channelId'] ?? '';
-    $subs = 0;
-    if ($cid) {
-        $st = fs_http_get('https://www.googleapis.com/youtube/v3/channels?part=statistics&id=' . $cid . '&key=' . $key, 12);
-        $sj = $st ? json_decode($st, true) : null;
-        $subs = (int)($sj['items'][0]['statistics']['subscriberCount'] ?? 0);
-        if ($subs < 10000) return null;       // not an established creator -> too risky
-    }
-    // the parts of the channel the identity check reads (kept by callers that cache)
-    $item = ['id' => ['channelId' => $cid],
-             'snippet' => ['title' => (string)($best['snippet']['title'] ?? ''),
-                           'description' => mb_substr((string)($best['snippet']['description'] ?? ''), 0, 400)]];
-    // 2026-09-24: a name match + 10k subscribers is not identity (see
-    // yt_channel_same_person). With the story's text, the channel must pass.
-    if ($context !== '' && !yt_channel_same_person($item, $subs, $name, $context)) return null;
+    // skip it. (Identity is checked per story in yt_creator_face.)
+    $cid = (string)($best['id']['channelId'] ?? '');
+    if ($cid === '') return $save(null);
+    $st = fs_http_get('https://www.googleapis.com/youtube/v3/channels?part=statistics&id=' . $cid . '&key=' . $key, 12);
+    $sj = $st ? json_decode($st, true) : null;
+    if (!$sj || !isset($sj['items'])) return null;               // API failure: not cached
+    $subs = (int)($sj['items'][0]['statistics']['subscriberCount'] ?? 0);
+    if ($subs < 10000) return $save(null);                       // not an established creator -> too risky
     $t = $best['snippet']['thumbnails'] ?? [];
     $url = $t['high']['url'] ?? $t['medium']['url'] ?? $t['default']['url'] ?? '';
-    if (!$url) return null;
+    if (!$url) return $save(null);
     if (strpos($url, '//') === 0) $url = 'https:' . $url;
-    $url = preg_replace('/=s\d+(-c)?/', '=s800', $url);     // larger avatar
-    return ['url' => $url, 'name' => $best['snippet']['title'],
-            'source' => 'YouTube channel @' . $best['snippet']['title'], 'channel_id' => $best['id']['channelId'] ?? '',
-            'channel_item' => $item, 'subs' => $subs];
+    $url = preg_replace('/=s\d+(-c)?/', '=s800', $url);         // larger avatar
+    return $save(['item' => ['id' => ['channelId' => $cid],
+                             'snippet' => ['title' => (string)($best['snippet']['title'] ?? ''),
+                                           'description' => mb_substr((string)($best['snippet']['description'] ?? ''), 0, 400)]],
+                  'subs' => $subs, 'thumb' => $url]);
 }
 
 /** A channel's latest upload titles (2 cheap Data API calls; [] on any failure). */
@@ -472,6 +504,40 @@ function drama_concept_candidates(string $title): array {
 }
 
 /** Build a concept hero directly (no vision needed -- an object/symbol is inherently safe). Null if none. */
+/**
+ * 2026-09-24: photo agencies run bots that find their photos on other sites and
+ * send bills (Getty/PicRights, AP). News sites re-host agency photos on their
+ * own CDNs, so the file name and path are checked too ("GettyImages-123.jpg").
+ */
+function drama_is_agency_photo(string $url): bool {
+    return (bool)preg_match('#getty|apimages|/ap[-_]?photo|\bap[-_]\d|reuters|\bafp\b|afp[-_]|shutterstock|alamy|zuma(press)?|wireimage'
+        . '|filmmagic|imago[-_]|sipa|dpa[-_]|\bepa[-_]|eyevine|rexfeatures|rex[-_]features|pa[-_]images|abaca|splashnews|backgrid#i', $url);
+}
+
+/**
+ * The report photos (og:image) of the articles a story cites, as cover
+ * candidates: [{url, kind:'photo', credit, credit_url}], agency photos dropped,
+ * one per article. Uses the event_sources og cache (the cron may fetch live).
+ */
+function drama_article_photos(int $pageId, int $max = 4): array {
+    require_once __DIR__ . '/event_sources.php';
+    $out = []; $seen = [];
+    try {
+        foreach (event_sources_for_page(db(), $pageId) as $es) {
+            $img = trim((string)($es['og_image'] ?? ''));
+            $src = trim((string)($es['source_url'] ?? ''));
+            if ($img === '' || $src === '' || isset($seen[$img]) || drama_is_agency_photo($img)) continue;
+            if (!preg_match('#^https?://#i', $img)) continue;
+            $seen[$img] = 1;
+            $host = preg_replace('/^www\./', '', (string)parse_url($src, PHP_URL_HOST));
+            $out[] = ['url' => $img, 'kind' => 'photo', 'title' => (string)($es['title'] ?? ''),
+                      'credit' => 'Photo: ' . $host . ' (from the cited article)', 'credit_url' => $src];
+            if (count($out) >= $max) break;
+        }
+    } catch (Throwable $e) { /* never fatal: the other candidates stand */ }
+    return $out;
+}
+
 function drama_concept_hero(string $slug, string $title): ?array {
     require_once __DIR__ . '/images.php';
     foreach (drama_concept_candidates($title) as $c) {
@@ -490,7 +556,8 @@ function drama_concept_hero(string $slug, string $title): ?array {
  * THE drama image picker: pool candidates from ALL sources (Wikimedia faces + context
  * event thumbnails), vision-pick the best, build the hero. Returns ['img','credit','kind'] or null.
  */
-function drama_image_smart(string $slug, string $title, string $summary, string $mood, bool $fallbackPick = false): ?array {
+function drama_image_smart(string $slug, string $title, string $summary, string $mood, bool $fallbackPick = false,
+                           int $pageId = 0): ?array {
     require_once __DIR__ . '/images.php';
     require_once __DIR__ . '/vs_card.php';
     $people = drama_people_ai($title, $summary);
@@ -535,6 +602,11 @@ function drama_image_smart(string $slug, string $title, string $summary, string 
     }
     $cands = [];
     foreach ($faces as $f) $cands[] = ['url' => $f['url'], 'kind' => 'face', 'credit' => $f['credit'], 'credit_url' => $f['credit_url']];
+    // 2026-09-24 (owner: "let go of the card... get the best one that fits"): the
+    // report photos of the articles this story cites - the actual event, the
+    // actual people. Credited and linked to the article; agency photos (Getty,
+    // AP, Reuters...) are never taken, they are the ones that send bills.
+    if ($pageId > 0) foreach (drama_article_photos($pageId, 4) as $a) $cands[] = $a;
     // IDENTITY-SAFE real photos: each subject's OWN channel uploads (verified-right person,
     // unlike a Wikipedia namesake). Gives vision many real frames of the actual creator to
     // choose a clean editorial one from — the main lever for "every drama shows the people".
@@ -637,6 +709,64 @@ function drama_image_backfill_run(PDO $pdo, int $limit = 3): array {
             $mark->execute([$r['id'], $a + 1, $now, 0]);     // count the attempt; gives up after 6
             $out['still']++;
         }
+    }
+    return $out;
+}
+
+/**
+ * 2026-09-24 COVER POLICY v2 (owner: "let go of that card... the best one that
+ * fits the topic"; plus "be sure it's the right person"). One pass over every
+ * published drama whose cover is our branded card OR a YouTube image (171 of
+ * those were never identity-checked). Each gets a fresh pick from the full,
+ * now identity-checked pool incl. the cited articles' report photos.
+ *   - a pick          -> it becomes the cover (credited, linked)
+ *   - no pick, the old cover was a YouTube image -> back to the card at once
+ *     (an unverified face must not stay while we wait), then retried as a card
+ *   - no pick on a card -> retried up to 3 times (vision may have been busy)
+ * YouTube covers first (identity risk), then cards, newest first. Limit per
+ * call is small: a pick costs vision + YouTube quota (10,000 units a day).
+ */
+function drama_image_backfill_v2(PDO $pdo, int $limit = 2): array {
+    $pdo->exec("CREATE TABLE IF NOT EXISTS drama_img_v2 (
+        page_id INT PRIMARY KEY,
+        outcome VARCHAR(40) NOT NULL,
+        tries INT NOT NULL DEFAULT 0,
+        at DATETIME NOT NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    $rows = $pdo->query("SELECT p.id, p.slug, p.h1, p.summary, p.cover_credit, p.cover_credit_url, d.mood,
+               (COALESCE(p.cover_credit,'') LIKE '%YouTube%' OR COALESCE(p.cover_credit_url,'') LIKE '%youtube.com%') AS yt
+        FROM pages p JOIN dramas d ON d.page_id = p.id
+        LEFT JOIN drama_img_v2 v ON v.page_id = p.id
+        WHERE p.type = 'drama' AND p.status = 'published'
+          AND (COALESCE(p.cover_credit,'') = '' OR COALESCE(p.cover_credit,'') LIKE '%YouTube%'
+               OR COALESCE(p.cover_credit_url,'') LIKE '%youtube.com%')
+          AND (v.page_id IS NULL OR (v.outcome = 'retry' AND v.tries < 3 AND v.at < NOW() - INTERVAL 6 HOUR))
+        ORDER BY yt DESC, (p.published_at > NOW() - INTERVAL 3 DAY) DESC, p.published_at DESC
+        LIMIT " . max(1, $limit))->fetchAll(PDO::FETCH_ASSOC);
+    $out = ['tried' => 0, 'photo' => 0, 'back_to_card' => 0, 'retry' => 0, 'pages' => []];
+    $mark = $pdo->prepare("INSERT INTO drama_img_v2 (page_id, outcome, tries, at) VALUES (?, ?, 1, NOW())
+                           ON DUPLICATE KEY UPDATE outcome = VALUES(outcome), tries = tries + 1, at = NOW()");
+    $set = $pdo->prepare("UPDATE pages SET cover = ?, featured_img = ?, cover_credit = ?, cover_credit_url = ?, updated_at = NOW() WHERE id = ?");
+    foreach ($rows as $r) {
+        $out['tried']++;
+        $res = null;
+        try { $res = drama_image_smart($r['slug'], $r['h1'], (string)($r['summary'] ?? ''), (string)($r['mood'] ?? 'neutral'), false, (int)$r['id']); }
+        catch (Throwable $e) { error_log('drama_image_backfill_v2 ' . $r['id'] . ': ' . $e->getMessage()); }
+        if ($res && !empty($res['img'])) {
+            $set->execute([$res['img'], $res['img'], $res['credit'] ?? null, $res['credit_url'] ?? null, $r['id']]);
+            $mark->execute([$r['id'], 'photo:' . ($res['kind'] ?? '?')]);
+            $out['photo']++; $out['pages'][] = $r['id'] . ' photo(' . ($res['kind'] ?? '?') . ')';
+            continue;
+        }
+        if ((int)$r['yt'] === 1) {
+            $card = '/assets/covers/' . $r['slug'] . '.png';
+            if (is_file(dirname(__DIR__) . '/public_html' . $card)) {
+                $set->execute([$card, $card, null, null, $r['id']]);
+                $out['back_to_card']++; $out['pages'][] = $r['id'] . ' back-to-card';
+            }
+        }
+        $mark->execute([$r['id'], 'retry']);
+        $out['retry']++;
     }
     return $out;
 }
