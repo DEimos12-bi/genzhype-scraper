@@ -70,6 +70,9 @@ def collect_youtube(todo):
     creds = site(f"{BASE}/api/creds.php",
                  {"token": INGEST,
                   "want": ["yt_refresh", "yt_client_id", "yt_client_secret"]})["creds"]
+    for _v in creds.values():                # 2026-09-24: this repo's logs are public
+        if _v:
+            print(f"::add-mask::{_v}", flush=True)
     if not creds.get("yt_refresh"):
         log("YT: no credentials; skipped")
         return

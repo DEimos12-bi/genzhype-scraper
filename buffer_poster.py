@@ -105,6 +105,7 @@ def fetch_vault_token():
                               {"token": INGEST, "want": ["buffer"]})
             tok = (creds.get("creds") or {}).get("buffer", "")
             if tok:
+                print(f"::add-mask::{tok}", flush=True)   # 2026-09-24: this repo's logs are public
                 return tok
             log(f"vault returned no buffer key (attempt {attempt})")
         except Exception as e:  # noqa: BLE001
