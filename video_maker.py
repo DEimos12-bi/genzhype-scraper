@@ -387,6 +387,7 @@ import re
 import subprocess
 import sys
 import time
+from types import SimpleNamespace
 import traceback
 import urllib.parse
 
@@ -516,18 +517,24 @@ HOOK_TEXT_MAX_S = float(os.environ.get("VIDEO_HOOK_TEXT_MAX_S", "2.2"))   # r126
 TAIL_SECONDS = 0.45            # small pad so the last word/audio is not clipped
 TTS_OUTER_RETRIES = 4          # outer retries around the whole TTS call (403 risk)
 
+# 2026-09-24 ONE STYLE OBJECT. apply_style() used to rebind nine module
+# globals with `global`; any code moved to another module would keep reading
+# its own stale copies and silently ignore the video's style. The knobs now
+# live on this one object, which every module can share by import.
+STYLE = SimpleNamespace()
+
 # --- v2: scenes / motion ---
 MAX_SCENES = int(os.environ.get("VIDEO_MAX_SCENES", "8"))
 MIN_SCENE_S = 1.4              # beats shorter than this merge into a neighbour
 MAX_BEAT_S = 8.0               # sentences longer than this get split
 TARGET_BEAT_S = 5.5            # target sub-beat length when splitting long ones
-SCENE_ZOOM = 0.16              # r25 motion-lite: stronger, clearly-visible push
+STYLE.SCENE_ZOOM = 0.16              # r25 motion-lite: stronger, clearly-visible push
                                # (footage is bot-walled on free cloud, so the
                                # LIFE has to come from real camera movement on
                                # the real stills — was 0.10, too timid = frozen)
 PAN_SCALE = 1.24               # oversize factor that creates room for pans
                                # (r25: more travel so pans actually read)
-XFADE = float(os.environ.get("VIDEO_XFADE", "0.15"))   # 0 -> hard cuts
+STYLE.XFADE = float(os.environ.get("VIDEO_XFADE", "0.15"))   # 0 -> hard cuts
 
 # --- v2: captions ---
 ACCENT = "#FF6A5C"             # GenZHype brand accent — the spoken word pops in it
@@ -614,10 +621,10 @@ VIDEO_STYLES = {
     "punch":    {"split": 1.5, "xfade": 0.08, "zoom": 0.16, "punch": 1.17,
                  "bgm": 3, "lead": "faces"},
 }
-STYLE_LEAD = ""                    # receipts | footage | faces
-EVIDENCE_MAX_SCENES = 2            # scenes one proof image may back (r21 cap)
-STYLE_NAME = ""
-STYLE_BGM = 0                      # 1-based bgm index chosen by the style
+STYLE.STYLE_LEAD = ""                    # receipts | footage | faces
+STYLE.EVIDENCE_MAX_SCENES = 2            # scenes one proof image may back (r21 cap)
+STYLE.STYLE_NAME = ""
+STYLE.STYLE_BGM = 0                      # 1-based bgm index chosen by the style
 
 
 def pick_style(page_id):
@@ -632,37 +639,34 @@ def pick_style(page_id):
 
 def apply_style(name):
     """Bind the style's knobs. Called once per video before planning."""
-    global SCENE_SPLIT_TARGET_S, XFADE, SCENE_ZOOM, PUNCH_BUILD_SCALE
-    global STYLE_NAME, STYLE_BGM
     st = VIDEO_STYLES.get(name)
     if not st:
         return
-    STYLE_NAME = name
-    SCENE_SPLIT_TARGET_S = float(st["split"])
-    XFADE = float(st["xfade"])
-    SCENE_ZOOM = float(st["zoom"])
-    PUNCH_BUILD_SCALE = float(st["punch"])
-    STYLE_BGM = int(st["bgm"])
+    STYLE.STYLE_NAME = name
+    STYLE.SCENE_SPLIT_TARGET_S = float(st["split"])
+    STYLE.XFADE = float(st["xfade"])
+    STYLE.SCENE_ZOOM = float(st["zoom"])
+    STYLE.PUNCH_BUILD_SCALE = float(st["punch"])
+    STYLE.STYLE_BGM = int(st["bgm"])
     # r67 CONTENT LEAD — retune the mix knobs that decide what fills the screen.
-    global STYLE_LEAD, EVIDENCE_MAX_SCENES, FOOTAGE_CK_MAX_CONSEC
-    STYLE_LEAD = str(st.get("lead", ""))
-    if STYLE_LEAD == "receipts":
-        EVIDENCE_MAX_SCENES = 3        # let a strong proof carry one scene more
-        FOOTAGE_CK_MAX_CONSEC = 2      # keep clips short so proof stays the star
-    elif STYLE_LEAD == "footage":
-        EVIDENCE_MAX_SCENES = 2
-        FOOTAGE_CK_MAX_CONSEC = 6      # let the real moment breathe
-    elif STYLE_LEAD == "faces":
-        EVIDENCE_MAX_SCENES = 2
-        FOOTAGE_CK_MAX_CONSEC = 2      # portraits carry it, clips are punctuation
+    STYLE.STYLE_LEAD = str(st.get("lead", ""))
+    if STYLE.STYLE_LEAD == "receipts":
+        STYLE.EVIDENCE_MAX_SCENES = 3        # let a strong proof carry one scene more
+        STYLE.FOOTAGE_CK_MAX_CONSEC = 2      # keep clips short so proof stays the star
+    elif STYLE.STYLE_LEAD == "footage":
+        STYLE.EVIDENCE_MAX_SCENES = 2
+        STYLE.FOOTAGE_CK_MAX_CONSEC = 6      # let the real moment breathe
+    elif STYLE.STYLE_LEAD == "faces":
+        STYLE.EVIDENCE_MAX_SCENES = 2
+        STYLE.FOOTAGE_CK_MAX_CONSEC = 2      # portraits carry it, clips are punctuation
     log.info("STYLE %s: lead=%s cuts~%.1fs xfade=%.2f zoom=%.2f punch=%.2f "
              "bgm_%d evidence_cap=%d footage_consec=%d",
-             name, STYLE_LEAD, SCENE_SPLIT_TARGET_S, XFADE, SCENE_ZOOM,
-             PUNCH_BUILD_SCALE, STYLE_BGM, EVIDENCE_MAX_SCENES,
-             FOOTAGE_CK_MAX_CONSEC)
+             name, STYLE.STYLE_LEAD, STYLE.SCENE_SPLIT_TARGET_S, STYLE.XFADE, STYLE.SCENE_ZOOM,
+             STYLE.PUNCH_BUILD_SCALE, STYLE.STYLE_BGM, STYLE.EVIDENCE_MAX_SCENES,
+             STYLE.FOOTAGE_CK_MAX_CONSEC)
 
 
-SCENE_SPLIT_TARGET_S = float(os.environ.get("VIDEO_SPLIT_TARGET_S", "1.2"))
+STYLE.SCENE_SPLIT_TARGET_S = float(os.environ.get("VIDEO_SPLIT_TARGET_S", "1.2"))
 SCENE_SPLIT_MIN_S = float(os.environ.get("VIDEO_SPLIT_MIN_S", "1.8"))
 SCENE_SPLIT_MAX_PARTS = int(os.environ.get("VIDEO_SPLIT_MAX_PARTS", "4"))
 
@@ -921,7 +925,7 @@ VISUAL_LEAD_S = float(os.environ.get("VIDEO_VISUAL_LEAD_S", "0.30"))  # Law 9
 MIN_SHOT_S = 0.35              # degenerate shots absorb into the previous one
 PUNCH_HIT_SCALE = 1.17         # Law 6: snap-zoom target (r25: punchier)
 PUNCH_HIT_FRAMES = 3           # snap duration in frames (~0.1s at 30fps)
-PUNCH_BUILD_SCALE = 1.17       # eased 1.0->1.17 across the shot (r25: was 1.10,
+STYLE.PUNCH_BUILD_SCALE = 1.17       # eased 1.0->1.17 across the shot (r25: was 1.10,
                                # too gentle — motion-lite needs visible push)
 EDGE_FADE_S = 0.15             # tiny fade on video START/END only (hard cuts inside)
 
@@ -1022,7 +1026,7 @@ FOOTAGE_CK_MAX_SCENES = int(os.environ.get("VIDEO_FOOTAGE_MAX_SCENES", "12"))
 FOOTAGE_CK_MAX_TOTAL_S = float(os.environ.get("VIDEO_FOOTAGE_MAX_S", "40"))
 FOOTAGE_CK_MAX_TOTAL_FRAC = float(os.environ.get("VIDEO_FOOTAGE_FRAC", "0.70"))
 FOOTAGE_CK_MAX_FETCHES = int(os.environ.get("VIDEO_FOOTAGE_FETCHES", "8"))
-FOOTAGE_CK_MAX_CONSEC = int(os.environ.get("VIDEO_FOOTAGE_CONSEC", "4"))
+STYLE.FOOTAGE_CK_MAX_CONSEC = int(os.environ.get("VIDEO_FOOTAGE_CONSEC", "4"))
                                    # r25: footage may run up to N scenes before
                                    # a still accent (real story footage is NOT
                                    # the generic-stock 2-in-a-row cap; that cap
@@ -4182,7 +4186,7 @@ def footage_budget_ok(need_s, n_scenes, used_s, consec_broll, prev_footage,
         # 2-in-a-row cap was built to bound. (consec_broll here counts stock +
         # footage together, so gating footage on it forced a still every 3rd
         # scene — the exact "too many dead stills" the owner flagged.)
-        if consec_footage >= FOOTAGE_CK_MAX_CONSEC:
+        if consec_footage >= STYLE.FOOTAGE_CK_MAX_CONSEC:
             return False
     else:
         if consec_broll >= 2:
@@ -6430,7 +6434,7 @@ def motion_scale_fn(motion, dur, emph_rel):
     def _s(t, d=dur):                                   # punch_build (eased)
         u = min(1.0, max(0.0, t / d))
         u = u * u * (3.0 - 2.0 * u)                     # smoothstep
-        return 1.0 + (PUNCH_BUILD_SCALE - 1.0) * u
+        return 1.0 + (STYLE.PUNCH_BUILD_SCALE - 1.0) * u
     return _s
 
 
@@ -6770,7 +6774,7 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
         # visible face beats a scene-setting plate for the same slot. Only a
         # PREFERENCE — if no faces are free we fall through to the normal set,
         # so this can never starve the picker.
-        if STYLE_LEAD == "faces":
+        if STYLE.STYLE_LEAD == "faces":
             _faces = [e for e in cands if e.get("has_face")]
             if len(_faces) >= 2:
                 cands = _faces
@@ -7048,7 +7052,7 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                              "not carry this card); subject photo",
                              sh.get("receipt_i"))
                     path = None
-            elif path and evidence_scene_uses.get(path, 0) >= EVIDENCE_MAX_SCENES:
+            elif path and evidence_scene_uses.get(path, 0) >= STYLE.EVIDENCE_MAX_SCENES:
                 log.info("receipt image already in 2 scenes; subject photo "
                          "for variety")
                 path = None
@@ -7379,7 +7383,7 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
         # plain still; obeys the footage budget + the consecutive-footage cap.
         if (not footage and typ == "photo" and clip_pool
                 and not _TIMELINE_MODE[0]
-                and consec_footage < FOOTAGE_CK_MAX_CONSEC):
+                and consec_footage < STYLE.FOOTAGE_CK_MAX_CONSEC):
             prev_foot = bool(scenes and scenes[-1].get("footage"))
             res_n, res_s = _planned_reserve(si)
             if footage_budget_ok(need_s, foot_n, foot_s, consec_broll,
@@ -7591,7 +7595,7 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
     # its parent's own time window. Cards (textish: need read time) and footage
     # (already moving) are never split. The parent's one-shot cues (sfx, emphasis)
     # stay on the first beat so the sound design is unchanged.
-    if SCENE_SPLIT_TARGET_S > 0 and scenes:
+    if STYLE.SCENE_SPLIT_TARGET_S > 0 and scenes:
         split_scenes = []
         for sc in scenes:
             dur = float(sc["end"]) - float(sc["start"])
@@ -7599,7 +7603,7 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
             if (sc.get("type") == "photo" and not sc.get("textish")
                     and not sc.get("footage") and dur >= SCENE_SPLIT_MIN_S):
                 parts = max(1, min(SCENE_SPLIT_MAX_PARTS,
-                                   int(dur // SCENE_SPLIT_TARGET_S)))
+                                   int(dur // STYLE.SCENE_SPLIT_TARGET_S)))
             if parts <= 1:
                 split_scenes.append(sc)
                 continue
@@ -7646,7 +7650,7 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
         if len(split_scenes) != len(scenes):
             log.info("PACING: %d scenes -> %d beats (target %.1fs/image, "
                      "avg %.2fs)", len(scenes), len(split_scenes),
-                     SCENE_SPLIT_TARGET_S,
+                     STYLE.SCENE_SPLIT_TARGET_S,
                      (float(scenes[-1]["end"]) - float(scenes[0]["start"]))
                      / max(1, len(split_scenes)))
             scenes = split_scenes
@@ -7665,7 +7669,7 @@ def plan_scenes_edl(edl, pool, fetcher, receipts=None, title="",
                   if s.get("type") == "photo" and not s.get("footage"))
     _RENDER_REPORT.clear()
     _RENDER_REPORT.update({
-        "style": STYLE_NAME,          # r65: which A/B treatment this video used
+        "style": STYLE.STYLE_NAME,          # r65: which A/B treatment this video used
         "ck_mode": bool(ck_mode),
         "cookie_bytes": (os.path.getsize(_ck_path) if _ck_path else 0),
         "story_vids": len(story_vids),
@@ -7974,10 +7978,10 @@ def depth_scene_clip(image_path, start, end, motion, emph_rel=None,
             scale_fn = motion_scale_fn(motion, dur, emph_rel)
         elif motion == "out":
             def scale_fn(t, d=dur):
-                return max(1.001, 1.0 + SCENE_ZOOM - SCENE_ZOOM * (t / d))
+                return max(1.001, 1.0 + STYLE.SCENE_ZOOM - STYLE.SCENE_ZOOM * (t / d))
         else:
             def scale_fn(t, d=dur):
-                return max(1.001, 1.0 + SCENE_ZOOM * (t / d))
+                return max(1.001, 1.0 + STYLE.SCENE_ZOOM * (t / d))
         yy, xx = np.indices((H, W), dtype=np.float32)
         fx = float(face_pt[0]) if face_pt else W / 2.0
         fy = float(face_pt[1]) if face_pt else H / 2.0
@@ -8010,7 +8014,7 @@ def depth_scene_clip(image_path, start, end, motion, emph_rel=None,
             return np.clip(out.astype(np.float32) + g, 0, 255).astype(np.uint8)
 
         clip = VideoClip(mk, duration=dur).with_start(start)
-        xf = XFADE if xfade is None else xfade
+        xf = STYLE.XFADE if xfade is None else xfade
         if xf > 0 and start > 0:
             try:
                 clip = clip.with_effects([vfx.CrossFadeIn(min(xf, dur / 2))])
@@ -8042,7 +8046,7 @@ def scene_clip(image_path, start, end, motion, emph_rel=None, xfade=None,
     from moviepy import CompositeVideoClip, ImageClip, vfx
 
     if xfade is None:
-        xfade = XFADE
+        xfade = STYLE.XFADE
     motion = {"pan_left": "panl", "pan_right": "panr"}.get(motion, motion)
     if face is not None and motion in ("panl", "panr"):
         motion = "in" if motion == "panl" else "out"
@@ -8101,10 +8105,10 @@ def scene_clip(image_path, start, end, motion, emph_rel=None, xfade=None,
             _scale = motion_scale_fn(motion, dur, emph_rel)
         elif motion == "out":
             def _scale(t, d=dur):
-                return max(1.001, 1.0 + SCENE_ZOOM - SCENE_ZOOM * (t / d))
+                return max(1.001, 1.0 + STYLE.SCENE_ZOOM - STYLE.SCENE_ZOOM * (t / d))
         else:
             def _scale(t, d=dur):
-                return max(1.001, 1.0 + SCENE_ZOOM * (t / d))
+                return max(1.001, 1.0 + STYLE.SCENE_ZOOM * (t / d))
         if face_pt is not None:
             # anchor the zoom ON the face: position so the eyeline point
             # stays fixed at its framed coordinate for every scale s>=1
@@ -8141,7 +8145,7 @@ def contain_scene_clip(image_path, start, end, xfade=None, card=False,
     from PIL import ImageEnhance, ImageFilter
 
     if xfade is None:
-        xfade = XFADE
+        xfade = STYLE.XFADE
     dur = max(end - start, 0.2)
     drift = max(2, int(W * TEXTISH_DRIFT))
     # r135b PUNCH-IN CONTINUATION: the hold-cap split re-cuts the SAME card
@@ -8309,7 +8313,7 @@ def broll_scene_clip(video_path, start, end, motion=None, emph_rel=None,
     from moviepy import CompositeVideoClip, VideoFileClip, vfx
 
     if xfade is None:
-        xfade = XFADE
+        xfade = STYLE.XFADE
     dur = max(end - start, 0.2)
     src = VideoFileClip(video_path)
     clip = src.without_audio()
@@ -8413,7 +8417,7 @@ def plan_scenes(beats, pool, fetcher, total):
         starts = [0.0] + [b[0][1] for b in beats[1:]]
         starts_ends = []
         for i in range(len(beats)):
-            end = min(starts[i + 1] + XFADE, total) if i + 1 < len(beats) \
+            end = min(starts[i + 1] + STYLE.XFADE, total) if i + 1 < len(beats) \
                 else total
             starts_ends.append((starts[i], end))
 
@@ -9537,7 +9541,7 @@ def compose_video(pool, broll_terms, mp3_path, hook, script, word_timings,
                     "(non-fatal)", chk["caption_coverage"] * 100,
                     CAPTION_COVERAGE_MIN * 100)
 
-    xfade = 0.0 if v4_mode else XFADE        # Law 7: hard cuts inside v4
+    xfade = 0.0 if v4_mode else STYLE.XFADE        # Law 7: hard cuts inside v4
     # 2026-09-24 COMPOSE TIMERS. Compose is ~70% of a render (median 423 s of
     # 10 min over 92 runs) and nothing said which part costs it. MoviePy draws
     # every frame inside write_videofile, so "draw+encode" is frame drawing
