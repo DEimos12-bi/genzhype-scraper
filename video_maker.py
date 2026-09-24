@@ -3756,6 +3756,30 @@ def openverse_photos(query, want=6):
     return urls
 
 
+class SubjectMissing(RuntimeError):
+    """r189: the person the headline is about has no verified picture."""
+
+
+def headline_subjects(title, people):
+    """r189: the story's people whose FULL name is in the headline - who the
+    video is about. Page 1022 ("Patrick Clancy Legal Threats Timeline...")
+    shipped with a verified photo of Lindsay Clancy and none of Patrick, and
+    the vision judge scored it 10/10: it judges each frame against its words,
+    never whether the subject is on screen at all. Full-name match on purpose:
+    a shared surname ("clancy") must not make a relative the subject."""
+    t = re.sub(r"[^a-z0-9]+", " ", str(title or "").lower())
+    t_sp, t_cp = " " + t.strip() + " ", t.replace(" ", "")
+    out = []
+    for p in people or []:
+        n = str((p.get("name") if isinstance(p, dict) else p) or "").strip()
+        k = re.sub(r"[^a-z0-9]+", " ", n.lower()).strip()
+        if len(k.replace(" ", "")) < 4:
+            continue
+        if (" " + k + " ") in t_sp or (" " in k and k.replace(" ", "") in t_cp):
+            out.append(n)
+    return out
+
+
 def build_visual_pool(post, page_id):
     """Assemble the scene visual pool: feed visuals (hero first) + resolved
     person photos, deduped, downloaded, validated. Returns (pool, person_map):
@@ -3979,10 +4003,18 @@ def build_visual_pool(post, page_id):
                     # and lost its real Dexerto article photos that way.
                     if _STILL_REL_LAST[0].startswith("judged"):
                         log.info("STILL GATE: judged off-topic, dropped: %s", u[:100])
-                    else:
-                        log.info("STILL GATE: UNJUDGED (%s), dropped by the "
-                                 "fail-closed default: %s", _STILL_REL_LAST[0], u[:100])
-                    continue
+                        continue
+                    # r189 (page 1022, 2026-09-24: a CBS News photo of the
+                    # Clancy case was dropped because the vision call returned
+                    # nothing, and the video shipped with no picture of Patrick
+                    # Clancy at all). Everything in THIS loop comes from the
+                    # story's own cited coverage or its verified people - r38's
+                    # fail-closed default was written for unverified Openverse
+                    # matches, which go through their own gate. Silence from
+                    # the vision AI is not a verdict: only "judged off-topic"
+                    # drops a photo the story's own source published.
+                    log.info("STILL GATE: UNJUDGED (%s) but from the story's own "
+                             "coverage; kept: %s", _STILL_REL_LAST[0], u[:100])
             # r36 CONTENT DEDUP: same pixels under a second URL do not enter
             # the pool twice (distance <= 6 of 64 bits = same image, resized
             # or recompressed).
@@ -10555,6 +10587,26 @@ def make_one(post, font_path):
         log.info("story clips available: %d (%s)", len(_STORY_CLIPS),
                  ", ".join(sorted({platform_of(u) for u in _STORY_CLIPS})))
     pool, person_map = build_visual_pool(post, page_id)
+    # r189 SUBJECT ON SCREEN (owner, watching page 1022: "a video about
+    # Patrick Clancy with no image of Patrick should never be allowed").
+    # Checked here, before any voice or render work: if the headline names
+    # people and none of them has a single verified picture, the video cannot
+    # show who it is about. Parked, not retried every run - a newer renderer
+    # revision (or a photo found by then) gets one fresh attempt, as for any
+    # dead-letter page.
+    _subj = headline_subjects(post.get("title", ""), post.get("people"))
+    if _subj:
+        _shown = [n for n in _subj if person_map.get(n.lower())]
+        if _shown:
+            log.info("SUBJECT ON SCREEN: headline names %s; verified picture(s) "
+                     "for %s", _subj, _shown)
+        else:
+            log.info("SUBJECT MISSING: headline names %s but the pool holds no "
+                     "verified picture of %s; parked instead of rendered",
+                     _subj, " or ".join(_subj))
+            append_abandoned(page_id)
+            raise SubjectMissing("no verified picture of %s, the person this "
+                                 "story is about" % " or ".join(_subj))
     broll_terms = post.get("broll") if isinstance(post.get("broll"), list) \
         else []
     if not pool and not (broll_terms and (PEXELS_API_KEY or PIXABAY_API_KEY)):
