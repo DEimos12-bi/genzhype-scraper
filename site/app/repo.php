@@ -6,6 +6,7 @@ require_once __DIR__ . '/lanes.php';   // timeline_url() is used from line ~116 
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/story_context.php';
 require_once __DIR__ . '/creator_stats.php';
+require_once __DIR__ . '/gate.php';   // gate_proof_label()
 
 /* r146 (2026-09-07) THE 2-SECOND PAGE. Measured on the live host: every request
  * ran repo_load_all() from scratch — 3,617 queries, 14 MB of assembled content,
@@ -104,7 +105,7 @@ function repo_load_all(): array {
         $did = (int)$r['drama_id'];
 
         $events = [];
-        $ev = $pdo->prepare("SELECT event_date, title, description, source_id, is_confirmed, embed_note, embed_html, embed_provider, why_matters
+        $ev = $pdo->prepare("SELECT event_date, title, description, source_id, is_confirmed, confirmed_by, embed_note, embed_html, embed_provider, why_matters
                              FROM events WHERE drama_id=? AND video_only=0 ORDER BY sort_order, event_date");
         $ev->execute([$did]);
         foreach ($ev->fetchAll() as $e) {
@@ -118,6 +119,7 @@ function repo_load_all(): array {
                 'embed_html' => $e['embed_html'] ?? null,
                 'embed_provider' => $e['embed_provider'] ?? null,
                 'why'      => $e['why_matters'],
+                'confirmed' => (int)$e['is_confirmed'] === 1 ? gate_proof_label($e['confirmed_by'] ?? '') : '',   // '' = a claim
             ];
         }
 
@@ -369,7 +371,7 @@ function repo_load_drama_any(string $slug): ?array {
     $did = (int)$r['drama_id'];
 
     $events = [];
-    $ev = $pdo->prepare("SELECT event_date, title, description, source_id, is_confirmed, embed_note, embed_html, embed_provider, why_matters
+    $ev = $pdo->prepare("SELECT event_date, title, description, source_id, is_confirmed, confirmed_by, embed_note, embed_html, embed_provider, why_matters
                          FROM events WHERE drama_id=? AND video_only=0 ORDER BY sort_order, event_date");
     $ev->execute([$did]);
     foreach ($ev->fetchAll() as $e) {
@@ -383,6 +385,7 @@ function repo_load_drama_any(string $slug): ?array {
                 'embed_html' => $e['embed_html'] ?? null,
                 'embed_provider' => $e['embed_provider'] ?? null,
             'why'      => $e['why_matters'],
+            'confirmed' => (int)$e['is_confirmed'] === 1 ? gate_proof_label($e['confirmed_by'] ?? '') : '',   // '' = a claim
         ];
     }
     $parties = [];

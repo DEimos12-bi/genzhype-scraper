@@ -242,6 +242,112 @@ function gate_original_value(PDO $pdo, int $did): array {
                      . ($pass ? '' : ' - needs 1 strong or 2 weak')];
 }
 
+/**
+ * CONFIRMED VS CLAIMED (owner rule, 2026-09-25). What primary source proves an event, from its
+ * cited source and the story people's verified identity links (people_json sameAs): the
+ * person's own X, TikTok or YouTube account, their official site, or a court or government
+ * record. '' when nothing proves it. Stricter than gate_event_source_is_primary(), which takes
+ * any X or YouTube post, a stranger's included. A confirmed event is exempt from the
+ * alleged-framing check, so nothing here guesses identity from a name.
+ */
+function gate_event_proof(string $url, array $people): string {
+    $h = preg_replace('/^www\./', '', strtolower((string)parse_url($url, PHP_URL_HOST)));
+    if ($h === '') return '';
+    foreach (['courtlistener.com', 'pacer.gov', 'uscourts.gov', 'justice.gov', 'sec.gov', 'ftc.gov', 'supremecourt.gov', 'documentcloud.org'] as $c)
+        if ($h === $c || str_ends_with($h, '.' . $c)) return "a court or government record ({$h})";
+    if (str_ends_with($h, '.gov') || str_ends_with($h, '.gov.uk')) return "a government record ({$h})";
+    $social = ['wikidata.org', 'wikipedia.org', 'x.com', 'twitter.com', 'instagram.com', 'youtube.com', 'youtu.be', 'tiktok.com', 'facebook.com',
+               'linkedin.com', 'twitch.tv', 'reddit.com', 'threads.net', 'snapchat.com', 'discord.gg', 'kick.com', 'spotify.com', 'soundcloud.com', 'imdb.com'];
+    $video = null;
+    foreach ($people as $pe) {
+        $name = trim((string)($pe['name'] ?? ''));
+        if ($name === '') continue;
+        foreach ((array)($pe['sameAs'] ?? []) as $link) {
+            $link = (string)$link;
+            if (preg_match('#(?:x|twitter)\.com/([A-Za-z0-9_]{1,15})/?$#i', $link, $a) && preg_match('#(?:x|twitter)\.com/([A-Za-z0-9_]{1,15})/status/#i', $url, $b)
+                && strcasecmp($a[1], $b[1]) === 0) return "{$name}'s own X account";
+            if (preg_match('#tiktok\.com/@([\w.\-]+)/?$#i', $link, $a) && preg_match('#tiktok\.com/@([\w.\-]+)/video/#i', $url, $b)
+                && strcasecmp($a[1], $b[1]) === 0) return "{$name}'s own TikTok account";
+            if (preg_match('#youtube\.com/channel/(UC[\w\-]{22})#', $link, $a) && preg_match('#(?:youtube\.com/watch\?v=|youtu\.be/)([\w\-]{11})#', $url, $b)) {
+                require_once __DIR__ . '/drama_image.php';
+                $video ??= yt_video_snippet($b[1]);
+                if (($video['channelId'] ?? '') === $a[1]) return "{$name}'s own YouTube channel";
+            }
+            $lh = preg_replace('/^www\./', '', strtolower((string)parse_url($link, PHP_URL_HOST)));
+            $isSocial = false;
+            foreach ($social as $sd) if ($lh === $sd || str_ends_with($lh, '.' . $sd)) { $isSocial = true; break; }
+            if ($lh !== '' && !$isSocial && ($h === $lh || str_ends_with($h, '.' . $lh))) return "{$name}'s official site";
+        }
+    }
+    return '';
+}
+
+/** How a confirmed event was proved, for readers and the editor: "MrBeast's own X account", "an editor's check". */
+function gate_proof_label(?string $confirmedBy): string {
+    $b = trim((string)$confirmedBy);
+    if (str_starts_with($b, 'rule: ')) return substr($b, 6);
+    if ($b === 'editorial-verification') return "an editor's check";
+    return $b !== '' ? $b : 'a primary source';
+}
+
+/** The daily pass: every live story that has identity links or cites a court or government record. */
+function gate_confirm_all(PDO $pdo): array {
+    $ids = $pdo->query("SELECT DISTINCT d.id FROM dramas d JOIN pages p ON p.id=d.page_id
+                        LEFT JOIN events e ON e.drama_id=d.id AND e.is_confirmed=0 LEFT JOIN sources s ON s.id=e.source_id
+                        WHERE p.type='drama' AND p.status='published'
+                          AND ((d.people_json IS NOT NULL AND d.people_json NOT IN ('','[]','null'))
+                               OR s.url LIKE '%.gov/%' OR s.url LIKE '%courtlistener.com%' OR s.url LIKE '%documentcloud.org%')")->fetchAll(PDO::FETCH_COLUMN);
+    $n = 0; $stories = 0;
+    foreach ($ids as $did) { $c = gate_confirm_story($pdo, (int)$did); if ($c) { $n += $c; $stories++; } }
+    return ['confirmed' => $n, 'stories' => $stories];
+}
+
+/** Confirm the story's events that a primary source proves (gate_event_proof). Returns how many. */
+function gate_confirm_story(PDO $pdo, int $did): int {
+    $people = (array)json_decode((string)$pdo->query("SELECT people_json FROM dramas WHERE id=" . $did)->fetchColumn(), true);
+    $st = $pdo->prepare("SELECT e.id, s.url FROM events e JOIN sources s ON s.id=e.source_id WHERE e.drama_id=? AND e.is_confirmed=0 AND e.video_only=0");
+    $st->execute([$did]);
+    $n = 0;
+    foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $e) {
+        $proof = gate_event_proof((string)$e['url'], $people);
+        if ($proof !== '' && gate_event_confirm($pdo, (int)$e['id'], 'rule: ' . $proof, (string)$e['url'])) $n++;
+    }
+    // the page now marks it confirmed: a real change, and what makes the page cache rebuild
+    if ($n) $pdo->prepare("UPDATE pages p JOIN dramas d ON d.page_id=p.id SET p.updated_at=NOW() WHERE d.id=?")->execute([$did]);
+    return $n;
+}
+
+/**
+ * On STORY pages, confirmations with no recorded reason are re-checked: kept (the proof written
+ * down) only when gate_event_proof() holds, else returned to claims so the framing repair
+ * attributes them. Human decisions (a recorded confirmed_by) are left alone. Story pages only:
+ * term pages keep a video timeline in the same table that term_video.php writes as confirmed on
+ * purpose, and the video writer reads that flag (2026-09-25: a first unscoped run returned 139 of
+ * them, all on term pages, and they were restored). On that day story pages held 20 confirmed
+ * events, all recorded ("editorial-verification"): this is a guard for later, not a cleanup.
+ * Returns ['kept' => n, 'returned' => n, 'pages' => [ids]].
+ */
+function gate_confirm_audit(PDO $pdo): array {
+    gate_events_install($pdo);
+    $rows = $pdo->query("SELECT e.id, d.id did, d.page_id, d.people_json, s.url FROM events e JOIN dramas d ON d.id=e.drama_id
+                         JOIN pages p ON p.id=d.page_id LEFT JOIN sources s ON s.id=e.source_id
+                         WHERE p.type='drama' AND e.is_confirmed=1 AND (e.confirmed_by IS NULL OR e.confirmed_by='')")->fetchAll(PDO::FETCH_ASSOC);
+    $out = ['kept' => 0, 'returned' => 0, 'pages' => []];
+    foreach ($rows as $r) {
+        $proof = gate_event_proof((string)$r['url'], (array)json_decode((string)$r['people_json'], true));
+        if ($proof !== '') {
+            $pdo->prepare("UPDATE events SET confirmed_by=?, confirmed_at=NOW(), confirmed_src=? WHERE id=?")->execute(['rule: ' . $proof, (string)$r['url'], (int)$r['id']]);
+            $out['kept']++;
+        } else {
+            $pdo->prepare("UPDATE events SET is_confirmed=0 WHERE id=?")->execute([(int)$r['id']]);
+            $out['returned']++;
+            $out['pages'][(int)$r['page_id']] = 1;
+        }
+    }
+    $out['pages'] = array_keys($out['pages']);
+    return $out;
+}
+
 function gate_check_drama(int $page_id): array {
     $pdo = db();
     $p = $pdo->prepare("SELECT p.*, d.id drama_id, d.title dtitle, d.lifecycle

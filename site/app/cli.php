@@ -1555,6 +1555,12 @@ switch ($cmd) {
                 echo "numbers: linked {$cl['linked']} of {$cl['checked']} checked ({$cl['refused']} not the person, {$cl['unanswered']} no answer); "
                    . "read {$cs['read']} of {$cs['channels']} channels, {$cs['saved']} new readings\n";
             } catch (Throwable $e) { echo "  numbers failed: " . $e->getMessage() . "\n"; }
+            // confirmed vs claimed: the daily pass, and the guard that no story confirmation lacks a proof
+            try {
+                require_once __DIR__ . '/gate.php';
+                $au = gate_confirm_audit($pdo); $ca = gate_confirm_all($pdo);
+                echo "confirmed: {$ca['confirmed']} event(s) on {$ca['stories']} stories; audit returned {$au['returned']} unproven confirmation(s)\n";
+            } catch (Throwable $e) { echo "  confirm failed: " . $e->getMessage() . "\n"; }
         }
         // COVER POLICY v2 (owner 2026-09-24: "let go of that card... the best one that
         // fits"; right person guaranteed). Replaces the 3-a-day card retry at 7:00: 2
@@ -1986,6 +1992,11 @@ switch ($cmd) {
             } else {
                 echo "    top 3: skipped (needs an Exa key in config.php)\n";
             }
+            // confirmed vs claimed: events a primary source proves (identity links usually arrive at 6:00, so the daily pass does most)
+            try {
+                $cf = gate_confirm_story($pdo, (int)$pdo->query("SELECT id FROM dramas WHERE page_id=" . (int)$d['page_id'])->fetchColumn());
+                if ($cf) echo "    confirmed: {$cf} event(s) by a primary source\n";
+            } catch (Throwable $e) { echo "    confirm failed: " . $e->getMessage() . "\n"; }
             $g = gate_check_drama((int)$d['page_id']);
             $ok = ($v['pass'] ?? false) && ($q['pass'] ?? false) && ($g['pass'] ?? false);
             echo "  built {$d['slug']} | v=" . (($v['pass'] ?? 0)?'P':'i') . " q=" . (($q['pass'] ?? 0)?'P':'F') . " g=" . (($g['pass'] ?? 0)?'P':'F') . ($ok ? "  => READY" : "") . "\n";

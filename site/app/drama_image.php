@@ -117,6 +117,17 @@ function yt_channel_lookup(string $name): ?array {
 }
 
 /** A channel's latest upload titles (2 cheap Data API calls; [] on any failure). */
+/** A YouTube video's snippet (channelId, publishedAt, title...) from the API, cached per run. null when unknown. */
+function yt_video_snippet(string $videoId): ?array {
+    static $seen = [];
+    if (array_key_exists($videoId, $seen)) return $seen[$videoId];
+    $key = (string)($GLOBALS['CONFIG']['youtube_key'] ?? '');
+    if ($key === '' || !preg_match('/^[\w\-]{11}$/', $videoId)) return null;
+    require_once __DIR__ . '/fetch_sources.php';
+    $j = json_decode((string)fs_http_get('https://www.googleapis.com/youtube/v3/videos?part=snippet&id=' . $videoId . '&key=' . $key, 12), true);
+    return $seen[$videoId] = (isset($j['items'][0]['snippet']) ? (array)$j['items'][0]['snippet'] : null);
+}
+
 function yt_channel_recent_titles(string $cid, int $n = 6): array {
     $key = $GLOBALS['CONFIG']['youtube_key'] ?? '';
     if (!$key || $cid === '') return [];

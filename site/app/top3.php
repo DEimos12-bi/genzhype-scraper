@@ -255,10 +255,8 @@ function top3_covered(string $lcText, string $key, string $title, array $queryWo
  *  (the youtube_key drama_image.php already uses, 1 quota unit); '' when unknown (Reddit). */
 function top3_post_date(string $url): string {
     if (preg_match('#(?:youtube\.com/watch\?v=|youtu\.be/)([\w\-]{11})#', $url, $m)) {
-        $key = (string)($GLOBALS['CONFIG']['youtube_key'] ?? '');
-        if ($key === '') return '';
-        $j = json_decode((string)fs_http_get('https://www.googleapis.com/youtube/v3/videos?part=snippet&id=' . $m[1] . '&key=' . $key, 12), true);
-        $at = (string)($j['items'][0]['snippet']['publishedAt'] ?? '');
+        require_once __DIR__ . '/drama_image.php';
+        $at = (string)(yt_video_snippet($m[1])['publishedAt'] ?? '');
         return preg_match('/^\d{4}-\d{2}-\d{2}/', $at) ? substr($at, 0, 10) : '';
     }
     if (preg_match('#(?:twitter|x)\.com/[A-Za-z0-9_]{1,15}/status/(\d{10,})#', $url, $m))

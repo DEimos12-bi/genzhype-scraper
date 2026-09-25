@@ -6,6 +6,7 @@
 require_once __DIR__ . '/ai.php';
 require_once __DIR__ . '/story_context.php';
 require_once __DIR__ . '/creator_stats.php';
+require_once __DIR__ . '/gate.php';
 
 const QUALITY_MIN_SCORE = 7; // every dimension must reach this
 
@@ -47,7 +48,7 @@ function quality_page_fields(int $page_id): ?array {
     $page = $p->fetch();
     if (!$page) return null;
     $did = (int)$page['drama_id'];
-    $ev = $pdo->prepare("SELECT e.event_date, e.title, e.description, e.is_confirmed, s.url, s.publisher,
+    $ev = $pdo->prepare("SELECT e.event_date, e.title, e.description, e.is_confirmed, e.confirmed_by, s.url, s.publisher,
                                 (e.embed_html IS NOT NULL AND e.embed_html <> '') embedded
                          FROM events e LEFT JOIN sources s ON s.id = e.source_id
                          WHERE e.drama_id=? AND e.video_only=0 ORDER BY e.sort_order, e.event_date");   // what the page shows (repo.php)
@@ -57,7 +58,7 @@ function quality_page_fields(int $page_id): ?array {
         $host = preg_replace('/^www\./', '', (string)parse_url((string)($e['url'] ?? ''), PHP_URL_HOST));
         $who = trim((string)($e['publisher'] ?? '')) ?: $host;
         $events[] = ['date' => (string)$e['event_date'], 'title' => (string)$e['title'], 'desc' => (string)$e['description'],
-                     'confirmed' => (int)$e['is_confirmed'] === 1, 'who' => $who, 'host' => $host,
+                     'confirmed' => (int)$e['is_confirmed'] === 1, 'proof' => gate_proof_label($e['confirmed_by'] ?? ''), 'who' => $who, 'host' => $host,
                      'embedded' => (int)$e['embedded'] === 1];   // the original post is shown on the page
         if ($who !== '') $pubs[$who] = 1;
         if ((string)$e['event_date'] > $last) $last = (string)$e['event_date'];
@@ -86,7 +87,7 @@ function quality_judge(array $f, array $opt = []): array {
     $today = array_key_exists('today', $opt) ? (string)$opt['today'] : gmdate('Y-m-d');
     $evTxt = '';
     foreach ($f['events'] as $i => $e) {
-        $attr = $e['confirmed'] ? " (confirmed by a primary source: {$e['host']})"
+        $attr = $e['confirmed'] ? " (confirmed by {$e['proof']})"
               : ($e['who'] !== '' ? " (source: {$e['who']})" : ' (no source)');
         $evTxt .= ($i + 1) . ". [{$e['date']}] {$e['title']}: {$e['desc']}{$attr}" . (!empty($e['embedded']) ? ' [the original post is embedded on the page]' : '') . "\n";
     }
