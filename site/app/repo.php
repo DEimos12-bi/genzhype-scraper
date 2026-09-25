@@ -5,6 +5,7 @@ require_once __DIR__ . '/lanes.php';   // timeline_url() is used from line ~116 
 
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/story_context.php';
+require_once __DIR__ . '/creator_stats.php';
 
 /* r146 (2026-09-07) THE 2-SECOND PAGE. Measured on the live host: every request
  * ran repo_load_all() from scratch — 3,617 queries, 14 MB of assembled content,
@@ -25,7 +26,8 @@ const REPO_CACHE_TTL  = 600;
 function repo_data_version(PDO $pdo): string {
     try {
         $a = $pdo->query("SELECT COUNT(*) c, MAX(updated_at) u FROM pages WHERE status='published'")->fetch(PDO::FETCH_ASSOC);
-        $b = $pdo->query("SELECT (SELECT MAX(id) FROM events) e, (SELECT MAX(id) FROM sources) s, (SELECT MAX(id) FROM faqs) f, (SELECT COUNT(*) FROM drama_tags) t")->fetch(PDO::FETCH_ASSOC);
+        $b = $pdo->query("SELECT (SELECT MAX(id) FROM events) e, (SELECT MAX(id) FROM sources) s, (SELECT MAX(id) FROM faqs) f, (SELECT COUNT(*) FROM drama_tags) t,
+                                 (SELECT MAX(id) FROM creator_stats) c")->fetch(PDO::FETCH_ASSOC);   // c: a new daily reading shows on the page
         return md5(json_encode([$a, $b]));
     } catch (Throwable $e) { return 'v-' . (int)(time() / REPO_CACHE_TTL); }
 }
@@ -97,6 +99,7 @@ function repo_load_all(): array {
                          FROM pages p JOIN dramas d ON d.page_id = p.id
                          WHERE p.type='drama' AND p.status='published'
                          ORDER BY p.updated_at DESC")->fetchAll();
+    $tracked = cs_numbers($pdo);   // our own numbers, all stories in one query
     foreach ($rows as $r) {
         $did = (int)$r['drama_id'];
 
@@ -198,6 +201,7 @@ function repo_load_all(): array {
             'meta_desc'     => $r['meta_desc'] ?? '',
             'background'    => json_decode($r['background'] ?? '[]', true) ?: [],
             ...story_context_shape($r['why_matters'] ?? null, $r['whats_next'] ?? null),   // why it matters / what happens next
+            'tracked'       => $tracked[(int)$r['page_id']] ?? [],
             'events'        => $events,
             'parties'       => $parties,
             'faqs'          => $faqs,
@@ -407,6 +411,7 @@ function repo_load_drama_any(string $slug): ?array {
         'summary'=>$r['summary'] ?? '', 'meta_desc'=>$r['meta_desc'] ?? '',
         'background'=>json_decode($r['background'] ?? '[]', true) ?: [],
         ...story_context_shape($r['why_matters'] ?? null, $r['whats_next'] ?? null),
+        'tracked'=>cs_numbers($pdo, [(int)$r['page_id']])[(int)$r['page_id']] ?? [],
         'events'=>$events, 'parties'=>$parties, 'faqs'=>$faqs, 'sources'=>$sources,
         'related'=>[], 'robots'=>$r['robots'], 'page_id'=>(int)$r['page_id'], 'page_status'=>$r['status'],
     ];

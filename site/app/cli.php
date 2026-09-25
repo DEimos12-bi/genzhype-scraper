@@ -1131,6 +1131,23 @@ switch ($cmd) {
         break;
     }
 
+    case 'numbers':
+        // 2026-09-25 our own numbers: "numbers link [N]" | "numbers snapshot" | "numbers show <page id>"
+        require_once __DIR__ . '/creator_stats.php';
+        $what = $arg ?? '';
+        if ($what === 'link') { print_r(cs_link($pdo, ctype_digit((string)($argv[3] ?? '')) ? (int)$argv[3] : 8)); break; }
+        if ($what === 'snapshot') { print_r(cs_snapshot($pdo)); break; }
+        if ($what === 'show' && ctype_digit((string)($argv[3] ?? ''))) {
+            $pid = (int)$argv[3];
+            $st = $pdo->prepare("SELECT a.person, a.account_name, a.verified, a.why, (SELECT COUNT(*) FROM creator_stats c WHERE c.account_id=a.account_id) readings
+                                 FROM story_accounts a WHERE a.page_id=?");
+            $st->execute([$pid]);
+            foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $a) echo "{$a['person']} -> {$a['account_name']}: " . ($a['verified'] ? 'linked' : 'refused') . " ({$a['why']}), {$a['readings']} reading(s)\n";
+            foreach (cs_numbers($pdo, [$pid])[$pid] ?? [] as $r) echo 'page shows: ' . cs_sentence($r) . "\n";
+            break;
+        }
+        exit("usage: numbers link [N] | numbers snapshot | numbers show <page id>\n");
+
     case 'top3':
         // 2026-09-25 the top-3 test for one story: "cli.php top3 <page id> [preview|fill]"
         // preview/fill: the original posts the top 3 show and we do not, as timeline events (step 3)
@@ -1526,6 +1543,18 @@ switch ($cmd) {
             require_once __DIR__ . '/entity.php';
             $er = entity_backfill_run($pdo, 180);
             if ($er['dramas'] || $er['terms']) echo "entities: +{$er['dramas']} dramas, +{$er['terms']} terms resolved\n";
+        }
+        // OUR OWN NUMBERS (owner rule 2026-09-25): link story people to their YouTube channels (identity
+        // links from the 6:00 entity step) and take today's reading. 7:00 and 19:00, outside video hours;
+        // one reading per channel per day, so the second run only links more channels.
+        if ($hr === 7 || $hr === 19) {
+            try {
+                require_once __DIR__ . '/creator_stats.php';
+                $cl = cs_link($pdo, 8, 240);
+                $cs = cs_snapshot($pdo);
+                echo "numbers: linked {$cl['linked']} of {$cl['checked']} checked ({$cl['refused']} not the person, {$cl['unanswered']} no answer); "
+                   . "read {$cs['read']} of {$cs['channels']} channels, {$cs['saved']} new readings\n";
+            } catch (Throwable $e) { echo "  numbers failed: " . $e->getMessage() . "\n"; }
         }
         // COVER POLICY v2 (owner 2026-09-24: "let go of that card... the best one that
         // fits"; right person guaranteed). Replaces the 3-a-day card retry at 7:00: 2

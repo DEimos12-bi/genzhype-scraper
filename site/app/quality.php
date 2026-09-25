@@ -5,6 +5,7 @@
 
 require_once __DIR__ . '/ai.php';
 require_once __DIR__ . '/story_context.php';
+require_once __DIR__ . '/creator_stats.php';
 
 const QUALITY_MIN_SCORE = 7; // every dimension must reach this
 
@@ -69,7 +70,8 @@ function quality_page_fields(int $page_id): ?array {
             'background' => json_decode($page['background'] ?? '[]', true) ?: [],
             'faqs' => array_map(fn($f) => ['q' => (string)$f['question'], 'a' => (string)$f['answer']], $fq->fetchAll()),
             'events' => $events, 'sources' => array_keys($pubs), 'last_date' => $last,
-            ...story_context_shape($page['why_matters'] ?? null, $page['whats_next'] ?? null)];
+            ...story_context_shape($page['why_matters'] ?? null, $page['whats_next'] ?? null),
+            'tracked' => array_map('cs_sentence', cs_numbers($pdo, [$page_id])[$page_id] ?? [])];
 }
 
 /**
@@ -93,6 +95,7 @@ function quality_judge(array $f, array $opt = []): array {
     $bg = implode("\n", (array)$f['background']);
     $ctx = '';   // the page's own "Why it matters" / "What happens next" sections, when it has them
     if (($f['why_matters'] ?? '') !== '') $ctx .= "WHY IT MATTERS:\n{$f['why_matters']}\n\n";
+    if (!empty($f['tracked'])) $ctx .= "NUMBERS WE TRACKED OURSELVES:\n- " . implode("\n- ", $f['tracked']) . "\n\n";
     if (!empty($f['whats_next'])) {
         $ctx .= "WHAT HAPPENS NEXT:\n";
         foreach ($f['whats_next'] as $nx) $ctx .= '- ' . ($nx['date'] !== '' ? story_context_date_label($nx['date']) . ': ' : '') . $nx['text'] . "\n";

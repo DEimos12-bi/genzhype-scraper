@@ -226,6 +226,10 @@ function gate_original_value(PDO $pdo, int $did): array {
         $t3 = $st->fetch(PDO::FETCH_ASSOC) ?: null;
     } catch (Throwable $e) { /* table not created yet: not checked */ }
     $strong['timeline'] = $t3 && (int)$t3['timeline_strong'] === 1;
+    // 'numbers': a channel of this story's people read by us on two days 3+ days apart (creator_stats.php)
+    require_once __DIR__ . '/creator_stats.php';
+    $pid = (int)$pdo->query("SELECT page_id FROM dramas WHERE id=" . $did)->fetchColumn();
+    $strong['numbers'] = !empty(cs_numbers($pdo, [$pid])[$pid]);
     $s = array_keys(array_filter($strong)); $w = array_keys(array_filter($weak));
     $pass = count($s) >= 1 || count($w) >= 2;
     $newN = $t3 ? count((array)json_decode((string)$t3['new_dates'], true)) : 0;

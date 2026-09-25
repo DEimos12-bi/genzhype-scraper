@@ -145,14 +145,16 @@ function yt_channel_recent_titles(string $cid, int $n = 6): array {
  * days; only "same" passes. No answer = not verified, because a missing face
  * is safer than a wrong one. $mayAsk=false (web requests) reads the cache only.
  */
-function yt_channel_same_person(array $item, int $subs, string $name, string $context, bool $mayAsk = true): bool {
+// Returns null when there is no verdict (not asked, or the AI gave none): callers that test
+// with ! read it as "no"; creator_stats.php retries it instead of recording a refusal.
+function yt_channel_same_person(array $item, int $subs, string $name, string $context, bool $mayAsk = true): ?bool {
     $cid = (string)($item['id']['channelId'] ?? '');
     if ($cid === '' || trim($context) === '') return false;
     $ck = $cid . ':' . md5(mb_strtolower($name . '|' . mb_substr($context, 0, 900)));
     $file = __DIR__ . '/cache/yt_channel_verdicts.json';
     $cache = json_decode((string)@file_get_contents($file), true) ?: [];
     if (isset($cache[$ck]['same']) && time() - (int)($cache[$ck]['at'] ?? 0) < 30 * 86400) return (bool)$cache[$ck]['same'];
-    if (!$mayAsk) return false;
+    if (!$mayAsk) return null;
     require_once __DIR__ . '/ai.php';
     $sn = (array)($item['snippet'] ?? []);
     // the latest video titles are the best evidence: tested 2026-09-24, the real
@@ -171,7 +173,7 @@ function yt_channel_same_person(array $item, int $subs, string $name, string $co
         . "\"unsure\" otherwise. STRICT JSON: {\"verdict\": \"same\"|\"different\"|\"unsure\", \"why\": \"<12 words\"}"]],
         ['gemini', 'openrouter', 'nvidia'], 0.0, 60);
     $j = isset($res['error']) ? null : ai_json($res['content'] ?? '');
-    if (!is_array($j) || !in_array($j['verdict'] ?? null, ['same', 'different', 'unsure'], true)) return false;   // no verdict: not cached
+    if (!is_array($j) || !in_array($j['verdict'] ?? null, ['same', 'different', 'unsure'], true)) return null;   // no verdict: not cached
     $same = ($j['verdict'] === 'same');
     $cache = json_decode((string)@file_get_contents($file), true) ?: [];
     $cache[$ck] = ['same' => $same, 'channel' => (string)($sn['title'] ?? ''), 'name' => $name,
