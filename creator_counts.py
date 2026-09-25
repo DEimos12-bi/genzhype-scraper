@@ -3,18 +3,22 @@
 follower count before and after the drama, on every big platform we can read.
 
 YouTube is read by the server through the YouTube API (app/creator_stats.php). TikTok and
-Instagram answer the server and plain requests with walls (tiktok_intel.py: TikTok-Api got
-empty profiles on 2026-09-25), so this runner reads each public profile page in a real
-browser: CloakBrowser (Chromium with fingerprint patches in its C++ source, free build 146)
-driven through Scrapling, as CloakBrowser documents it. Facebook has no identity links yet.
+Instagram wall off servers and plain requests (tiktok_intel.py: TikTok-Api got empty
+profiles on 2026-09-25), so this runner reads each public page in a real browser:
+CloakBrowser (Chromium with fingerprint patches in its C++ source, free build 146) driven
+through Scrapling, as CloakBrowser documents it. Measured from this runner, logged out:
+  TikTok     the profile page's data: exact counts in "statsV2" ("stats" is rounded)
+  Instagram  the profile data API and the profile page ask for a login; the profile EMBED
+             page (instagram.com/NAME/embed/, what sites use to show a profile) shows the
+             count, rounded from 10,000 up
+Facebook has no identity links yet.
 
 LOGGED OUT, ALWAYS. No account of ours is used (the owner's accounts must never risk a ban),
-no CAPTCHA is solved, nothing is posted. A login wall or an empty profile is recorded as
-such and skipped. A few seconds between profiles.
+no CAPTCHA is solved, nothing is posted anywhere. A wall is recorded and skipped.
 
-Input: ACCOUNTS ("tiktok:handle instagram:handle ...", a manual test) or, when unset, the
-server's list at ACCOUNTS_URL. Output: creator_counts.json, one row per account.
-FAILS QUIET: exit 0 with whatever it read.
+Input: ACCOUNTS ("tiktok:handle instagram:handle ...", a manual test: nothing is sent back)
+or the server's list (api/creator_counts.php), where the readings then go back.
+Output: creator_counts.json. FAILS QUIET: exit 0 with whatever it read.
 """
 
 import asyncio
@@ -22,12 +26,32 @@ import json
 import os
 import random
 import re
+import subprocess
 import sys
 import time
 from html import unescape
-from urllib.request import Request, urlopen
+from urllib.request import urlopen
 
-IG_APP_ID = "936619743392459"   # the public web app id instagram.com sends with its own profile requests
+API = "https://genzhype.com/api/creator_counts.php?token="
+
+
+def site(payload=None, tries=3):
+    """Talk to our site with curl and retries, as metrics_collector.py does (Hostinger's WAF
+    sometimes drops runner IPs). The address holds the token, so it is never printed."""
+    cmd = ["curl", "-s", "--fail", "--max-time", "300"]
+    if payload is not None:
+        cmd += ["-H", "Content-Type: application/json", "--data-binary", "@-"]
+    body = json.dumps(payload).encode() if payload is not None else None
+    last = ""
+    for attempt in range(1, tries + 1):
+        r = subprocess.run(cmd + [API + os.environ.get("INGEST_TOKEN", "")], input=body, capture_output=True, timeout=330)
+        if r.returncode == 0:
+            return json.loads(r.stdout)
+        last = f"curl {r.returncode}"
+        print(f"  {last} talking to the site (attempt {attempt}/{tries})")
+        if attempt < tries:
+            time.sleep(15 * attempt)
+    raise RuntimeError(last)
 
 
 def accounts() -> list:
@@ -39,11 +63,8 @@ def accounts() -> list:
             if plat in ("tiktok", "instagram") and handle:
                 out.append({"platform": plat, "handle": handle.lstrip("@")})
         return out
-    url = os.environ.get("ACCOUNTS_URL", "")
-    if not url:
-        return []
     try:
-        return json.loads(urlopen(Request(url, headers={"User-Agent": "genzhype-runner"}), timeout=30).read())["accounts"]
+        return site()["accounts"]
     except Exception as e:  # the server list is the only input; nothing to read without it
         print(f"accounts list unavailable: {e}")
         return []
@@ -84,46 +105,9 @@ def parse_tiktok(html: str) -> dict:
             "name": user.get("nickname", ""), "bio": user.get("signature", ""), "verified": bool(user.get("verified"))}
 
 
-def parse_instagram_api(body: str) -> dict:
-    try:
-        user = json.loads(body)["data"]["user"]
-    except (KeyError, ValueError, TypeError):
-        return {"error": "profile API answered without the user: " + body[:120].replace("\n", " ")}
-    if not user:
-        return {"error": "no such user"}
-    return {"followers": num((user.get("edge_followed_by") or {}).get("count")),
-            "following": num((user.get("edge_follow") or {}).get("count")),
-            "posts": num((user.get("edge_owner_to_timeline_media") or {}).get("count")),
-            "exact": True, "name": user.get("full_name", ""), "bio": user.get("biography", ""), "verified": bool(user.get("is_verified"))}
-
-
-def parse_instagram_page(html: str) -> dict:
-    """The counts line a logged-out instagram.com profile page carries in its description:
-    "6M Followers, 391 Following, 4,105 Posts - See Instagram photos and videos from NAME (@handle)".
-    Rounded from 10,000 up ("12.3K", "6M"), so marked not exact."""
-    for tag in re.findall(r"<meta\b[^>]*>", html):
-        if not re.search(r'(?:property|name)="(?:og:)?description"', tag):
-            continue
-        c = re.search(r'content="([^"]*)"', tag)
-        d = unescape(c.group(1)) if c else ""
-        vals, exact = {}, True
-        for key, word in (("followers", "Followers"), ("following", "Following"), ("posts", "Posts")):
-            m = re.search(r"([\d.,]+)\s*([KMB]?)\s+" + word, d, re.I)
-            if not m:
-                continue
-            n, unit = float(m.group(1).replace(",", "")), m.group(2).upper()
-            if unit:
-                exact = False
-            vals[key] = int(round(n * {"": 1, "K": 1e3, "M": 1e6, "B": 1e9}[unit]))
-        if "followers" in vals:
-            who = re.search(r"from (.+?) \(@", d)
-            return {**vals, "exact": exact, "name": who.group(1) if who else ""}
-    return {"error": "no counts in the page (login wall)"}
-
-
 def parse_instagram_embed(html: str) -> dict:
-    """Instagram's profile embed page (instagram.com/NAME/embed/, what sites use to show a
-    profile), which is served without a login: an exact count in its data, else the header text."""
+    """Instagram's profile embed page: an exact count in its data when present, else the
+    header text ("1.5M followers", rounded from 10,000 up)."""
     for rx in (r'"edge_followed_by"\s*:\s*\{\s*"count"\s*:\s*(\d+)', r'"followers?_count"\s*:\s*(\d+)'):
         m = re.search(rx, html)
         if m:
@@ -140,10 +124,10 @@ def parse_instagram_embed(html: str) -> dict:
 
 async def read_all(rows: list) -> list:
     from cloakbrowser import launch_async
+    from scrapling.fetchers import StealthyFetcher
     port = 9245
     browser = await launch_async(headless=False, args=[f"--remote-debugging-port={port}", "--remote-debugging-address=127.0.0.1"])
     ws = json.loads(urlopen(f"http://127.0.0.1:{port}/json/version").read())["webSocketDebuggerUrl"]
-    from scrapling.fetchers import StealthyFetcher
     out = []
     try:
         for i, a in enumerate(rows):
@@ -151,42 +135,10 @@ async def read_all(rows: list) -> list:
                 await asyncio.sleep(random.uniform(4, 9))
             plat, handle = a["platform"], a["handle"]
             row = {"platform": plat, "handle": handle, "read_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
+            url = f"https://www.tiktok.com/@{handle}" if plat == "tiktok" else f"https://www.instagram.com/{handle}/embed/"
             try:
-                if plat == "tiktok":
-                    url = f"https://www.tiktok.com/@{handle}"
-                    try:
-                        row.update(parse_tiktok(page_html(await StealthyFetcher.async_fetch(url, cdp_url=ws, network_idle=True))), how="Scrapling over CloakBrowser")
-                    except Exception as e:   # the same browser without Scrapling, so a Scrapling change cannot hide the page
-                        ctx = browser.contexts[0] if browser.contexts else await browser.new_context()
-                        pg = await ctx.new_page()
-                        await pg.goto(url, wait_until="domcontentloaded", timeout=45000)
-                        await asyncio.sleep(random.uniform(2, 4))
-                        row.update(parse_tiktok(await pg.content()), how=f"CloakBrowser direct (Scrapling: {type(e).__name__}: {str(e)[:120]})")
-                        await pg.close()
-                else:
-                    # the profile JSON instagram.com itself loads (exact counts), asked from inside
-                    # a page of instagram.com so the request carries its cookies and origin
-                    ctx = browser.contexts[0] if browser.contexts else await browser.new_context()
-                    pg = await ctx.new_page()
-                    await pg.goto(f"https://www.instagram.com/{handle}/", wait_until="domcontentloaded", timeout=45000)
-                    await asyncio.sleep(random.uniform(2, 4))
-                    body = await pg.evaluate("""async ([u, id]) => { const r = await fetch(u, {headers: {'X-IG-App-ID': id}, credentials: 'include'});
-                                                 return r.status + ' ' + await r.text(); }""",
-                                             [f"https://www.instagram.com/api/v1/users/web_profile_info/?username={handle}", IG_APP_ID])
-                    status, _, text = body.partition(" ")
-                    got = parse_instagram_api(text) if status == "200" else {"error": f"profile API HTTP {status}"}
-                    if "error" in got:   # logged out, the API and the page asked for a login on 2026-09-25
-                        page = parse_instagram_page(await pg.content())
-                        if "error" not in page:
-                            got = {**page, "how": "profile page"}
-                        else:
-                            await pg.goto(f"https://www.instagram.com/{handle}/embed/", wait_until="domcontentloaded", timeout=45000)
-                            await asyncio.sleep(random.uniform(2, 4))
-                            emb = parse_instagram_embed(await pg.content())
-                            got = {**emb, "how": "embed page"} if "error" not in emb else \
-                                  {"error": f"{got['error']}; page: {page['error']}; embed: {emb['error']}", "how": "embed page"}
-                    row.update({"how": "profile API", **got})
-                    await pg.close()
+                html = page_html(await StealthyFetcher.async_fetch(url, cdp_url=ws, network_idle=True))
+                row.update(parse_tiktok(html) if plat == "tiktok" else parse_instagram_embed(html))
             except Exception as e:
                 row["error"] = f"{type(e).__name__}: {str(e)[:200]}"
             print(json.dumps(row, ensure_ascii=False))
@@ -197,8 +149,9 @@ async def read_all(rows: list) -> list:
 
 
 def main() -> int:
+    manual = bool(os.environ.get("ACCOUNTS", "").strip())
     rows = accounts()
-    print(f"{len(rows)} account(s) to read")
+    print(f"{len(rows)} account(s) to read" + (" (manual test: nothing is sent back)" if manual else ""))
     if not rows:
         return 0
     try:
@@ -207,8 +160,12 @@ def main() -> int:
         print(f"browser did not start: {type(e).__name__}: {e}")
         out = []
     json.dump({"rows": out}, open("creator_counts.json", "w"), ensure_ascii=False, indent=1)
-    ok = sum(1 for r in out if r.get("followers") is not None)
-    print(f"read {ok} of {len(rows)}")
+    print(f"read {sum(1 for r in out if r.get('followers') is not None)} of {len(rows)}")
+    if out and not manual:
+        try:
+            print("site: " + json.dumps(site({"rows": out})))
+        except Exception as e:
+            print(f"readings not delivered: {e}")
     return 0
 
 

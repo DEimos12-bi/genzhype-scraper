@@ -2,16 +2,19 @@ name: creator-counts
 
 # Follower counts of the people in our stories, on TikTok and Instagram (the owner's
 # "numbers nobody else has", 2026-09-25). The server reads YouTube through the API;
-# these two wall off servers, so a real browser reads the public profile pages here:
+# these two wall off servers, so a real browser reads the public pages here:
 # CloakBrowser (free Chromium 146 build) through Scrapling. Logged out, read-only.
+# Daily: the accounts come from api/creator_counts.php and the readings go back there.
 # Test run: write "tiktok:handle instagram:handle" into .social/creator-counts-trigger
-# and push; the result lands on the creator-counts-drop branch.
+# and push (nothing is sent back); the result lands on the creator-counts-drop branch.
 
 on:
   push:
     branches: [main]
     paths:
       - ".social/creator-counts-trigger"
+  schedule:
+    - cron: '10 6 * * *'        # before the site's 7:00 run, away from the posting windows
   workflow_dispatch:
 
 permissions:
@@ -24,7 +27,7 @@ concurrency:
 jobs:
   read:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
 
@@ -44,9 +47,10 @@ jobs:
         continue-on-error: true
         env:
           CLOAKBROWSER_VERSION: "146.0.7680.177.5"   # the free build; later builds need a paid key
+          INGEST_TOKEN: ${{ secrets.INGEST_TOKEN }}
         run: |
-          export ACCOUNTS="$(cat .social/creator-counts-trigger 2>/dev/null)"
-          xvfb-run -a python -u creator_counts.py 2>&1 | tee creator_counts.log
+          if [ "$GITHUB_EVENT_NAME" = "push" ]; then export ACCOUNTS="$(cat .social/creator-counts-trigger 2>/dev/null)"; fi
+          xvfb-run -a python -u creator_counts.py 2>&1 | sed "s/$INGEST_TOKEN/***/g" | tee creator_counts.log
 
       - name: Publish what it read
         if: always()
