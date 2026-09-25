@@ -17,8 +17,14 @@ require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/fetch_sources.php';
 require_once __DIR__ . '/reach.php';
 require_once __DIR__ . '/ai.php';
+require_once __DIR__ . '/embeds.php';
 
 const TOP3_NEW_DATES_STRONG = 2;   // [ours] dated developments none of the 3 mention, for a "more complete" timeline
+// Readers for the AI steps: Nemotron Super first so Groq's free 200,000 tokens a day stay with the editor;
+// every answer is held by quoted proof or the fact guard, whichever model gives it.
+const TOP3_AI_ORDER = ['nvidia', 'groq', 'gemini'];
+const TOP3_AI_SKIP  = ['nvidia/nvidia/nemotron-3-nano-30b-a3b', 'nvidia_b/nvidia/nemotron-3-nano-30b-a3b', 'nvidia_b/moonshotai/kimi-k3',
+                       'groq/qwen/qwen3.8-27b', 'gemini/gemma-4-31b-it'];
 
 /** Idempotent; run outside a transaction (CREATE TABLE commits one on MariaDB, r151). */
 function top3_install(PDO $pdo): void {
@@ -67,15 +73,6 @@ function top3_date_keys(string $text): array {
     return ['days' => $days, 'months' => $months];
 }
 
-/** Post ids (X status, TikTok video, YouTube video, Reddit thread) found in a text or an embed. */
-function top3_post_ids(string $s): array {
-    $ids = [];
-    if (preg_match_all('#(?:twitter|x)\.com/[^/\s"\']+/status(?:es)?/(\d{8,})#i', $s, $m)) foreach ($m[1] as $x) $ids['x:' . $x] = 1;
-    if (preg_match_all('#tiktok\.com/@[^/\s"\']+/video/(\d{8,})#i', $s, $m)) foreach ($m[1] as $x) $ids['tt:' . $x] = 1;
-    if (preg_match_all('#(?:youtube\.com/(?:watch\?v=|embed/|shorts/)|youtu\.be/|videoid=")([A-Za-z0-9_-]{11})#i', $s, $m)) foreach ($m[1] as $x) $ids['yt:' . $x] = 1;
-    if (preg_match_all('#reddit\.com/r/[^/\s"\']+/comments/([a-z0-9]{5,})#i', $s, $m)) foreach ($m[1] as $x) $ids['rd:' . strtolower($x)] = 1;
-    return array_keys($ids);
-}
 
 /** Run the test for one story and store it. Returns the stored result, or ['error' => ...]. */
 function top3_check(PDO $pdo, int $pageId): array {
@@ -111,7 +108,7 @@ function top3_check(PDO $pdo, int $pageId): array {
         $hits = count(array_filter($words, fn($w) => str_contains($lc, $w)));
         if (!$words || $hits * 2 < count($words)) continue;          // not about this story
         $rivals[] = ['url' => $hit['url'], 'host' => $host, 'read' => $how, 'chars' => mb_strlen($text), 'text' => $lc, 'raw' => $text,
-                     'dates' => top3_date_keys($text), 'posts' => top3_post_ids(($html ?: '') . ' ' . $text)];
+                     'dates' => top3_date_keys($text), 'posts' => $html ? embed_posts_in_article($html, $host) : []];   // real embeds only
     }
     if (!$rivals) return ['error' => 'no result about this story (query: ' . $query . ')'];
 
@@ -125,7 +122,7 @@ function top3_check(PDO $pdo, int $pageId): array {
             if ($m[2] !== '00') $ourDays["{$m[1]}-{$m[2]}"] = (string)$e['title'];
             else $ourMonths[$m[1]] = (string)$e['title'];
         }
-        if ((string)($e['embed_html'] ?? '') !== '') foreach (top3_post_ids((string)$e['embed_html'] . ' ' . (string)$e['url']) as $pid) $ourPosts[$pid] = 1;
+        foreach ([(string)($e['embed_html'] ?? ''), (string)($e['url'] ?? '')] as $x) if ($x !== '' && ($pid = embed_post_id($x))) $ourPosts[$pid] = 1;
     }
     $new = [];
     foreach ([$ourDays, $ourMonths] as $set) foreach ($set as $k => $title) {
@@ -143,7 +140,7 @@ function top3_check(PDO $pdo, int $pageId): array {
         if ($keep === null) $verified = false; else $new = $keep;
     }
     $rivalPosts = [];
-    foreach ($rivals as $r) foreach ($r['posts'] as $p) $rivalPosts[$p] = 1;
+    foreach ($rivals as $r) foreach ($r['posts'] as $p) if ($pid = embed_post_id($p['url'])) $rivalPosts[$pid] = 1;
     $newPosts = count(array_diff_key($ourPosts, $rivalPosts));
 
     require_once __DIR__ . '/gate.php';
@@ -152,7 +149,7 @@ function top3_check(PDO $pdo, int $pageId): array {
     $learn = count($new) > 0 || $newPosts > 0;
     $missing = count(array_diff_key($rivalPosts, $ourPosts));   // posts the rivals show and we do not (work for the maker)
     $store = array_map(fn($r) => ['url' => $r['url'], 'host' => $r['host'], 'read' => $r['read'], 'chars' => $r['chars'],
-                                  'days' => count($r['dates']['days']), 'posts' => count($r['posts'])], $rivals);
+                                  'days' => count($r['dates']['days']), 'posts' => $r['posts']], $rivals);   // post list: top3_add_missing_posts()
     $pdo->prepare("REPLACE INTO top3_checks (page_id, query, checked_at, rivals, our_dates, new_dates, new_posts, timeline_strong, learn_new, verified)
                    VALUES (?,?,UTC_TIMESTAMP(),?,?,?,?,?,?,?)")
         ->execute([$pageId, $query, json_encode($store, JSON_UNESCAPED_SLASHES), count($ourDays) + count($ourMonths),
@@ -201,7 +198,7 @@ function top3_ai_uncovered(array $cands, array $rivals, array &$quotes = []): ?a
             . 'is NOT enough. If an article reports it, copy the exact sentence from that article that reports it. '
             . 'Output STRICT JSON only: {"events":[{"n":1,"covered":true,"article":1,"quote":"exact sentence"}]}'],
         ['role' => 'user', 'content' => "EVENTS:\n{$evs}\n{$arts}"],
-    ], ['groq', 'nvidia', 'gemini'], 0.1, 90, ['gemini/gemma-4-31b-it', 'groq/qwen/qwen3.8-27b']);
+    ], TOP3_AI_ORDER, 0.1, 90, TOP3_AI_SKIP);
     if (isset($res['error'])) return null;
     $j = ai_json((string)$res['content']);
     if (!is_array($j) || !isset($j['events']) || !is_array($j['events'])) return null;
@@ -252,4 +249,147 @@ function top3_covered(string $lcText, string $key, string $title, array $queryWo
         foreach ($rare as $w) if (str_contains($win, $w)) return true;
     }
     return false;
+}
+
+/** When a post was made: X and TikTok from the id (both embed a timestamp), YouTube from its API
+ *  (the youtube_key drama_image.php already uses, 1 quota unit); '' when unknown (Reddit). */
+function top3_post_date(string $url): string {
+    if (preg_match('#(?:youtube\.com/watch\?v=|youtu\.be/)([\w\-]{11})#', $url, $m)) {
+        $key = (string)($GLOBALS['CONFIG']['youtube_key'] ?? '');
+        if ($key === '') return '';
+        $j = json_decode((string)fs_http_get('https://www.googleapis.com/youtube/v3/videos?part=snippet&id=' . $m[1] . '&key=' . $key, 12), true);
+        $at = (string)($j['items'][0]['snippet']['publishedAt'] ?? '');
+        return preg_match('/^\d{4}-\d{2}-\d{2}/', $at) ? substr($at, 0, 10) : '';
+    }
+    if (preg_match('#(?:twitter|x)\.com/[A-Za-z0-9_]{1,15}/status/(\d{10,})#', $url, $m))
+        return gmdate('Y-m-d', intdiv(((int)$m[1] >> 22) + 1288834974657, 1000));   // X snowflake: ms since Twitter's epoch
+    if (preg_match('#tiktok\.com/@[\w.\-]+/video/(\d{10,})#', $url, $m))
+        return gmdate('Y-m-d', (int)$m[1] >> 32);                                    // TikTok: seconds in the top 32 bits
+    return '';
+}
+
+/**
+ * STEP 3 (owner, 2026-09-25): the original posts the top-3 pages show and we do not become dated
+ * events on our timeline, each showing the post. X, TikTok and YouTube, whose posting date is
+ * exact (top3_post_date); Reddit is left out (no date). Each post must still be up
+ * (embed_for_url), be about this story (its text or author names a story person or query word),
+ * and its event text must pass the fact guard against the post itself and carry attribution.
+ * Reads the stored top-3 result; run top3_check() again afterwards to update the credit.
+ * $save false = preview: returns the events it would add ('would_add') and writes nothing.
+ */
+function top3_add_missing_posts(PDO $pdo, int $pageId, int $max = 4, bool $save = true): array {
+    require_once __DIR__ . '/fetch_sources.php';
+    require_once __DIR__ . '/fact_guard.php';
+    require_once __DIR__ . '/framing_repair.php';
+    require_once __DIR__ . '/timeline_order.php';
+    $out = ['added' => 0, 'attached' => 0, 'skipped' => []];
+    $row = $pdo->prepare("SELECT t.rivals, t.query, d.id did, d.people_json, d.primary_kw, p.summary FROM top3_checks t
+                          JOIN dramas d ON d.page_id=t.page_id JOIN pages p ON p.id=t.page_id WHERE t.page_id=?");
+    $row->execute([$pageId]);
+    $t = $row->fetch(PDO::FETCH_ASSOC);
+    if (!$t) return $out + ['error' => 'no top-3 result stored: run top3_check first'];
+    $did = (int)$t['did'];
+
+    // posts already on our page, and our timeline (numbered: a post may be the one behind an event we have)
+    $ours = []; $timeline = ''; $tl = [];
+    $ev = $pdo->prepare("SELECT e.id, e.event_date, e.title, e.embed_html, e.video_only, s.url FROM events e LEFT JOIN sources s ON s.id=e.source_id
+                         WHERE e.drama_id=? ORDER BY e.sort_order");
+    $ev->execute([$did]);
+    foreach ($ev->fetchAll(PDO::FETCH_ASSOC) as $e) {
+        foreach ([(string)($e['embed_html'] ?? ''), (string)($e['url'] ?? '')] as $x) if ($x !== '' && ($pid = embed_post_id($x))) $ours[$pid] = 1;
+        if ((int)$e['video_only']) continue;
+        $tl[] = ['id' => (int)$e['id'], 'has_post' => (string)($e['embed_html'] ?? '') !== ''];
+        $timeline .= count($tl) . ". [{$e['event_date']}] {$e['title']}\n";
+    }
+
+    // what makes a post "about this story": a story person's name or a query word (4+ letters)
+    $tokens = [];
+    foreach ((array)json_decode((string)$t['people_json'], true) as $name)
+        foreach (preg_split('/\s+/', mb_strtolower((string)$name)) as $w) if (mb_strlen($w) >= 4) $tokens[$w] = 1;
+    foreach (preg_split('/[^\p{L}\p{N}]+/u', mb_strtolower((string)$t['query'])) as $w) if (mb_strlen($w) >= 4 && !in_array($w, ['timeline', 'lawsuit', 'drama', 'controversy'], true)) $tokens[$w] = 1;
+
+    $cands = []; $seen = [];
+    foreach ((array)json_decode((string)$t['rivals'], true) as $r) foreach ((array)($r['posts'] ?? []) as $p) {
+        $pid = embed_post_id((string)$p['url']);
+        if (!$pid || isset($ours[$pid]) || isset($seen[$pid])) continue;
+        $seen[$pid] = 1;
+        if (!in_array($p['platform'], ['twitter', 'tiktok', 'youtube'], true)) { $out['skipped'][] = "{$p['url']}: {$p['platform']} posts carry no date"; continue; }
+        $cands[$pid] = $p + ['from' => $r['host']];
+    }
+    $posts = [];
+    foreach ($cands as $pid => $p) {
+        if (count($posts) >= $max) break;
+        $date = top3_post_date($p['url']);
+        if ($date === '') { $out['skipped'][] = "{$p['url']}: posting date not found"; continue; }
+        $emb = embed_for_url($p['url']);
+        if (!$emb) { $out['skipped'][] = "{$p['url']}: no longer online"; continue; }
+        $text = fs_social_excerpt($p['platform'], $p['url']);
+        if ($text === '') { $out['skipped'][] = "{$p['url']}: no text"; continue; }
+        $lc = mb_strtolower($text . ' ' . $p['handle']);
+        $about = false;
+        foreach (array_keys($tokens) as $w) if (str_contains($lc, $w)) { $about = true; break; }
+        if (!$about) { $out['skipped'][] = "{$p['url']}: not about this story"; continue; }
+        $posts[] = ['url' => $p['url'], 'platform' => $p['platform'], 'handle' => $p['handle'], 'date' => $date, 'text' => $text, 'embed' => $emb, 'from' => $p['from']];
+    }
+    if (!$posts) return $out;
+
+    // one AI call writes each post as a timeline event; the fact guard holds it to the post's own words
+    $list = '';
+    $plat = fn(string $x) => ['twitter' => 'X', 'tiktok' => 'TikTok', 'youtube' => 'YouTube'][$x] ?? $x;
+    foreach ($posts as $i => $p) $list .= ($i + 1) . ". date {$p['date']}, " . $plat($p['platform']) . ' post' . ($p['handle'] !== '' ? " by @{$p['handle']}" : '') . ": {$p['text']}\n";
+    $res = ai_chat([
+        // With the story and our numbered timeline in view (without them one run wrote the kid's
+        // channel-ending video as an event and the next skipped it), each post is either the one
+        // behind an event we already have (same_as: that event shows it), a new development, or off-topic.
+        ['role' => 'system', 'content' => "For each POST about the STORY below: if it is the original post behind an event already in TIMELINE, "
+            . "set same_as to that event's number. If it is a new development, set same_as to 0 and write title (at most 90 characters, "
+            . "sentence case: capitals only for the first word and names) and desc (1-2 sentences starting 'According to a post by <author> "
+            . "on <platform>,'), using ONLY what the post says: no other names, numbers or claims. The title says what happened, never "
+            . "'post by' or 'original post'. Set skip to true only when the post "
+            . 'is not about this story. Output STRICT JSON only: {"events":[{"n":1,"skip":false,"same_as":0,"title":"...","desc":"..."}]}'],
+        ['role' => 'user', 'content' => "STORY: {$t['summary']}\n\nTIMELINE:\n{$timeline}\nPOSTS:\n{$list}"],
+    ], TOP3_AI_ORDER, 0.0, 90, TOP3_AI_SKIP);
+    $j = isset($res['error']) ? null : ai_json((string)$res['content']);
+    if (!is_array($j) || !isset($j['events'])) return $out + ['error' => 'AI did not write the events: ' . ($res['error'] ?? 'bad JSON')];
+    $out['model'] = (string)($res['model'] ?? $res['provider'] ?? '');
+    $answered = [];
+
+    $insSrc = $pdo->prepare("INSERT INTO sources (url, domain, publisher, title, reliability, retrieved_on, excerpt) VALUES (?,?,?,?,?,?,?)");
+    $insEv = $pdo->prepare("INSERT INTO events (drama_id, event_date, title, description, source_id, is_confirmed, sort_order, embed_html, embed_provider)
+                            VALUES (?,?,?,?,?,0,9999,?,?)");
+    $attach = $pdo->prepare("UPDATE events SET embed_html=?, embed_provider=? WHERE id=? AND (embed_html IS NULL OR embed_html='')");
+    foreach ($j['events'] as $e) {
+        $p = $posts[(int)($e['n'] ?? 0) - 1] ?? null;
+        if ($p) $answered[(int)$e['n']] = 1;
+        if (!$p || !empty($e['skip'])) { if ($p) $out['skipped'][] = "{$p['url']}: not about this story"; continue; }
+        $same = (int)($e['same_as'] ?? 0);
+        if ($same > 0) {   // the post behind an event we have: that event now shows it
+            $target = $tl[$same - 1] ?? null;
+            if (!$target) { $out['skipped'][] = "{$p['url']}: matched an event number that does not exist"; continue; }
+            if ($target['has_post']) { $out['skipped'][] = "{$p['url']}: its event already shows a post"; continue; }
+            if (!$save) { $out['would_attach'][] = ['event' => $same, 'url' => $p['url'], 'from' => $p['from']]; continue; }
+            $attach->execute([$p['embed']['html'], $p['embed']['provider'], $target['id']]);
+            $out['attached'] += $attach->rowCount();
+            continue;
+        }
+        $title = mb_substr(trim((string)($e['title'] ?? '')), 0, 90);
+        $desc = trim((string)($e['desc'] ?? ''));
+        $human = $p['date'] !== '' ? date('F j, Y', strtotime($p['date'])) : '';
+        $drift = fact_drift($title . "\n" . $desc, $p['text'] . "\n@{$p['handle']} {$p['handle']} {$human} {$p['date']} X TikTok YouTube\n" . $t['primary_kw'], []);
+        if ($title === '' || $desc === '' || $drift) { $out['skipped'][] = "{$p['url']}: event text not held to the post" . ($drift ? ' (' . implode(', ', array_slice($drift, 0, 3)) . ')' : ''); continue; }
+        if (preg_match('/\b(post by|original post)\b/i', $title)) { $out['skipped'][] = "{$p['url']}: title does not say what happened ({$title})"; continue; }
+        if (!preg_match('/' . FR_FRAMING_RX . '/i', $desc)) { $out['skipped'][] = "{$p['url']}: event text lacks attribution"; continue; }
+        if (!$save) { $out['would_add'][] = ['date' => $p['date'], 'title' => $title, 'desc' => $desc, 'url' => $p['url'], 'from' => $p['from']]; continue; }
+        $insSrc->execute([$p['url'], preg_replace('/^www\./', '', (string)parse_url($p['url'], PHP_URL_HOST)), $plat($p['platform']) . ' (original post)',
+                          mb_substr($p['text'], 0, 200), 'primary', $p['date'], $p['text']]);
+        $insEv->execute([$did, $p['date'], $title, $desc, (int)$pdo->lastInsertId(), $p['embed']['html'], $p['embed']['provider']]);
+        $out['added']++;
+    }
+    foreach ($posts as $i => $p) if (!isset($answered[$i + 1]))   // the start of the raw answer, so the next case explains itself
+        $out['skipped'][] = "{$p['url']}: the AI gave no answer for it (" . mb_substr(preg_replace('/\s+/', ' ', (string)$res['content']), 0, 120) . ')';
+    if ($out['added'] || $out['attached']) {
+        events_resort($pdo, $did);
+        $pdo->prepare("UPDATE pages SET updated_at=NOW() WHERE id=?")->execute([$pageId]);   // a real change; rebuilds the page cache
+    }
+    return $out;
 }

@@ -19,7 +19,12 @@ const QUALITY_MIN_SCORE = 7; // every dimension must reach this
  * page waits for its next judgment rather than getting a lucky one. Qwen is not calibrated.
  */
 const QUALITY_JUDGE_ORDER = ['groq', 'nvidia', 'openrouter'];
-const QUALITY_JUDGE_SKIP  = ['groq/qwen/qwen3.8-27b'];
+// Only the two calibrated models may judge. Asking for 'nvidia' also brings in 'nvidia_b', whose
+// list holds kimi-k3 (never calibrated; it passed a page on 2026-09-25) and the small Nemotron Nano;
+// openrouter holds ling-3.0-flash. Groq's free tier stops at 200,000 tokens a day (about 45
+// judgments), after which Nemotron Super judges alone.
+const QUALITY_JUDGE_SKIP  = ['groq/qwen/qwen3.8-27b', 'nvidia/nvidia/nemotron-3-nano-30b-a3b', 'nvidia_b/nvidia/nemotron-3-nano-30b-a3b',
+                             'nvidia_b/moonshotai/kimi-k3', 'openrouter/inclusionai/ling-3.0-flash:free'];
 
 /**
  * 2026-09-24 JUDGE THE PAGE READERS SEE. The controller used to get every

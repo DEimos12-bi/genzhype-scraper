@@ -177,6 +177,8 @@ function fs_social_excerpt(string $provider, string $url): string {
     if (!$j) return '';
     $author = $j['author_name'] ?? '';
     $title  = trim(html_entity_decode(strip_tags($j['html'] ?? ($j['title'] ?? '')), ENT_QUOTES, 'UTF-8'));
+    // YouTube's oEmbed html is a bare iframe: no text, so the video's title was lost (2026-09-25)
+    if ($title === '') $title = trim(html_entity_decode((string)($j['title'] ?? ''), ENT_QUOTES, 'UTF-8'));
     return trim("Original {$provider} post by {$author}: " . mb_substr($title, 0, 900));
 }
 

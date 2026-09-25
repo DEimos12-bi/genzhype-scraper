@@ -1132,9 +1132,21 @@ switch ($cmd) {
     }
 
     case 'top3':
-        // 2026-09-25 the top-3 test for one story: "cli.php top3 <page id>"
-        if (!$arg || !ctype_digit($arg)) exit("usage: top3 <page id>\n");
+        // 2026-09-25 the top-3 test for one story: "cli.php top3 <page id> [preview|fill]"
+        // preview/fill: the original posts the top 3 show and we do not, as timeline events (step 3)
+        if (!$arg || !ctype_digit($arg)) exit("usage: top3 <page id> [preview|fill]\n");
         require_once __DIR__ . '/top3.php';
+        $mode = $argv[3] ?? '';
+        if ($mode === 'preview' || $mode === 'fill') {
+            $f = top3_add_missing_posts($pdo, (int)$arg, 4, $mode === 'fill');
+            if (isset($f['error'])) echo "error: {$f['error']}\n";
+            if (!empty($f['model'])) echo "written by: {$f['model']}\n";
+            foreach ($f['would_add'] ?? [] as $w) echo "would add {$w['date']}: {$w['title']}\n    {$w['desc']}\n    {$w['url']} (shown by {$w['from']})\n";
+            foreach ($f['would_attach'] ?? [] as $w) echo "would show {$w['url']} on our timeline event {$w['event']} (shown by {$w['from']})\n";
+            if ($mode === 'fill') echo "added {$f['added']} post event(s), attached {$f['attached']} post(s) to events we had\n";
+            foreach ($f['skipped'] as $sk) echo "skipped: {$sk}\n";
+            if ($mode === 'preview' || !($f['added'] || $f['attached'])) break;
+        }
         $r = top3_check($pdo, (int)$arg);
         if (isset($r['error'])) { echo "not checked: {$r['error']}\n"; break; }
         echo "query: {$r['query']}\n";
@@ -1935,6 +1947,12 @@ switch ($cmd) {
                     require_once __DIR__ . '/top3.php';
                     $t3 = top3_check($pdo, (int)$d['page_id']);
                     if (isset($t3['error'])) echo "    top 3: not checked ({$t3['error']})\n";
+                    // step 3: the original posts the top 3 show and we do not join our timeline, then the test runs again
+                    elseif (($t3['missing_posts'] ?? 0) > 0) {
+                        $fp = top3_add_missing_posts($pdo, (int)$d['page_id']);
+                        echo "    top 3 posts: added {$fp['added']}, attached {$fp['attached']}" . (isset($fp['error']) ? " ({$fp['error']})" : '') . "\n";
+                        if ($fp['added'] || $fp['attached']) top3_check($pdo, (int)$d['page_id']);
+                    }
                 } catch (Throwable $e) { echo "    top 3: failed (" . $e->getMessage() . ")\n"; }
             } else {
                 echo "    top 3: skipped (needs an Exa key in config.php)\n";
