@@ -87,8 +87,14 @@ function top3_check(PDO $pdo, int $pageId): array {
     $query = top3_query($pdo, $pageId);
     if ($query === '') return ['error' => 'no query'];
 
-    // the first 3 results that are about the story: at least half of the query's words (4+ letters) in the text
-    $words = array_values(array_filter(preg_split('/[^\p{L}\p{N}]+/u', mb_strtolower($query)), fn($w) => mb_strlen($w) >= 4));
+    // the first 3 results that are about the story: at least half of the query's meaningful words, by
+    // word start. Short names count ("gta"), generic words do not: "GTA 6 discovered shops timeline"
+    // (page 1229) rejected every GTA 6 shop article for lacking "discovered" and "timeline".
+    static $generic = ['timeline', 'discovered', 'explained', 'explain', 'update', 'updates', 'latest', 'news', 'what',
+        'happened', 'drama', 'controversy', 'story', 'full', 'complete', 'guide', 'everything', 'details', 'reveal',
+        'revealed', 'from', 'with', 'about', 'after', 'over', 'the', 'and', 'for', 'into', 'this', 'that', 'amid', 'why', 'how', 'who'];
+    $words = array_values(array_unique(array_map(fn($w) => mb_substr($w, 0, 5), array_filter(preg_split('/[^\p{L}\p{N}]+/u', mb_strtolower($query)),
+        fn($w) => mb_strlen($w) >= 3 && !in_array($w, $generic, true)))));
     $rivals = [];
     $hits = reach_exa_search($query, 8);
     if (!$hits && reach_exa_error() !== '') return ['error' => 'search unavailable: Exa ' . reach_exa_error()];
@@ -221,40 +227,29 @@ function top3_ai_uncovered(array $cands, array $rivals, array &$quotes = []): ?a
 }
 
 /**
- * Does a rival text already report our event? It must name the event's month (with or without
- * the day, "May 2026" counts for May 20) within 250 characters of a distinctive word from our
- * event title that is rare in that rival. A date alone is not enough: a long page (Wikipedia,
- * 148 dates) matched our dates by coincidence; and "in May 2026, a court clerk entered a default"
- * does cover "May 20: clerk enters default" (page 1134). When the only shared words are topic
- * words, or the title has none, the exact day must appear.
+ * The one case where word matching may decide on its own that a rival already reports our event:
+ * the exact day (either order: "November 19", "19 November") within 250 characters of a word from
+ * our event title that is rare in that rival (1-3 mentions). Everything else goes to the AI reading
+ * with quoted proof (top3_ai_uncovered). Looser matching failed every way it was tried on
+ * 2026-09-25: a date anywhere (Wikipedia's 148 dates), a month near a common word ("legal" covered a
+ * GoFundMe), a word count in a page that loaded short (the same GoFundMe again).
  */
 function top3_covered(string $lcText, string $key, string $title, array $queryWords): bool {
     static $mn = ['01' => 'jan', '02' => 'feb', '03' => 'mar', '04' => 'apr', '05' => 'may', '06' => 'jun',
                   '07' => 'jul', '08' => 'aug', '09' => 'sep', '10' => 'oct', '11' => 'nov', '12' => 'dec'];
     static $generic = ['announces', 'announced', 'reports', 'reported', 'claims', 'claimed', 'timeline', 'update',
                        'reveals', 'revealed', 'responds', 'response', 'statement', 'addresses', 'confirms', 'after', 'about'];
-    $m = substr($key, 0, 2);
-    $day = strlen($key) === 5 ? (int)substr($key, 3, 2) : 0;
-    $tw = array_values(array_filter(preg_split('/[^\p{L}\p{N}]+/u', mb_strtolower($title)),
-        fn($w) => mb_strlen($w) >= 5 && !in_array($w, $queryWords, true) && !in_array($w, $generic, true)));
-    $monthRx = '/\b' . $mn[$m] . '[a-z]*\.?|\b20\d\d-' . $m . '-\d\d\b|\b' . (int)$m . '\/\d{1,2}\/(?:20)?\d\d\b/u';
-    // the exact day in either order ("November 19", "19 November": Wikipedia wrote the latter, page 1229)
+    if (strlen($key) !== 5) return false;                     // month-only events: the AI reading decides
+    $m = substr($key, 0, 2); $day = (int)substr($key, 3, 2);
+    $rare = array_values(array_filter(preg_split('/[^\p{L}\p{N}]+/u', mb_strtolower($title)), fn($w) => mb_strlen($w) >= 5
+        && !in_array($w, $queryWords, true) && !in_array($w, $generic, true)
+        && ($c = substr_count($lcText, $w)) >= 1 && $c <= 3));
+    if (!$rare) return false;
     $dayRx = '/\b' . $mn[$m] . '[a-z]*\.?\s+' . $day . '(?!\d)|(?<!\d)' . $day . '(?:st|nd|rd|th)?\s+(?:of\s+)?' . $mn[$m] . '/u';
-    $near = function (string $rx, array $words) use ($lcText): bool {
-        if (!$words || !preg_match_all($rx, $lcText, $hits, PREG_OFFSET_CAPTURE)) return false;
-        foreach ($hits[0] as [$str, $off]) {
-            $win = substr($lcText, max(0, $off - 250), 500 + strlen($str));
-            foreach ($words as $w) if (str_contains($win, $w)) return true;
-        }
-        return false;
-    };
-    if (!$tw) return $day > 0 && preg_match($dayRx, $lcText) === 1;   // a title with no distinctive word
-    // a title word marks THIS event only when it is rare in the rival (1-3 mentions): "legal" runs all
-    // through a lawsuit article and matched the GoFundMe event by accident; "gofundme", "clerk" do not
-    $present = array_values(array_filter($tw, fn($w) => substr_count($lcText, $w) >= 1));
-    $rare = array_values(array_filter($present, fn($w) => substr_count($lcText, $w) <= 3));
-    if ($rare) return $near($monthRx, $rare);
-    // only topic words in common ("police" x7 on Wikipedia): the exact day must sit next to one of them,
-    // or a page with 148 dates covers ours by coincidence
-    return $day > 0 && $near($dayRx, $present);
+    if (!preg_match_all($dayRx, $lcText, $hits, PREG_OFFSET_CAPTURE)) return false;
+    foreach ($hits[0] as [$str, $off]) {
+        $win = substr($lcText, max(0, $off - 250), 500 + strlen($str));
+        foreach ($rare as $w) if (str_contains($win, $w)) return true;
+    }
+    return false;
 }
