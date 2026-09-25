@@ -24,6 +24,7 @@ import random
 import re
 import sys
 import time
+from html import unescape
 from urllib.request import Request, urlopen
 
 IG_APP_ID = "936619743392459"   # the public web app id instagram.com sends with its own profile requests
@@ -73,11 +74,13 @@ def parse_tiktok(html: str) -> dict:
         info = json.loads(m.group(1))["__DEFAULT_SCOPE__"]["webapp.user-detail"]["userInfo"]
     except (KeyError, ValueError):
         return {"error": "profile data without user info"}
-    user, stats = info.get("user") or {}, info.get("stats") or {}
+    user, stats, v2 = info.get("user") or {}, info.get("stats") or {}, info.get("statsV2") or {}
     if not user.get("uniqueId"):
         return {"error": "empty profile (TikTok answered without the user)"}
-    return {"followers": num(stats.get("followerCount")), "following": num(stats.get("followingCount")),
-            "posts": num(stats.get("videoCount")), "likes": num(stats.get("heartCount")),
+    # "stats" came back rounded on 2026-09-25 (Kai Cenat 25,400,000); "statsV2" holds the same counts as strings
+    pick = lambda k: num(v2.get(k)) if num(v2.get(k)) is not None else num(stats.get(k))
+    return {"followers": pick("followerCount"), "following": pick("followingCount"), "posts": pick("videoCount"),
+            "likes": pick("heartCount"), "exact": num(v2.get("followerCount")) is not None,
             "name": user.get("nickname", ""), "bio": user.get("signature", ""), "verified": bool(user.get("verified"))}
 
 
@@ -91,7 +94,31 @@ def parse_instagram_api(body: str) -> dict:
     return {"followers": num((user.get("edge_followed_by") or {}).get("count")),
             "following": num((user.get("edge_follow") or {}).get("count")),
             "posts": num((user.get("edge_owner_to_timeline_media") or {}).get("count")),
-            "name": user.get("full_name", ""), "bio": user.get("biography", ""), "verified": bool(user.get("is_verified"))}
+            "exact": True, "name": user.get("full_name", ""), "bio": user.get("biography", ""), "verified": bool(user.get("is_verified"))}
+
+
+def parse_instagram_page(html: str) -> dict:
+    """The counts line a logged-out instagram.com profile page carries in its description:
+    "6M Followers, 391 Following, 4,105 Posts - See Instagram photos and videos from NAME (@handle)".
+    Rounded from 10,000 up ("12.3K", "6M"), so marked not exact."""
+    for tag in re.findall(r"<meta\b[^>]*>", html):
+        if not re.search(r'(?:property|name)="(?:og:)?description"', tag):
+            continue
+        c = re.search(r'content="([^"]*)"', tag)
+        d = unescape(c.group(1)) if c else ""
+        vals, exact = {}, True
+        for key, word in (("followers", "Followers"), ("following", "Following"), ("posts", "Posts")):
+            m = re.search(r"([\d.,]+)\s*([KMB]?)\s+" + word, d, re.I)
+            if not m:
+                continue
+            n, unit = float(m.group(1).replace(",", "")), m.group(2).upper()
+            if unit:
+                exact = False
+            vals[key] = int(round(n * {"": 1, "K": 1e3, "M": 1e6, "B": 1e9}[unit]))
+        if "followers" in vals:
+            who = re.search(r"from (.+?) \(@", d)
+            return {**vals, "exact": exact, "name": who.group(1) if who else ""}
+    return {"error": "no counts in the page (login wall)"}
 
 
 async def read_all(rows: list) -> list:
@@ -130,7 +157,12 @@ async def read_all(rows: list) -> list:
                                                  return r.status + ' ' + await r.text(); }""",
                                              [f"https://www.instagram.com/api/v1/users/web_profile_info/?username={handle}", IG_APP_ID])
                     status, _, text = body.partition(" ")
-                    row.update(parse_instagram_api(text) if status == "200" else {"error": f"profile API HTTP {status}: {text[:120]}"}, how="profile API")
+                    got = parse_instagram_api(text) if status == "200" else {"error": f"profile API HTTP {status}"}
+                    if "error" in got:   # logged out, the API asked for a login on 2026-09-25: the page's own counts line
+                        page = parse_instagram_page(await pg.content())
+                        got = page if "error" not in page else {"error": got["error"] + "; page: " + page["error"]}
+                        got["how"] = "profile page"
+                    row.update({"how": "profile API", **got})
                     await pg.close()
             except Exception as e:
                 row["error"] = f"{type(e).__name__}: {str(e)[:200]}"
