@@ -1131,6 +1131,21 @@ switch ($cmd) {
         break;
     }
 
+    case 'top3':
+        // 2026-09-25 the top-3 test for one story: "cli.php top3 <page id>"
+        if (!$arg || !ctype_digit($arg)) exit("usage: top3 <page id>\n");
+        require_once __DIR__ . '/top3.php';
+        $r = top3_check($pdo, (int)$arg);
+        if (isset($r['error'])) { echo "not checked: {$r['error']}\n"; break; }
+        echo "query: {$r['query']}\n";
+        foreach ($r['rivals'] as $x) echo "  vs {$x['host']} ({$x['read']}, {$x['chars']} chars)\n";
+        echo "ours: {$r['our_dates']} dated developments, {$r['our_posts']} original posts\n";
+        echo "new to the reader: " . count($r['new_dates']) . " dated development(s), {$r['new_posts']} post(s); the top 3 show {$r['missing_posts']} post(s) we do not\n";
+        foreach ($r['new_dates'] as $n) echo "  new: {$n['date']} {$n['title']}\n";
+        foreach ($r['covered_by'] as $c) echo "  already reported: {$c['event']} ({$c['host']}: \"" . mb_substr($c['quote'], 0, 120) . "\")\n";
+        echo 'timeline strong: ' . ($r['timeline_strong'] ? 'yes' : 'no') . ($r['verified'] ? '' : ' (unverified: the AI reading did not run)') . "\n";
+        break;
+
     case 'ov-report':
         // 2026-09-25 the owner's rule (1 strong or 2 weak) over live stories; see gate_original_value()
         require_once __DIR__ . '/gate.php';
@@ -1912,6 +1927,18 @@ switch ($cmd) {
             } catch (Throwable $e) { echo "    framing repair failed: " . $e->getMessage() . "\n"; }
             $v = verify_drama((int)$d['page_id']);
             $q = quality_check_drama((int)$d['page_id']);
+            // the top-3 test (owner rule): what this page has that the top results do not; stored, read by the gate.
+            // It needs an Exa key: the keyless tier (shared by 8 features: slang drafts, deepen, clips...) hit
+            // its rate limit after ~20 searches in an hour on 2026-09-25, so builds must not spend it.
+            if (!empty($CONFIG['exa']['key'])) {
+                try {
+                    require_once __DIR__ . '/top3.php';
+                    $t3 = top3_check($pdo, (int)$d['page_id']);
+                    if (isset($t3['error'])) echo "    top 3: not checked ({$t3['error']})\n";
+                } catch (Throwable $e) { echo "    top 3: failed (" . $e->getMessage() . ")\n"; }
+            } else {
+                echo "    top 3: skipped (needs an Exa key in config.php)\n";
+            }
             $g = gate_check_drama((int)$d['page_id']);
             $ok = ($v['pass'] ?? false) && ($q['pass'] ?? false) && ($g['pass'] ?? false);
             echo "  built {$d['slug']} | v=" . (($v['pass'] ?? 0)?'P':'i') . " q=" . (($q['pass'] ?? 0)?'P':'F') . " g=" . (($g['pass'] ?? 0)?'P':'F') . ($ok ? "  => READY" : "") . "\n";

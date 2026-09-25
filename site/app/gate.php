@@ -216,12 +216,26 @@ function gate_original_value(PDO $pdo, int $did): array {
         (int)$e['is_confirmed'] === 1 ? $confirmed++ : $claims++;
     }
     $weak['confirmed_split'] = $confirmed > 0 && $claims > 0;
-    // 'timeline' needs the top-3 comparison (not built): receipts alone are counted, not credited
+    // 'timeline' comes from the stored top-3 test (top3.php): original posts on our timeline AND
+    // dated developments the top 3 results do not report, proved by an AI reading with quotes
+    $t3 = null;
+    try {
+        $st = $pdo->prepare("SELECT t.timeline_strong, t.learn_new, t.verified, t.new_dates, t.new_posts, t.checked_at
+                             FROM top3_checks t JOIN dramas d ON d.page_id=t.page_id WHERE d.id=?");
+        $st->execute([$did]);
+        $t3 = $st->fetch(PDO::FETCH_ASSOC) ?: null;
+    } catch (Throwable $e) { /* table not created yet: not checked */ }
+    $strong['timeline'] = $t3 && (int)$t3['timeline_strong'] === 1;
     $s = array_keys(array_filter($strong)); $w = array_keys(array_filter($weak));
     $pass = count($s) >= 1 || count($w) >= 2;
+    $newN = $t3 ? count((array)json_decode((string)$t3['new_dates'], true)) : 0;
     return ['pass' => $pass, 'strong' => $s, 'weak' => $w, 'receipts' => $receipts,
+            'learn_new' => $t3 ? (bool)$t3['learn_new'] : null,   // "would a reader learn something the top 3 don't tell them?"
             'label' => 'strong: ' . ($s ? implode(', ', $s) : 'none') . '; weak: ' . ($w ? implode(', ', $w) : 'none')
-                     . "; {$receipts} original post(s)/primary source(s) on the timeline" . ($pass ? '' : ' - needs 1 strong or 2 weak')];
+                     . "; {$receipts} original post(s)/primary source(s) on the timeline"
+                     . ($t3 ? "; top 3: {$newN} dated development(s) and {$t3['new_posts']} post(s) they do not have" . ((int)$t3['verified'] ? '' : ' (unverified)')
+                            : '; top 3: not checked')
+                     . ($pass ? '' : ' - needs 1 strong or 2 weak')];
 }
 
 function gate_check_drama(int $page_id): array {

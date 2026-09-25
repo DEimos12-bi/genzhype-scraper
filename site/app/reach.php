@@ -29,11 +29,31 @@ function reach_http(string $url, array $headers = [], ?string $body = null, int 
 }
 
 /** Exa MCP session: initialize -> session id header -> initialized notice. */
+/**
+ * Exa's MCP headers. 2026-09-25: the keyless tier answered HTTP 429 "You've hit Exa's free MCP
+ * rate limit" after about 20 searches in an hour from this server, and 8 features share it. With
+ * an owner key in config.php ('exa' => ['key' => '...']) the same endpoint takes it as a Bearer
+ * header; without one, behaviour is unchanged.
+ */
+function reach_exa_headers(): array {
+    $h = ['Content-Type: application/json', 'Accept: application/json, text/event-stream'];
+    $key = (string)($GLOBALS['CONFIG']['exa']['key'] ?? '');
+    if ($key !== '') $h[] = 'Authorization: Bearer ' . $key;
+    return $h;
+}
+
+/** Why the last Exa call returned nothing ('' when it answered). Callers tell "search down" from "no hits". */
+function reach_exa_error(?string $set = null): string {
+    static $err = '';
+    if ($set !== null) $err = $set;
+    return $err;
+}
+
 function reach_exa_session(): ?string {
     $init = json_encode(['jsonrpc' => '2.0', 'id' => 1, 'method' => 'initialize',
         'params' => ['protocolVersion' => '2025-03-26', 'capabilities' => new stdClass(),
                      'clientInfo' => ['name' => 'genzhype-reach', 'version' => '1.0']]]);
-    $h = ['Content-Type: application/json', 'Accept: application/json, text/event-stream'];
+    $h = reach_exa_headers();
     $r = reach_http('https://mcp.exa.ai/mcp', $h, $init);
     if ($r['code'] !== 200 || !preg_match('/^mcp-session-id:\s*(\S+)/mi', $r['headers'], $m)) return null;
     $sid = trim($m[1]);
@@ -49,14 +69,17 @@ function reach_exa_session(): ?string {
 function reach_exa_search(string $query, int $n = 5): array {
     static $sid = null;
     if ($sid === null) $sid = reach_exa_session() ?: '';
-    if ($sid === '') return [];
+    if ($sid === '') { reach_exa_error('no Exa session'); return []; }
     $call = json_encode(['jsonrpc' => '2.0', 'id' => 3, 'method' => 'tools/call',
         'params' => ['name' => 'web_search_exa',
                      'arguments' => ['query' => $query, 'numResults' => max(1, min(8, $n))]]]);
-    $r = reach_http('https://mcp.exa.ai/mcp',
-        ['Content-Type: application/json', 'Accept: application/json, text/event-stream',
-         'mcp-session-id: ' . $sid], $call, 40);
-    if ($r['code'] !== 200) { $sid = null; return []; }
+    $r = reach_http('https://mcp.exa.ai/mcp', array_merge(reach_exa_headers(), ['mcp-session-id: ' . $sid]), $call, 40);
+    if ($r['code'] !== 200) {
+        $sid = null;
+        reach_exa_error('HTTP ' . $r['code'] . (str_contains($r['body'], 'rate limit') ? ' (rate limit)' : ''));
+        return [];
+    }
+    reach_exa_error('');
     // SSE frame(s): take the LAST data: line's JSON
     $json = null;
     foreach (explode("\n", $r['body']) as $line) {
@@ -90,8 +113,7 @@ function reach_exa_fetch(string $url, int $timeout = 40): ?string {
     if ($sid === '') return null;
     $call = json_encode(['jsonrpc' => '2.0', 'id' => 4, 'method' => 'tools/call',
         'params' => ['name' => 'web_fetch_exa', 'arguments' => ['urls' => [$url], 'maxCharacters' => 3500]]]);
-    $r = reach_http('https://mcp.exa.ai/mcp',
-        ['Content-Type: application/json', 'Accept: application/json, text/event-stream', 'mcp-session-id: ' . $sid], $call, $timeout);
+    $r = reach_http('https://mcp.exa.ai/mcp', array_merge(reach_exa_headers(), ['mcp-session-id: ' . $sid]), $call, $timeout);
     if ($r['code'] !== 200) { $sid = null; return null; }
     $json = null;
     foreach (explode("\n", $r['body']) as $line) if (str_starts_with(trim($line), 'data:')) $json = trim(substr(trim($line), 5));
