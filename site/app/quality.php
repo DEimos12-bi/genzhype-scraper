@@ -42,7 +42,7 @@ const QUALITY_JUDGE_SKIP  = ['groq/qwen/qwen3.8-27b', 'nvidia/nvidia/nemotron-3-
  */
 function quality_page_fields(int $page_id): ?array {
     $pdo = db();
-    $p = $pdo->prepare("SELECT p.*, d.id drama_id, d.primary_kw, d.lifecycle, d.background, d.why_matters, d.whats_next
+    $p = $pdo->prepare("SELECT p.*, d.id drama_id, d.primary_kw, d.lifecycle, d.background, d.why_matters, d.whats_next, d.both_sides
                         FROM pages p JOIN dramas d ON d.page_id=p.id WHERE p.id=?");
     $p->execute([$page_id]);
     $page = $p->fetch();
@@ -72,7 +72,8 @@ function quality_page_fields(int $page_id): ?array {
             'faqs' => array_map(fn($f) => ['q' => (string)$f['question'], 'a' => (string)$f['answer']], $fq->fetchAll()),
             'events' => $events, 'sources' => array_keys($pubs), 'last_date' => $last,
             ...story_context_shape($page['why_matters'] ?? null, $page['whats_next'] ?? null),
-            'tracked' => array_map('cs_sentence', cs_numbers($pdo, [$page_id])[$page_id] ?? [])];
+            'tracked' => array_map('cs_sentence', cs_numbers($pdo, [$page_id])[$page_id] ?? []),
+            'both_sides' => (array)json_decode((string)($page['both_sides'] ?? ''), true)];
 }
 
 /**
@@ -97,6 +98,11 @@ function quality_judge(array $f, array $opt = []): array {
     $ctx = '';   // the page's own "Why it matters" / "What happens next" sections, when it has them
     if (($f['why_matters'] ?? '') !== '') $ctx .= "WHY IT MATTERS:\n{$f['why_matters']}\n\n";
     if (!empty($f['tracked'])) $ctx .= "NUMBERS WE TRACKED OURSELVES:\n- " . implode("\n- ", $f['tracked']) . "\n\n";
+    if (count($f['both_sides'] ?? []) === 2) {
+        $ctx .= "WHAT EACH SIDE SAYS:\n";
+        foreach ($f['both_sides'] as $bs) $ctx .= "- {$bs['who']}: \"{$bs['quote']}\" (via {$bs['by']})\n";
+        $ctx .= "\n";
+    }
     if (!empty($f['whats_next'])) {
         $ctx .= "WHAT HAPPENS NEXT:\n";
         foreach ($f['whats_next'] as $nx) $ctx .= '- ' . ($nx['date'] !== '' ? story_context_date_label($nx['date']) . ': ' : '') . $nx['text'] . "\n";

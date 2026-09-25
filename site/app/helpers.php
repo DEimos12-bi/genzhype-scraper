@@ -213,28 +213,89 @@ function track_ai_crawler(string $ua, string $path): void {
     } catch (Throwable $e) { /* never break a page render over telemetry */ }
 }
 
+/** The dignity/accusation filter for quotes shown on a story page: a hard accusation, or grim, violent
+ *  or sexual content (find_pull_quote's per-quote filter, shared with both_sides.php). */
+function quote_is_unsafe(string $q): bool {
+    static $bad = '/\b(murder\w*|rape\w*|sexual\w*|assault\w*|abus\w*|molest\w*|pedophile|groom(ed|ing)?|kill(ed|ing|s)?|died|dead|death|dying|deceased|funeral|grief|stabb\w*|shot|wound\w*|breathing|unconscious|overdose\w*|suicid\w*|corpse|autopsy|coroner|hospitaliz\w*)\b/i';
+    return preg_match($bad, $q) === 1;
+}
+
+/**
+ * Every verbatim quote in the sources' excerpts: 30-180 characters, 5+ words, with letters, no
+ * links; each with its source, the text around it and its speaker when the text names one.
+ * $safe drops quotes that state a hard accusation or are grim, violent or sexual: the per-quote
+ * dignity filter find_pull_quote() has always applied. Shared with both_sides.php.
+ * 2026-09-25: straight quotes are paired in order (1st-2nd, 3rd-4th); a single pattern paired a
+ * closing mark with the next opening one, and 48 of 618 live pull quotes were reporter text
+ * between two quotes ("the district said in a statement.").
+ */
+function quote_candidates(array $sources, bool $safe = false): array {
+
+    $out = [];
+    foreach ($sources as $s) {
+        $ex = is_array($s) ? (string)($s['excerpt'] ?? '') : '';
+        if ($ex === '') continue;
+        $pub = is_array($s) ? ($s['publisher'] ?? '') : '';
+        if ($pub === '' && is_array($s)) $pub = parse_url($s['url'] ?? '', PHP_URL_HOST) ?: 'source';
+        $spans = [];   // byte offset => [inner text, start of inner text, end of inner text]
+        if (preg_match_all('/\x{201C}([^\x{201C}\x{201D}]{30,180})\x{201D}/u', $ex, $m, PREG_OFFSET_CAPTURE))
+            foreach ($m[1] as [$in, $off]) $spans[$off] = [$in, $off, $off + strlen($in)];
+        $marks = [];
+        for ($i = strpos($ex, '"'); $i !== false; $i = strpos($ex, '"', $i + 1)) $marks[] = $i;
+        for ($k = 0; $k + 1 < count($marks); $k += 2) {
+            $in = substr($ex, $marks[$k] + 1, $marks[$k + 1] - $marks[$k] - 1);
+            $len = mb_strlen($in);
+            if ($len >= 30 && $len <= 180) $spans[$marks[$k] + 1] = [$in, $marks[$k] + 1, $marks[$k + 1]];
+        }
+        ksort($spans);
+        foreach ($spans as [$raw, $st, $en]) {
+            $q = trim($raw);
+            if (substr_count($q, ' ') < 4 || !preg_match('/[a-z]/', $q) || preg_match('#https?://|\.(com|org|net)\b#i', $q)) continue;
+            if ($safe && quote_is_unsafe($q)) continue;
+            $out[] = ['quote' => $q, 'by' => $pub ?: 'source', 'url' => (string)($s['url'] ?? ''),
+                      'speaker' => quote_speaker($ex, $st, $en),
+                      'context' => mb_strcut($ex, max(0, $st - 300), strlen($raw) + 600)];
+        }
+    }
+    return $out;
+}
+
+/**
+ * Who the source says spoke a quote, from the words right next to it: '"...," Klein said',
+ * 'Frogan wrote: "..."', 'said Ethan Klein', 'according to X'. '' when the text names no one
+ * there: a pronoun ("she said") or a label ("the streamer said") is never resolved to a person.
+ * $st/$en: byte offsets of the quote's inner text.
+ */
+function quote_speaker(string $ex, int $st, int $en): string {
+    static $verbs = 'said|says|wrote|writes|told|tweeted|posted|added|explained|stated|claimed|replied|responded|continued|noted|shared|announced';
+    static $not = ['he', 'she', 'they', 'it', 'the', 'this', 'that', 'a', 'an', 'his', 'her', 'their', 'we', 'i', 'you', 'in', 'on',
+                   'but', 'and', 'as', 'according', 'one', 'some', 'many', 'fans', 'critics', 'officials', 'sources', 'reports'];
+    // no dots in a name and no sentence end after the verb: "... Ian Carter wrote on X. Klein responded:"
+    // gave Carter's name to Klein's quote until both were ruled out (unit test, 2026-09-25)
+    $name = '(?<n>(?:@\w+|\p{Lu}[\p{L}\'’-]*)(?:\s+\p{Lu}[\p{L}\'’-]*){0,3})';
+    $after = substr($ex, $en + 1, 120);
+    $before = substr($ex, max(0, $st - 1 - 120), min(120, max(0, $st - 1)));
+    $pats = [[$after, '/^[\s,.]*' . $name . '\s+(?:' . $verbs . ')\b/u'],
+             [$after, '/^[\s,.]*(?:' . $verbs . ')\s+' . $name . '/u'],
+             [$before, '/' . $name . '\s+(?:' . $verbs . ')(?:\s+[^,:."\x{201C}]{0,40})?\s*[,:]?\s*$/u'],
+             [$before, '/according\s+to\s+' . $name . '\s*[,:]?\s*$/iu']];
+    foreach ($pats as [$text, $rx]) {
+        if (!preg_match($rx, $text, $mm)) continue;
+        $n = trim($mm['n']);
+        if (in_array(mb_strtolower(explode(' ', $n)[0]), $not, true)) continue;
+        return $n;
+    }
+    return '';
+}
 function find_pull_quote(array $sources, bool $safe = false): ?array {
     // $safe (dramas): skip quotes that state a hard accusation, to avoid republishing
     // a defamatory claim as a featured quote. First-person quotes (the subject's own
     // words) are preferred — primary, on-the-record, and the safest to surface.
-    // per-quote dignity filter: drop any quote that is grim/violent/sexual so a
-    // featured blockquote can never republish something cruel or unsafe.
-    $bad = '/\b(murder\w*|rape\w*|sexual\w*|assault\w*|abus\w*|molest\w*|pedophile|groom(ed|ing)?|kill(ed|ing|s)?|died|dead|death|dying|deceased|funeral|grief|stabb\w*|shot|wound\w*|breathing|unconscious|overdose\w*|suicid\w*|corpse|autopsy|coroner|hospitaliz\w*)\b/i';
     $best = null;
-    foreach ($sources as $s) {
-        $ex = is_array($s) ? ($s['excerpt'] ?? '') : '';
-        if ($ex === '') continue;
-        if (!preg_match_all('/[\x{201C}"]([^\x{201D}"]{30,180})[\x{201D}"]/u', $ex, $m)) continue;
-        $pub = is_array($s) ? ($s['publisher'] ?? '') : '';
-        if ($pub === '' && is_array($s)) $pub = parse_url($s['url'] ?? '', PHP_URL_HOST) ?: 'source';
-        foreach ($m[1] as $q) {
-            $q = trim($q);
-            if (substr_count($q, ' ') < 4 || !preg_match('/[a-z]/', $q) || preg_match('#https?://|\.(com|org|net)\b#i', $q)) continue;
-            if ($safe && preg_match($bad, $q)) continue;
-            $cand = ['quote' => $q, 'by' => $pub ?: 'source'];
-            if (preg_match('/\b(I|I\x27m|we|my|me)\b/', $q)) return $cand;  // first-person -> use immediately
-            if (!$best) $best = $cand;
-        }
+    foreach (quote_candidates($sources, $safe) as $c) {
+        $cand = ['quote' => $c['quote'], 'by' => $c['by']];
+        if (preg_match('/\b(I|I\x27m|we|my|me)\b/', $c['quote'])) return $cand;  // first-person -> use immediately
+        if (!$best) $best = $cand;
     }
     return $best;
 }

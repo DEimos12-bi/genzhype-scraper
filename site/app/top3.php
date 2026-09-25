@@ -20,11 +20,7 @@ require_once __DIR__ . '/ai.php';
 require_once __DIR__ . '/embeds.php';
 
 const TOP3_NEW_DATES_STRONG = 2;   // [ours] dated developments none of the 3 mention, for a "more complete" timeline
-// Readers for the AI steps: Nemotron Super first so Groq's free 200,000 tokens a day stay with the editor;
-// every answer is held by quoted proof or the fact guard, whichever model gives it.
-const TOP3_AI_ORDER = ['nvidia', 'groq', 'gemini'];
-const TOP3_AI_SKIP  = ['nvidia/nvidia/nemotron-3-nano-30b-a3b', 'nvidia_b/nvidia/nemotron-3-nano-30b-a3b', 'nvidia_b/moonshotai/kimi-k3',
-                       'groq/qwen/qwen3.8-27b', 'gemini/gemma-4-31b-it'];
+
 
 /** Idempotent; run outside a transaction (CREATE TABLE commits one on MariaDB, r151). */
 function top3_install(PDO $pdo): void {
@@ -198,7 +194,7 @@ function top3_ai_uncovered(array $cands, array $rivals, array &$quotes = []): ?a
             . 'is NOT enough. If an article reports it, copy the exact sentence from that article that reports it. '
             . 'Output STRICT JSON only: {"events":[{"n":1,"covered":true,"article":1,"quote":"exact sentence"}]}'],
         ['role' => 'user', 'content' => "EVENTS:\n{$evs}\n{$arts}"],
-    ], TOP3_AI_ORDER, 0.1, 90, TOP3_AI_SKIP);
+    ], AI_READER_ORDER, 0.1, 90, AI_READER_SKIP);
     if (isset($res['error'])) return null;
     $j = ai_json((string)$res['content']);
     if (!is_array($j) || !isset($j['events']) || !is_array($j['events'])) return null;
@@ -346,7 +342,7 @@ function top3_add_missing_posts(PDO $pdo, int $pageId, int $max = 4, bool $save 
             . "'post by' or 'original post'. Set skip to true only when the post "
             . 'is not about this story. Output STRICT JSON only: {"events":[{"n":1,"skip":false,"same_as":0,"title":"...","desc":"..."}]}'],
         ['role' => 'user', 'content' => "STORY: {$t['summary']}\n\nTIMELINE:\n{$timeline}\nPOSTS:\n{$list}"],
-    ], TOP3_AI_ORDER, 0.0, 90, TOP3_AI_SKIP);
+    ], AI_READER_ORDER, 0.0, 90, AI_READER_SKIP);
     $j = isset($res['error']) ? null : ai_json((string)$res['content']);
     if (!is_array($j) || !isset($j['events'])) return $out + ['error' => 'AI did not write the events: ' . ($res['error'] ?? 'bad JSON')];
     $out['model'] = (string)($res['model'] ?? $res['provider'] ?? '');

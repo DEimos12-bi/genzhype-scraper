@@ -1561,6 +1561,11 @@ switch ($cmd) {
                 $au = gate_confirm_audit($pdo); $ca = gate_confirm_all($pdo);
                 echo "confirmed: {$ca['confirmed']} event(s) on {$ca['stories']} stories; audit returned {$au['returned']} unproven confirmation(s)\n";
             } catch (Throwable $e) { echo "  confirm failed: " . $e->getMessage() . "\n"; }
+            try {
+                require_once __DIR__ . '/both_sides.php';
+                $bsr = bs_run($pdo, 10, 180);
+                echo "both sides: checked {$bsr['checked']}, found {$bsr['found']}, none {$bsr['none']}, no answer {$bsr['no_answer']}\n";
+            } catch (Throwable $e) { echo "  both sides failed: " . $e->getMessage() . "\n"; }
         }
         // COVER POLICY v2 (owner 2026-09-24: "let go of that card... the best one that
         // fits"; right person guaranteed). Replaces the 3-a-day card retry at 7:00: 2
@@ -1992,6 +1997,12 @@ switch ($cmd) {
             } else {
                 echo "    top 3: skipped (needs an Exa key in config.php)\n";
             }
+            // both sides in their own words (both_sides.php), when the sources hold them
+            try {
+                require_once __DIR__ . '/both_sides.php';
+                $bsr = bs_find($pdo, (int)$d['page_id']);
+                if (!isset($bsr['error'])) { bs_save($pdo, (int)$d['page_id'], $bsr['sides']); if ($bsr['sides']) echo "    both sides: " . $bsr['sides'][0]['who'] . ' / ' . $bsr['sides'][1]['who'] . "\n"; }
+            } catch (Throwable $e) { echo "    both sides failed: " . $e->getMessage() . "\n"; }
             // confirmed vs claimed: events a primary source proves (identity links usually arrive at 6:00, so the daily pass does most)
             try {
                 $cf = gate_confirm_story($pdo, (int)$pdo->query("SELECT id FROM dramas WHERE page_id=" . (int)$d['page_id'])->fetchColumn());

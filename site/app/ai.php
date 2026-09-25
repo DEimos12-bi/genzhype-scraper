@@ -3,6 +3,13 @@
 // the OpenAI chat-completions protocol, so one client covers Gemini, OpenRouter
 // and NVIDIA with rotation + fallback. Every call is logged to ai_reviews.
 
+// Readers for grounded AI jobs (top-3 coverage, posts as events, both sides): Nemotron Super first
+// so Groq's free 200,000 tokens a day stay with the editor (quality.php); every answer is held by
+// code (quoted proof, the fact guard, attribution checks), whichever model gives it.
+const AI_READER_ORDER = ['nvidia', 'groq', 'gemini'];
+const AI_READER_SKIP  = ['nvidia/nvidia/nemotron-3-nano-30b-a3b', 'nvidia_b/nvidia/nemotron-3-nano-30b-a3b', 'nvidia_b/moonshotai/kimi-k3',
+                         'groq/qwen/qwen3.8-27b', 'gemini/gemma-4-31b-it'];
+
 function ai_providers(): array {
     global $CONFIG;
     $ai = $CONFIG['ai'] ?? [];
