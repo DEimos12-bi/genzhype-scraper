@@ -5,6 +5,13 @@
 
 require_once __DIR__ . '/ai.php';
 
+// 2026-09-25 no story was drafted after ~21:00: Gemini's fast models were out of their daily quota,
+// OpenRouter's free models were gone or capped (50 requests a day on this key) and NVIDIA answered
+// 503. Groq drafts too, on gpt-oss-20b (its own free 200,000 tokens a day): gpt-oss-120b's stay
+// with the editor (quality.php), so it is skipped here.
+const DRAFT_AI_ORDER = ['gemini', 'groq', 'nvidia', 'openrouter'];
+const DRAFT_AI_SKIP  = ['groq/openai/gpt-oss-120b'];
+
 function draft_slugify(string $s): string {
     $s = strtolower(trim($s));
     $s = preg_replace('/[^a-z0-9]+/', '-', $s);
@@ -131,7 +138,7 @@ function draft_drama(array $input): array {
     $res = ai_chat([
         ['role' => 'system', 'content' => $sys],
         ['role' => 'user',   'content' => $user],
-    ], ['gemini', 'openrouter', 'nvidia']);
+    ], DRAFT_AI_ORDER, 0.3, 120, DRAFT_AI_SKIP);
     if (isset($res['error'])) return $res;
 
     $j = ai_json($res['content']);
@@ -148,7 +155,7 @@ function draft_drama(array $input): array {
         $r = ai_chat([
             ['role' => 'system', 'content' => "Rewrite the {$what} to be between {$min} and {$max} characters. Keep the same facts and neutral tone. Reply with ONLY the rewritten text, no quotes, no commentary."],
             ['role' => 'user',   'content' => $text],
-        ], ['gemini', 'openrouter', 'nvidia'], 0.2);
+        ], DRAFT_AI_ORDER, 0.2, 120, DRAFT_AI_SKIP);
         // r153: never store a reasoning model's notes as page text (see ai_text in ai.php).
         $clean = isset($r['content']) ? ai_text((string)$r['content']) : null;
         $out = $clean ?? $text;

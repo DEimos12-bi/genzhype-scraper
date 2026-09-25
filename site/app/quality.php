@@ -21,12 +21,12 @@ const QUALITY_MIN_SCORE = 7; // every dimension must reach this
  * page waits for its next judgment rather than getting a lucky one. Qwen is not calibrated.
  */
 const QUALITY_JUDGE_ORDER = ['groq', 'nvidia', 'openrouter'];
-// Only the two calibrated models may judge. Asking for 'nvidia' also brings in 'nvidia_b', whose
-// list holds kimi-k3 (never calibrated; it passed a page on 2026-09-25) and the small Nemotron Nano;
-// openrouter holds ling-3.0-flash. Groq's free tier stops at 200,000 tokens a day (about 45
-// judgments), after which Nemotron Super judges alone.
-const QUALITY_JUDGE_SKIP  = ['groq/qwen/qwen3.8-27b', 'nvidia/nvidia/nemotron-3-nano-30b-a3b', 'nvidia_b/nvidia/nemotron-3-nano-30b-a3b',
-                             'nvidia_b/moonshotai/kimi-k3', 'openrouter/inclusionai/ling-3.0-flash:free'];
+// Only the two calibrated models may judge, on whichever account serves them. An ALLOW list: the
+// skip list it replaced let kimi-k3 (nvidia_b) pass a page on 2026-09-25, and every model added to a
+// provider since (gpt-oss-20b for the drafter, OpenRouter's free router) would have judged too.
+// Groq's free tier stops at 200,000 tokens a day (about 45 judgments), then Nemotron Super judges alone.
+const QUALITY_JUDGE_ALLOW = ['groq/openai/gpt-oss-120b', 'nvidia/nvidia/nemotron-3-super-120b-a12b',
+                             'nvidia_b/nvidia/nemotron-3-super-120b-a12b', 'openrouter/nvidia/nemotron-3-super-120b-a12b:free'];
 
 /**
  * 2026-09-24 JUDGE THE PAGE READERS SEE. The controller used to get every
@@ -129,7 +129,7 @@ Be a HARSH grader | 8+ means genuinely strong. Output STRICT JSON only:
     $res = ai_chat([
         ['role' => 'system', 'content' => $sys],
         ['role' => 'user',   'content' => $user],
-    ], $opt['order'] ?? QUALITY_JUDGE_ORDER, 0.2, 120, $opt['skip'] ?? QUALITY_JUDGE_SKIP);
+    ], $opt['order'] ?? QUALITY_JUDGE_ORDER, 0.2, 120, $opt['skip'] ?? ai_skip_except(QUALITY_JUDGE_ALLOW, $opt['order'] ?? QUALITY_JUDGE_ORDER));
     if (isset($res['error'])) return $res;
 
     $j = ai_json($res['content']);

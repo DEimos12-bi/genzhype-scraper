@@ -8,7 +8,20 @@
 // code (quoted proof, the fact guard, attribution checks), whichever model gives it.
 const AI_READER_ORDER = ['nvidia', 'groq', 'gemini'];
 const AI_READER_SKIP  = ['nvidia/nvidia/nemotron-3-nano-30b-a3b', 'nvidia_b/nvidia/nemotron-3-nano-30b-a3b', 'nvidia_b/moonshotai/kimi-k3',
-                         'groq/qwen/qwen3.8-27b', 'gemini/gemma-4-31b-it'];
+                         'groq/qwen/qwen3.8-27b', 'groq/openai/gpt-oss-20b', 'gemini/gemma-4-31b-it'];
+
+/**
+ * Every "provider/model" of $order (and nvidia_b, which 'nvidia' brings in) that is NOT in $allow:
+ * the $skip for ai_chat() when only named models may answer. An allow list stays closed when a
+ * model is added to a provider; a skip list let new models in (kimi-k3 judged a page, 2026-09-25).
+ */
+function ai_skip_except(array $allow, array $order): array {
+    $skip = [];
+    foreach (ai_providers() as $name => $p)
+        if (in_array($name, $order, true) || ($name === 'nvidia_b' && in_array('nvidia', $order, true)))
+            foreach ($p['models'] as $m) if (!in_array("$name/$m", $allow, true)) $skip[] = "$name/$m";
+    return $skip;
+}
 
 function ai_providers(): array {
     global $CONFIG;
@@ -67,7 +80,8 @@ function ai_providers(): array {
         // reasoning model, so it gets a token budget like the director.
         'groq' => [
             'url'        => 'https://api.groq.com/openai/v1/chat/completions',
-            'models'     => $CONFIG['groq']['models'] ?? ['openai/gpt-oss-120b', 'qwen/qwen3.8-27b'],
+            // gpt-oss-20b has its own free 200,000 tokens a day: the drafter's (draft.php), so 120b's stay with the editor
+            'models'     => $CONFIG['groq']['models'] ?? ['openai/gpt-oss-120b', 'openai/gpt-oss-20b', 'qwen/qwen3.8-27b'],
             'key'        => (string)($CONFIG['groq']['key'] ?? ''),
             'max_tokens' => (int)($CONFIG['groq']['max_tokens'] ?? 8192),
         ],
