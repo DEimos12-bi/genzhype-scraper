@@ -121,6 +121,23 @@ def parse_instagram_page(html: str) -> dict:
     return {"error": "no counts in the page (login wall)"}
 
 
+def parse_instagram_embed(html: str) -> dict:
+    """Instagram's profile embed page (instagram.com/NAME/embed/, what sites use to show a
+    profile), which is served without a login: an exact count in its data, else the header text."""
+    for rx in (r'"edge_followed_by"\s*:\s*\{\s*"count"\s*:\s*(\d+)', r'"followers?_count"\s*:\s*(\d+)'):
+        m = re.search(rx, html)
+        if m:
+            name = re.search(r'"full_name"\s*:\s*"((?:[^"\\]|\\.)*)"', html)
+            return {"followers": int(m.group(1)), "exact": True, "name": json.loads('"' + name.group(1) + '"') if name else ""}
+    text = re.sub(r"\s+", " ", unescape(re.sub(r"<[^>]+>", " ", html)))
+    m = re.search(r"([\d.,]+)\s*([KMB]?)\s+followers", text, re.I)
+    if m:
+        n, unit = float(m.group(1).replace(",", "")), m.group(2).upper()
+        return {"followers": int(round(n * {"": 1, "K": 1e3, "M": 1e6, "B": 1e9}[unit])), "exact": not unit}
+    i = text.lower().find("follow")
+    return {"error": "no counts in the embed page: " + (text[max(0, i - 80):i + 80] if i >= 0 else text[:160])}
+
+
 async def read_all(rows: list) -> list:
     from cloakbrowser import launch_async
     port = 9245
@@ -158,10 +175,16 @@ async def read_all(rows: list) -> list:
                                              [f"https://www.instagram.com/api/v1/users/web_profile_info/?username={handle}", IG_APP_ID])
                     status, _, text = body.partition(" ")
                     got = parse_instagram_api(text) if status == "200" else {"error": f"profile API HTTP {status}"}
-                    if "error" in got:   # logged out, the API asked for a login on 2026-09-25: the page's own counts line
+                    if "error" in got:   # logged out, the API and the page asked for a login on 2026-09-25
                         page = parse_instagram_page(await pg.content())
-                        got = page if "error" not in page else {"error": got["error"] + "; page: " + page["error"]}
-                        got["how"] = "profile page"
+                        if "error" not in page:
+                            got = {**page, "how": "profile page"}
+                        else:
+                            await pg.goto(f"https://www.instagram.com/{handle}/embed/", wait_until="domcontentloaded", timeout=45000)
+                            await asyncio.sleep(random.uniform(2, 4))
+                            emb = parse_instagram_embed(await pg.content())
+                            got = {**emb, "how": "embed page"} if "error" not in emb else \
+                                  {"error": f"{got['error']}; page: {page['error']}; embed: {emb['error']}", "how": "embed page"}
                     row.update({"how": "profile API", **got})
                     await pg.close()
             except Exception as e:
