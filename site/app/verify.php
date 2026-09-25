@@ -41,7 +41,8 @@ function verify_drama(int $page_id): array {
     $res = ai_chat([
         ['role' => 'system', 'content' => $sys],
         ['role' => 'user',   'content' => $body],
-    ], ['openrouter', 'nvidia', 'gemini']); // different default provider than draft
+    ], ['openrouter', 'nvidia', 'groq', 'gemini'], 0.3, 120,   // different default provider than draft
+       ['groq/openai/gpt-oss-120b', 'groq/openai/gpt-oss-20b']);   // Groq's qwen only: 20b writes drafts, 120b is the editor's
     if (isset($res['error'])) return $res;
 
     $v = ai_json($res['content']);

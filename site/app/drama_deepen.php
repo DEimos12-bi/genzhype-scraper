@@ -130,7 +130,7 @@ function drama_deepen_page(PDO $pdo, int $pageId, bool $apply): array {
           . 'Return {"events":[{"article":1,"date":"YYYY-MM-DD","title":"<=90 chars",'
           . '"desc":"1-2 sentences, attributed"}]} — only events NOT already listed above. '
           . 'An empty list is a correct and honest answer.'],
-    ], ['gemini', 'openrouter', 'nvidia'], 0.2, 120);
+    ], AI_WRITER_ORDER, 0.2, 120, AI_WRITER_SKIP);
 
     if (isset($res['error'])) return ['ok' => false, 'why' => 'AI: ' . $res['error']];
     $j = ai_json((string)$res['content']);

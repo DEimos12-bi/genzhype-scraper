@@ -10,6 +10,13 @@ const AI_READER_ORDER = ['nvidia', 'groq', 'gemini'];
 const AI_READER_SKIP  = ['nvidia/nvidia/nemotron-3-nano-30b-a3b', 'nvidia_b/nvidia/nemotron-3-nano-30b-a3b', 'nvidia_b/moonshotai/kimi-k3',
                          'groq/qwen/qwen3.8-27b', 'groq/openai/gpt-oss-20b', 'gemini/gemma-4-31b-it'];
 
+// Writers of story text from sources (draft.php, drama_deepen.php). 2026-09-25 no story was drafted
+// after ~21:00: Gemini's fast models were out of their daily quota, OpenRouter's free models gone or
+// capped (50 requests a day on this key), NVIDIA answering 503. Groq writes too, on gpt-oss-20b (its
+// own free 200,000 tokens a day), then qwen; gpt-oss-120b's tokens stay with the editor (quality.php).
+const AI_WRITER_ORDER = ['gemini', 'groq', 'nvidia', 'openrouter'];
+const AI_WRITER_SKIP  = ['groq/openai/gpt-oss-120b'];
+
 /**
  * Every "provider/model" of $order (and nvidia_b, which 'nvidia' brings in) that is NOT in $allow:
  * the $skip for ai_chat() when only named models may answer. An allow list stays closed when a
