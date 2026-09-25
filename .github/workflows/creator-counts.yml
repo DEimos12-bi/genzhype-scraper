@@ -1,0 +1,63 @@
+name: creator-counts
+
+# Follower counts of the people in our stories, on TikTok and Instagram (the owner's
+# "numbers nobody else has", 2026-09-25). The server reads YouTube through the API;
+# these two wall off servers, so a real browser reads the public profile pages here:
+# CloakBrowser (free Chromium 146 build) through Scrapling. Logged out, read-only.
+# Test run: write "tiktok:handle instagram:handle" into .social/creator-counts-trigger
+# and push; the result lands on the creator-counts-drop branch.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".social/creator-counts-trigger"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: creator-counts
+  cancel-in-progress: false
+
+jobs:
+  read:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Scrapling + CloakBrowser
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install "scrapling[fetchers]" cloakbrowser
+          scrapling install
+          python -m playwright install-deps chromium
+          sudo apt-get install -y -qq xvfb   # headed browser: CloakBrowser advises it for strict sites
+
+      - name: Read profiles
+        continue-on-error: true
+        env:
+          CLOAKBROWSER_VERSION: "146.0.7680.177.5"   # the free build; later builds need a paid key
+        run: |
+          export ACCOUNTS="$(cat .social/creator-counts-trigger 2>/dev/null)"
+          xvfb-run -a python -u creator_counts.py 2>&1 | tee creator_counts.log
+
+      - name: Publish what it read
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p /tmp/drop && cd /tmp/drop
+          cp "$GITHUB_WORKSPACE/creator_counts.log" . 2>/dev/null || true
+          cp "$GITHUB_WORKSPACE/creator_counts.json" . 2>/dev/null || true
+          git init -q && git checkout -q -b creator-counts-drop
+          git add -A
+          git -c user.name=creator-counts -c user.email=bot@genzhype \
+              commit -qm "creator counts $(date -u +%FT%TZ)"
+          git push -f "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" creator-counts-drop
