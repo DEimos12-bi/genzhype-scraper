@@ -1566,6 +1566,11 @@ switch ($cmd) {
                 $bsr = bs_run($pdo, 10, 180);
                 echo "both sides: checked {$bsr['checked']}, found {$bsr['found']}, none {$bsr['none']}, no answer {$bsr['no_answer']}\n";
             } catch (Throwable $e) { echo "  both sides failed: " . $e->getMessage() . "\n"; }
+            try {
+                require_once __DIR__ . '/verdict.php';
+                $vr = vd_run($pdo, 20, 240);
+                echo "evidence reads: written {$vr['written']}, not written {$vr['failed']}" . ($vr['reasons'] ? ' (' . implode('; ', array_slice($vr['reasons'], 0, 3)) . ')' : '') . "\n";
+            } catch (Throwable $e) { echo "  evidence reads failed: " . $e->getMessage() . "\n"; }
         }
         // COVER POLICY v2 (owner 2026-09-24: "let go of that card... the best one that
         // fits"; right person guaranteed). Replaces the 3-a-day card retry at 7:00: 2
@@ -2008,6 +2013,12 @@ switch ($cmd) {
                 $cf = gate_confirm_story($pdo, (int)$pdo->query("SELECT id FROM dramas WHERE page_id=" . (int)$d['page_id'])->fetchColumn());
                 if ($cf) echo "    confirmed: {$cf} event(s) by a primary source\n";
             } catch (Throwable $e) { echo "    confirm failed: " . $e->getMessage() . "\n"; }
+            // our read of the evidence (verdict.php), from what the page now holds
+            try {
+                require_once __DIR__ . '/verdict.php';
+                $vdr = vd_write($pdo, (int)$d['page_id']);
+                echo "    evidence read: " . (isset($vdr['error']) ? "not written ({$vdr['error']})" : $vdr['rating']) . "\n";
+            } catch (Throwable $e) { echo "    evidence read failed: " . $e->getMessage() . "\n"; }
             $g = gate_check_drama((int)$d['page_id']);
             $ok = ($v['pass'] ?? false) && ($q['pass'] ?? false) && ($g['pass'] ?? false);
             echo "  built {$d['slug']} | v=" . (($v['pass'] ?? 0)?'P':'i') . " q=" . (($q['pass'] ?? 0)?'P':'F') . " g=" . (($g['pass'] ?? 0)?'P':'F') . ($ok ? "  => READY" : "") . "\n";

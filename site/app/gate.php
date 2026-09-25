@@ -218,6 +218,8 @@ function gate_original_value(PDO $pdo, int $did): array {
     $weak['confirmed_split'] = $confirmed > 0 && $claims > 0;
     try { $weak['both_sides'] = count((array)json_decode((string)$pdo->query("SELECT both_sides FROM dramas WHERE id=" . $did)->fetchColumn(), true)) === 2; }
     catch (Throwable $e) { /* column not created yet */ }
+    try { $weak['verdict'] = !empty(json_decode((string)$pdo->query("SELECT verdict FROM dramas WHERE id=" . $did)->fetchColumn(), true)['reasons']); }
+    catch (Throwable $e) { /* column not created yet */ }
     // 'timeline' comes from the stored top-3 test (top3.php): original posts on our timeline AND
     // dated developments the top 3 results do not report, proved by an AI reading with quotes
     $t3 = null;

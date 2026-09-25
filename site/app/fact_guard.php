@@ -33,10 +33,15 @@ function fact_drift(string $text, string $corpus, array $hosts = []): array {
         'while','with','without','for','from','by','but','and','or','if','when','since','because','both','each','no',
         'not','now','then','there','here','some','many','most','what','who','why','how','whether','meanwhile',
         'however','also','still','yet','so','we','they','he','she','his','her','their','our','you','your','one',
-        'two','three','fans','viewers','players','critics','neither','either','until','once','during','despite'];
+        'two','three','fans','viewers','players','critics','neither','either','until','once','during','despite',
+        // analysis prose opens sentences with these too ("Independent verification remains pending", verdict.php)
+        'only','none','nothing','independent','independently','several','multiple','all','every','overall','instead',
+        'although','though','given','further','moreover','thus','therefore','such','other','another','few','first',
+        'second','third','later','earlier','today','currently','recently','publicly','officially','no one','nobody',
+        'consequently','accordingly','additionally','notably','ultimately','hence','similarly','likewise','nevertheless'];
     preg_match_all('/\b\p{Lu}[\p{L}\'’-]{2,}|\b\p{Lu}{2}\b/u', $text, $m);
     foreach (array_unique($m[0]) as $w) {
-        $wl = mb_strtolower(rtrim($w, "'’"));
+        $wl = mb_strtolower(preg_replace("/['’]s$/u", '', rtrim($w, "'’")));   // a possessive is its name: "KBS's" is KBS
         if (in_array($wl, $allow, true) || in_array($wl, $openers, true)) continue;
         if (preg_match('/\b' . preg_quote($wl, '/') . '/u', $lc)) continue;
         $stem = mb_substr($wl, 0, max(4, mb_strlen($wl) - 2));

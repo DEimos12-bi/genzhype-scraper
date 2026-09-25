@@ -42,7 +42,7 @@ const QUALITY_JUDGE_SKIP  = ['groq/qwen/qwen3.8-27b', 'nvidia/nvidia/nemotron-3-
  */
 function quality_page_fields(int $page_id): ?array {
     $pdo = db();
-    $p = $pdo->prepare("SELECT p.*, d.id drama_id, d.primary_kw, d.lifecycle, d.background, d.why_matters, d.whats_next, d.both_sides
+    $p = $pdo->prepare("SELECT p.*, d.id drama_id, d.primary_kw, d.lifecycle, d.background, d.why_matters, d.whats_next, d.both_sides, d.verdict
                         FROM pages p JOIN dramas d ON d.page_id=p.id WHERE p.id=?");
     $p->execute([$page_id]);
     $page = $p->fetch();
@@ -73,7 +73,8 @@ function quality_page_fields(int $page_id): ?array {
             'events' => $events, 'sources' => array_keys($pubs), 'last_date' => $last,
             ...story_context_shape($page['why_matters'] ?? null, $page['whats_next'] ?? null),
             'tracked' => array_map('cs_sentence', cs_numbers($pdo, [$page_id])[$page_id] ?? []),
-            'both_sides' => (array)json_decode((string)($page['both_sides'] ?? ''), true)];
+            'both_sides' => (array)json_decode((string)($page['both_sides'] ?? ''), true),
+            'verdict' => json_decode((string)($page['verdict'] ?? ''), true) ?: null];
 }
 
 /**
@@ -98,6 +99,7 @@ function quality_judge(array $f, array $opt = []): array {
     $ctx = '';   // the page's own "Why it matters" / "What happens next" sections, when it has them
     if (($f['why_matters'] ?? '') !== '') $ctx .= "WHY IT MATTERS:\n{$f['why_matters']}\n\n";
     if (!empty($f['tracked'])) $ctx .= "NUMBERS WE TRACKED OURSELVES:\n- " . implode("\n- ", $f['tracked']) . "\n\n";
+    if (!empty($f['verdict']['reasons'])) $ctx .= "OUR READ OF THE EVIDENCE: {$f['verdict']['rating']}. {$f['verdict']['reasons']}\n\n";
     if (count($f['both_sides'] ?? []) === 2) {
         $ctx .= "WHAT EACH SIDE SAYS:\n";
         foreach ($f['both_sides'] as $bs) $ctx .= "- {$bs['who']}: \"{$bs['quote']}\" (via {$bs['by']})\n";
