@@ -6,6 +6,8 @@
 //                         Ars Technica w/ title+URL+published date+quotes).
 //   reach_jina_read()   — keyless readable-markdown fetch of any URL via
 //                         r.jina.ai (LIVE-VERIFIED: read Cambridge delulu).
+//   reach_tavily_search() — web search with the owner's Tavily key (2026-09-25):
+//                         the top-3 test on old pages (top3_old_run).
 // Plus reach_doctor(): the agent-reach "doctor" pattern applied to OUR OWN
 // fetch chains, so a platform wall shows up in a report instead of being
 // discovered through a broken render.  php app/reach.php doctor
@@ -28,7 +30,6 @@ function reach_http(string $url, array $headers = [], ?string $body = null, int 
     return ['code' => $code, 'headers' => substr($raw, 0, $hlen), 'body' => substr($raw, $hlen)];
 }
 
-/** Exa MCP session: initialize -> session id header -> initialized notice. */
 /**
  * Exa's MCP headers. 2026-09-25: the keyless tier answered HTTP 429 "You've hit Exa's free MCP
  * rate limit" after about 20 searches in an hour from this server, and 8 features share it. With
@@ -49,6 +50,7 @@ function reach_exa_error(?string $set = null): string {
     return $err;
 }
 
+/** Exa MCP session: initialize -> session id header -> initialized notice. */
 function reach_exa_session(): ?string {
     $init = json_encode(['jsonrpc' => '2.0', 'id' => 1, 'method' => 'initialize',
         'params' => ['protocolVersion' => '2025-03-26', 'capabilities' => new stdClass(),
@@ -102,6 +104,42 @@ function reach_exa_search(string $query, int $n = 5): array {
         if (count($out) >= $n) break;
     }
     return $out;
+}
+
+/**
+ * Tavily web search, with the owner's key in config.php ('tavily' => ['key' => 'tvly-...']).
+ * Checked against Tavily's API docs 2026-09-25: POST /search, Bearer key, 'basic' depth costs
+ * 1 credit whatever the number of results (advanced 2); the free plan has 1,000 credits a month;
+ * HTTP 432 = the plan's credits are used up, 433 = the spending limit, 429 = rate limit.
+ * Same hits as reach_exa_search(), plus 'raw': the page text Tavily read, so a site that
+ * refuses our own fetch costs no second call. [] on any failure, the reason in reach_tavily_error().
+ */
+function reach_tavily_search(string $query, int $n = 8): array {
+    $key = (string)($GLOBALS['CONFIG']['tavily']['key'] ?? '');
+    if ($key === '') { reach_tavily_error('no key in config.php'); return []; }
+    $r = reach_http('https://api.tavily.com/search', ['Content-Type: application/json', 'Authorization: Bearer ' . $key],
+        json_encode(['query' => $query, 'search_depth' => 'basic', 'max_results' => max(1, min(20, $n)), 'include_raw_content' => 'text']), 40);
+    if ($r['code'] !== 200) {
+        static $why = [401 => 'key refused', 429 => 'rate limit', 432 => 'monthly credits used up', 433 => 'spending limit reached'];
+        reach_tavily_error('HTTP ' . $r['code'] . (isset($why[$r['code']]) ? " ({$why[$r['code']]})" : ''));
+        return [];
+    }
+    reach_tavily_error('');
+    $out = [];
+    foreach ((array)(json_decode($r['body'], true)['results'] ?? []) as $h) {
+        if (empty($h['url'])) continue;
+        $t = strtotime((string)($h['published_date'] ?? ''));
+        $out[] = ['url' => (string)$h['url'], 'title' => (string)($h['title'] ?? ''), 'published' => $t ? gmdate('Y-m-d', $t) : '',
+                  'text' => mb_substr((string)($h['content'] ?? ''), 0, 2000), 'raw' => (string)($h['raw_content'] ?? '')];
+    }
+    return $out;
+}
+
+/** Why the last Tavily call returned nothing ('' when it answered). */
+function reach_tavily_error(?string $set = null): string {
+    static $err = '';
+    if ($set !== null) $err = $set;
+    return $err;
 }
 
 /** Exa's own page reader (web_fetch_exa, keyless): full page as clean markdown.

@@ -1,5 +1,5 @@
 <?php
-/* GenZHype | GA4 Data API, reusable (2026-09-06).
+/* GenZHype | GA4 Data API, reusable (2026-09-06), and the Search Console URL Inspection (gsc_inspect).
  * The Search Console/Analytics consent lives in gsc_token.json (refresh token
  * obtained through yt_oauth.php?gsc=1 — the ONLY redirect Google authorizes,
  * r130b). Property id is pinned in ga4_property.txt (541286062 = GenZHype;
@@ -58,4 +58,29 @@ function ga4_report(array $body, int $timeout = 40): array {
                    array_map(fn($x) => $x['value'], $r['metricValues'] ?? [])];
     }
     return ['rows' => $rows, 'error' => null];
+}
+
+/**
+ * Search Console's current word on one of our URLs (URL Inspection API, the same consent,
+ * webmasters.readonly; 2,000 a day for the property), stored in gsc_inspection.
+ * The stored fields, or null when Google did not answer.
+ */
+function gsc_inspect(PDO $pdo, int $pageId, string $url): ?array {
+    $at = ga4_access_token();
+    if (!$at) return null;
+    $ch = curl_init('https://searchconsole.googleapis.com/v1/urlInspection/index:inspect');
+    curl_setopt_array($ch, [CURLOPT_POST => true, CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 30,
+        CURLOPT_HTTPHEADER => ["Authorization: Bearer $at", 'Content-Type: application/json'],
+        // the URL-prefix property: the token is refused on sc-domain:genzhype.com
+        CURLOPT_POSTFIELDS => json_encode(['inspectionUrl' => $url, 'siteUrl' => 'https://genzhype.com/'])]);
+    $j = json_decode((string)curl_exec($ch), true) ?: [];
+    curl_close($ch);
+    $s = $j['inspectionResult']['indexStatusResult'] ?? null;
+    if (!is_array($s) || empty($s['coverageState'])) return null;
+    $row = ['coverage' => (string)$s['coverageState'], 'verdict' => (string)($s['verdict'] ?? ''), 'last_crawl' => (string)($s['lastCrawlTime'] ?? ''),
+            'google_canonical' => (string)($s['googleCanonical'] ?? ''), 'robots_state' => (string)($s['robotsTxtState'] ?? '')];
+    $pdo->prepare("REPLACE INTO gsc_inspection (page_id, url, coverage, verdict, last_crawl, google_canonical, robots_state, checked_at)
+                   VALUES (?,?,?,?,?,?,?,UTC_TIMESTAMP())")
+        ->execute([$pageId, $url, $row['coverage'], $row['verdict'], $row['last_crawl'], $row['google_canonical'], $row['robots_state']]);
+    return $row;
 }

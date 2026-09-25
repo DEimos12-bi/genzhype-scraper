@@ -324,6 +324,19 @@ function build_lock_acquire(): bool {
     $GLOBALS['__build_lock'] = null;
     return false;
 }
+// FLIGHT RECORDER: hPanel's cron discards stdout, which is how a 3-day publish
+// stall stayed invisible (SEO-GATE-FAIL echoed into the void, 2026-07-08..12).
+// Tee everything a scheduled run prints into app/cron.log; rotate at ~2MB.
+function cron_log_tee(): void {
+    $cronLog = __DIR__ . '/cron.log';
+    if (is_file($cronLog) && filesize($cronLog) > 2 * 1024 * 1024) {
+        file_put_contents($cronLog, "[" . date('c') . "] (rotated)\n" . substr((string)file_get_contents($cronLog), -400 * 1024));
+    }
+    ob_start(function ($buf) use ($cronLog) {
+        if ($buf !== '') @file_put_contents($cronLog, $buf, FILE_APPEND | LOCK_EX);
+        return $buf;   // still pass through to stdout
+    }, 1);
+}
 function build_lock_release(): void {
     if (!empty($GLOBALS['__build_lock'])) { @flock($GLOBALS['__build_lock'], LOCK_UN); @fclose($GLOBALS['__build_lock']); }
     $GLOBALS['__build_lock'] = null;
@@ -1175,6 +1188,27 @@ switch ($cmd) {
         echo 'timeline strong: ' . ($r['timeline_strong'] ? 'yes' : 'no') . ($r['verified'] ? '' : ' (unverified: the AI reading did not run)') . "\n";
         break;
 
+    case 'top3-old':
+        // 2026-09-25 OLD PAGES: the top-3 test on Tavily for live stories Google has not indexed
+        // (top3_old_run). Its own hPanel cron entry, outside the hourly run and the build worker,
+        // which use their whole time. "cli.php top3-old [pages]"; "top3-old next" lists what it would take.
+        require_once __DIR__ . '/top3.php';
+        if ($arg === 'next') {
+            $q = top3_old_targets($pdo);
+            foreach (array_slice($q, 0, 10) as $r) echo "{$r['id']} {$r['robots']} " . ($r['coverage'] ?? 'never inspected') . " {$r['path']}\n";
+            echo count($q) . " page(s) waiting\n";
+            break;
+        }
+        $lock = @fopen(__DIR__ . '/cache/top3old.lock', 'c');
+        if (!$lock || !flock($lock, LOCK_EX | LOCK_NB)) { echo "top3-old: another run is working\n"; break; }
+        cron_log_tee();
+        echo '[' . date('c') . "] old pages (top-3 test, Tavily)\n";
+        $o = top3_old_run($pdo, ($arg && ctype_digit($arg)) ? (int)$arg : 3, 360);
+        foreach ($o['lines'] as $l) echo "  {$l}\n";
+        echo "old pages: checked {$o['checked']}, no rivals {$o['no_rivals']}, now in Google {$o['in_google']}, timeline strong {$o['strong']}, "
+           . "posts added {$o['added']}, attached {$o['attached']}, AI readings redone {$o['reverified']}" . ($o['stopped'] !== '' ? " | stopped: {$o['stopped']}" : '') . "\n";
+        break;
+
     case 'ov-report':
         // 2026-09-25 the owner's rule (1 strong or 2 weak) over live stories; see gate_original_value()
         require_once __DIR__ . '/gate.php';
@@ -1312,17 +1346,7 @@ switch ($cmd) {
                 break;
             }
         }
-        // FLIGHT RECORDER: hPanel's cron discards stdout, which is how a 3-day publish
-        // stall stayed invisible (SEO-GATE-FAIL echoed into the void, 2026-07-08..12).
-        // Tee everything this tick prints into app/cron.log; rotate at ~2MB.
-        $cronLog = __DIR__ . '/cron.log';
-        if (is_file($cronLog) && filesize($cronLog) > 2 * 1024 * 1024) {
-            file_put_contents($cronLog, "[" . date('c') . "] (rotated)\n" . substr((string)file_get_contents($cronLog), -400 * 1024));
-        }
-        ob_start(function ($buf) use ($cronLog) {
-            if ($buf !== '') @file_put_contents($cronLog, $buf, FILE_APPEND | LOCK_EX);
-            return $buf;   // still pass through to stdout
-        }, 1);
+        cron_log_tee();
         // DB BREADCRUMBS — the file tee above works from a normal shell but the
         // scheduler's environment silently swallowed it (cron.log stayed 0 bytes
         // while the 18:00 tick demonstrably ran). The DB is the one sink the tick

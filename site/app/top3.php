@@ -3,15 +3,17 @@
 // here that the top 3 results don't tell them?" and "a dated timeline with links
 // to the original posts is strong if it's more complete than other sites' versions".
 // For one story: search what people type, read the first 3 results that are about
-// the story, and list what our page carries that none of them do: dated
+// the story (articles we could read in full; a result that is itself a post counts as a
+// post the results show), and list what our page carries that none of them do: dated
 // developments (by date) and original posts (by post id). The result is stored;
 // gate_original_value() reads it. Nothing here blocks publishing by itself.
 //
-// Search: Exa (keyless, reach.php). Measured the same day from this server: the
-// Bing feed answered decoys (spam sites for "Ethan Klein vs Frogan lawsuit",
-// nothing for the $118k story) and DuckDuckGo did not answer, while Exa returned
-// the court filing and the outlets that covered each story. Exa's order is not
-// Google's: the 3 are the most relevant other pages, not Google's exact top 3.
+// Search: Exa (reach.php, the owner's key) for new stories. Measured the same day from
+// this server: the Bing feed answered decoys (spam sites for "Ethan Klein vs Frogan
+// lawsuit", nothing for the $118k story) and DuckDuckGo did not answer, while Exa returned
+// the court filing and the outlets that covered each story. Old pages use Tavily (owner
+// 2026-09-25, top3_old_run), so each search service keeps its own monthly allowance. Neither
+// ranks like Google: the 3 are the most relevant other pages, not Google's exact top 3.
 
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/fetch_sources.php';
@@ -20,6 +22,7 @@ require_once __DIR__ . '/ai.php';
 require_once __DIR__ . '/embeds.php';
 
 const TOP3_NEW_DATES_STRONG = 2;   // [ours] dated developments none of the 3 mention, for a "more complete" timeline
+const TOP3_OLD_PER_DAY = 30;       // owner 2026-09-25: Tavily's free plan is 1,000 searches a month
 
 
 /** Idempotent; run outside a transaction (CREATE TABLE commits one on MariaDB, r151). */
@@ -36,8 +39,10 @@ function top3_install(PDO $pdo): void {
         new_posts INT NOT NULL DEFAULT 0,
         timeline_strong TINYINT NOT NULL DEFAULT 0,
         learn_new TINYINT NOT NULL DEFAULT 0,
-        verified TINYINT NOT NULL DEFAULT 0) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        verified TINYINT NOT NULL DEFAULT 0,
+        engine VARCHAR(10) NOT NULL DEFAULT 'exa') ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
     try { $pdo->exec("ALTER TABLE top3_checks ADD COLUMN verified TINYINT NOT NULL DEFAULT 0"); } catch (Throwable $e) { /* already there */ }
+    try { $pdo->exec("ALTER TABLE top3_checks ADD COLUMN engine VARCHAR(10) NOT NULL DEFAULT 'exa'"); } catch (Throwable $e) { /* already there */ }
     $done = true;
 }
 
@@ -50,7 +55,7 @@ function top3_query(PDO $pdo, int $pageId): string {
     return mb_substr($q, 0, 200);
 }
 
-/** Month-day keys ("09-08") and month keys ("09") a text mentions. */
+/** Month-day keys ("09-08") and month keys ("09") a text mentions (articles often omit the year). */
 function top3_date_keys(string $text): array {
     static $mon = ['jan' => 1, 'feb' => 2, 'mar' => 3, 'apr' => 4, 'may' => 5, 'jun' => 6, 'jul' => 7, 'aug' => 8,
                    'sep' => 9, 'oct' => 10, 'nov' => 11, 'dec' => 12];
@@ -70,8 +75,26 @@ function top3_date_keys(string $text): array {
 }
 
 
-/** Run the test for one story and store it. Returns the stored result, or ['error' => ...]. */
-function top3_check(PDO $pdo, int $pageId): array {
+/**
+ * The search behind the test, remembered for the run: the re-check after step 3 adds posts
+ * reads the same results without a second paid search. A failure is not remembered.
+ * The hits, or ['error' => ...] when the service did not answer.
+ */
+function top3_search(string $engine, string $query): array {
+    static $memo = [];
+    $k = $engine . "\n" . $query;
+    if (isset($memo[$k])) return $memo[$k];
+    $hits = $engine === 'tavily' ? reach_tavily_search($query, 8) : reach_exa_search($query, 8);
+    $err = $engine === 'tavily' ? reach_tavily_error() : reach_exa_error();
+    if (!$hits && $err !== '') return ['error' => ucfirst($engine) . ' ' . $err];
+    return $memo[$k] = $hits;
+}
+
+/**
+ * Run the test for one story and store it. Returns the stored result, or ['error' => ...].
+ * $engine: 'exa' (new stories, the build) or 'tavily' (old pages, top3_old_run).
+ */
+function top3_check(PDO $pdo, int $pageId, string $engine = 'exa'): array {
     top3_install($pdo);
     $d = $pdo->prepare("SELECT d.id FROM dramas d WHERE d.page_id=?");
     $d->execute([$pageId]);
@@ -88,25 +111,44 @@ function top3_check(PDO $pdo, int $pageId): array {
         'revealed', 'from', 'with', 'about', 'after', 'over', 'the', 'and', 'for', 'into', 'this', 'that', 'amid', 'why', 'how', 'who'];
     $words = array_values(array_unique(array_map(fn($w) => mb_substr($w, 0, 5), array_filter(preg_split('/[^\p{L}\p{N}]+/u', mb_strtolower($query)),
         fn($w) => mb_strlen($w) >= 3 && !in_array($w, $generic, true)))));
-    $rivals = [];
-    $hits = reach_exa_search($query, 8);
-    if (!$hits && reach_exa_error() !== '') return ['error' => 'search unavailable: Exa ' . reach_exa_error()];
+    $about = fn(string $lc) => $words && count(array_filter($words, fn($w) => str_contains($lc, $w))) * 2 >= count($words);
+    $rivals = []; $shown = [];
+    $hits = top3_search($engine, $query);
+    if (isset($hits['error'])) return ['error' => 'search unavailable: ' . $hits['error']];
     foreach ($hits as $hit) {
         if (count($rivals) >= 3) break;
         $host = preg_replace('/^www\./', '', strtolower((string)parse_url($hit['url'], PHP_URL_HOST)));
         if ($host === '' || str_ends_with($host, 'genzhype.com')) continue;
+        // a result that is itself an original post is not an article to compare with: it is a post the
+        // results show, which step 3 adds when we lack it (MrBeast's own X post ranked first for page 557)
+        if ($pid = embed_post_id($hit['url'])) {
+            if (!$about(mb_strtolower($hit['title'] . ' ' . $hit['text']))) continue;
+            $plat = ['x' => 'twitter', 'tt' => 'tiktok', 'yt' => 'youtube', 'rd' => 'reddit'][strtok($pid, ':')];
+            $url = $plat === 'youtube' ? 'https://www.youtube.com/watch?v=' . substr($pid, 3) : preg_replace('/[?#].*$/', '', $hit['url']);
+            $handle = preg_match('#(?:x|twitter)\.com/(\w{1,15})/status/|tiktok\.com/@([\w.\-]+)/#', $url, $m) ? ($m[1] ?: $m[2]) : '';
+            $shown[] = ['url' => $url, 'host' => $host, 'read' => 'post', 'chars' => 0, 'days' => 0,
+                        'posts' => [['platform' => $plat, 'url' => $url, 'handle' => $handle]]];
+            continue;
+        }
         $html = fs_http_get($hit['url'], 20);
         $text = $html ? fs_extract_text($html) : '';
         $how = 'page';
-        if (mb_strlen($text) < 600) { $text = (string)reach_exa_fetch($hit['url']); $how = 'reader'; }
-        if (mb_strlen($text) < 600) { $text = (string)$hit['text']; $how = 'highlights'; }
+        if (mb_strlen($text) < 600 && ($hit['raw'] ?? '') !== '') { $text = $hit['raw']; $how = 'search'; }   // Tavily's copy of the page
+        elseif (mb_strlen($text) < 600 && $engine === 'exa') { $text = (string)reach_exa_fetch($hit['url']); $how = 'reader'; }
+        // not read: a search snippet would make our page look more complete than it is (Tavily
+        // sends no page text for Reddit or Facebook: 2 of the 3 "rivals" of page 999 were 130 characters)
+        if (mb_strlen($text) < 600) continue;
         $lc = mb_strtolower($text . ' ' . $hit['title']);
-        $hits = count(array_filter($words, fn($w) => str_contains($lc, $w)));
-        if (!$words || $hits * 2 < count($words)) continue;          // not about this story
+        if (!$about($lc)) continue;          // not about this story
         $rivals[] = ['url' => $hit['url'], 'host' => $host, 'read' => $how, 'chars' => mb_strlen($text), 'text' => $lc, 'raw' => $text,
                      'dates' => top3_date_keys($text), 'posts' => $html ? embed_posts_in_article($html, $host) : []];   // real embeds only
     }
-    if (!$rivals) return ['error' => 'no result about this story (query: ' . $query . ')'];
+    if (!$rivals) {
+        // stored as checked (no rivals, no credit): the old-page run pays for each page once
+        $pdo->prepare("REPLACE INTO top3_checks (page_id, query, checked_at, rivals, engine) VALUES (?,?,UTC_TIMESTAMP(),'[]',?)")
+            ->execute([$pageId, $query, $engine]);
+        return ['error' => 'no result about this story (query: ' . $query . ')'];
+    }
 
     // our page: dated developments and the original posts it shows
     $ev = $pdo->prepare("SELECT e.event_date, e.title, e.embed_html, s.url FROM events e LEFT JOIN sources s ON s.id=e.source_id
@@ -114,16 +156,18 @@ function top3_check(PDO $pdo, int $pageId): array {
     $ev->execute([$did]);
     $ourDays = []; $ourMonths = []; $ourPosts = [];
     foreach ($ev->fetchAll(PDO::FETCH_ASSOC) as $e) {
-        if (preg_match('/^\d{4}-(\d{2})-(\d{2})$/', (string)$e['event_date'], $m) && $m[1] !== '00') {
-            if ($m[2] !== '00') $ourDays["{$m[1]}-{$m[2]}"] = (string)$e['title'];
-            else $ourMonths[$m[1]] = (string)$e['title'];
+        // keyed by the full date: "2025-08-01 TeamWater Launch" and "2026-08-01 TeamWater Progress Update"
+        // were one "08-01" (page 557), and the AI reading was shown the update without its year
+        if (preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', (string)$e['event_date'], $m) && $m[2] !== '00') {
+            if ($m[3] !== '00') $ourDays[$m[0]] = (string)$e['title'];
+            else $ourMonths["{$m[1]}-{$m[2]}"] = (string)$e['title'];
         }
         foreach ([(string)($e['embed_html'] ?? ''), (string)($e['url'] ?? '')] as $x) if ($x !== '' && ($pid = embed_post_id($x))) $ourPosts[$pid] = 1;
     }
     $new = [];
     foreach ([$ourDays, $ourMonths] as $set) foreach ($set as $k => $title) {
         $seen = false;
-        foreach ($rivals as $r) if (top3_covered($r['text'], $k, $title, $words)) { $seen = true; break; }
+        foreach ($rivals as $r) if (top3_covered($r['text'], substr($k, 5), $title, $words)) { $seen = true; break; }   // articles often omit the year
         if (!$seen) $new[] = ['date' => $k, 'title' => $title];
     }
     // Word matching misses the same fact in other words ("selling their home" for "Home Sale
@@ -136,23 +180,51 @@ function top3_check(PDO $pdo, int $pageId): array {
         if ($keep === null) $verified = false; else $new = $keep;
     }
     $rivalPosts = [];
-    foreach ($rivals as $r) foreach ($r['posts'] as $p) if ($pid = embed_post_id($p['url'])) $rivalPosts[$pid] = 1;
+    foreach (array_merge($rivals, $shown) as $r) foreach ($r['posts'] as $p) if ($pid = embed_post_id($p['url'])) $rivalPosts[$pid] = 1;
     $newPosts = count(array_diff_key($ourPosts, $rivalPosts));
 
-    require_once __DIR__ . '/gate.php';
-    $receipts = gate_original_value($pdo, $did)['receipts'] ?? 0;
-    $strong = $verified && $receipts > 0 && count($new) >= TOP3_NEW_DATES_STRONG;
+    $strong = $verified && top3_is_strong($pdo, $did, $new);
     $learn = count($new) > 0 || $newPosts > 0;
     $missing = count(array_diff_key($rivalPosts, $ourPosts));   // posts the rivals show and we do not (work for the maker)
+    // unverified: the texts stay with the result, so top3_reverify() redoes the AI reading without a new search
     $store = array_map(fn($r) => ['url' => $r['url'], 'host' => $r['host'], 'read' => $r['read'], 'chars' => $r['chars'],
-                                  'days' => count($r['dates']['days']), 'posts' => $r['posts']], $rivals);   // post list: top3_add_missing_posts()
-    $pdo->prepare("REPLACE INTO top3_checks (page_id, query, checked_at, rivals, our_dates, new_dates, new_posts, timeline_strong, learn_new, verified)
-                   VALUES (?,?,UTC_TIMESTAMP(),?,?,?,?,?,?,?)")
+                                  'days' => count($r['dates']['days']), 'posts' => $r['posts']] + ($verified ? [] : ['raw' => $r['raw']]), $rivals);
+    $store = array_merge($store, $shown);   // post lists: top3_add_missing_posts()
+    $pdo->prepare("REPLACE INTO top3_checks (page_id, query, checked_at, rivals, our_dates, new_dates, new_posts, timeline_strong, learn_new, verified, engine)
+                   VALUES (?,?,UTC_TIMESTAMP(),?,?,?,?,?,?,?,?)")
         ->execute([$pageId, $query, json_encode($store, JSON_UNESCAPED_SLASHES), count($ourDays) + count($ourMonths),
-                   json_encode($new, JSON_UNESCAPED_UNICODE), $newPosts, (int)$strong, (int)$learn, (int)$verified]);
+                   json_encode($new, JSON_UNESCAPED_UNICODE), $newPosts, (int)$strong, (int)$learn, (int)$verified, $engine]);
     return ['query' => $query, 'rivals' => $store, 'our_dates' => count($ourDays) + count($ourMonths), 'new_dates' => $new,
             'new_posts' => $newPosts, 'our_posts' => count($ourPosts), 'missing_posts' => $missing,
             'timeline_strong' => $strong, 'learn_new' => $learn, 'verified' => $verified, 'covered_by' => $proof];
+}
+
+/** The "timeline" strong item: original posts on our timeline AND enough dated developments none of the 3 report. */
+function top3_is_strong(PDO $pdo, int $did, array $new): bool {
+    require_once __DIR__ . '/gate.php';
+    return (gate_original_value($pdo, $did)['receipts'] ?? 0) > 0 && count($new) >= TOP3_NEW_DATES_STRONG;
+}
+
+/**
+ * Redo the AI reading of a stored unverified result from the rival texts kept with it (no search,
+ * no credit): the AI did not answer for page 1421 on 2026-09-25 and answered a minute later.
+ * The updated new developments, or null when there is nothing to redo or the AI did not answer again.
+ */
+function top3_reverify(PDO $pdo, int $pageId): ?array {
+    $t = $pdo->query("SELECT t.rivals, t.new_dates, t.new_posts, t.verified, d.id did FROM top3_checks t JOIN dramas d ON d.page_id=t.page_id
+                       WHERE t.page_id=" . $pageId)->fetch(PDO::FETCH_ASSOC);
+    if (!$t || (int)$t['verified']) return null;
+    $store = (array)json_decode((string)$t['rivals'], true);
+    $rivals = array_values(array_filter($store, fn($r) => isset($r['raw'])));
+    if (!$rivals) return null;
+    $keep = top3_ai_uncovered((array)json_decode((string)$t['new_dates'], true), $rivals);
+    if ($keep === null) return null;
+    foreach ($store as &$r) unset($r['raw']);
+    unset($r);
+    $pdo->prepare("UPDATE top3_checks SET rivals=?, new_dates=?, timeline_strong=?, learn_new=?, verified=1 WHERE page_id=?")
+        ->execute([json_encode($store, JSON_UNESCAPED_SLASHES), json_encode($keep, JSON_UNESCAPED_UNICODE),
+                   (int)top3_is_strong($pdo, (int)$t['did'], $keep), (int)($keep || (int)$t['new_posts'] > 0), $pageId]);
+    return $keep;
 }
 
 /**
@@ -168,7 +240,7 @@ function top3_ai_uncovered(array $cands, array $rivals, array &$quotes = []): ?a
     $marks = [];
     foreach ($cands as $c) {
         foreach (preg_split('/[^\p{L}\p{N}]+/u', mb_strtolower($c['title'])) as $w) if (mb_strlen($w) >= 5) $marks[] = $w;
-        $marks[] = strtolower(date('F', mktime(0, 0, 0, (int)substr($c['date'], 0, 2), 1)));
+        $marks[] = strtolower(date('F', mktime(0, 0, 0, (int)substr($c['date'], 5, 2), 1)));   // "YYYY-MM-DD" or "YYYY-MM"
     }
     $arts = '';
     foreach ($rivals as $i => $r) {
@@ -384,6 +456,74 @@ function top3_add_missing_posts(PDO $pdo, int $pageId, int $max = 4, bool $save 
     if ($out['added'] || $out['attached']) {
         events_resort($pdo, $did);
         $pdo->prepare("UPDATE pages SET updated_at=NOW() WHERE id=?")->execute([$pageId]);   // a real change; rebuilds the page cache
+    }
+    return $out;
+}
+
+/** The old-page run's queue, in its order (see top3_old_run): [id, path, robots, coverage]. */
+function top3_old_targets(PDO $pdo): array {
+    top3_install($pdo);
+    return $pdo->query("SELECT p.id, p.path, p.robots, g.coverage FROM pages p JOIN dramas d ON d.page_id=p.id
+                         LEFT JOIN gsc_inspection g ON g.page_id=p.id LEFT JOIN top3_checks t ON t.page_id=p.id
+                         WHERE p.type='drama' AND p.status='published' AND t.page_id IS NULL
+                           AND p.published_at < UTC_TIMESTAMP() - INTERVAL 2 DAY AND (g.page_id IS NULL OR g.verdict <> 'PASS')
+                         ORDER BY p.robots='index' DESC, g.coverage LIKE 'Discovered%' DESC, p.published_at DESC")->fetchAll(PDO::FETCH_ASSOC);
+}
+
+/**
+ * OLD PAGES (owner 2026-09-25): the live stories Google has not indexed get the test once, on
+ * Tavily (1 credit a page; Exa stays with new stories), then step 3 adds the posts the top 3
+ * show and we lack. Each page is searched once: a stored result, "no rivals" included, is never
+ * searched again. Before a credit is spent the page's Search Console status is read again
+ * (free): a page Google has indexed since is left out. Indexable pages first, then the ones
+ * Google has discovered, newest first; stories younger than 2 days are left to the build's own
+ * test. At most TOP3_OLD_PER_DAY searches a UTC day; a refused search (credits used up, rate
+ * limit, key) ends the run without spending anything. Readings the AI did not answer (provider
+ * outages: NVIDIA HTTP 503 with every fallback down, 2026-09-25) are redone first, from the
+ * texts kept with them (top3_reverify): no search.
+ */
+function top3_old_run(PDO $pdo, int $limit = 3, int $maxSecs = 360): array {
+    top3_install($pdo);
+    require_once __DIR__ . '/ga4.php';
+    $t0 = time();
+    $out = ['checked' => 0, 'no_rivals' => 0, 'in_google' => 0, 'strong' => 0, 'added' => 0, 'attached' => 0, 'reverified' => 0, 'stopped' => '', 'lines' => []];
+    // first, readings the AI did not answer (any engine, the last 3 days): no search needed
+    foreach ($pdo->query("SELECT page_id FROM top3_checks WHERE verified=0 AND rivals LIKE '%\"raw\"%'
+                         AND checked_at > UTC_TIMESTAMP() - INTERVAL 3 DAY ORDER BY checked_at LIMIT 3")->fetchAll(PDO::FETCH_COLUMN) as $pid) {
+        $keep = top3_reverify($pdo, (int)$pid);
+        if ($keep === null) continue;
+        $out['reverified']++;
+        $out['lines'][] = "{$pid}: AI reading redone, " . count($keep) . ' new dated development(s)';
+    }
+    $today = (int)$pdo->query("SELECT COUNT(*) FROM top3_checks WHERE engine='tavily' AND checked_at >= UTC_DATE()")->fetchColumn();
+    if ($today >= TOP3_OLD_PER_DAY) { $out['stopped'] = "today's " . TOP3_OLD_PER_DAY . ' searches are done'; return $out; }
+    $left = min($limit, TOP3_OLD_PER_DAY - $today);
+    foreach (top3_old_targets($pdo) as $r) {
+        if ($left <= 0 || time() - $t0 > $maxSecs) break;
+        $pid = (int)$r['id'];
+        $gs = gsc_inspect($pdo, $pid, rtrim((string)$GLOBALS['CONFIG']['base_url'], '/') . $r['path']);
+        if ($gs && $gs['verdict'] === 'PASS') { $out['in_google']++; $out['lines'][] = "{$pid}: now in Google, left out"; continue; }
+        $cov = $gs['coverage'] ?? ((string)$r['coverage'] !== '' ? $r['coverage'] : 'never inspected');
+        $res = top3_check($pdo, $pid, 'tavily');
+        if (isset($res['error']) && str_starts_with($res['error'], 'search unavailable')) { $out['stopped'] = $res['error']; break; }
+        $left--;
+        if (isset($res['error'])) { $out['no_rivals']++; $out['lines'][] = "{$pid} ({$cov}): {$res['error']}"; $pdo = db_alive(); continue; }
+        $out['checked']++;
+        $note = '';
+        if ($res['missing_posts'] > 0) {
+            $fp = top3_add_missing_posts($pdo, $pid);
+            $out['added'] += $fp['added']; $out['attached'] += $fp['attached'];
+            if ($fp['added'] || $fp['attached']) {
+                $note = ", added {$fp['added']} post(s), attached {$fp['attached']}";
+                $re = top3_check($pdo, $pid, 'tavily');   // same search results (top3_search), no second credit
+                if (!isset($re['error'])) $res = $re;
+            }
+        }
+        if (!empty($res['timeline_strong'])) $out['strong']++;
+        $out['lines'][] = "{$pid} ({$cov}): vs " . implode(', ', array_map(fn($r) => $r['host'] . ($r['read'] === 'post' ? ' (a post)' : ''), $res['rivals'] ?? [])) . '; '
+            . count($res['new_dates'] ?? []) . " new dated development(s), {$res['new_posts']} post(s) the 3 lack{$note}; timeline strong: "
+            . (!empty($res['timeline_strong']) ? 'yes' : 'no') . (!empty($res['verified']) ? '' : ' (unverified)');
+        $pdo = db_alive();   // minutes of fetching and AI: the handle may be dead
     }
     return $out;
 }
