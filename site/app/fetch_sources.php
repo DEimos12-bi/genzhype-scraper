@@ -337,187 +337,6 @@ function footage_clips_gather(int $drama_id, int $max = 8): array {
     return $clips;
 }
 
-/** r26 DEMON EVIDENCE (owner: "we need like a demon scraper... whenever there's
- *  something in the script it gets proof based on what it says — more content
- *  as the video goes, never repeating the same imgs"): aggressively gather MANY
- *  distinct proof pieces for a drama so the video never recycles 5 images.
- *  Pulls distinct-DOMAIN article screenshots (each a unique proof) + every tweet
- *  embedded in them (syndication cards) and stores them as VIDEO-ONLY events
- *  (video_only=1 -> they enrich the video but never touch the article timeline).
- *  Idempotent: dedupes on domain + tweet id. Returns [articles, tweets]. */
-function evidence_demon_for_drama(int $drama_id, int $max_articles = 6, int $max_tweets = 8): array {
-    require_once __DIR__ . '/embeds.php';
-    $pdo = db();
-    // topic for search: page title + primary people
-    $meta = $pdo->prepare(
-        "SELECT d.title, d.people_json FROM dramas d WHERE d.id=?");
-    $meta->execute([$drama_id]);
-    $m = $meta->fetch();
-    if (!$m) return ['articles' => 0, 'tweets' => 0, 'error' => 'drama not found'];
-    $ppl = [];
-    foreach ((array)json_decode((string)$m['people_json'], true) as $pp) {
-        $nm = trim((string)(is_array($pp) ? ($pp['name'] ?? '') : $pp));
-        if ($nm !== '') $ppl[] = $nm;
-    }
-    $topic = trim((string)$m['title'] . ' ' . implode(' ', array_slice($ppl, 0, 3)));
-
-    // domains already sourced (article + tweet) -> never duplicate a proof
-    $dq = $pdo->prepare(
-        "SELECT DISTINCT s.url FROM events e JOIN sources s ON s.id=e.source_id WHERE e.drama_id=?");
-    $dq->execute([$drama_id]);
-    $haveDom = []; $haveTweet = [];
-    foreach ($dq->fetchAll(PDO::FETCH_COLUMN) as $u) {
-        if (preg_match('#/status/(\d+)#', $u, $tm)) { $haveTweet[$tm[1]] = 1; continue; }
-        $d = preg_replace('/^www\./', '', strtolower((string)parse_url($u, PHP_URL_HOST)));
-        if ($d) $haveDom[$d] = 1;
-    }
-
-    // r27 RELEVANCE GATE (owner: an off-topic allhiphop EMINEM article landed in
-    // the Soulja video). Every gathered proof MUST be about THIS story: build
-    // distinctive name tokens (>=4 chars) from the people; an article/tweet that
-    // mentions none of them is rejected. Off-topic proof is worse than a repeat.
-    $relTokens = [];
-    foreach ($ppl as $name) {
-        foreach (preg_split('/\s+/', mb_strtolower($name)) as $w) {
-            $w = preg_replace('/[^a-z0-9]/', '', $w);
-            if (mb_strlen($w) >= 4) $relTokens[$w] = 1;
-        }
-    }
-    $relTokens = array_keys($relTokens);
-    $isRelevant = function (string $blob) use ($relTokens): bool {
-        if (!$relTokens) return true;
-        $b = mb_strtolower($blob);
-        foreach ($relTokens as $t) if (strpos($b, $t) !== false) return true;
-        return false;
-    };
-
-    // aggressive multi-source search
-    $urls = array_merge(fs_news_search($topic, 12), fs_search($topic, 10));
-    $addedA = 0; $addedT = 0; $sortA = 8000; $sortT = 9000;
-    $insSrc = $pdo->prepare("INSERT INTO sources (url, domain, publisher, title, reliability) VALUES (?,?,?,?,?)");
-    $insEv  = $pdo->prepare(
-        "INSERT INTO events (drama_id, event_date, title, description, source_id,
-            is_confirmed, sort_order, embed_html, embed_provider, video_only)
-         VALUES (?,?,?,?,?,1,?,?,?,1)");
-    foreach ($urls as $u) {
-        if ($addedA >= $max_articles && $addedT >= $max_tweets) break;
-        $dom = preg_replace('/^www\./', '', strtolower((string)parse_url($u, PHP_URL_HOST)));
-        if ($dom === '' || strpos($dom, 'x.com') !== false || strpos($dom, 'twitter.com') !== false) continue;
-        $newArticle = ($addedA < $max_articles) && empty($haveDom[$dom]);
-        if (!$newArticle && $addedT >= $max_tweets) continue;   // nothing to gain here
-        $html = fs_http_get($u);
-        if (!$html) continue;
-        $text = fs_extract_text($html);
-        $ttl = '';
-        if (preg_match('#<title\b[^>]*>(.*?)</title>#is', $html, $tt)) {
-            $ttl = trim(html_entity_decode(strip_tags($tt[1]), ENT_QUOTES, 'UTF-8'));
-        }
-        // RELEVANCE GATE: this page must actually be about the story's people.
-        if (!$isRelevant($ttl . ' ' . mb_substr($text, 0, 2000))) {
-            continue;   // off-topic (homepage / unrelated article) -> reject
-        }
-        // 1) ARTICLE screenshot proof (one per NEW domain)
-        if ($newArticle) {
-            if (mb_strlen($text) >= 400) {
-                $title = $ttl;
-                $insSrc->execute([$u, $dom, fs_publisher($u), mb_substr($title, 0, 200), 'reliable_outlet']);
-                $sid = (int)$pdo->lastInsertId();
-                // r93 ARCHIVE AT CAPTURE. Keep the page we just read, now,
-                // while we still hold it — a citation checked six days later
-                // is already too late (30 of 423 were broken when we finally
-                // looked). $html is passed so this costs no extra request and
-                // archives the exact version the event was written from.
-                try {
-                    require_once __DIR__ . '/source_archive.php';
-                    sa_capture($pdo, $sid, $u, $html);
-                } catch (Throwable $e) { /* never block ingest on the archive */ }
-                $insEv->execute([$drama_id, date('Y-m-d'),
-                    mb_substr($title ?: fs_publisher($u) . ' report', 0, 200),
-                    mb_substr($text, 0, 500), $sid, $sortA++, null, null]);
-                $haveDom[$dom] = 1; $addedA++;
-            }
-        }
-        // 2) TWEETS embedded in this article (syndication cards)
-        if ($addedT < $max_tweets) {
-            foreach (fs_harvest_social($html, 12) as $soc) {
-                if ($addedT >= $max_tweets) break;
-                if ($soc['provider'] !== 'twitter') continue;
-                if (!preg_match('#/status/(\d+)#', $soc['url'], $im)) continue;
-                $tid = $im[1];
-                if (isset($haveTweet[$tid])) continue;
-                $haveTweet[$tid] = 1;
-                $emb = embed_for_url($soc['url']);   // syndication build; null if deleted
-                if (!$emb) continue;
-                $exc = fs_social_excerpt('twitter', $soc['url']);
-                $insSrc->execute([$soc['url'], 'x.com', 'X (original post)', mb_substr($exc, 0, 200), 'primary']);
-                $sid = (int)$pdo->lastInsertId();
-                $insEv->execute([$drama_id, date('Y-m-d'),
-                    mb_substr($exc ?: 'Tweet', 0, 200), $exc ?: '', $sid,
-                    $sortT++, $emb['html'], 'twitter']);
-                $addedT++;
-            }
-        }
-    }
-    return ['articles' => $addedA, 'tweets' => $addedT];
-}
-
-/** r25 (owner: "Twitter needs to be a HUGE source — beef tweets from people
- *  involved + audience reactions, used to the max"): BACKFILL a drama's tweet
- *  receipts by re-harvesting the tweets EMBEDDED in its existing article
- *  sources. X killed oEmbed so early-2026 dramas captured 0 tweets; this pulls
- *  them via the syndication CDN and adds each live tweet as a primary 'post'
- *  event, then embeds it. Returns [added, checked]. Safe to re-run (dedupes on
- *  the tweet URL). */
-function tweets_backfill_for_drama(int $drama_id, int $max_tweets = 8): array {
-    require_once __DIR__ . '/embeds.php';
-    $pdo = db();
-    // existing article sources (skip ones already social posts)
-    $arts = $pdo->prepare(
-        "SELECT DISTINCT s.url FROM events e JOIN sources s ON s.id=e.source_id
-         WHERE e.drama_id=? AND s.url IS NOT NULL
-           AND s.url NOT LIKE '%/status/%'");
-    $arts->execute([$drama_id]);
-    $have = $pdo->prepare("SELECT COUNT(*) FROM sources WHERE url=?");
-    $added = 0; $checked = 0; $seen = [];
-    foreach ($arts->fetchAll(PDO::FETCH_COLUMN) as $artUrl) {
-        if ($added >= $max_tweets) break;
-        $html = fs_http_get($artUrl);
-        if (!$html) continue;
-        foreach (fs_harvest_social($html, 12) as $soc) {
-            if ($added >= $max_tweets) break;
-            if ($soc['provider'] !== 'twitter') continue;   // TWITTER MAX first
-            $tu = $soc['url'];
-            // dedupe by TWEET ID (x.com and twitter.com are the same tweet)
-            if (!preg_match('#/status/(\d+)#', $tu, $idm)) continue;
-            $tid = $idm[1];
-            if (isset($seen[$tid])) continue;
-            $seen[$tid] = 1;
-            $checked++;
-            // already stored under EITHER host?
-            $dupe = $pdo->prepare("SELECT COUNT(*) FROM sources WHERE url LIKE ?");
-            $dupe->execute(['%/status/' . $tid]);
-            if ((int)$dupe->fetchColumn() > 0) continue;
-            $emb = embed_for_url($tu);                       // syndication build
-            if (!$emb) continue;                             // deleted/tombstone
-            $exc = fs_social_excerpt('twitter', $tu);
-            // create source + primary post event + attach the embed
-            $pdo->prepare("INSERT INTO sources (url, publisher, reliability) VALUES (?,?,?)")
-                ->execute([$tu, 'X (original post)', 'primary']);
-            $sid = (int)$pdo->lastInsertId();
-            $pdo->prepare(
-                "INSERT INTO events (drama_id, event_date, title, description,
-                   source_id, is_confirmed, sort_order, embed_html, embed_provider)
-                 VALUES (?,?,?,?,?,1,?,?, 'twitter')")
-                ->execute([$drama_id, date('Y-m-d'),
-                           mb_substr($exc ?: 'Tweet', 0, 200),
-                           $exc ?: '', $sid, 900 + $added,
-                           $emb['html']]);
-            $added++;
-        }
-    }
-    return ['added' => $added, 'checked' => $checked];
-}
-
 /**
  * Build a draft-ready input array from a SELECTED candidate.
  * Returns ['topic'=>, 'sources'=>[...]] or ['error'=>..].
@@ -562,7 +381,10 @@ function fetch_sources_for_candidate(int $cand_id, int $want = 4): array {
         $sources[] = [
             'url'         => $u,
             'publisher'   => fs_publisher($u),
-            'date'        => date('Y-m-d'),               // best-effort; primary dating comes from the events
+            // the article's own publication date ('' when it declares none), never today's:
+            // stories handed the drafter today for every source, and it dated events with it
+            // (Complexity, 2026-09-25). Terms and drama_deepen already read it this way.
+            'date'        => fs_published_date($html),
             'reliability' => 'reliable_outlet',
             'excerpt'     => mb_substr($text, 0, 3500),
             'title'       => mb_substr($title, 0, 200),
@@ -580,7 +402,7 @@ function fetch_sources_for_candidate(int $cand_id, int $want = 4): array {
             $sources[] = [
                 'url'         => $soc['url'],
                 'publisher'   => ucfirst($soc['provider']) . ' (original post)',
-                'date'        => date('Y-m-d'),
+                'date'        => '',                       // the post's own date is not read here
                 'reliability' => 'primary',
                 'excerpt'     => $exc,
                 'title'       => mb_substr($exc, 0, 200),

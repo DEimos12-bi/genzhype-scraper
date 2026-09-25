@@ -86,19 +86,22 @@ function draft_drama_prompt(array $input): array {
     // stale status, unanswered core question, padding and clickbait titles; these
     // rules write to what it scores. They sit after the competitive bar so a word
     // or angle target can never force padding on a one-source story.
-    $today = gmdate('F j, Y');
+    // "As of" is the newest source's date. A TODAY line made the model stamp undated events with
+    // today (Complexity, 2026-09-25: a sabbatical dated today that no source stated; verify caught it).
+    $newest = max(array_merge([''], array_map(fn($s) => substr((string)($s['date'] ?? ''), 0, 10), $input['sources'])));
+    $asOf = preg_match('/^\d{4}-\d{2}-\d{2}$/', $newest) ? date('F j, Y', strtotime($newest)) : gmdate('F j, Y');
     $sys .= "\n\nEDITOR'S STANDARD (an editor scores every page on search intent, people-first value, AI-citability, clarity and trust, and rejects it below 7/10 on any one; these rules win over any length or angle target above):"
           . "\nA) DATES: an event's date is the day it HAPPENED as a source states it. A source's own publish date is not the date of things it describes as happening earlier. An earlier development is an event when a source states its month or year (use the date format given in the JSON shape); backstory with no stated date goes in background, never in events. The report itself may be an event on the article's date (e.g. 'Dexerto reports ...'). List events oldest first."
-          . "\nB) SUMMARY: sentence 1 answers what a searcher wants to know (who did what, when). The last sentence starts 'As of {$today},' and gives the current status, consistent with the latest event."
-          . "\nC) LIFECYCLE: resolved only when a source reports an ending (ruling, settlement, dismissal, release, apology accepted); dormant when the latest event is over 30 days before today and nothing is pending; otherwise ongoing."
+          . "\nB) SUMMARY: sentence 1 answers what a searcher wants to know (who did what, when). The last sentence starts 'As of {$asOf},' and gives the current status, consistent with the latest event."
+          . "\nC) LIFECYCLE: resolved only when a source reports an ending (ruling, settlement, dismissal, release, apology accepted); dormant when the latest event is over 30 days before the newest source's date and nothing is pending; otherwise ongoing."
           . "\nD) TITLE, H1, TITLE TAG: say plainly what happened. Use verbs like admits, exposes, confirms, slams or leaks only when a source shows exactly that; no teasers, no questions, nothing the sources do not carry."
-          . "\nE) FAQS: 4 to 6 questions worded the way people search (for example 'Is the X lawsuit over?', 'What did X say about Y?', 'Why did X do Y?'). The first is about the current status and its answer starts 'As of {$today}'. Answers are 1 to 3 direct sentences, each claim attributed. No FAQ may just repeat the summary."
+          . "\nE) FAQS: 4 to 6 questions worded the way people search (for example 'Is the X lawsuit over?', 'What did X say about Y?', 'Why did X do Y?'). The first is about the current status and its answer starts 'As of {$asOf}'. Answers are 1 to 3 direct sentences, each claim attributed. No FAQ may just repeat the summary."
           . "\nF) BACKGROUND: who the people are and the context a newcomer needs."
           . "\nG) LENGTH FOLLOWS THE SOURCES: a story with one or two short sources gets a short, complete page. Depth comes only from facts in the sources. Never merge or drop distinct developments to make a page shorter."
           . "\nH) why_it_matters: 2-3 sentences on the concrete stakes the sources state (money, jobs, a ruling or precedent, a platform or policy change, who is affected and how). An empty string when the sources state no concrete stake; no general claims like 'one of the biggest'. Not a repeat of the summary."
           . "\nI) whats_next: up to 3 things the sources say are scheduled, pending or awaited (a hearing, a release, a promised reply, a deadline), each with its date when a source gives one, each attributed ('according to <outlet>'). An empty list when the sources say nothing about what comes next; never guess.";
 
-    $user = "TODAY: " . gmdate('Y-m-d') . "\nTOPIC: {$input['topic']}\n\n{$srcBlock}\nReturn JSON exactly in this shape:\n{\n \"title\": \"page H1\",\n \"title_tag\": \"50-60 chars\",\n \"meta_desc\": \"120-132 chars\",\n \"summary\": \"answer-first 120-420 chars\",\n \"lifecycle\": \"ongoing|resolved|dormant\",\n \"mood\": \"conflict|scandal|sad|funny|hype|neutral (the story's emotional register)\",\n \"cover_big\": \"2-4 word cover headline\",\n \"cover_sub\": \"short subtitle\",\n \"people\": [\"Real Full Name\"],\n \"background\": [\"para1\",\"para2\"],\n \"events\": [{\"date\":\"YYYY-MM-DD, or YYYY-MM-00 when the sources give only a month, or YYYY-00-00 when they give only a year — NEVER invent a day the sources do not state\",\"title\":\"...\",\"desc\":\"...\",\"source_nums\":[1],\"is_confirmed\":1}],\n \"faqs\": [{\"q\":\"...\",\"a\":\"...\"}],\n \"why_it_matters\": \"2-3 sentences\",\n \"whats_next\": [{\"date\":\"same format as event dates, or empty\",\"text\":\"...\"}]\n}";
+    $user = "TOPIC: {$input['topic']}\n\n{$srcBlock}\nReturn JSON exactly in this shape:\n{\n \"title\": \"page H1\",\n \"title_tag\": \"50-60 chars\",\n \"meta_desc\": \"120-132 chars\",\n \"summary\": \"answer-first 120-420 chars\",\n \"lifecycle\": \"ongoing|resolved|dormant\",\n \"mood\": \"conflict|scandal|sad|funny|hype|neutral (the story's emotional register)\",\n \"cover_big\": \"2-4 word cover headline\",\n \"cover_sub\": \"short subtitle\",\n \"people\": [\"Real Full Name\"],\n \"background\": [\"para1\",\"para2\"],\n \"events\": [{\"date\":\"YYYY-MM-DD, or YYYY-MM-00 when the sources give only a month, or YYYY-00-00 when they give only a year — NEVER invent a day the sources do not state\",\"title\":\"...\",\"desc\":\"...\",\"source_nums\":[1],\"is_confirmed\":1}],\n \"faqs\": [{\"q\":\"...\",\"a\":\"...\"}],\n \"why_it_matters\": \"2-3 sentences\",\n \"whats_next\": [{\"date\":\"same format as event dates, or empty\",\"text\":\"...\"}]\n}";
     return [$sys, $user];
 }
 
@@ -264,7 +267,7 @@ function draft_drama(array $input): array {
                     $s['publisher'] ?? null,
                     mb_substr($s['excerpt'], 0, 200),
                     $s['reliability'] ?? 'primary',
-                    $s['date'] ?? date('Y-m-d'),
+                    ($s['date'] ?? '') !== '' ? $s['date'] : date('Y-m-d'),   // undated source: the day we fetched it
                     $s['excerpt'],
                 ]);
             $map[$i + 1] = (int)$pdo->lastInsertId();
