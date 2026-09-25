@@ -90,6 +90,9 @@ function watchdog_run(int $fixLimit = 4): array {
             $dropped++;
         }
     }
+    // story posts the platform did not serve at draft time: one second chance each
+    $er = embeds_retry_missing($pdo, 20);
+    if ($er['tried']) echo "  WD-EMBED-RETRY: {$er['embedded']} of {$er['tried']} story post(s) now embedded\n";
     // SEO DRIFT: snapshot SEO-critical elements (title/meta/canonical/robots/
     // schema/H1/links/featured/byline) per published page; flag changes vs the
     // last snapshot. First run seeds the baseline silently. Each page is
@@ -1896,6 +1899,8 @@ switch ($cmd) {
             $g = gate_check_drama((int)$d['page_id']);
             $ok = ($v['pass'] ?? false) && ($q['pass'] ?? false) && ($g['pass'] ?? false);
             echo "  built {$d['slug']} | v=" . (($v['pass'] ?? 0)?'P':'i') . " q=" . (($q['pass'] ?? 0)?'P':'F') . " g=" . (($g['pass'] ?? 0)?'P':'F') . ($ok ? "  => READY" : "") . "\n";
+            if (isset($d['context'])) echo "    context: why=" . ($d['context']['why'] ? 'yes' : 'no') . " next={$d['context']['next']}"
+                . ($d['context']['dropped'] ? ' (dropped: ' . implode('; ', array_slice($d['context']['dropped'], 0, 3)) . ')' : '') . "\n";
             // 2026-08-23 name the failing check — "g=F" alone hid WHICH gate rule
             // rejected every page for weeks. One line per failed rule, budget 4.
             if (!$ok) {
@@ -1921,7 +1926,7 @@ switch ($cmd) {
                 foreach (($g['checks'] ?? []) as $ck) if (empty($ck['pass'])) $gateFailed[] = (string)$ck['label'];
                 record_touch($pdo, 'drama', (int)$d['page_id'], '', 'build', [
                     'candidate_id' => (int)$cd['id'],
-                    'draft'   => ['provider' => (string)($d['provider'] ?? ''), 'events' => (int)($d['events'] ?? 0)],
+                    'draft'   => ['provider' => (string)($d['provider'] ?? ''), 'events' => (int)($d['events'] ?? 0), 'context' => $d['context'] ?? null],
                     'verify'  => ['pass' => (bool)($v['pass'] ?? false), 'issues' => array_slice((array)($v['issues'] ?? []), 0, 5)],
                     'quality' => ['pass' => (bool)($q['pass'] ?? false), 'scores' => $q['scores'] ?? null, 'flags' => $q['flags'] ?? []],
                     'gate'    => ['pass' => (bool)($g['pass'] ?? false), 'failed' => $gateFailed],

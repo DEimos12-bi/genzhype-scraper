@@ -150,6 +150,35 @@ function embeds_build_for_drama(int $drama_id): array {
 }
 
 /**
+ * 2026-09-24 A story's posts were embedded once, at draft time; a post the platform did not
+ * serve that minute stayed unembedded for good (9 live events citing a post had none).
+ * Nightly, capped: each one gets ONE second chance. Still not embeddable (deleted, private)
+ * = embed_html '' ("tried twice"), which the builder (IS NULL) and the page (!empty) skip,
+ * so a dead post is not fetched every night forever.
+ */
+function embeds_retry_missing(PDO $pdo, int $cap = 20): array {
+    $rows = $pdo->query("SELECT e.id, s.url, p.id page_id FROM events e JOIN sources s ON s.id=e.source_id
+                           JOIN dramas d ON d.id=e.drama_id JOIN pages p ON p.id=d.page_id
+                          WHERE p.status='published' AND e.video_only=0 AND e.embed_html IS NULL
+                            AND s.url REGEXP '(x|twitter)\\\\.com/[^/]+/status/|tiktok\\\\.com/@[^/]+/video/|youtube\\\\.com/watch|youtu\\\\.be/|reddit\\\\.com/r/.+/comments/'
+                          ORDER BY e.id LIMIT " . max(1, min(100, $cap)))->fetchAll();
+    $made = 0;
+    foreach ($rows as $r) {
+        $emb = embed_for_url((string)$r['url']);
+        if (!$emb) {
+            $pdo->prepare("UPDATE events SET embed_html='' WHERE id=? AND embed_html IS NULL")->execute([(int)$r['id']]);
+            continue;
+        }
+        $pdo->prepare("UPDATE events SET embed_html=?, embed_provider=? WHERE id=? AND embed_html IS NULL")
+            ->execute([$emb['html'], $emb['provider'], (int)$r['id']]);
+        // the page gained its post: a real change, and what makes the page cache (repo_data_version) rebuild
+        $pdo->prepare("UPDATE pages SET updated_at=NOW() WHERE id=?")->execute([(int)$r['page_id']]);
+        $made++;
+    }
+    return ['tried' => count($rows), 'embedded' => $made];
+}
+
+/**
  * r157 REAL POSTS FROM THE CITED ARTICLES (owner 2026-09-11, pointing at the June/July pages: "it wasn't
  * only screenshots"). A story showed a post only when an event's own source WAS the post: 12% of events
  * in June, 3% in September, because new stories cite news articles. Those articles embed the posts

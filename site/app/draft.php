@@ -93,10 +93,12 @@ function draft_drama_prompt(array $input): array {
           . "\nC) LIFECYCLE: resolved only when a source reports an ending (ruling, settlement, dismissal, release, apology accepted); dormant when the latest event is over 30 days before today and nothing is pending; otherwise ongoing."
           . "\nD) TITLE, H1, TITLE TAG: say plainly what happened. Use verbs like admits, exposes, confirms, slams or leaks only when a source shows exactly that; no teasers, no questions, nothing the sources do not carry."
           . "\nE) FAQS: 4 to 6 questions worded the way people search (for example 'Is the X lawsuit over?', 'What did X say about Y?', 'Why did X do Y?'). The first is about the current status and its answer starts 'As of {$today}'. Answers are 1 to 3 direct sentences, each claim attributed. No FAQ may just repeat the summary."
-          . "\nF) BACKGROUND: paragraph 1 = who the people are and the context a newcomer needs; paragraph 2 = why this matters (what is at stake, what it changes for fans, creators or players), only as far as the sources say it."
-          . "\nG) LENGTH FOLLOWS THE SOURCES: a story with one or two short sources gets a short, complete page. Depth comes only from facts in the sources. Never merge or drop distinct developments to make a page shorter.";
+          . "\nF) BACKGROUND: who the people are and the context a newcomer needs."
+          . "\nG) LENGTH FOLLOWS THE SOURCES: a story with one or two short sources gets a short, complete page. Depth comes only from facts in the sources. Never merge or drop distinct developments to make a page shorter."
+          . "\nH) why_it_matters: 2-3 sentences on the concrete stakes the sources state (money, jobs, a ruling or precedent, a platform or policy change, who is affected and how). An empty string when the sources state no concrete stake; no general claims like 'one of the biggest'. Not a repeat of the summary."
+          . "\nI) whats_next: up to 3 things the sources say are scheduled, pending or awaited (a hearing, a release, a promised reply, a deadline), each with its date when a source gives one, each attributed ('according to <outlet>'). An empty list when the sources say nothing about what comes next; never guess.";
 
-    $user = "TODAY: " . gmdate('Y-m-d') . "\nTOPIC: {$input['topic']}\n\n{$srcBlock}\nReturn JSON exactly in this shape:\n{\n \"title\": \"page H1\",\n \"title_tag\": \"50-60 chars\",\n \"meta_desc\": \"120-132 chars\",\n \"summary\": \"answer-first 120-420 chars\",\n \"lifecycle\": \"ongoing|resolved|dormant\",\n \"mood\": \"conflict|scandal|sad|funny|hype|neutral (the story's emotional register)\",\n \"cover_big\": \"2-4 word cover headline\",\n \"cover_sub\": \"short subtitle\",\n \"people\": [\"Real Full Name\"],\n \"background\": [\"para1\",\"para2\"],\n \"events\": [{\"date\":\"YYYY-MM-DD, or YYYY-MM-00 when the sources give only a month, or YYYY-00-00 when they give only a year — NEVER invent a day the sources do not state\",\"title\":\"...\",\"desc\":\"...\",\"source_nums\":[1],\"is_confirmed\":1}],\n \"faqs\": [{\"q\":\"...\",\"a\":\"...\"}]\n}";
+    $user = "TODAY: " . gmdate('Y-m-d') . "\nTOPIC: {$input['topic']}\n\n{$srcBlock}\nReturn JSON exactly in this shape:\n{\n \"title\": \"page H1\",\n \"title_tag\": \"50-60 chars\",\n \"meta_desc\": \"120-132 chars\",\n \"summary\": \"answer-first 120-420 chars\",\n \"lifecycle\": \"ongoing|resolved|dormant\",\n \"mood\": \"conflict|scandal|sad|funny|hype|neutral (the story's emotional register)\",\n \"cover_big\": \"2-4 word cover headline\",\n \"cover_sub\": \"short subtitle\",\n \"people\": [\"Real Full Name\"],\n \"background\": [\"para1\",\"para2\"],\n \"events\": [{\"date\":\"YYYY-MM-DD, or YYYY-MM-00 when the sources give only a month, or YYYY-00-00 when they give only a year — NEVER invent a day the sources do not state\",\"title\":\"...\",\"desc\":\"...\",\"source_nums\":[1],\"is_confirmed\":1}],\n \"faqs\": [{\"q\":\"...\",\"a\":\"...\"}],\n \"why_it_matters\": \"2-3 sentences\",\n \"whats_next\": [{\"date\":\"same format as event dates, or empty\",\"text\":\"...\"}]\n}";
     return [$sys, $user];
 }
 
@@ -157,6 +159,11 @@ function draft_drama(array $input): array {
     $j['summary']   = $fix($j['summary'], 'answer-first summary', 120, 420);
 
     $pdo  = db();
+    // Why it matters / what happens next, kept only where the sources support them.
+    // The columns are ensured here, before the transaction below (an ALTER commits it).
+    require_once __DIR__ . '/story_context.php';
+    story_context_install($pdo);
+    $ctx = story_context_from_draft($j, $input['sources'], (string)$input['topic']);
     $slug = draft_slugify($j['title']);
     // WHERE THE DUPLICATES WERE BORN. This used to read:
     //     if ($dup->fetch()) $slug .= '-' . date('Y');
@@ -232,8 +239,8 @@ function draft_drama(array $input): array {
             unset($GLOBALS['__drama_featured']);
         }
 
-        $pdo->prepare("INSERT INTO dramas (page_id,title,lifecycle,started_on,primary_kw,background,mood,lane)
-                       VALUES (?,?,?,?,?,?,?,?)")
+        $pdo->prepare("INSERT INTO dramas (page_id,title,lifecycle,started_on,primary_kw,background,mood,lane,why_matters,whats_next)
+                       VALUES (?,?,?,?,?,?,?,?,?,?)")
             ->execute([
                 $pageId, $j['title'],
                 in_array($j['lifecycle'] ?? '', ['ongoing','resolved','dormant']) ? $j['lifecycle'] : 'ongoing',
@@ -242,6 +249,8 @@ function draft_drama(array $input): array {
                 json_encode($j['background'] ?? [], JSON_UNESCAPED_UNICODE),
                 $mood,
                 $__lane,
+                $ctx['why'] !== '' ? $ctx['why'] : null,
+                $ctx['next'] ? json_encode($ctx['next'], JSON_UNESCAPED_UNICODE) : null,
             ]);
         $dramaId = (int)$pdo->lastInsertId();
 
@@ -353,5 +362,6 @@ function draft_drama(array $input): array {
 
     ai_log($pageId, 'draft', $res, ['fields' => array_keys($j), 'events' => count($j['events'])], true);
     return ['page_id' => $pageId, 'slug' => $slug, 'events' => count($j['events']), 'provider' => $res['provider'],
-            'embeds' => (int)($embedStat['embeds'] ?? 0)];
+            'embeds' => (int)($embedStat['embeds'] ?? 0),
+            'context' => ['why' => $ctx['why'] !== '', 'next' => count($ctx['next']), 'dropped' => $ctx['dropped']]];
 }

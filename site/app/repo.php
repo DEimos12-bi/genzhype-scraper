@@ -4,6 +4,7 @@ require_once __DIR__ . '/lanes.php';   // timeline_url() is used from line ~116 
 // so templates need no changes. Small site = load-all is fine; optimize later.
 
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/story_context.php';
 
 /* r146 (2026-09-07) THE 2-SECOND PAGE. Measured on the live host: every request
  * ran repo_load_all() from scratch — 3,617 queries, 14 MB of assembled content,
@@ -91,7 +92,7 @@ function repo_load_all(): array {
     // dramas
     $rows = $pdo->query("SELECT p.id page_id, p.slug, p.h1, p.title_tag, p.meta_desc, p.summary, p.cover, p.featured_img,
                                 p.published_at, p.updated_at, p.robots, p.cover_credit, p.cover_credit_url,
-                                d.id drama_id, d.title, d.lifecycle, d.background, d.people_json,
+                                d.id drama_id, d.title, d.lifecycle, d.background, d.people_json, d.why_matters, d.whats_next,
                                 COALESCE(d.lane, 'drama') lane
                          FROM pages p JOIN dramas d ON d.page_id = p.id
                          WHERE p.type='drama' AND p.status='published'
@@ -196,6 +197,7 @@ function repo_load_all(): array {
             'summary'       => $r['summary'] ?? '',
             'meta_desc'     => $r['meta_desc'] ?? '',
             'background'    => json_decode($r['background'] ?? '[]', true) ?: [],
+            ...story_context_shape($r['why_matters'] ?? null, $r['whats_next'] ?? null),   // why it matters / what happens next
             'events'        => $events,
             'parties'       => $parties,
             'faqs'          => $faqs,
@@ -354,7 +356,7 @@ function repo_load_drama_any(string $slug): ?array {
     $pdo = db();
     $st = $pdo->prepare("SELECT p.id page_id, p.slug, p.h1, p.title_tag, p.meta_desc, p.summary, p.cover,
                                 p.published_at, p.updated_at, p.robots, p.cover_credit, p.cover_credit_url, p.status,
-                                d.id drama_id, d.title, d.lifecycle, d.background
+                                d.id drama_id, d.title, d.lifecycle, d.background, d.why_matters, d.whats_next
                          FROM pages p JOIN dramas d ON d.page_id = p.id
                          WHERE p.slug = ? LIMIT 1");
     $st->execute([$slug]);
@@ -404,6 +406,7 @@ function repo_load_drama_any(string $slug): ?array {
         'cover'=>$r['cover'] ?: '/assets/covers/default.svg',
         'summary'=>$r['summary'] ?? '', 'meta_desc'=>$r['meta_desc'] ?? '',
         'background'=>json_decode($r['background'] ?? '[]', true) ?: [],
+        ...story_context_shape($r['why_matters'] ?? null, $r['whats_next'] ?? null),
         'events'=>$events, 'parties'=>$parties, 'faqs'=>$faqs, 'sources'=>$sources,
         'related'=>[], 'robots'=>$r['robots'], 'page_id'=>(int)$r['page_id'], 'page_status'=>$r['status'],
     ];
