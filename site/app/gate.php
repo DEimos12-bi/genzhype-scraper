@@ -194,6 +194,36 @@ function gate_event_confirm(PDO $pdo, int $eventId, string $by, string $srcUrl):
     return true;
 }
 
+/**
+ * ORIGINAL VALUE (owner rule, 2026-09-25): "Every page needs something the sources don't have"
+ * and "at least one strong item, or two weak ones". Strong alone: figures we collected
+ * ourselves (numbers), and a dated timeline of original posts that is more complete than
+ * the top Google results' versions (timeline). Weak alone: confirmed versus rumor
+ * (confirmed_split), both sides' statements (both_sides), our verdict with reasons (verdict).
+ * Report-only while the maker cannot produce the pieces yet (the owner keeps 30 pages a
+ * day): gate_check_drama() returns it as 'original_value' without blocking. To enforce it,
+ * add it to $checks there as a blocking check.
+ */
+function gate_original_value(PDO $pdo, int $did): array {
+    $strong = ['numbers' => false, 'timeline' => false];
+    $weak = ['confirmed_split' => false, 'both_sides' => false, 'verdict' => false];
+    $ev = $pdo->prepare("SELECT e.embed_html, e.is_confirmed, s.url FROM events e LEFT JOIN sources s ON s.id=e.source_id
+                         WHERE e.drama_id=? AND e.video_only=0");
+    $ev->execute([$did]);
+    $receipts = 0; $confirmed = 0; $claims = 0;
+    foreach ($ev->fetchAll(PDO::FETCH_ASSOC) as $e) {
+        if ((string)($e['embed_html'] ?? '') !== '' || (!empty($e['url']) && gate_event_source_is_primary((string)$e['url']))) $receipts++;
+        (int)$e['is_confirmed'] === 1 ? $confirmed++ : $claims++;
+    }
+    $weak['confirmed_split'] = $confirmed > 0 && $claims > 0;
+    // 'timeline' needs the top-3 comparison (not built): receipts alone are counted, not credited
+    $s = array_keys(array_filter($strong)); $w = array_keys(array_filter($weak));
+    $pass = count($s) >= 1 || count($w) >= 2;
+    return ['pass' => $pass, 'strong' => $s, 'weak' => $w, 'receipts' => $receipts,
+            'label' => 'strong: ' . ($s ? implode(', ', $s) : 'none') . '; weak: ' . ($w ? implode(', ', $w) : 'none')
+                     . "; {$receipts} original post(s)/primary source(s) on the timeline" . ($pass ? '' : ' - needs 1 strong or 2 weak')];
+}
+
 function gate_check_drama(int $page_id): array {
     $pdo = db();
     $p = $pdo->prepare("SELECT p.*, d.id drama_id, d.title dtitle, d.lifecycle
@@ -284,7 +314,8 @@ function gate_check_drama(int $page_id): array {
     $advisory = ['domains'];
     $blocking = array_filter($checks, fn($c) => !in_array($c['id'], $advisory, true));
     $pass = !in_array(false, array_column($blocking, 'pass'), true);
-    return ['pass' => $pass, 'checks' => $checks, 'page_id' => $page_id, 'slug' => $page['slug']];
+    return ['pass' => $pass, 'checks' => $checks, 'page_id' => $page_id, 'slug' => $page['slug'],
+            'original_value' => gate_original_value($pdo, $did)];   // report-only, see gate_original_value()
 }
 
 /** Render any page's full HTML in-process (works for drafts too). */

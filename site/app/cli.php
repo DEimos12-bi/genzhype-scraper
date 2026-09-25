@@ -1132,18 +1132,19 @@ switch ($cmd) {
     }
 
     case 'ov-report':
-        // 2026-09-25 which live stories carry something their sources don't (owner's rule 1)
-        require_once __DIR__ . '/original_value.php';
-        $ids = $pdo->query("SELECT id FROM pages WHERE type='drama' AND status='published'")->fetchAll(PDO::FETCH_COLUMN);
-        $per = array_fill_keys(OV_ELEMENTS, 0); $zero = 0; $zeroIdx = 0;
-        foreach ($ids as $pid) {
-            $ov = original_value_check($pdo, (int)$pid);
-            foreach ($ov['has'] as $k => $v) $per[$k] += (int)$v;
-            if ($ov['count'] === 0) { $zero++; if ((string)$pdo->query("SELECT robots FROM pages WHERE id=" . (int)$pid)->fetchColumn() === 'index') $zeroIdx++; }
+        // 2026-09-25 the owner's rule (1 strong or 2 weak) over live stories; see gate_original_value()
+        require_once __DIR__ . '/gate.php';
+        $rows = $pdo->query("SELECT d.id did, p.robots FROM pages p JOIN dramas d ON d.page_id=p.id WHERE p.type='drama' AND p.status='published'")->fetchAll(PDO::FETCH_ASSOC);
+        $per = []; $pass = 0; $withReceipts = 0; $failIdx = 0;
+        foreach ($rows as $r) {
+            $ov = gate_original_value($pdo, (int)$r['did']);
+            foreach (array_merge($ov['strong'], $ov['weak']) as $k) $per[$k] = ($per[$k] ?? 0) + 1;
+            if ($ov['receipts'] > 0) $withReceipts++;
+            if ($ov['pass']) $pass++; elseif ($r['robots'] === 'index') $failIdx++;
         }
-        echo count($ids) . " live stories\n";
-        foreach ($per as $k => $v) printf("  %-16s %d\n", $k, $v);
-        echo "  none of them:    {$zero} ({$zeroIdx} of them in Google) - what the rule would hold back\n";
+        echo count($rows) . " live stories: {$pass} meet the rule, " . (count($rows) - $pass) . " do not ({$failIdx} of those in Google)\n";
+        foreach (['numbers', 'timeline', 'confirmed_split', 'both_sides', 'verdict'] as $k) printf("  %-16s %d\n", $k, $per[$k] ?? 0);
+        echo "  (original posts or primary sources on the timeline: {$withReceipts}; 'timeline' needs the top-3 comparison)\n";
         break;
 
     case 'status-refresh':
@@ -1916,10 +1917,9 @@ switch ($cmd) {
             echo "  built {$d['slug']} | v=" . (($v['pass'] ?? 0)?'P':'i') . " q=" . (($q['pass'] ?? 0)?'P':'F') . " g=" . (($g['pass'] ?? 0)?'P':'F') . ($ok ? "  => READY" : "") . "\n";
             if (isset($d['context'])) echo "    context: why=" . ($d['context']['why'] ? 'yes' : 'no') . " next={$d['context']['next']}"
                 . ($d['context']['dropped'] ? ' (dropped: ' . implode('; ', array_slice($d['context']['dropped'], 0, 3)) . ')' : '') . "\n";
-            // what the page adds that its sources don't (original_value.php; report-only for now)
-            require_once __DIR__ . '/original_value.php';
-            $ov = original_value_check($pdo, (int)$d['page_id']);
-            echo "    original value: " . original_value_label($ov) . "\n";
+            // what the page adds that its sources don't (gate_original_value(); report-only for now)
+            $ov = $g['original_value'] ?? null;
+            if ($ov) echo "    original value: {$ov['label']}\n";
             // 2026-08-23 name the failing check — "g=F" alone hid WHICH gate rule
             // rejected every page for weeks. One line per failed rule, budget 4.
             if (!$ok) {
@@ -1950,7 +1950,7 @@ switch ($cmd) {
                     'quality' => ['pass' => (bool)($q['pass'] ?? false), 'scores' => $q['scores'] ?? null, 'flags' => $q['flags'] ?? []],
                     'gate'    => ['pass' => (bool)($g['pass'] ?? false), 'failed' => $gateFailed],
                     'ready'   => $ok,
-                    'original_value' => $ov['has'],
+                    'original_value' => $ov ? ['pass' => $ov['pass'], 'strong' => $ov['strong'], 'weak' => $ov['weak']] : null,
                 ]);
             } catch (Throwable $e) { error_log('record build hook: ' . $e->getMessage()); }
             $pdo->prepare("UPDATE candidates SET status='rejected', reject_reason='built' WHERE id=?")->execute([$cd['id']]);
