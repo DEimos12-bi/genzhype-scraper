@@ -1131,6 +1131,21 @@ switch ($cmd) {
         break;
     }
 
+    case 'ov-report':
+        // 2026-09-25 which live stories carry something their sources don't (owner's rule 1)
+        require_once __DIR__ . '/original_value.php';
+        $ids = $pdo->query("SELECT id FROM pages WHERE type='drama' AND status='published'")->fetchAll(PDO::FETCH_COLUMN);
+        $per = array_fill_keys(OV_ELEMENTS, 0); $zero = 0; $zeroIdx = 0;
+        foreach ($ids as $pid) {
+            $ov = original_value_check($pdo, (int)$pid);
+            foreach ($ov['has'] as $k => $v) $per[$k] += (int)$v;
+            if ($ov['count'] === 0) { $zero++; if ((string)$pdo->query("SELECT robots FROM pages WHERE id=" . (int)$pid)->fetchColumn() === 'index') $zeroIdx++; }
+        }
+        echo count($ids) . " live stories\n";
+        foreach ($per as $k => $v) printf("  %-16s %d\n", $k, $v);
+        echo "  none of them:    {$zero} ({$zeroIdx} of them in Google) - what the rule would hold back\n";
+        break;
+
     case 'status-refresh':
         // 2026-09-24 stories whose timeline is newer than their summary. "status-refresh 5" or "status-refresh 5 dry"
         require_once __DIR__ . '/status_refresh.php';
@@ -1901,6 +1916,10 @@ switch ($cmd) {
             echo "  built {$d['slug']} | v=" . (($v['pass'] ?? 0)?'P':'i') . " q=" . (($q['pass'] ?? 0)?'P':'F') . " g=" . (($g['pass'] ?? 0)?'P':'F') . ($ok ? "  => READY" : "") . "\n";
             if (isset($d['context'])) echo "    context: why=" . ($d['context']['why'] ? 'yes' : 'no') . " next={$d['context']['next']}"
                 . ($d['context']['dropped'] ? ' (dropped: ' . implode('; ', array_slice($d['context']['dropped'], 0, 3)) . ')' : '') . "\n";
+            // what the page adds that its sources don't (original_value.php; report-only for now)
+            require_once __DIR__ . '/original_value.php';
+            $ov = original_value_check($pdo, (int)$d['page_id']);
+            echo "    original value: " . original_value_label($ov) . "\n";
             // 2026-08-23 name the failing check — "g=F" alone hid WHICH gate rule
             // rejected every page for weeks. One line per failed rule, budget 4.
             if (!$ok) {
@@ -1931,6 +1950,7 @@ switch ($cmd) {
                     'quality' => ['pass' => (bool)($q['pass'] ?? false), 'scores' => $q['scores'] ?? null, 'flags' => $q['flags'] ?? []],
                     'gate'    => ['pass' => (bool)($g['pass'] ?? false), 'failed' => $gateFailed],
                     'ready'   => $ok,
+                    'original_value' => $ov['has'],
                 ]);
             } catch (Throwable $e) { error_log('record build hook: ' . $e->getMessage()); }
             $pdo->prepare("UPDATE candidates SET status='rejected', reject_reason='built' WHERE id=?")->execute([$cd['id']]);
