@@ -295,29 +295,68 @@ function dup_story_words(string $title): array {
  * never answered (the caller decides; nothing is blocked on a guess).
  */
 function dup_story_twin(PDO $pdo, array $draft, int $exceptPageId = 0): ?array {
-    require_once __DIR__ . '/ai.php';
     $dates = array_map(fn($e) => (string)($e['date'] ?? ''), (array)($draft['events'] ?? []));
     $suspects = dup_story_suspects($pdo, (string)$draft['title'], $dates, 4, $exceptPageId);
     if (!$suspects) return null;
-    $side = function (string $title, string $summary, array $events): string {
-        $s = "TITLE: {$title}\nSUMMARY: " . mb_substr($summary, 0, 500) . "\nEVENTS:\n";
-        foreach (array_slice($events, 0, 10) as $e) $s .= "- [{$e['date']}] " . mb_substr((string)$e['title'], 0, 120) . "\n";
-        return $s;
-    };
-    $new = $side((string)$draft['title'], (string)($draft['summary'] ?? ''), (array)$draft['events']);
-    $ev = $pdo->prepare("SELECT event_date date, title FROM events WHERE drama_id=? AND video_only=0 ORDER BY sort_order");
+    $new = dup_story_side((string)$draft['title'], (string)($draft['summary'] ?? ''), (array)$draft['events']);
     $unanswered = 0;
     foreach ($suspects as $s) {
-        $ev->execute([$s['did']]);
-        $res = ai_chat([['role' => 'user', 'content' =>
-            "PAGE A (new draft):\n{$new}\nPAGE B (already on our site):\n" . $side($s['h1'], $s['summary'], $ev->fetchAll(PDO::FETCH_ASSOC))
-            . "\nDo A and B tell the SAME story: the same people AND the same event or chain of events, so A would repeat B? "
-            . "A different event involving the same person, or another incident of the same kind, is NOT the same story. "
-            . "STRICT JSON: {\"verdict\": \"same\"|\"different\"|\"unsure\", \"why\": \"<15 words\"}"]],
-            AI_READER_ORDER, 0.0, 60, AI_READER_SKIP);
-        $j = isset($res['error']) ? null : ai_json((string)$res['content']);
-        if (!is_array($j) || !in_array($j['verdict'] ?? null, ['same', 'different', 'unsure'], true)) { $unanswered++; continue; }
-        if ($j['verdict'] === 'same') return ['page_id' => $s['page_id'], 'slug' => $s['slug'], 'why' => mb_substr((string)($j['why'] ?? ''), 0, 160)];
+        $j = dup_story_judge($new, dup_story_side_of($pdo, $s['page_id']));
+        if ($j === null) { $unanswered++; continue; }
+        if ($j['verdict'] === 'same') return ['page_id' => $s['page_id'], 'slug' => $s['slug'], 'why' => $j['why']];
     }
     return $unanswered ? ['error' => "no AI answer for {$unanswered} of " . count($suspects) . ' suspect(s)'] : null;
+}
+
+/** One page as the AI reads it: title, summary and up to 10 dated events. */
+function dup_story_side(string $title, string $summary, array $events): string {
+    $s = "TITLE: {$title}\nSUMMARY: " . mb_substr($summary, 0, 500) . "\nEVENTS:\n";
+    foreach (array_slice($events, 0, 10) as $e) $s .= "- [{$e['date']}] " . mb_substr((string)$e['title'], 0, 120) . "\n";
+    return $s;
+}
+
+/** dup_story_side() of a story already on the site. */
+function dup_story_side_of(PDO $pdo, int $pageId): string {
+    $p = $pdo->prepare("SELECT p.h1, p.summary, d.id did FROM pages p JOIN dramas d ON d.page_id=p.id WHERE p.id=?");
+    $p->execute([$pageId]);
+    $r = $p->fetch(PDO::FETCH_ASSOC) ?: ['h1' => '', 'summary' => '', 'did' => 0];
+    $ev = $pdo->prepare("SELECT event_date date, title FROM events WHERE drama_id=? AND video_only=0 ORDER BY sort_order");
+    $ev->execute([(int)$r['did']]);
+    return dup_story_side((string)$r['h1'], (string)$r['summary'], $ev->fetchAll(PDO::FETCH_ASSOC));
+}
+
+/**
+ * The AI's reading of page A ($newSide) next to page B ($oldSide): ['verdict' => same|different|unsure, 'why'],
+ * or null when no model answered usably. "Same" = the same people AND the same event or chain of events.
+ */
+function dup_story_judge(string $newSide, string $oldSide): ?array {
+    require_once __DIR__ . '/ai.php';
+    $res = ai_chat([['role' => 'user', 'content' =>
+        "PAGE A:\n{$newSide}\nPAGE B (already on our site):\n{$oldSide}"
+        . "\nDo A and B tell the SAME story: the same people AND the same event or chain of events, so A would repeat B? "
+        . "A different event involving the same person, or another incident of the same kind, is NOT the same story. "
+        . "STRICT JSON: {\"verdict\": \"same\"|\"different\"|\"unsure\", \"why\": \"<15 words\"}"]],
+        AI_READER_ORDER, 0.0, 60, AI_READER_SKIP);
+    $j = isset($res['error']) ? null : ai_json((string)$res['content']);
+    if (!is_array($j) || !in_array($j['verdict'] ?? null, ['same', 'different', 'unsure'], true)) return null;
+    return ['verdict' => $j['verdict'], 'why' => mb_substr((string)($j['why'] ?? ''), 0, 160)];
+}
+
+/**
+ * Merge a copy into the page that keeps the story (2026-09-26 cleanup, storage/dup-merge-20260926/):
+ * the copy goes off the site (archived, nothing deleted) and its address answers a permanent 301 to
+ * the kept page (public_html/index.php reads pages.redirect_to). Only a live keeper; never a page onto
+ * itself. true when merged.
+ */
+function dup_merge_into(PDO $pdo, int $copyId, int $keeperId): bool {
+    if ($copyId === $keeperId) return false;
+    $k = $pdo->prepare("SELECT path FROM pages WHERE id=? AND type='drama' AND status='published'");
+    $k->execute([$keeperId]);
+    $to = (string)$k->fetchColumn();
+    if ($to === '') return false;
+    $pdo->prepare("UPDATE pages SET status='archived', robots='noindex', redirect_to=?, updated_at=NOW() WHERE id=? AND type='drama'")
+        ->execute([$to, $copyId]);
+    $pdo->prepare("UPDATE pages SET redirect_to=? WHERE redirect_to=(SELECT path FROM (SELECT path FROM pages WHERE id=?) x)")
+        ->execute([$to, $copyId]);   // an earlier merge into this copy follows it to the keeper (no redirect chains)
+    return true;
 }
