@@ -34,3 +34,14 @@ function db_alive(): PDO {
         return db(true);
     }
 }
+
+/**
+ * A REAL update of a page: a new dated event on its timeline. Moves the date readers and search
+ * engines see (pages.content_updated_at: the byline, dateModified, the citation, the sitemap) and
+ * the cache version (updated_at). Every other change (covers, embeds, both sides, evidence reads,
+ * summary refreshes, trend numbers) moves only updated_at: on 2026-09-26 an outside site check found
+ * 184 pages "updated" with nothing new, because one column did both jobs.
+ */
+function page_content_touched(PDO $pdo, int $pageId): void {
+    $pdo->prepare("UPDATE pages SET content_updated_at=UTC_TIMESTAMP(), updated_at=NOW() WHERE id=?")->execute([$pageId]);
+}

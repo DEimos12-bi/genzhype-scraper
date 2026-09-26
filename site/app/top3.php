@@ -455,7 +455,8 @@ function top3_add_missing_posts(PDO $pdo, int $pageId, int $max = 4, bool $save 
         $out['skipped'][] = "{$p['url']}: the AI gave no answer for it (" . mb_substr(preg_replace('/\s+/', ' ', (string)$res['content']), 0, 120) . ')';
     if ($out['added'] || $out['attached']) {
         events_resort($pdo, $did);
-        $pdo->prepare("UPDATE pages SET updated_at=NOW() WHERE id=?")->execute([$pageId]);   // a real change; rebuilds the page cache
+        if ($out['added']) page_content_touched($pdo, $pageId);   // new dated events: the public date moves (db.php)
+        else $pdo->prepare("UPDATE pages SET updated_at=NOW() WHERE id=?")->execute([$pageId]);   // a post on an event we had: cache only
     }
     return $out;
 }

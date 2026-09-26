@@ -27,10 +27,10 @@ const REPO_CACHE_TTL  = 600;
 
 function repo_data_version(PDO $pdo): string {
     try {
-        $a = $pdo->query("SELECT COUNT(*) c, MAX(updated_at) u FROM pages WHERE status='published'")->fetch(PDO::FETCH_ASSOC);
+        $a = $pdo->query("SELECT COUNT(*) c, MAX(updated_at) u, MAX(content_updated_at) cu FROM pages WHERE status='published'")->fetch(PDO::FETCH_ASSOC);
         $b = $pdo->query("SELECT (SELECT MAX(id) FROM events) e, (SELECT MAX(id) FROM sources) s, (SELECT MAX(id) FROM faqs) f, (SELECT COUNT(*) FROM drama_tags) t,
                                  (SELECT MAX(id) FROM creator_stats) c")->fetch(PDO::FETCH_ASSOC);   // c: a new daily reading shows on the page
-        return md5(json_encode([$a, $b]));
+        return md5(json_encode([$a, $b, filemtime(__FILE__)]));   // this file too: a change to what the loaders build rebuilds the cache
     } catch (Throwable $e) { return 'v-' . (int)(time() / REPO_CACHE_TTL); }
 }
 
@@ -95,12 +95,12 @@ function repo_load_all(): array {
 
     // dramas
     $rows = $pdo->query("SELECT p.id page_id, p.slug, p.h1, p.title_tag, p.meta_desc, p.summary, p.cover, p.featured_img,
-                                p.published_at, p.updated_at, p.robots, p.cover_credit, p.cover_credit_url,
+                                p.published_at, p.updated_at, COALESCE(GREATEST(COALESCE(p.content_updated_at, p.published_at), p.published_at), p.published_at, p.updated_at) content_at, p.robots, p.cover_credit, p.cover_credit_url,
                                 d.id drama_id, d.title, d.lifecycle, d.background, d.people_json, d.why_matters, d.whats_next, d.both_sides, d.verdict,
-                                COALESCE(d.lane, 'drama') lane
+                                COALESCE(d.lane, 'drama') lane, (SELECT MAX(e.event_date) FROM events e WHERE e.drama_id=d.id AND e.video_only=0 AND e.event_date <= UTC_DATE()) last_event
                          FROM pages p JOIN dramas d ON d.page_id = p.id
                          WHERE p.type='drama' AND p.status='published'
-                         ORDER BY p.updated_at DESC")->fetchAll();
+                         ORDER BY content_at DESC")->fetchAll();
     $tracked = cs_numbers($pdo);   // our own numbers, all stories in one query
     foreach ($rows as $r) {
         $did = (int)$r['drama_id'];
@@ -185,17 +185,18 @@ function repo_load_all(): array {
         // 'developing' (option A, 2026-08-22): a story published from 3-5 dated
         // events while it is still unfolding. The badge is the promise that we
         // are not passing a thin page off as a finished one.
-        $lifecycleMap = ['ongoing' => 'Ongoing', 'resolved' => 'Resolved', 'dormant' => 'Dormant', 'developing' => 'Developing'];
+        $status = story_status($r['lifecycle'], $r['last_event']);
         $data['dramas'][$r['slug']] = [
             'slug'          => $r['slug'],
             'title'         => $r['title'],
             'title_tag'     => $r['title_tag'],
             'eyebrow'       => 'Creator Drama',
-            'status'        => $lifecycleMap[$r['lifecycle']] ?? 'Ongoing',
+            'status'        => $status['short'],
+            'status_long'   => $status['long'],
             'published_iso' => date('c', strtotime($r['published_at'])),
             'published'     => date('M j, Y', strtotime($r['published_at'])),
-            'updated_iso'   => date('c', strtotime($r['updated_at'])),
-            'updated'       => date('M j, Y', strtotime($r['updated_at'])),
+            'updated_iso'   => date('c', strtotime($r['content_at'])),
+            'updated'       => date('M j, Y', strtotime($r['content_at'])),
             'cover'         => $r['cover'] ?: '/assets/covers/default.svg',
             'featured_img'  => $r['featured_img'] ?? null,
             'cover_credit'  => $r['cover_credit'] ?? null,
@@ -229,10 +230,10 @@ function repo_load_all(): array {
         $publishedSlugs[strtolower($row['slug'])] = $row['path'];
     }
     $rows = $pdo->query("SELECT p.id page_id, p.slug, p.h1, p.title_tag, p.meta_desc, p.summary, p.cover, p.featured_img, p.cover_credit, p.cover_credit_url,
-                                p.published_at, p.updated_at, p.robots, t.*
+                                p.published_at, p.updated_at, COALESCE(GREATEST(COALESCE(p.content_updated_at, p.published_at), p.published_at), p.published_at, p.updated_at) content_at, p.robots, t.*
                          FROM pages p JOIN terms t ON t.page_id = p.id
                          WHERE p.type='term' AND p.status='published'
-                         ORDER BY p.updated_at DESC")->fetchAll();
+                         ORDER BY content_at DESC")->fetchAll();
     // index published terms by lane for systematic hub-and-spoke cross-linking.
     // index-only: never link a pulled (noindex) term as a sibling.
     $byLane = [];
@@ -328,8 +329,8 @@ function repo_term_shape(array $r, array $publishedSlugs = []): array {
         'data'          => !empty($r['data_json']) ? json_decode($r['data_json'], true) : null,
         'published_iso' => date('c', strtotime($r['published_at'])),
         'published'     => date('M j, Y', strtotime($r['published_at'])),
-        'updated_iso'   => date('c', strtotime($r['updated_at'])),
-        'updated'       => date('M j, Y', strtotime($r['updated_at'])),
+        'updated_iso'   => date('c', strtotime($r['content_at'])),
+        'updated'       => date('M j, Y', strtotime($r['content_at'])),
         'robots'        => $r['robots'],
         'page_id'       => (int)$r['page_id'],
     ];
@@ -339,7 +340,7 @@ function repo_term_shape(array $r, array $publishedSlugs = []): array {
 function repo_load_term_any(string $slug): ?array {
     $pdo = db();
     $st = $pdo->prepare("SELECT p.id page_id, p.slug, p.h1, p.title_tag, p.meta_desc, p.summary, p.cover,
-                                p.published_at, p.updated_at, p.robots, p.status, t.*
+                                p.published_at, p.updated_at, COALESCE(GREATEST(COALESCE(p.content_updated_at, p.published_at), p.published_at), p.published_at, p.updated_at) content_at, p.robots, p.status, t.*
                          FROM pages p JOIN terms t ON t.page_id = p.id
                          WHERE p.slug = ? AND p.type='term' LIMIT 1");
     $st->execute([$slug]);
@@ -354,7 +355,7 @@ function repo_load_term_any(string $slug): ?array {
     require_once __DIR__ . '/lanes.php';
     $lane = $r['lane'] ?? 'slang';
     $sib = $pdo->prepare("SELECT t.term, p.slug, t.short_def FROM pages p JOIN terms t ON t.page_id=p.id
-                          WHERE p.type='term' AND p.status='published' AND t.lane=? AND p.slug<>? ORDER BY p.updated_at DESC LIMIT 6");
+                          WHERE p.type='term' AND p.status='published' AND t.lane=? AND p.slug<>? ORDER BY COALESCE(p.content_updated_at, p.published_at) DESC LIMIT 6");
     $sib->execute([$lane, $slug]);
     $shape['siblings'] = repo_pick_siblings($sib->fetchAll(), $slug, lanes()[$lane]['prefix'] ?? '/slang/');
     return $shape;
@@ -364,8 +365,8 @@ function repo_load_term_any(string $slug): ?array {
 function repo_load_drama_any(string $slug): ?array {
     $pdo = db();
     $st = $pdo->prepare("SELECT p.id page_id, p.slug, p.h1, p.title_tag, p.meta_desc, p.summary, p.cover,
-                                p.published_at, p.updated_at, p.robots, p.cover_credit, p.cover_credit_url, p.status,
-                                d.id drama_id, d.title, d.lifecycle, d.background, d.why_matters, d.whats_next, d.both_sides, d.verdict
+                                p.published_at, p.updated_at, COALESCE(GREATEST(COALESCE(p.content_updated_at, p.published_at), p.published_at), p.published_at, p.updated_at) content_at, p.robots, p.cover_credit, p.cover_credit_url, p.status,
+                                d.id drama_id, d.title, d.lifecycle, d.background, d.why_matters, d.whats_next, d.both_sides, d.verdict, (SELECT MAX(e.event_date) FROM events e WHERE e.drama_id=d.id AND e.video_only=0 AND e.event_date <= UTC_DATE()) last_event
                          FROM pages p JOIN dramas d ON d.page_id = p.id
                          WHERE p.slug = ? LIMIT 1");
     $st->execute([$slug]);
@@ -407,12 +408,12 @@ function repo_load_drama_any(string $slug): ?array {
     $sq->execute([$did]);
     foreach ($sq->fetchAll() as $s) $sources[] = ['id'=>(int)$s['id'],'url'=>$s['url'] ?? null,'text'=>trim(($s['publisher'] ?? '').', '.($s['title'] ?? '').', '.date('M j, Y', strtotime($s['retrieved_on'] ?? 'now')).'.')];
 
-    $lifecycleMap = ['ongoing'=>'Ongoing','resolved'=>'Resolved','dormant'=>'Dormant'];
+    $status = story_status($r['lifecycle'], $r['last_event']);
     return [
         'slug'=>$r['slug'], 'title'=>$r['title'], 'title_tag'=>$r['title_tag'], 'eyebrow'=>'Creator Drama',
-        'status'=>$lifecycleMap[$r['lifecycle']] ?? 'Ongoing',
+        'status'=>$status['short'], 'status_long'=>$status['long'],
         'published_iso'=>date('c', strtotime($r['published_at'])), 'published'=>date('M j, Y', strtotime($r['published_at'])),
-        'updated_iso'=>date('c', strtotime($r['updated_at'])), 'updated'=>date('M j, Y', strtotime($r['updated_at'])),
+        'updated_iso'=>date('c', strtotime($r['content_at'])), 'updated'=>date('M j, Y', strtotime($r['content_at'])),
         'cover'=>$r['cover'] ?: '/assets/covers/default.svg',
         'summary'=>$r['summary'] ?? '', 'meta_desc'=>$r['meta_desc'] ?? '',
         'background'=>json_decode($r['background'] ?? '[]', true) ?: [],
@@ -444,7 +445,7 @@ function repo_rail(int $excludePageId = 0): array {
     $st = $pdo->prepare("SELECT p.id, p.slug, p.h1, p.summary, p.featured_img, p.cover, COALESCE(d.lane,'drama') lane
                          FROM pages p JOIN dramas d ON d.page_id=p.id
                          WHERE p.type='drama' AND p.status='published' AND p.robots='index' AND p.id != ?
-                         ORDER BY p.updated_at DESC LIMIT 2");
+                         ORDER BY COALESCE(p.content_updated_at, p.published_at) DESC LIMIT 2");
     $st->execute([$excludePageId]);
     foreach ($st->fetchAll() as $r) {
         $dramas[] = ['url' => timeline_url($r['slug'], $r['lane'] ?? 'drama'), 'term' => $r['h1'],
@@ -463,10 +464,31 @@ function repo_rail(int $excludePageId = 0): array {
     return ['terms' => $terms, 'dramas' => $dramas, 'cats' => $cats];
 }
 
+const STORY_QUIET_DAYS = 30;   // owner 2026-09-26: "Developing" only while something new happened in the last 30 days
+
+/**
+ * A story's status for readers: the lifecycle word while it moves, "No new developments" once its
+ * newest event is STORY_QUIET_DAYS old (an outside site check on 2026-09-26: 158+ pages still said
+ * "Developing" long after their last event). ['short' => cards, 'long' => the story page badge].
+ */
+function story_status(?string $lifecycle, ?string $lastEvent): array {
+    $word = ['ongoing' => 'Ongoing', 'resolved' => 'Resolved', 'dormant' => 'Dormant', 'developing' => 'Developing'][(string)$lifecycle] ?? 'Ongoing';
+    if ($word === 'Resolved' || !$lastEvent) return ['short' => $word, 'long' => $word];
+    // 399 events carry only a year ("2023-00-00") and 428 only a month: such a date counts until the
+    // end of its year or month, and the label names the year or month
+    [$y, $m, $d] = array_map('intval', array_pad(explode('-', substr($lastEvent, 0, 10)), 3, '0'));
+    if ($y < 1900) return ['short' => $word, 'long' => $word];
+    $end = $m === 0 ? mktime(23, 59, 59, 12, 31, $y) : ($d === 0 ? mktime(23, 59, 59, $m + 1, 0, $y) : mktime(23, 59, 59, $m, $d, $y));
+    if ($end > time() - STORY_QUIET_DAYS * 86400) return ['short' => $word, 'long' => $word];
+    $since = $m === 0 ? (string)$y : date($d === 0 ? 'F Y' : ($y === (int)gmdate('Y') ? 'M j' : 'M j, Y'), mktime(0, 0, 0, $m, max(1, $d), $y));
+    return ['short' => 'No new developments', 'long' => "No new developments since {$since}"];
+}
+
 function repo_ticker(): array {
     $pdo = db();
     $d = $pdo->query("SELECT COUNT(*) FROM pages WHERE type='drama' AND status='published'")->fetchColumn();
     $t = $pdo->query("SELECT COUNT(*) FROM pages WHERE type='term' AND status='published'")->fetchColumn();
-    $u = $pdo->query("SELECT MAX(updated_at) FROM pages WHERE status='published'")->fetchColumn();
+    // the last REAL update on the site (a new page or a new dated event), not the last maintenance touch
+    $u = $pdo->query("SELECT MAX(COALESCE(content_updated_at, published_at)) FROM pages WHERE status='published'")->fetchColumn();
     return ['dramas' => (int)$d, 'creators' => (int)$t, 'terms' => (int)$t, 'updated' => $u ? date('M j, H:i', strtotime($u)) : date('M j, H:i')];
 }

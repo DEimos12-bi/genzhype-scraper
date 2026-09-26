@@ -170,6 +170,7 @@ function drama_deepen_page(PDO $pdo, int $pageId, bool $apply): array {
         $added++;
     }
     if (!$added) return ['ok' => false, 'why' => 'no event survived validation'];
+    page_content_touched($pdo, $pageId);   // new dated events: the page's public date moves (db.php)
     // 2026-09-24 new events go where their dates put them, not at the end of the timeline
     try { require_once __DIR__ . '/timeline_order.php'; events_resort($pdo, $dramaId); } catch (Throwable $e) { error_log('deepen resort: ' . $e->getMessage()); }
     // 2026-09-24 the summary, status and status FAQ follow the new events (this run

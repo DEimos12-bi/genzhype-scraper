@@ -17,7 +17,7 @@ function llms_build(): string {
         'Slang'  => "SELECT p.path, t.term n, t.short_def s FROM pages p JOIN terms t ON t.page_id=p.id WHERE p.status='published' AND p.robots='index' AND t.lane='slang' ORDER BY t.term",
         'Memes'  => "SELECT p.path, t.term n, t.short_def s FROM pages p JOIN terms t ON t.page_id=p.id WHERE p.status='published' AND p.robots='index' AND t.lane='meme' ORDER BY t.term",
         'Gaming' => "SELECT p.path, t.term n, t.short_def s FROM pages p JOIN terms t ON t.page_id=p.id WHERE p.status='published' AND p.robots='index' AND t.lane='gaming' ORDER BY t.term",
-        'Drama'  => "SELECT p.path, p.h1 n, p.summary s FROM pages p WHERE p.type='drama' AND p.status='published' AND p.robots='index' ORDER BY p.updated_at DESC",
+        'Drama'  => "SELECT p.path, p.h1 n, p.summary s FROM pages p WHERE p.type='drama' AND p.status='published' AND p.robots='index' ORDER BY COALESCE(p.content_updated_at, p.published_at) DESC",
     ];
     foreach ($sections as $title => $sql) {
         $rows = $pdo->query($sql)->fetchAll();
@@ -65,9 +65,12 @@ function news_sitemap_build(): string {
 function sitemap_build(): string {
     global $CONFIG;
     $pdo = db();
-    $rows = $pdo->query("SELECT path, updated_at, h1, featured_img, cover FROM pages
+    // lastmod = the last REAL update (a new dated event), never a maintenance touch: Google trusts a
+    // sitemap's dates only while they stay accurate (site check, 2026-09-26: 136 pages "changed" on Aug 29)
+    $rows = $pdo->query("SELECT path, COALESCE(GREATEST(COALESCE(content_updated_at, published_at), published_at), published_at, updated_at) mod_at,
+                                h1, featured_img, cover FROM pages
                          WHERE status='published' AND robots='index'
-                         ORDER BY updated_at DESC")->fetchAll();
+                         ORDER BY mod_at DESC")->fetchAll();
     $base = rtrim($CONFIG['base_url'], '/');
     $xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n";
     $xml .= "<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\" xmlns:image=\"http://www.google.com/schemas/sitemap-image/1.1\">\n";
@@ -86,7 +89,7 @@ function sitemap_build(): string {
     }
     foreach ($rows as $r) {
         $loc = htmlspecialchars($base . $r['path'], ENT_XML1);
-        $mod = date('c', strtotime($r['updated_at']));
+        $mod = date('c', strtotime($r['mod_at']));
         // image-sitemap entry (Google image SEO): the page's featured image, raster only
         $img = $r['featured_img'] ?: ($r['cover'] ?? '');
         if ($img && !str_ends_with($img, '.svg')) {
