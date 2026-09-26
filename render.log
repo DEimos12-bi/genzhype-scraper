@@ -1,0 +1,410 @@
+2026-09-26 19:14:14,580 INFO caption font: /usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf
+2026-09-26 19:14:14,581 INFO job feed from repo branch (generated 2026-09-26T19:10:31+00:00)
+2026-09-26 19:14:14,581 INFO job from static feed (generated 2026-09-26T19:10:31+00:00)
+2026-09-26 19:14:14,581 INFO processing page_id=704 slug=asmongold-personal-life-drama-girlfriend-clean-house-and-gaming-controversy
+2026-09-26 19:14:14,581 INFO STYLE slowburn: lead=footage cuts~2.2s xfade=0.25 zoom=0.10 punch=1.10 bgm_1 evidence_cap=2 footage_consec=6
+2026-09-26 19:14:14,581 INFO voice: en-US-AvaMultilingualNeural
+2026-09-26 19:14:14,581 INFO STAGE: visuals
+2026-09-26 19:14:14,582 INFO PROVENANCE: 4 clip(s) were embedded by reporters in this story's own articles; the footage gate cannot veto those
+2026-09-26 19:14:14,582 INFO story clips available: 6 (tiktok)
+2026-09-26 19:14:14,582 INFO person photos from feed (site-resolved): Asmongold x2
+2026-09-26 19:14:14,762 INFO UPSIZED: https://commons.wikimedia.org/wiki/Special:FilePath/Asmongold_in_2022.jpg?width=1600
+2026-09-26 19:14:14,779 INFO CONTAIN MODE: 416x555 needs 3.5x upscale to cover; rendering whole on a blurred fill instead
+2026-09-26 19:14:14,817 INFO face detected in vis-704-0: 185x248 at (106,70)
+2026-09-26 19:14:14,838 INFO CONTAIN MODE: 1280x720 needs 2.7x upscale to cover; rendering whole on a blurred fill instead
+2026-09-26 19:14:14,857 INFO face detected in vis-704-1: 77x104 at (215,533)
+2026-09-26 19:14:16,343 INFO vision rotation: still-relevance served by gemini-3.5-flash-lite
+2026-09-26 19:14:16,376 INFO CONTAIN MODE: 1600x900 needs 2.1x upscale to cover; rendering whole on a blurred fill instead
+2026-09-26 19:14:16,394 INFO face detected in vis-704-2: 263x326 at (562,344)
+2026-09-26 19:14:17,428 INFO vision rotation: still-relevance served by gemini-3.5-flash-lite
+2026-09-26 19:14:17,491 INFO CONTAIN MODE: 1280x720 needs 2.7x upscale to cover; rendering whole on a blurred fill instead
+2026-09-26 19:14:17,517 INFO face detected in vis-704-3: 204x301 at (263,51)
+2026-09-26 19:14:19,163 INFO vision rotation: still-relevance served by gemini-3.5-flash-lite
+2026-09-26 19:14:19,204 INFO CONTAIN MODE: 1200x770 needs 2.5x upscale to cover; rendering whole on a blurred fill instead
+2026-09-26 19:14:19,220 INFO face detected in vis-704-4: 132x173 at (548,322)
+2026-09-26 19:14:20,488 INFO vision rotation: still-relevance served by gemini-3.5-flash-lite
+2026-09-26 19:14:20,523 INFO CONTAIN MODE: 1920x1080 needs 1.8x upscale to cover; rendering whole on a blurred fill instead
+2026-09-26 19:14:20,539 INFO face detected in vis-704-5: 624x784 at (151,27)
+2026-09-26 19:14:21,972 INFO vision rotation: still-relevance served by gemini-3.5-flash-lite
+2026-09-26 19:14:22,009 INFO text-heavy visual (heuristic) -> contain mode (no crop/zoom): https://genzhype.com/assets/covers/asmongold-personal-life-drama-girlfriend-clean-house-and-gaming-controversy-hero.webp
+2026-09-26 19:14:22,025 INFO face detected in vis-704-6: 313x403 at (463,39)
+2026-09-26 19:14:22,570 INFO visual pool: 7 distinct of 7 candidates (2 from people, 1 name(s) mapped: {'asmongold': 2})
+2026-09-26 19:14:22,570 INFO SUBJECT ON SCREEN: headline names ['Asmongold']; verified picture(s) for ['Asmongold']
+2026-09-26 19:14:22,570 INFO STAGE: receipts
+2026-09-26 19:14:22,710 INFO receipts: 11 card(s) downloaded of 24 entries (event entries carry no card by design)
+2026-09-26 19:14:22,710 INFO STAGE: screenshots
+2026-09-26 19:14:23,161 INFO Readability injected from vendor/Readability.js
+2026-09-26 19:14:29,113 INFO Readability column 16..744 (16 nodes) on https://www.dexerto.com/twitch/asmongold-fans-say-his-g
+2026-09-26 19:14:29,122 INFO crop r30c: 760x950 at 0,158 (col 728, lead-img True) https://www.dexerto.com/twitch/asmongold-fans-say-his-girlfr
+2026-09-26 19:14:30,740 INFO vision rotation: screenshot-clean served by gemini-3.5-flash-lite
+2026-09-26 19:14:30,741 INFO REAL source screenshot: https://www.dexerto.com/twitch/asmongold-fans-say-his-girlfriend-is-fixing-him-after-streamer-spotte
+2026-09-26 19:14:38,111 INFO Readability column 0..430 (5 nodes) on https://timesofindia.indiatimes.com/world/us-streamers/
+2026-09-26 19:14:38,142 INFO crop r30c: 454x568 at 0,451 (col 430, lead-img False) https://timesofindia.indiatimes.com/world/us-streamers/asmon
+2026-09-26 19:14:40,020 INFO vision rotation: screenshot-clean served by gemini-3.5-flash-lite
+2026-09-26 19:14:40,021 INFO REAL source screenshot: https://timesofindia.indiatimes.com/world/us-streamers/asmongold-reveals-girlfriend-kaise-wants-him-
+2026-09-26 19:14:48,712 INFO screenshot: no headline block found; skipping (no raw-page fallback): https://knowyourmeme.com/editorials/guides/why-are-people-talking-about-asmongold-and-kais
+2026-09-26 19:14:50,628 INFO screenshot: DEAD PAGE (http 403, title 'Forbidden') — the source itself is gone, not a detection failure: https://www.sportskeeda.com/us/streamers/news-what-asmongold-say-stellar-blade-b
+2026-09-26 19:14:50,699 INFO screenshot: 1 page(s) showed no headline at 760px; re-shooting at desktop 1440px
+2026-09-26 19:14:51,005 INFO Readability injected from vendor/Readability.js
+2026-09-26 19:14:59,483 INFO Readability column 120..1004 (27 nodes) on https://knowyourmeme.com/editorials/guides/why-are-peop
+2026-09-26 19:14:59,521 INFO crop r30c: 1250x1383 at 96,695 (col 1162, lead-img True) https://knowyourmeme.com/editorials/guides/why-are-people-ta
+2026-09-26 19:15:01,942 INFO vision rotation: screenshot-clean served by gemini-3.5-flash-lite
+2026-09-26 19:15:01,943 INFO REAL source screenshot: https://knowyourmeme.com/editorials/guides/why-are-people-talking-about-asmongold-and-kaises-relatio
+2026-09-26 19:15:02,049 INFO event receipts: 3 clean screenshot(s), 4 og report photo(s); the rest fall back to subject photos
+2026-09-26 19:15:02,049 INFO STAGE: tts
+2026-09-26 19:15:03,846 INFO expressive TTS: segment 1/2 rate=+18% pitch=+2Hz 5.28s 17 cue(s)
+2026-09-26 19:15:04,449 INFO expressive TTS: segment 2/2 rate=+5% pitch=- 22.22s 57 cue(s)
+2026-09-26 19:15:04,777 INFO expressive TTS ok: 2 segment(s), 27.55s audio, 74 word timings
+2026-09-26 19:15:04,777 INFO STAGE: compose
+2026-09-26 19:15:04,778 INFO bgm: SIGNATURE bed bgm_2.mp3 (same on every video, by design)
+2026-09-26 19:15:04,794 INFO EDL: 9 shot(s) from 9 directed (words=74)
+2026-09-26 19:15:04,794 INFO VARIETY tuned for pool=7 scenes=9 -> window=6 max_share=0.33
+2026-09-26 19:15:06,246 INFO PICTURE IN PROOF: shot-704-0.png shows vis-704-2 (24 matching points); one picture to the use cap
+2026-09-26 19:15:06,488 INFO PICTURE IN PROOF: shot-704-2.png shows vis-704-4 (261 matching points); one picture to the use cap
+2026-09-26 19:15:06,488 INFO footage: cookies active
+2026-09-26 19:15:06,488 INFO CLIP staged by the server: b115322dba58bfed8b8cbbc52e4fb036f54ce8ae.mp4 (https://www.tiktok.com/@s1llypancakes_/video/766512270525922)
+2026-09-26 19:15:11,718 INFO face detected in clipfr-0.jpg: 115x137 at (291,424)
+2026-09-26 19:15:11,844 INFO face detected in clipfr-1.jpg: 113x146 at (346,965)
+2026-09-26 19:15:11,940 INFO face detected in clipfr-2.jpg: 345x467 at (373,796)
+2026-09-26 19:15:11,940 INFO clip frame skipped: a face is cut by the frame's own edge (clipfr-2.jpg)
+2026-09-26 19:15:11,950 INFO clip frame too similar to one already kept; skipped
+2026-09-26 19:15:11,972 INFO face detected in clipfr-4.jpg: 363x513 at (549,1180)
+2026-09-26 19:15:12,057 INFO clip frame too similar to one already kept; skipped
+2026-09-26 19:15:12,067 INFO clip frame too similar to one already kept; skipped
+2026-09-26 19:15:12,077 INFO clip frame too similar to one already kept; skipped
+2026-09-26 19:15:12,099 INFO face detected in clipfr-8.jpg: 452x603 at (16,796)
+2026-09-26 19:15:12,099 INFO clip frame skipped: a face is cut by the frame's own edge (clipfr-8.jpg)
+2026-09-26 19:15:12,121 INFO face detected in clipfr-9.jpg: 449x603 at (17,797)
+2026-09-26 19:15:12,121 INFO clip frame skipped: a face is cut by the frame's own edge (clipfr-9.jpg)
+2026-09-26 19:15:12,132 INFO clip frame too similar to one already kept; skipped
+2026-09-26 19:15:12,143 INFO CLIP FRAMES: +3 stills harvested from the money-moment clip (pool 7 -> 10)
+2026-09-26 19:15:12,143 INFO HOOK = OPENING CLIP: b115322dba58bfed8b8cbbc52e4fb036f54ce8ae.mp4 (t=0s)
+2026-09-26 19:15:12,146 INFO person shot -> Asmongold's photo 1/2 (vis-704-0)
+2026-09-26 19:15:12,146 INFO CLIP FIT: no clip's title matches scene 3's words ('a haircut. After decades of living among roaches'); the planned still stands
+2026-09-26 19:15:12,217 INFO person shot -> Asmongold's photo 2/2 (vis-704-1)
+2026-09-26 19:15:29,559 INFO FOOTAGE unavailable for -3nWMlxf4lI; thumbnail fallback
+2026-09-26 19:15:29,559 INFO CLIP FIT: no clip's title matches scene 8's words ('protagonist looked too young. Would you let a'); the planned still stands
+2026-09-26 19:15:29,559 INFO person 'Asmongold': all 2 photo(s) inside the no-repeat window; LRU pool pick instead
+2026-09-26 19:15:29,602 INFO SPEND THE POOL: 1 repeat(s) swapped for unused images (8 distinct stills now on screen)
+2026-09-26 19:15:29,603 INFO PACING: 9 scenes -> 10 beats (target 2.2s/image, avg 2.80s)
+2026-09-26 19:15:29,603 INFO RENDER REPORT: {"style": "slowburn", "ck_mode": true, "cookie_bytes": 1611, "story_vids": 1, "scenes": 10, "runtime_s": 28.0, "footage_scenes": 1, "gap_fill_scenes": 0, "opportunistic_footage": 1, "still_photo_scenes": 4, "card_scenes": 5, "frozen_stills": 0, "footage_fetches": 1, "seq": "fcsccccsss"}
+2026-09-26 19:15:29,603 INFO CLIP verify disabled (VIDEO_CLIP_VERIFY=0)
+2026-09-26 19:15:29,603 INFO scene plan (v4 EDL): 10 scene(s) (5 receipt, 1 b-roll), pool=10
+2026-09-26 19:15:29,603 INFO   scene 1: 0.00-1.69s type=broll(FOOTAGE) motion=punch_build sfx=none music=bed visual=b115322dba58bfed8b8cbbc52e4fb036f54ce8ae.mp4
+2026-09-26 19:15:29,603 INFO   scene 2: 1.69-4.16s type=receipt motion=contain sfx=pop music=bed visual=shot-704-0.png
+2026-09-26 19:15:29,603 INFO   scene 3: 4.16-7.52s type=photo motion=pan_left sfx=none music=bed visual=vis-704-0
+2026-09-26 19:15:29,603 INFO   scene 4: 7.52-10.13s type=receipt motion=contain sfx=pop music=bed visual=receipt-704-11.png
+2026-09-26 19:15:29,603 INFO   scene 5: 10.13-14.46s type=receipt motion=contain sfx=riser music=silence visual=receipt-704-9.png
+2026-09-26 19:15:29,603 INFO   scene 6: 14.46-16.84s type=receipt motion=contain sfx=impact music=duck visual=shot-704-1.png
+2026-09-26 19:15:29,603 INFO   scene 7: 16.84-19.23s type=receipt motion=contain sfx=none music=bed visual=receipt-704-12.png
+2026-09-26 19:15:29,603 INFO   scene 8: 19.23-21.73s type=photo motion=zoom_out sfx=none music=bed visual=vis-704-1
+2026-09-26 19:15:29,603 INFO   scene 9: 21.73-24.87s type=photo motion=punch_build sfx=whoosh music=bed visual=vis-704-3
+2026-09-26 19:15:29,603 INFO   scene 10: 24.87-28.00s type=photo motion=zoom_out sfx=None music=bed visual=vis-704-4
+2026-09-26 19:15:29,603 INFO VARIETY: 9 distinct stills, top visual carries 1/9 (11%)
+2026-09-26 19:15:29,603 INFO SELFCHECK: repeats=0 short_scenes=none caption_cov=100% (window=3, assets=29)
+2026-09-26 19:15:32,918 INFO transition 1/3: whip at 21.73s (beat change)
+2026-09-26 19:15:35,941 INFO TEXT AVOID: burned-in text on 3 of 10 scene(s) (3.0s)
+2026-09-26 19:15:35,948 INFO TEXT AVOID: hook moved off burned-in text, top y 652 -> 930
+2026-09-26 19:15:36,924 INFO CAPTION PLACEMENT: 22 caption event(s) by position: {"card": 13, "home": 3, "top": 6}
+2026-09-26 19:15:37,749 INFO bgm: SIGNATURE bed bgm_2.mp3 (same on every video, by design)
+2026-09-26 19:15:38,122 INFO sound: SWELL +5dB over 4.3s into the reveal at 14.5s, decaying 1.8s
+2026-09-26 19:15:38,141 INFO sound: bed bgm_2.mp3 over 3 interval(s), 1 swell(s)
+2026-09-26 19:15:38,672 INFO sound: 5 SFX placed
+2026-09-26 19:15:38,704 INFO sound: final -17.5 dBFS avg / -1.5 dBFS peak
+2026-09-26 19:19:01,549 INFO COMPOSE TIMING: {'prepare_s': 9.2, 'draw_encode_s': 202.7, 'remux_s': 0.1, 'scenes': 10, 'seconds': 28.0}
+2026-09-26 19:19:01,590 INFO STAGE: judge
+2026-09-26 19:19:05,499 INFO vision rotation: JUDGE served by gemini-3.5-flash-lite
+2026-09-26 19:19:05,500 INFO vision judge: pass=True weird=[] mismatches=[] artifact_misses=[] scores={'readability': 10, 'framing': 10, 'variety': 9, 'edit_variety': 9, 'completeness': 10} issues=[]
+2026-09-26 19:19:05,500 INFO STAGE: filmstrip
+2026-09-26 19:19:11,343 INFO caption font: /usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf
+2026-09-26 19:19:11,508 INFO filmstrip built: build/sheet-704.jpg
+2026-09-26 19:19:11,508 INFO STAGE: post
+2026-09-26 19:19:11,531 INFO delivering video-704.mp4 (28.1 MB as base64)
+2026-09-26 19:19:15,298 WARNING post attempt 1/2 failed (requests HTTP 503 {"error":"paused"}); the drop branch is the backstop, so this does not linger
+2026-09-26 19:19:23,259 WARNING post attempt 2/2 failed (requests HTTP 503 {"error":"paused"}); the drop branch is the backstop, so this does not linger
+2026-09-26 19:19:28,259 WARNING HTTP delivery failed; artifact staged for the video-drop branch (drop-meta-704.json)
+2026-09-26 19:19:28,261 INFO STAGE: done
+2026-09-26 19:19:28,261 INFO job feed from repo branch (generated 2026-09-26T19:10:31+00:00)
+2026-09-26 19:19:28,261 INFO job from static feed (generated 2026-09-26T19:10:31+00:00)
+2026-09-26 19:19:28,261 INFO processing page_id=637 slug=kai-cenat-s-la-peace-meme
+2026-09-26 19:19:28,262 INFO STYLE rapid: lead=receipts cuts~1.0s xfade=0.00 zoom=0.20 punch=1.22 bgm_2 evidence_cap=3 footage_consec=2
+2026-09-26 19:19:28,262 INFO voice: en-US-BrianMultilingualNeural
+2026-09-26 19:19:28,262 INFO STAGE: visuals
+2026-09-26 19:19:28,262 INFO PROVENANCE: 8 clip(s) were embedded by reporters in this story's own articles; the footage gate cannot veto those
+2026-09-26 19:19:28,262 INFO story clips available: 8 (tiktok)
+2026-09-26 19:19:28,262 INFO person photos from feed (site-resolved): Kai Cenat x1
+2026-09-26 19:19:28,296 INFO face detected in vis-637-0: 280x357 at (419,91)
+2026-09-26 19:19:28,316 INFO CONTAIN MODE: 1280x720 needs 2.7x upscale to cover; rendering whole on a blurred fill instead
+2026-09-26 19:19:28,326 INFO face detected in vis-637-1: 153x197 at (730,148)
+2026-09-26 19:19:29,430 INFO vision rotation: still-relevance served by gemini-3.5-flash-lite
+2026-09-26 19:19:29,463 INFO CONTAIN MODE: 1600x1129 needs 1.7x upscale to cover; rendering whole on a blurred fill instead
+2026-09-26 19:19:29,481 INFO face detected in vis-637-2: 493x622 at (623,97)
+2026-09-26 19:19:30,552 INFO vision rotation: still-relevance served by gemini-3.5-flash-lite
+2026-09-26 19:19:30,584 INFO CONTAIN MODE: 1200x675 needs 2.8x upscale to cover; rendering whole on a blurred fill instead
+2026-09-26 19:19:30,597 INFO face detected in vis-637-3: 160x224 at (528,45)
+2026-09-26 19:19:31,580 INFO vision rotation: still-relevance served by gemini-3.5-flash-lite
+2026-09-26 19:19:31,595 INFO text-heavy visual (heuristic) -> contain mode (no crop/zoom): https://genzhype.com/assets/covers/kai-cenat-s-la-peace-meme.webp
+2026-09-26 19:19:31,611 INFO face detected in vis-637-4: 111x143 at (554,45)
+2026-09-26 19:19:33,163 INFO visual pool: 5 distinct of 5 candidates (1 from people, 1 name(s) mapped: {'kai cenat': 1})
+2026-09-26 19:19:33,163 INFO SUBJECT ON SCREEN: headline names ['Kai Cenat']; verified picture(s) for ['Kai Cenat']
+2026-09-26 19:19:33,164 INFO visual_i 0 ready (cover photo of the story)
+2026-09-26 19:19:33,164 INFO visual_i 2 ready (the actual moment (Aug 16 report photo): TikTok User @boughta Posts First Known )
+2026-09-26 19:19:33,164 INFO visual_i 3 ready (the actual moment (Aug 25 report photo): Kai Cenat Cosplays as La Peace Meme)
+2026-09-26 19:19:33,164 INFO STAGE: receipts
+2026-09-26 19:19:33,349 INFO receipts: 8 card(s) downloaded of 15 entries (event entries carry no card by design)
+2026-09-26 19:19:33,349 INFO STAGE: screenshots
+2026-09-26 19:19:33,662 INFO Readability injected from vendor/Readability.js
+2026-09-26 19:19:42,340 INFO screenshot: no headline block found; skipping (no raw-page fallback): https://knowyourmeme.com/memes/la-peace
+2026-09-26 19:19:50,303 INFO screenshot: no headline block found; skipping (no raw-page fallback): https://meme.com/memes/la-peace
+2026-09-26 19:19:55,764 INFO Readability column 12..748 (24 nodes) on https://win.gg/kai-cenat-recreates-la-peace-meme/
+2026-09-26 19:19:55,770 INFO crop r30c: 760x872 at 0,70 (col 736, lead-img True) https://win.gg/kai-cenat-recreates-la-peace-meme/
+2026-09-26 19:19:57,339 INFO vision rotation: screenshot-clean served by gemini-3.5-flash-lite
+2026-09-26 19:19:57,340 INFO REAL source screenshot: https://win.gg/kai-cenat-recreates-la-peace-meme/
+2026-09-26 19:20:02,880 INFO Readability column 20..740 (37 nodes) on https://popcreep.com/kai-cenat-la-peace-meme-meaning-an
+2026-09-26 19:20:02,886 INFO crop r30c: 760x950 at 0,71 (col 720, lead-img True) https://popcreep.com/kai-cenat-la-peace-meme-meaning-and-ori
+2026-09-26 19:20:04,433 INFO vision rotation: screenshot-clean served by gemini-3.5-flash-lite
+2026-09-26 19:20:04,434 INFO REAL source screenshot: https://popcreep.com/kai-cenat-la-peace-meme-meaning-and-origin/
+2026-09-26 19:20:04,511 INFO screenshot: 5 page(s) showed no headline at 760px; re-shooting at desktop 1440px
+2026-09-26 19:20:04,828 INFO Readability injected from vendor/Readability.js
+2026-09-26 19:20:13,561 INFO Readability column 196..944 (10 nodes) on https://knowyourmeme.com/memes/la-peace
+2026-09-26 19:20:13,581 INFO crop r30c: 796x995 at 172,671 (col 748, lead-img False) https://knowyourmeme.com/memes/la-peace
+2026-09-26 19:20:14,310 INFO SHOT BLANK-BAND: removed 198px empty band at y=684 (shot-637-0.png)
+2026-09-26 19:20:15,588 INFO vision rotation: screenshot-clean served by gemini-3.5-flash-lite
+2026-09-26 19:20:15,589 INFO SHOT AD-GATE: ad/merch-cluttered screenshot rejected (shot-637-0.png)
+2026-09-26 19:20:23,344 INFO screenshot: no headline block found; skipping (no raw-page fallback): https://meme.com/memes/la-peace
+2026-09-26 19:20:23,449 INFO event receipts: 2 clean screenshot(s), 3 og report photo(s); the rest fall back to subject photos
+2026-09-26 19:20:23,449 INFO STAGE: tts
+2026-09-26 19:20:25,371 INFO expressive TTS: segment 1/2 rate=+18% pitch=+2Hz 5.09s 15 cue(s)
+2026-09-26 19:20:29,950 INFO expressive TTS: segment 2/2 rate=+5% pitch=- 17.47s 53 cue(s)
+2026-09-26 19:20:30,163 INFO expressive TTS ok: 2 segment(s), 22.61s audio, 68 word timings
+2026-09-26 19:20:30,163 INFO STAGE: compose
+2026-09-26 19:20:30,163 INFO bgm: SIGNATURE bed bgm_2.mp3 (same on every video, by design)
+2026-09-26 19:20:30,163 INFO EDL: 12 shot(s) from 12 directed (words=68)
+2026-09-26 19:20:31,269 INFO PICTURE IN PROOF: shot-637-5.png shows vis-637-3 (60 matching points); one picture to the use cap
+2026-09-26 19:20:31,371 INFO CLIP staged by the server: 71efeab7a184bcb4b03d00480b5b8b202919b6b2.mp4 (https://www.tiktok.com/@boughta/video/7674476288685493535)
+2026-09-26 19:20:31,371 INFO PROVENANCE: beat 1 clip kept without a vision vote (embedded in this story's own coverage)
+2026-09-26 19:20:31,371 INFO TIMELINE ARTIFACT: beat 1 plays its own clip 71efeab7a184bcb4b03d00480b5b8b202919b6b2.mp4
+2026-09-26 19:20:31,371 INFO CLIP staged by the server: 71efeab7a184bcb4b03d00480b5b8b202919b6b2.mp4 (https://www.tiktok.com/@boughta/video/7674476288685493535)
+2026-09-26 19:20:36,352 INFO vision footage-relevance: gemini-flash-latest HTTP 503
+2026-09-26 19:21:16,377 INFO vision footage-relevance: gemma-4-31b-it failed (HTTPSConnectionPool(host='generativelanguage.googleapis.com', port=443): Read timed out. (read timeout=40))
+2026-09-26 19:21:17,236 INFO vision rotation: footage-relevance served by gemini-3.5-flash-lite
+2026-09-26 19:21:19,849 INFO clip frame too similar to one already kept; skipped
+2026-09-26 19:21:19,860 INFO clip frame too similar to one already kept; skipped
+2026-09-26 19:21:19,881 INFO face detected in clipfr-3.jpg: 128x180 at (88,231)
+2026-09-26 19:21:20,057 INFO face detected in clipfr-5.jpg: 101x132 at (789,219)
+2026-09-26 19:21:20,150 INFO face detected in clipfr-6.jpg: 102x133 at (60,201)
+2026-09-26 19:21:20,245 INFO clip frame too similar to one already kept; skipped
+2026-09-26 19:21:20,254 INFO clip frame too similar to one already kept; skipped
+2026-09-26 19:21:20,264 INFO clip frame too similar to one already kept; skipped
+2026-09-26 19:21:20,284 INFO face detected in clipfr-11.jpg: 151x206 at (93,214)
+2026-09-26 19:21:20,358 INFO CLIP FRAMES: +6 stills harvested from the money-moment clip (pool 5 -> 11)
+2026-09-26 19:21:20,358 INFO HOOK = OPENING CLIP: 71efeab7a184bcb4b03d00480b5b8b202919b6b2.mp4 (t=0s)
+2026-09-26 19:21:20,364 INFO receipt 0 -> og report photo (photo scene)
+2026-09-26 19:21:20,364 INFO CLIP FIT: no clip's title matches scene 2's words ("pronounced 'la peace' live on stream with IShowS"); the planned still stands
+2026-09-26 19:21:20,379 INFO receipt 1 -> og report photo (photo scene)
+2026-09-26 19:21:20,379 INFO CLIP FIT: no clip's title matches scene 3's words ('TikTok immediately ran with it,'); the planned still stands
+2026-09-26 19:21:22,584 INFO CLIP REFUSED (tiktok): ERROR: [TikTok] 7676215117058477342: Your IP address is blocked from accessing this post | https://www.tiktok.com/@idkmxnster/video/7676215117058477342
+2026-09-26 19:21:22,584 INFO TIMELINE ARTIFACT: clip unavailable for beat 5 (fetch failed); receipt fallback
+2026-09-26 19:21:22,614 INFO CLIP FIT: no clip's title matches scene 5's words ('and peaceful old men'); the planned still stands
+2026-09-26 19:21:22,637 INFO visual_i 0 -> real story image (vis-637-4)
+2026-09-26 19:21:22,643 INFO CLIP FIT: no clip's title matches scene 7's words ('Instead of dodging the joke,'); the planned still stands
+2026-09-26 19:21:22,643 INFO receipt 0 -> og report photo (photo scene)
+2026-09-26 19:21:22,644 INFO CLIP FIT: no clip's title matches scene 8's words ('Kai actually suited up and cosplayed'); the planned still stands
+2026-09-26 19:21:22,644 INFO CLIP staged by the server: 89a6f9206e47186a556ad2902eda4f1a10cf0009.mp4 (https://www.tiktok.com/@hirfyy/video/7675843304885390624)
+2026-09-26 19:21:22,644 INFO PROVENANCE: beat 9 clip kept without a vision vote (embedded in this story's own coverage)
+2026-09-26 19:21:22,644 INFO TIMELINE ARTIFACT: beat 9 plays its own clip 89a6f9206e47186a556ad2902eda4f1a10cf0009.mp4
+2026-09-26 19:21:23,018 INFO broll search 'smartphone scrolling dark close up': 15 candidate(s)
+2026-09-26 19:21:27,732 INFO vision re-rank 'smartphone scrolling dark close up': picked candidate 1 (rejected [2])
+2026-09-26 19:21:28,078 INFO broll shot query 'smartphone scrolling dark close up' -> 32.0s clip for 1.3s shot (pexels, vision-ranked)
+2026-09-26 19:21:28,078 INFO visual_i 2 -> real story image (vis-637-2)
+2026-09-26 19:21:28,078 INFO CLIP FIT: no clip's title matches scene 11's words ('about your worst brain fart,'); the planned still stands
+2026-09-26 19:21:28,078 INFO CLIP FIT: no clip's title matches scene 12's words ('or pretend it never happened?'); the planned still stands
+2026-09-26 19:21:28,078 INFO SPEND THE POOL: 1 repeat(s) swapped for unused images (8 distinct stills now on screen)
+2026-09-26 19:21:28,078 INFO PACING: 12 scenes -> 15 beats (target 1.0s/image, avg 1.54s)
+2026-09-26 19:21:28,078 INFO RENDER REPORT: {"style": "rapid", "ck_mode": true, "cookie_bytes": 1932, "story_vids": 0, "scenes": 15, "runtime_s": 23.1, "footage_scenes": 2, "gap_fill_scenes": 0, "opportunistic_footage": 2, "still_photo_scenes": 10, "card_scenes": 3, "frozen_stills": 0, "footage_fetches": 2, "seq": "fssssscsccsfsss"}
+2026-09-26 19:21:28,078 INFO CLIP verify disabled (VIDEO_CLIP_VERIFY=0)
+2026-09-26 19:21:28,078 INFO scene plan (v4 EDL): 15 scene(s) (2 receipt, 3 b-roll), pool=11
+2026-09-26 19:21:28,078 INFO   scene 1: 0.00-1.85s type=broll(FOOTAGE) motion=punch_build sfx=none music=bed visual=71efeab7a184bcb4b03d00480b5b8b202919b6b2.mp4
+2026-09-26 19:21:28,078 INFO   scene 2: 1.85-2.86s type=photo motion=punch_hit sfx=pop music=bed visual=receipt-og-637-0.jpg
+2026-09-26 19:21:28,078 INFO   scene 3: 2.86-3.86s type=photo motion=zoom_out sfx=None music=bed visual=vis-637-1
+2026-09-26 19:21:28,078 INFO   scene 4: 3.86-4.87s type=photo motion=zoom_in sfx=None music=bed visual=clipfr-0.jpg
+2026-09-26 19:21:28,078 INFO   scene 5: 4.87-5.94s type=photo motion=zoom_out sfx=none music=bed visual=receipt-og-637-1.jpg
+2026-09-26 19:21:28,078 INFO   scene 6: 5.94-7.00s type=photo motion=zoom_out sfx=None music=bed visual=vis-637-0
+2026-09-26 19:21:28,078 INFO   scene 7: 7.00-8.86s type=receipt motion=contain sfx=none music=bed visual=shot-637-5.png
+2026-09-26 19:21:28,078 INFO   scene 8: 8.86-9.91s type=photo motion=punch_build sfx=none music=bed visual=vis-637-0
+2026-09-26 19:21:28,078 INFO   scene 9: 9.91-11.86s type=receipt motion=contain sfx=pop music=bed visual=shot-637-6.png
+2026-09-26 19:21:28,078 INFO   scene 10: 11.86-13.65s type=photo motion=contain sfx=riser music=silence visual=vis-637-4
+2026-09-26 19:21:28,078 INFO   scene 11: 13.65-15.51s type=photo motion=punch_hit sfx=impact music=duck visual=clipfr-0.jpg
+2026-09-26 19:21:28,078 INFO   scene 12: 15.51-17.37s type=broll(FOOTAGE) motion=None sfx=none music=bed visual=89a6f9206e47186a556ad2902eda4f1a10cf0009.mp4
+2026-09-26 19:21:28,079 INFO   scene 13: 17.37-18.66s type=broll motion=pan_left sfx=none music=bed visual=broll-58059ffab56a491a2ea19efa12cda415.mp4
+2026-09-26 19:21:28,079 INFO   scene 14: 18.66-20.48s type=photo motion=punch_build sfx=none music=bed visual=vis-637-2
+2026-09-26 19:21:28,079 INFO   scene 15: 20.48-23.06s type=photo motion=zoom_out sfx=none music=bed visual=vis-637-3
+2026-09-26 19:21:28,079 INFO VARIETY: 10 distinct stills, top visual carries 2/12 (17%)
+2026-09-26 19:21:28,079 INFO SELFCHECK: repeats=0 short_scenes=none caption_cov=100% (window=3, assets=27)
+2026-09-26 19:21:28,079 WARNING SELFCHECK: 1 near-repeat(s) within the 3-scene window (small pool; each reappears with different motion) — non-fatal
+2026-09-26 19:21:28,684 INFO face detected in receipt-og-637-0.jpg: 153x197 at (730,148)
+[0;93m2026-09-26 19:21:28.825563485 [W:onnxruntime:Default, device_discovery.cc:146 GetPciBusId] Skipping pci_bus_id for PCI path at "/sys/devices/LNXSYSTM:00/LNXSYBUS:00/ACPI0004:00/MSFT1000:00/5620e0c7-8062-4dce-aeb7-520c7ef76171" because filename "5620e0c7-8062-4dce-aeb7-520c7ef76171" did not match expected pattern of [0-9a-f]+:[0-9a-f]+:[0-9a-f]+[.][0-9a-f]+[m
+2026-09-26 19:21:29,011 INFO depth: session ready
+2026-09-26 19:21:29,616 INFO depth: receipt-og-637-0.jpg in 0.60s
+2026-09-26 19:21:29,677 INFO DEPTH SCENE receipt-og-637-0.jpg motion=punch_hit dur=1.0s
+2026-09-26 19:21:30,631 INFO depth: clipfr-0.jpg in 0.64s
+2026-09-26 19:21:30,671 INFO DEPTH SCENE clipfr-0.jpg motion=zoom_in dur=1.0s
+2026-09-26 19:21:30,692 INFO face detected in receipt-og-637-1.jpg: 493x622 at (623,97)
+2026-09-26 19:21:31,466 INFO depth: receipt-og-637-1.jpg in 0.63s
+2026-09-26 19:21:31,505 INFO DEPTH SCENE receipt-og-637-1.jpg motion=zoom_out dur=1.1s
+2026-09-26 19:21:32,236 INFO depth: vis-637-0 in 0.63s
+2026-09-26 19:21:32,275 INFO DEPTH SCENE vis-637-0 motion=zoom_out dur=1.1s
+2026-09-26 19:21:32,676 INFO DEPTH SCENE vis-637-0 motion=punch_build dur=1.0s
+2026-09-26 19:21:33,283 INFO DEPTH SCENE clipfr-0.jpg motion=punch_hit dur=1.9s
+2026-09-26 19:21:40,946 INFO TEXT AVOID: burned-in text on 9 of 15 scene(s) (6.0s)
+2026-09-26 19:21:40,950 INFO TEXT AVOID: hook moved off burned-in text, top y 652 -> 810
+2026-09-26 19:21:41,816 INFO CAPTION PLACEMENT: 18 caption event(s) by position: {"card": 4, "home": 9, "top": 4, "top-least-covered": 1}
+2026-09-26 19:21:42,654 INFO bgm: SIGNATURE bed bgm_2.mp3 (same on every video, by design)
+2026-09-26 19:21:43,011 INFO sound: SWELL +5dB over 1.8s into the reveal at 13.6s, decaying 1.8s
+2026-09-26 19:21:43,028 INFO sound: bed bgm_2.mp3 over 3 interval(s), 1 swell(s)
+2026-09-26 19:21:43,391 INFO sound: 4 SFX placed
+2026-09-26 19:21:43,417 INFO sound: final -17.5 dBFS avg / -1.5 dBFS peak
+2026-09-26 19:24:11,111 INFO COMPOSE TIMING: {'prepare_s': 15.4, 'draw_encode_s': 147.5, 'remux_s': 0.1, 'scenes': 15, 'seconds': 23.1}
+2026-09-26 19:24:11,155 INFO STAGE: judge
+2026-09-26 19:24:15,844 INFO vision rotation: JUDGE served by gemini-3.5-flash-lite
+2026-09-26 19:24:15,846 INFO vision judge: pass=True weird=[] mismatches=[] artifact_misses=[] scores={'readability': 10, 'framing': 10, 'variety': 10, 'edit_variety': 10, 'completeness': 10} issues=[]
+2026-09-26 19:24:15,846 INFO STAGE: filmstrip
+2026-09-26 19:24:21,420 INFO caption font: /usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf
+2026-09-26 19:24:21,546 INFO filmstrip built: build/sheet-637.jpg
+2026-09-26 19:24:21,546 INFO STAGE: post
+2026-09-26 19:24:21,569 INFO delivering video-637.mp4 (31.5 MB as base64)
+2026-09-26 19:24:29,488 WARNING post attempt 1/2 failed (requests HTTP 503 {"error":"paused"}); the drop branch is the backstop, so this does not linger
+2026-09-26 19:24:43,786 WARNING post attempt 2/2 failed (requests HTTP 503 {"error":"paused"}); the drop branch is the backstop, so this does not linger
+2026-09-26 19:24:48,786 WARNING HTTP delivery failed; artifact staged for the video-drop branch (drop-meta-637.json)
+2026-09-26 19:24:48,788 INFO STAGE: done
+2026-09-26 19:24:48,789 INFO job feed from repo branch (generated 2026-09-26T19:10:31+00:00)
+2026-09-26 19:24:48,789 INFO job from static feed (generated 2026-09-26T19:10:31+00:00)
+2026-09-26 19:24:48,789 INFO processing page_id=635 slug=asmongold-s-personal-life-2026
+2026-09-26 19:24:48,789 INFO page 635 is a GRAVE story: ambient bed, no whoosh/transitions, halved hook-rate boost
+2026-09-26 19:24:48,789 INFO STYLE slowburn: lead=footage cuts~2.2s xfade=0.25 zoom=0.10 punch=1.10 bgm_1 evidence_cap=2 footage_consec=6
+2026-09-26 19:24:48,789 INFO voice: en-US-AndrewMultilingualNeural (grave register)
+2026-09-26 19:24:48,789 INFO STAGE: visuals
+2026-09-26 19:24:48,789 INFO CLIP HUNT: story now has 0 clip(s)
+2026-09-26 19:24:49,888 INFO archive.org clip: Best Twitch Fails Compilation #110 ( Asmongold, Pokelawls... (best-twitch-fails-compilation-110-asmongold-pokelawls..., 619s, 23.2MB)
+2026-09-26 19:24:51,541 INFO archive.org clip: Asmongold vs Destiny On LA Protests (2025-06-15_ChannelName_Asmongold_vs_Destiny_On_LA_Protests, 1214s, 39.9MB)
+2026-09-26 19:24:52,222 INFO story clips available: 2 (archive)
+2026-09-26 19:24:52,222 INFO person photos from feed (site-resolved): Asmongold x2
+2026-09-26 19:24:52,326 INFO UPSIZED: https://commons.wikimedia.org/wiki/Special:FilePath/Asmongold_in_2022.jpg?width=1600
+2026-09-26 19:24:52,332 INFO CONTAIN MODE: 416x555 needs 3.5x upscale to cover; rendering whole on a blurred fill instead
+2026-09-26 19:24:52,340 INFO face detected in vis-635-0: 185x248 at (106,70)
+2026-09-26 19:24:52,353 INFO CONTAIN MODE: 1280x720 needs 2.7x upscale to cover; rendering whole on a blurred fill instead
+2026-09-26 19:24:52,365 INFO face detected in vis-635-1: 77x104 at (215,533)
+2026-09-26 19:24:52,981 INFO vision rotation: still-relevance served by gemini-3.5-flash-lite
+2026-09-26 19:24:53,034 INFO CONTAIN MODE: 1280x720 needs 2.7x upscale to cover; rendering whole on a blurred fill instead
+2026-09-26 19:24:53,060 INFO face detected in vis-635-2: 413x540 at (419,135)
+2026-09-26 19:24:54,432 INFO vision rotation: still-relevance served by gemini-3.5-flash-lite
+2026-09-26 19:24:54,461 INFO trimmed letterbox (960, 540) -> (904, 540): https://prod.assets.earlygamecdn.com/images/Asmongold_2025-09-24-093038_vhae.jpg?transform=banner2x_webp
+2026-09-26 19:24:54,466 INFO CONTAIN MODE: 904x540 needs 3.6x upscale to cover; rendering whole on a blurred fill instead
+2026-09-26 19:24:54,474 INFO face detected in vis-635-3: 192x274 at (371,158)
+2026-09-26 19:24:55,407 INFO vision rotation: still-relevance served by gemini-3.5-flash-lite
+2026-09-26 19:24:55,421 INFO trimmed letterbox (1920, 1080) -> (1729, 1080): https://staticg.sportskeeda.com/editor/2026/08/694c4-17860824891275-1920.jpg
+2026-09-26 19:24:55,433 INFO CONTAIN MODE: 1729x1080 needs 1.8x upscale to cover; rendering whole on a blurred fill instead
+2026-09-26 19:24:55,445 INFO face detected in vis-635-4: 443x667 at (882,99)
+2026-09-26 19:24:56,669 INFO vision rotation: still-relevance served by gemini-3.5-flash-lite
+2026-09-26 19:24:56,706 INFO CONTAIN MODE: 1600x900 needs 2.1x upscale to cover; rendering whole on a blurred fill instead
+2026-09-26 19:24:56,724 INFO face detected in vis-635-5: 263x326 at (562,344)
+2026-09-26 19:24:57,621 INFO vision rotation: still-relevance served by gemini-3.5-flash-lite
+2026-09-26 19:24:57,646 INFO text-heavy visual (heuristic) -> contain mode (no crop/zoom): https://genzhype.com/assets/covers/asmongold-s-personal-life-2026-hero.webp
+2026-09-26 19:24:57,671 INFO face detected in vis-635-6: 68x94 at (202,480)
+2026-09-26 19:24:57,682 INFO POOL DEDUP: https://genzhype.com/assets/covers/asmongold-s-personal-life-2026-hero.webp is the same image as https://i.ytimg.com/vi/-3nWMlxf4lI/maxresdefault.jpg; skipped
+2026-09-26 19:24:57,923 INFO visual pool: 6 distinct of 7 candidates (2 from people, 1 name(s) mapped: {'asmongold': 2})
+2026-09-26 19:24:57,923 INFO SUBJECT ON SCREEN: headline names ['Asmongold']; verified picture(s) for ['Asmongold']
+2026-09-26 19:24:57,923 INFO visual_i 2 ready (the actual moment (Dec 4 report photo): Asmongold, 35, Shares Views on Dating an)
+2026-09-26 19:24:57,923 INFO visual_i 3 ready (the actual moment (Aug 3 report photo): Asmongold Makes Controversial Remarks)
+2026-09-26 19:24:57,923 INFO STAGE: receipts
+2026-09-26 19:24:57,972 INFO receipts: 4 card(s) downloaded of 10 entries (event entries carry no card by design)
+2026-09-26 19:24:57,972 INFO STAGE: screenshots
+2026-09-26 19:24:58,273 INFO Readability injected from vendor/Readability.js
+2026-09-26 19:25:04,608 INFO Readability column 0..430 (4 nodes) on https://timesofindia.indiatimes.com/world/us-streamers/
+2026-09-26 19:25:04,644 INFO crop r30c: 454x568 at 0,498 (col 430, lead-img False) https://timesofindia.indiatimes.com/world/us-streamers/who-i
+2026-09-26 19:25:06,890 INFO vision rotation: screenshot-clean served by gemini-3.5-flash-lite
+2026-09-26 19:25:06,891 INFO REAL source screenshot: https://timesofindia.indiatimes.com/world/us-streamers/who-is-asmongolds-dating-exploring-twitch-str
+2026-09-26 19:25:12,226 INFO Readability column 125..635 (10 nodes) on https://earlygame.com/news/entertainment/asmongold-on-d
+2026-09-26 19:25:12,233 INFO crop r30c: 558x584 at 101,177 (col 510, lead-img True) https://earlygame.com/news/entertainment/asmongold-on-dating
+2026-09-26 19:25:13,141 INFO SHOT DEAD-ZONE: removed 204px dead band at y=473 (shot-635-1.png)
+2026-09-26 19:25:14,233 INFO vision rotation: screenshot-clean served by gemini-3.5-flash-lite
+2026-09-26 19:25:14,234 INFO REAL source screenshot: https://earlygame.com/news/entertainment/asmongold-on-dating-marriage-and-life-choices
+2026-09-26 19:25:16,201 INFO screenshot: DEAD PAGE (http 403, title 'Forbidden') — the source itself is gone, not a detection failure: https://www.sportskeeda.com/us/streamers/news-what-asmongold-say-shooting-immigr
+2026-09-26 19:25:21,783 INFO Readability column 16..744 (16 nodes) on https://www.dexerto.com/twitch/asmongold-fans-say-his-g
+2026-09-26 19:25:21,790 INFO crop r30c: 760x950 at 0,158 (col 728, lead-img True) https://www.dexerto.com/twitch/asmongold-fans-say-his-girlfr
+2026-09-26 19:25:23,064 INFO vision rotation: screenshot-clean served by gemini-3.5-flash-lite
+2026-09-26 19:25:23,065 INFO REAL source screenshot: https://www.dexerto.com/twitch/asmongold-fans-say-his-girlfriend-is-fixing-him-after-streamer-spotte
+2026-09-26 19:25:23,144 INFO trimmed letterbox (1920, 1080) -> (1729, 1080): https://staticg.sportskeeda.com/editor/2026/08/694c4-17860824891275-1920.jpg
+2026-09-26 19:25:23,159 INFO trimmed letterbox (1920, 1080) -> (1729, 1080): https://staticg.sportskeeda.com/editor/2026/08/694c4-17860824891275-1920.jpg
+2026-09-26 19:25:23,163 INFO event receipts: 3 clean screenshot(s), 2 og report photo(s); the rest fall back to subject photos
+2026-09-26 19:25:23,163 INFO STAGE: tts
+2026-09-26 19:25:29,852 INFO expressive TTS: segment 1/2 rate=+11% pitch=- 7.68s 15 cue(s)
+2026-09-26 19:25:46,879 INFO expressive TTS: segment 2/2 rate=+5% pitch=- 21.46s 49 cue(s)
+2026-09-26 19:25:47,122 INFO expressive TTS ok: 2 segment(s), 29.18s audio, 64 word timings
+2026-09-26 19:25:47,122 INFO STAGE: compose
+2026-09-26 19:25:47,122 INFO bgm (GRAVE story -> ambient bed): .social/bgm/bgm_1.mp3
+2026-09-26 19:25:47,122 INFO EDL: 9 shot(s) from 9 directed (words=64)
+2026-09-26 19:25:47,122 INFO VARIETY tuned for pool=6 scenes=9 -> window=5 max_share=0.33
+2026-09-26 19:25:47,874 INFO PICTURE IN PROOF: shot-635-4.png shows vis-635-5 (24 matching points); one picture to the use cap
+2026-09-26 19:25:55,258 INFO archive.org footage: 3.2MB from https://archive.org/download/best-twitch-fails-compilation-110-asmongo
+2026-09-26 19:26:02,002 INFO clip frame skipped: a face is cut by the frame's own edge (clipfr-0.jpg)
+2026-09-26 19:26:02,006 INFO clip frame skipped: a face is cut by the frame's own edge (clipfr-1.jpg)
+2026-09-26 19:26:02,010 INFO clip frame skipped: a face is cut by the frame's own edge (clipfr-2.jpg)
+2026-09-26 19:26:02,078 INFO clip frame skipped: a face is cut by the frame's own edge (clipfr-4.jpg)
+2026-09-26 19:26:02,154 INFO clip frame too similar to one already kept; skipped
+2026-09-26 19:26:02,167 INFO face detected in clipfr-10.jpg: 120x198 at (184,170)
+2026-09-26 19:26:02,230 INFO clip frame too similar to one already kept; skipped
+2026-09-26 19:26:02,230 INFO CLIP FRAMES: +3 stills harvested from the money-moment clip (pool 6 -> 9)
+2026-09-26 19:26:02,230 INFO HOOK = OPENING CLIP: arch-1f72b1c77e55.mp4 (t=0s)
+2026-09-26 19:26:02,266 INFO visual_i 3 -> real story image (vis-635-4)
+2026-09-26 19:26:02,276 INFO CLIP FIT: no clip's title matches scene 4's words ('as insane rhetoric that escaped standard platfor'); the planned still stands
+2026-09-26 19:26:02,279 INFO person shot -> Asmongold's photo 1/2 (vis-635-0)
+2026-09-26 19:26:02,279 INFO CLIP FIT: no clip's title matches scene 5's words ('Days later, Asmongold appeared on his new'); the planned still stands
+2026-09-26 19:26:02,288 INFO receipt 2 -> og report photo (photo scene)
+2026-09-26 19:26:02,288 INFO CLIP FIT: no clip's title matches scene 6's words ("partner Kaise's broadcast, where fans noted"); the planned still stands
+2026-09-26 19:26:02,303 INFO visual_i 2 -> real story image (vis-635-3)
+2026-09-26 19:26:02,306 INFO CLIP FIT: no clip's title matches scene 8's words ("Do you think a creator's offline relationships"); the planned still stands
+2026-09-26 19:26:02,312 INFO person shot -> Asmongold's photo 2/2 (vis-635-1)
+2026-09-26 19:26:19,342 INFO FOOTAGE unavailable for -3nWMlxf4lI; thumbnail fallback
+2026-09-26 19:26:19,342 INFO CLIP FIT: no clip's title matches scene 9's words ('ever justify the public scrutiny they receive?'); the planned still stands
+2026-09-26 19:26:19,365 INFO SPEND THE POOL: 2 repeat(s) swapped for unused images (8 distinct stills now on screen)
+2026-09-26 19:26:19,365 INFO RENDER REPORT: {"style": "slowburn", "ck_mode": true, "cookie_bytes": 1932, "story_vids": 1, "scenes": 9, "runtime_s": 29.6, "footage_scenes": 1, "gap_fill_scenes": 0, "opportunistic_footage": 1, "still_photo_scenes": 5, "card_scenes": 3, "frozen_stills": 0, "footage_fetches": 3, "seq": "fccssscss"}
+2026-09-26 19:26:19,365 INFO CLIP verify disabled (VIDEO_CLIP_VERIFY=0)
+2026-09-26 19:26:19,365 INFO scene plan (v4 EDL): 9 scene(s) (3 receipt, 1 b-roll), pool=9
+2026-09-26 19:26:19,365 INFO   scene 1: 0.00-3.26s type=broll(FOOTAGE) motion=punch_build sfx=none music=bed visual=arch-1f72b1c77e55.mp4
+2026-09-26 19:26:19,365 INFO   scene 2: 3.26-6.55s type=receipt motion=contain sfx=none music=bed visual=receipt-635-6.png
+2026-09-26 19:26:19,365 INFO   scene 3: 6.55-10.62s type=receipt motion=contain sfx=none music=bed visual=shot-635-1.png
+2026-09-26 19:26:19,365 INFO   scene 4: 10.62-14.51s type=photo motion=punch_build sfx=none music=bed visual=vis-635-4
+2026-09-26 19:26:19,365 INFO   scene 5: 14.51-17.02s type=photo motion=zoom_out sfx=none music=bed visual=vis-635-0
+2026-09-26 19:26:19,365 INFO   scene 6: 17.02-19.50s type=photo motion=pan_right sfx=pop music=bed visual=vis-635-1
+2026-09-26 19:26:19,365 INFO   scene 7: 19.50-22.74s type=receipt motion=contain sfx=none music=bed visual=receipt-635-8.png
+2026-09-26 19:26:19,365 INFO   scene 8: 22.74-25.43s type=photo motion=zoom_out sfx=none music=bed visual=vis-635-3
+2026-09-26 19:26:19,365 INFO   scene 9: 25.43-29.63s type=photo motion=pan_left sfx=none music=bed visual=vis-635-2
+2026-09-26 19:26:19,366 INFO VARIETY: 8 distinct stills, top visual carries 1/8 (12%)
+2026-09-26 19:26:19,366 INFO SELFCHECK: repeats=0 short_scenes=none caption_cov=99% (window=4, assets=19)
+2026-09-26 19:26:22,392 INFO GRAVE story: transitions + pattern interrupt disabled
+2026-09-26 19:26:26,301 INFO TEXT AVOID: burned-in text on 4 of 9 scene(s) (3.9s)
+2026-09-26 19:26:26,305 INFO TEXT AVOID: hook moved off burned-in text, top y 652 -> 945
+2026-09-26 19:26:27,174 INFO CAPTION PLACEMENT: 20 caption event(s) by position: {"card": 9, "home": 8, "top": 3}
+2026-09-26 19:26:28,213 INFO bgm: SIGNATURE bed bgm_2.mp3 (same on every video, by design)
+2026-09-26 19:26:28,570 INFO sound: bed bgm_2.mp3 over 1 interval(s), 0 swell(s)
+2026-09-26 19:26:28,657 INFO sound: 1 SFX placed
+2026-09-26 19:26:28,689 INFO sound: final -17.6 dBFS avg / -1.5 dBFS peak
+2026-09-26 19:29:58,412 INFO COMPOSE TIMING: {'prepare_s': 9.4, 'draw_encode_s': 209.5, 'remux_s': 0.1, 'scenes': 9, 'seconds': 29.6}
+2026-09-26 19:29:58,453 INFO STAGE: judge
+2026-09-26 19:30:03,675 INFO vision rotation: JUDGE served by gemini-3.5-flash-lite
+2026-09-26 19:30:03,676 INFO vision judge: pass=False weird=[{'frame': 3, 'issue': 'e. CONTEXT MISMATCH: an article about dating, marriage, and life choices is completely unrelated to the internet drama and condemnation story being discussed.'}] mismatches=[{'frame': 3, 'words': 'on stream. Fellow creator HasanAbi condemned the remarks', 'what_shown': "An article screenshot titled 'Asmongold On Dating, Marriage and Life Choices'."}] artifact_misses=[] scores={'readability': 10, 'framing': 10, 'variety': 9, 'edit_variety': 9, 'completeness': 8} issues=["Context mismatch on frame 3 showing an unrelated article about dating and marriage instead of HasanAbi's condemnation."]
+2026-09-26 19:30:09,995 INFO caption font: /usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf
+2026-09-26 19:30:10,162 INFO filmstrip built: build/reject-635.jpg
+2026-09-26 19:30:10,686 INFO DIAG reject-sheet -> HTTP 503
+2026-09-26 19:30:11,037 INFO DIAG shot-635-0 -> HTTP 503
+2026-09-26 19:30:11,421 INFO DIAG shot-635-1 -> HTTP 503
+2026-09-26 19:30:11,959 INFO DIAG shot-635-4 -> HTTP 503
+2026-09-26 19:30:12,178 ERROR failed to make video for 635: vision judge rejected page 635 (attempt 1/1): weird=[{'frame': 3, 'issue': 'e. CONTEXT MISMATCH: an article about dating, marriage, and life choices is completely unrelated to the internet drama and condemnation story being discussed.'}] mism=[{'frame': 3, 'words': 'on stream. Fellow creator HasanAbi condemned the remarks', 'what_shown': "An article screenshot titled 'Asmongold On Dating, Marriage and Life Choices'."}] issues=["Context mismatch on frame 3 showing an unrelated article about dating and marriage instead of HasanAbi's condemnation."]
+Traceback (most recent call last):
+  File "/home/runner/work/genzhype-scraper/genzhype-scraper/video_maker.py", line 10934, in main
+    make_one(post, font_path)
+  File "/home/runner/work/genzhype-scraper/genzhype-scraper/video_maker.py", line 10889, in make_one
+    raise JudgeRejected(
+JudgeRejected: vision judge rejected page 635 (attempt 1/1): weird=[{'frame': 3, 'issue': 'e. CONTEXT MISMATCH: an article about dating, marriage, and life choices is completely unrelated to the internet drama and condemnation story being discussed.'}] mism=[{'frame': 3, 'words': 'on stream. Fellow creator HasanAbi condemned the remarks', 'what_shown': "An article screenshot titled 'Asmongold On Dating, Marriage and Life Choices'."}] issues=["Context mismatch on frame 3 showing an unrelated article about dating and marriage instead of HasanAbi's condemnation."]
+2026-09-26 19:30:12,346 INFO done. made 2 video(s), 1 failed
