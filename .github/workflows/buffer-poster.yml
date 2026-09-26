@@ -56,6 +56,9 @@ jobs:
         run: |
           git config user.name "genzhype-bot"
           git config user.email "bot@genzhype.com"
+          # the script prints ::add-mask::<secret> so GitHub hides it in this job log; the copy of the
+          # output saved in this PUBLIC repo must not keep those lines (keys were exposed there, 2026-09-26)
+          sed -i "/::add-mask::/d" .social/buffer_last_run.log 2>/dev/null || true
           git add .social 2>/dev/null || true
           git commit -m "buffer poster state" 2>/dev/null || echo "no state change"
           git pull --rebase -q origin main || true
