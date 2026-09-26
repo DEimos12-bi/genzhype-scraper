@@ -1202,6 +1202,7 @@ switch ($cmd) {
         $lock = @fopen(__DIR__ . '/cache/top3old.lock', 'c');
         if (!$lock || !flock($lock, LOCK_EX | LOCK_NB)) { echo "top3-old: another run is working\n"; break; }
         cron_log_tee();
+        if (is_file(__DIR__ . '/PAUSE')) { echo '[' . date('c') . "] old pages: PAUSED by app/PAUSE, no work done\n"; break; }
         echo '[' . date('c') . "] old pages (top-3 test, Tavily)\n";
         $o = top3_old_run($pdo, ($arg && ctype_digit($arg)) ? (int)$arg : 3, 360);
         foreach ($o['lines'] as $l) echo "  {$l}\n";
