@@ -11,8 +11,8 @@
 //   YouTube    read here through the YouTube API (cs_snapshot), channel checked on its
 //              latest video titles (yt_channel_same_person)
 //   TikTok     read by the runner (genzhype-repo creator_counts.py: Scrapling over
-//   Instagram  CloakBrowser, logged out) and sent to api/creator_counts.php (cs_ingest),
-//              account checked on its display name and bio (cs_account_same_person).
+//   Instagram  CloakBrowser, logged out) and sent to api/creator_counts.php (cs_store_readings),
+//              account checked on its display name and bio (cs_check_runner_links).
 //              TikTok counts are exact; Instagram's embed page rounds from 10,000 up.
 // X needs a session and Facebook links are not collected (entity.php has no P2013).
 // History starts the day tracking starts: nothing before it is shown or estimated.
@@ -184,14 +184,12 @@ function cs_account_same_person(string $platform, string $account, array $prof, 
 }
 
 /**
- * The runner's readings (api/creator_counts.php): each account's profile and today's count are
- * stored, then the story links to accounts it has now seen get their identity check, none
- * started after $maxSecs. Readings of unchecked accounts are kept; only verified links are shown.
+ * The runner's readings (api/creator_counts.php): each account's profile and today's count.
+ * Readings of unchecked accounts are kept; only verified links are shown.
  */
-function cs_ingest(PDO $pdo, array $rows, int $maxSecs = 200): array {
+function cs_store_readings(PDO $pdo, array $rows): array {
     cs_install($pdo);
-    $t0 = time();
-    $out = ['read' => 0, 'saved' => 0, 'errors' => 0, 'linked' => 0, 'refused' => 0, 'unanswered' => 0, 'left' => 0];
+    $out = ['read' => 0, 'saved' => 0, 'errors' => 0];
     $prof = $pdo->prepare("REPLACE INTO creator_profiles (platform, account_id, name, bio, followers, read_at) VALUES (?,?,?,?,?,UTC_TIMESTAMP())");
     $stat = $pdo->prepare("INSERT IGNORE INTO creator_stats (platform, account_id, taken_on, followers, views, videos) VALUES (?,?,UTC_DATE(),?,NULL,?)");
     foreach ($rows as $r) {
@@ -204,6 +202,18 @@ function cs_ingest(PDO $pdo, array $rows, int $maxSecs = 200): array {
         $stat->execute([$plat, $acc, (int)$r['followers'], isset($r['posts']) && is_numeric($r['posts']) ? (int)$r['posts'] : null]);
         $out['saved'] += $stat->rowCount();
     }
+    return $out;
+}
+
+/**
+ * The identity check for story links to accounts the runner has read, none started after
+ * $maxSecs; the rest wait for the next delivery. Run after the reply to the runner: the checks
+ * take minutes and the web front cut the reply on 2026-09-26 (the runner saw curl 22 although
+ * everything was stored).
+ */
+function cs_check_runner_links(PDO $pdo, int $maxSecs = 200): array {
+    $t0 = time();
+    $out = ['linked' => 0, 'refused' => 0, 'unanswered' => 0, 'left' => 0];
     $get = $pdo->prepare("SELECT name, bio, followers FROM creator_profiles WHERE platform=? AND account_id=?");
     $ins = $pdo->prepare("INSERT IGNORE INTO story_accounts (page_id, person, platform, account_id, account_name, verified, why, checked_at)
                           VALUES (?,?,?,?,?,?,?,UTC_TIMESTAMP())");
