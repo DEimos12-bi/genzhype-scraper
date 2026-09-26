@@ -13,6 +13,7 @@ function static_pages(): array {
 <p class="body">GenZHype pages are produced by our own automated editorial system: it gathers primary sources (original posts, videos, livestreams, official statements and reporting), arranges them into a dated chronological record, attributes every claim to its source, and frames anything unproven as alleged. The system is built, tuned and overseen by the desk against the standards on this page and our <a href="/how-we-source/">sourcing policy</a>.</p>
 <h2 class="sec">AI &amp; automation, disclosed</h2>
 <p class="body">In the interest of transparency: our pages are <strong>AI-drafted from the sources above and checked by an automated quality gate before publishing</strong>, then overseen by the desk. We do not claim a person hand-writes each page. What we do promise is that every page is held to our documented sourcing and accuracy standards, that claims are attributed to real sources, and that we correct what we get wrong.</p>
+<p class="body">Stories about a death, sexual violence, abuse of minors or domestic abuse are also read by a person before they go live, and the page names who reviewed it.</p>
 <h2 class="sec">Our standards</h2>
 <p class="body">We follow a documented <a href="/how-we-source/">sourcing policy</a>, issue <a href="/corrections/">corrections</a> when we get something wrong, and offer a <a href="/right-of-reply/">right of reply</a> to anyone featured.</p>'],
 
@@ -21,13 +22,14 @@ function static_pages(): array {
         'editorial-policy' => [
             'slug'=>'editorial-policy','title'=>'Editorial policy','heading'=>'Editorial policy',
             'desc'=>'The rules every GenZHype page must pass before it publishes: verified sources, dated citations, no invented facts, corrections and right of reply.',
-            'body_html'=>'<p class="body">Every page on GenZHype has to pass an automated editorial gate before it can go live. These are the rules the gate enforces. They are not aspirations: a page that fails any of them is not published.</p>
+            'body_html'=>'<p class="body">Every page on GenZHype has to pass an automated editorial gate before it can go live. These are the rules the gate enforces. They are not aspirations: a page that fails them is not published, or stays off search engines until it is fixed.</p>
 <h2 class="sec">What a page must prove</h2>
 <p class="body"><strong>No origin story without an artifact.</strong> A page may only describe where a term or trend came from if we hold a dated, linkable artifact for that origin (the original post, an archived page, or a documented first appearance). If no artifact exists, the page says nothing about origin. It never says &ldquo;origins are debated&rdquo; as filler.</p>
 <p class="body"><strong>Citations must exist.</strong> Quoted social posts are checked against the platform itself before they count: a post that does not resolve is rejected, however plausible it looks. Press quotes are copied verbatim from the article and carry the article&rsquo;s own publication date, never a guessed one.</p>
 <p class="body"><strong>Real reporting, not glossaries.</strong> Dictionary sites, slang glossaries and crowd-sourced definitions can inform a draft, but they never count as evidence. A page needs independent published sources that actually use or report on the subject.</p>
 <p class="body"><strong>No invented specifics.</strong> The system is forbidden from producing a name, handle, date, view count or follower count that its sources do not state. Shorter and grounded always beats longer and padded.</p>
 <p class="body"><strong>Allegations are framed as allegations.</strong> Unproven claims are attributed to who made them and marked as alleged, with a <a href="/right-of-reply/">right of reply</a> for anyone featured.</p>
+<p class="body"><strong>A person reads the gravest stories.</strong> A new story about a death, sexual violence, abuse of minors or domestic abuse is held until a person has read it, and the page then names who reviewed it.</p>
 <h2 class="sec">AI disclosure</h2>
 <p class="body">Pages are AI-drafted from retrieved sources, screened by the gate described above, and overseen by the desk. We label this openly on every page. See <a href="/about/">about &amp; editor</a> for who runs the desk and <a href="/methodology/">methodology</a> for how our numbers are computed.</p>
 <h2 class="sec">When we get it wrong</h2>
@@ -74,35 +76,59 @@ function static_pages(): array {
 
         'corrections' => [
             'slug'=>'corrections','title'=>'Corrections','heading'=>'Corrections policy',
-            'desc'=>'How GenZHype handles corrections. Spotted an error? Tell us and we will review and fix it promptly.',
+            'desc'=>'How GenZHype corrects errors: what to send, what we change, and what the dates on a page mean.',
             'body_html'=>'<p class="body">We aim to be accurate. When we are not, we fix it.</p>
-<p class="body">If you believe something on GenZHype is inaccurate, incomplete, or out of date, email the desk at <a href="/contact/">our contact page</a> with the page URL and the specific issue. We review every good-faith correction request and, where warranted, update the page and note the change.</p>
-<p class="body">Material corrections are reflected in the page\'s "last updated" date.</p>'],
+<h2 class="sec">How to ask for a correction</h2>
+<p class="body">Email <a href="mailto:contact@genzhype.com">contact@genzhype.com</a> with the page address, the sentence or date that is wrong and, if you have one, a source that shows the right version. Requests from people featured on a page are handled under our <a href="/right-of-reply/">right of reply</a>.</p>
+<h2 class="sec">What we change</h2>
+<p class="body">We correct the page itself: a wrong date, name, attribution or claim is fixed in place, and a claim we can no longer source is removed. A story that cannot be brought up to our <a href="/how-we-source/">sourcing standard</a> is taken off the site rather than left up.</p>
+<h2 class="sec">What the dates mean</h2>
+<p class="body">A timeline\'s "Updated" date moves only when a new dated development is added, so a new date always means new information. A correction to existing text is made in place.</p>'],
 
         'contact' => [
             'slug'=>'contact','title'=>'Contact','heading'=>'Contact &amp; tips',
-            'desc'=>'Contact the GenZHype desk: send a tip, a source, a correction, or a right-of-reply request.',
-            'body_html'=>'<p class="body">Reach the GenZHype desk for tips, sources, corrections, and right-of-reply requests.</p>
-<p class="body"><strong>Email:</strong> desk@genzhype.com</p>
-<p class="body">If you are featured on a page and want to respond, see our <a href="/right-of-reply/">right of reply</a> policy. To flag an error, see <a href="/corrections/">corrections</a>. To report a copyright concern, see our <a href="/dmca/">DMCA</a> page.</p>'],
+            'desc'=>'Contact GenZHype for tips, sources, corrections, a right of reply, copyright or privacy questions: contact@genzhype.com.',
+            'body_html'=>'<p class="body">Everything reaches one inbox: <a href="mailto:contact@genzhype.com"><strong>contact@genzhype.com</strong></a>. GenZHype is run by Kaddari El Mahdi, who writes here as <a href="/author/deimos-emk/">Deimos EMK</a>.</p>
+<h2 class="sec">What to send</h2>
+<p class="body"><strong>A tip or a source.</strong> Tell us what happened and link the original post, video or document if you have it. We publish only what we can source, so a link to the original is what turns a tip into a timeline entry.</p>
+<p class="body"><strong>A correction.</strong> Include the page address, what is wrong and, if you can, a source that shows the right version. See the <a href="/corrections/">corrections policy</a>.</p>
+<p class="body"><strong>A reply from someone featured.</strong> If a timeline is about you, send your response with the page address. See <a href="/right-of-reply/">right of reply</a>.</p>
+<p class="body"><strong>Copyright.</strong> For a takedown notice, <a href="/dmca/">DMCA and copyright</a> lists what the notice must include.</p>
+<p class="body"><strong>Privacy.</strong> For data and cookies, see the <a href="/privacy/">privacy policy</a> or write to the same address.</p>
+<h2 class="sec">What happens next</h2>
+<p class="body">We read every message. Corrections and replies that hold up are made on the page itself, and a reply from someone featured is attributed to them. We do not publish your name or email address without your permission.</p>'],
 
         'right-of-reply' => [
             'slug'=>'right-of-reply','title'=>'Right of reply','heading'=>'Right of reply',
             'desc'=>'Anyone featured on GenZHype may submit a response, clarification, or denial, which we will fairly reflect.',
             'body_html'=>'<p class="body">If you are a person featured in a GenZHype timeline, you have a right of reply.</p>
-<p class="body">Send your response, clarification, or denial to desk@genzhype.com with the page URL. We will fairly reflect substantive responses on the relevant page, attributed to you, and we will correct anything demonstrably inaccurate.</p>'],
+<p class="body">Send your response, clarification, or denial to <a href="mailto:contact@genzhype.com">contact@genzhype.com</a> with the page URL. We will fairly reflect substantive responses on the relevant page, attributed to you, and we will correct anything demonstrably inaccurate.</p>'],
 
         'dmca' => [
             'slug'=>'dmca','title'=>'DMCA','heading'=>'DMCA &amp; copyright',
             'desc'=>'GenZHype respects copyright. How to submit a DMCA takedown notice for content you own.',
             'body_html'=>'<p class="body">GenZHype embeds original posts from their source platforms rather than re-hosting them, and uses its own original cover graphics. We respect copyright.</p>
-<p class="body">If you believe content on this site infringes your copyright, send a notice to desk@genzhype.com including: identification of the work, the URL of the material, your contact information, a statement of good-faith belief, and a statement under penalty of perjury that you are authorized to act. We process valid notices promptly.</p>'],
+<p class="body">If you believe content on this site infringes your copyright, send a notice to <a href="mailto:contact@genzhype.com">contact@genzhype.com</a> including: identification of the work, the URL of the material, your contact information, a statement of good-faith belief, and a statement under penalty of perjury that you are authorized to act. We process valid notices promptly.</p>'],
 
         'privacy' => [
             'slug'=>'privacy','title'=>'Privacy','heading'=>'Privacy policy',
-            'desc'=>'How GenZHype handles data and advertising cookies.',
-            'body_html'=>'<p class="body">GenZHype is an editorial website. We collect standard server logs and use analytics to understand traffic. If we display advertising, third-party ad partners may use cookies to serve relevant ads; you can manage ad personalization through your browser and ad-settings controls.</p>
-<p class="body">We do not sell personal information. Questions: desk@genzhype.com.</p>'],
+            'desc'=>'What GenZHype collects when you visit: server logs, Google Analytics, Google AdSense advertising cookies and one site cookie, and how to opt out.',
+            'body_html'=>'<p class="body">GenZHype is an editorial website run by Kaddari El Mahdi, who writes here as <a href="/author/deimos-emk/">Deimos EMK</a>, based in Morocco. This page explains what the site collects when you visit, why, and the choices you have. Questions: <a href="mailto:contact@genzhype.com">contact@genzhype.com</a>.</p>
+<h2 class="sec">What the site collects</h2>
+<p class="body"><strong>Server logs.</strong> Like almost every website, our web host records standard request data when a page loads: your IP address, browser and device type, the page requested, the time and the page you came from. We use these logs to keep the site running and secure.</p>
+<p class="body"><strong>Analytics.</strong> We use Google Analytics to understand which pages are read and how visitors find them, for example pages viewed, device type and approximate location. It uses cookies and loads shortly after the page. You can block it with Google\'s <a href="https://tools.google.com/dlpage/gaoptout" rel="noopener">opt-out browser add-on</a>.</p>
+<p class="body"><strong>Advertising.</strong> We use Google AdSense for advertising. Third party vendors, including Google, use cookies to serve ads based on a user\'s prior visits to this website or other websites. Google\'s use of advertising cookies enables it and its partners to serve ads to our users based on their visit to our site and/or other sites on the Internet. You may opt out of personalized advertising by visiting <a href="https://www.google.com/settings/ads" rel="noopener">Ads Settings</a>. You can also opt out of some third-party vendors\' use of cookies for personalized advertising at <a href="https://www.aboutads.info" rel="noopener">www.aboutads.info</a>. Google explains <a href="https://policies.google.com/technologies/partner-sites" rel="noopener">how it uses information from sites that use its services</a>.</p>
+<p class="body"><strong>One site cookie.</strong> Our own cookie, <code>gz_seen</code>, remembers which stories you have already read on this device so the "read next" suggestion does not repeat them. It holds only page names, stays in your browser and expires after 30 days.</p>
+<p class="body"><strong>Embedded posts.</strong> Our pages embed original posts from platforms such as X, TikTok, YouTube, Instagram and Reddit, so you can see the evidence at its source. When an embed loads, that platform may set its own cookies under its own privacy policy.</p>
+<p class="body"><strong>Email.</strong> If you write to us, we keep your message and address to answer it and, for a correction or a right of reply, to record what was asked and what we changed.</p>
+<h2 class="sec">What the site does not do</h2>
+<p class="body">There are no accounts, comments or newsletter, and no forms that ask for personal details. We do not sell personal information.</p>
+<h2 class="sec">Your choices</h2>
+<p class="body">You can block or delete cookies in your browser settings; the site works without them. The Ads Settings, aboutads.info and Google Analytics links above let you opt out of personalized ads and analytics. To ask about data that relates to you, write to <a href="mailto:contact@genzhype.com">contact@genzhype.com</a>.</p>
+<h2 class="sec">Children</h2>
+<p class="body">GenZHype is not directed to children under 13, and we do not knowingly collect personal information from them.</p>
+<h2 class="sec">Changes</h2>
+<p class="body">If what the site collects changes, this page changes with it. Last updated September 26, 2026.</p>'],
 
         'terms' => [
             'slug'=>'terms','title'=>'Terms','heading'=>'Terms of use',
