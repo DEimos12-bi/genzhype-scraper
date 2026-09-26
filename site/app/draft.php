@@ -192,6 +192,18 @@ function draft_drama(array $input): array {
         }
     } catch (Throwable $e) { error_log('draft twin check: ' . $e->getMessage()); }
 
+    // SAME STORY under another title (dedupe.php dup_story_twin; site check 2026-09-26: 16 pages told the
+    // Twitch 2021 leak). The news goes to the page we already have (deepen), never onto a second page;
+    // no AI answer = the candidate keeps its turn and is tried again later, nothing is guessed.
+    require_once __DIR__ . '/dedupe.php';
+    $same = dup_story_twin($pdo, ['title' => $j['title'], 'summary' => $j['summary'], 'events' => $j['events']]);
+    if ($same && isset($same['error'])) return ['error' => 'same-story check: ' . $same['error'] . '; tried again later'];
+    if ($same) {
+        try { require_once __DIR__ . '/drama_deepen.php'; drama_deepen_page($pdo, $same['page_id'], true); }
+        catch (Throwable $e) { error_log('draft same-story deepen: ' . $e->getMessage()); }
+        return ['error' => 'same story as existing page "' . $same['slug'] . '" already exists (' . $same['why'] . ')'];
+    }
+
     // branded SVG cover is the guaranteed default
     $cover = draft_make_cover($slug, $j['cover_big'] ?? mb_substr($j['title'], 0, 18), $j['cover_sub'] ?? 'the timeline, explained');
     $credit = null; $credit_url = null;

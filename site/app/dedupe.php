@@ -238,3 +238,86 @@ function dup_selftest(): array {
 
     return ['pass' => $pass, 'fail' => $fail, 'notes' => $notes];
 }
+
+/**
+ * SAME STORY, NOT SAME SLUG (2026-09-26). An outside site check counted 36+ extra copies (16 pages
+ * on the Twitch 2021 leak, 11 on Nitro Camden, 9 on Take-Two's GTA 6 leak case): their slugs differ,
+ * so the slug check above never sees them, and the assignment editor (select.php) only sees the
+ * newest titles. Measured on the live site the same day: two pages sharing 2+ event DAYS are mostly
+ * one story, but every GTA 6 timeline shares the trailer dates; a shared name plus a similar title
+ * is mostly one story, but Ethan Klein has two different lawsuits. So words and dates only pick the
+ * suspects (dup_story_suspects) and an AI reading decides (dup_story_twin); only "same" counts.
+ */
+const DUP_STORY_MIN_DAYS    = 2;     // [ours] shared exact event days that make an existing story a suspect
+const DUP_STORY_MIN_CONTAIN = 0.5;   // [ours] or this share of the shorter title's story words
+/** Title words every story page uses; they say nothing about which story it is. */
+const DUP_STORY_GENERIC = ['timeline', 'controversy', 'drama', 'backlash', 'full', 'detailed', 'story', 'sparks',
+    'faces', 'amid', 'response', 'responds', 'viral', 'explained', 'fallout', 'reaction', 'reactions', 'details'];
+
+/**
+ * Existing stories (live, review or draft) that might tell this story, best first; $exceptPageId
+ * leaves one page out (checking a page already on the site against the others).
+ * [[page_id, slug, h1, summary, did, days, contain]]
+ */
+function dup_story_suspects(PDO $pdo, string $title, array $eventDates, int $limit = 4, int $exceptPageId = 0): array {
+    $mine = array_fill_keys(array_filter($eventDates, fn($d) => preg_match('/^\d{4}-\d{2}-(?!00)\d{2}$/', (string)$d)), 1);
+    $tok = dup_story_words($title);
+    $days = [];
+    foreach ($pdo->query("SELECT e.drama_id, e.event_date FROM events e WHERE e.video_only=0 AND DAY(e.event_date) > 0") as $r)
+        if (isset($mine[$r['event_date']])) $days[(int)$r['drama_id']][$r['event_date']] = 1;
+    $out = [];
+    foreach ($pdo->query("SELECT p.id, p.slug, p.h1, p.summary, d.id did FROM pages p JOIN dramas d ON d.page_id=p.id
+                          WHERE p.type='drama' AND p.status IN ('published','review','draft')") as $r) {
+        if ((int)$r['id'] === $exceptPageId) continue;
+        $shared = count($days[(int)$r['did']] ?? []);
+        $contain = $tok ? dup_containment($tok, dup_story_words((string)$r['h1'])) : 0.0;
+        // days alone coincide (xQc, Path of Exile and Fishtank shared 2 dates with a Frogan lawsuit): 2 shared days
+        // need a shared story word too, 3 stand alone
+        $byDays = $shared >= DUP_STORY_MIN_DAYS + 1 || ($shared >= DUP_STORY_MIN_DAYS && $contain > 0);
+        if (!$byDays && $contain < DUP_STORY_MIN_CONTAIN) continue;
+        $out[] = ['page_id' => (int)$r['id'], 'slug' => $r['slug'], 'h1' => $r['h1'], 'summary' => (string)$r['summary'],
+                  'did' => (int)$r['did'], 'days' => $shared, 'contain' => round($contain, 2)];
+    }
+    usort($out, fn($a, $b) => ($b['days'] * 2 + $b['contain'] * 3) <=> ($a['days'] * 2 + $a['contain'] * 3));
+    return array_slice($out, 0, $limit);
+}
+
+/** The story words of a title: dup_tokens() of its words, without the words every story page uses. */
+function dup_story_words(string $title): array {
+    $slug = trim((string)preg_replace('/[^a-z0-9]+/', '-', mb_strtolower($title)), '-');
+    return array_values(array_diff(dup_tokens($slug), DUP_STORY_GENERIC));
+}
+
+/**
+ * The existing story this draft retells, or null: each suspect in turn is read by an AI next to the
+ * draft; "same" = the same people AND the same event or chain of events. $draft = [title, summary,
+ * events => [[date, title], ...]]. ['page_id', 'slug', 'why'], or ['error' => ...] when the AI
+ * never answered (the caller decides; nothing is blocked on a guess).
+ */
+function dup_story_twin(PDO $pdo, array $draft, int $exceptPageId = 0): ?array {
+    require_once __DIR__ . '/ai.php';
+    $dates = array_map(fn($e) => (string)($e['date'] ?? ''), (array)($draft['events'] ?? []));
+    $suspects = dup_story_suspects($pdo, (string)$draft['title'], $dates, 4, $exceptPageId);
+    if (!$suspects) return null;
+    $side = function (string $title, string $summary, array $events): string {
+        $s = "TITLE: {$title}\nSUMMARY: " . mb_substr($summary, 0, 500) . "\nEVENTS:\n";
+        foreach (array_slice($events, 0, 10) as $e) $s .= "- [{$e['date']}] " . mb_substr((string)$e['title'], 0, 120) . "\n";
+        return $s;
+    };
+    $new = $side((string)$draft['title'], (string)($draft['summary'] ?? ''), (array)$draft['events']);
+    $ev = $pdo->prepare("SELECT event_date date, title FROM events WHERE drama_id=? AND video_only=0 ORDER BY sort_order");
+    $unanswered = 0;
+    foreach ($suspects as $s) {
+        $ev->execute([$s['did']]);
+        $res = ai_chat([['role' => 'user', 'content' =>
+            "PAGE A (new draft):\n{$new}\nPAGE B (already on our site):\n" . $side($s['h1'], $s['summary'], $ev->fetchAll(PDO::FETCH_ASSOC))
+            . "\nDo A and B tell the SAME story: the same people AND the same event or chain of events, so A would repeat B? "
+            . "A different event involving the same person, or another incident of the same kind, is NOT the same story. "
+            . "STRICT JSON: {\"verdict\": \"same\"|\"different\"|\"unsure\", \"why\": \"<15 words\"}"]],
+            AI_READER_ORDER, 0.0, 60, AI_READER_SKIP);
+        $j = isset($res['error']) ? null : ai_json((string)$res['content']);
+        if (!is_array($j) || !in_array($j['verdict'] ?? null, ['same', 'different', 'unsure'], true)) { $unanswered++; continue; }
+        if ($j['verdict'] === 'same') return ['page_id' => $s['page_id'], 'slug' => $s['slug'], 'why' => mb_substr((string)($j['why'] ?? ''), 0, 160)];
+    }
+    return $unanswered ? ['error' => "no AI answer for {$unanswered} of " . count($suspects) . ' suspect(s)'] : null;
+}
