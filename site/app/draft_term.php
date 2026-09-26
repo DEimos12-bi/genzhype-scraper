@@ -1435,7 +1435,7 @@ function draft_term(array $input): array {
         return $out;
     };
     $j['title_tag'] = $fix($j['title_tag'], 'title tag', 40, 60);
-    $j['meta_desc'] = meta_tidy($fix($j['meta_desc'], 'meta description', 120, 132));
+    $j['meta_desc'] = meta_tidy($fix($j['meta_desc'], 'meta description', 120, 135), (string)$j['summary'], 110, 135);   // gate_term: 110-135
     $j['summary']   = $fix($j['summary'], 'answer-first summary', 120, 300);
     if (mb_strlen($j['short_def']) > 180) $j['short_def'] = rtrim(mb_substr($j['short_def'], 0, 179), ' ,;.') . '.';
 

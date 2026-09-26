@@ -110,6 +110,7 @@ function drama_status_refresh(PDO $pdo, int $pageId, string $asOf = '', bool $sa
             $sq = trim((string)($j['status_faq']['q'] ?? '')); $sa = trim((string)($j['status_faq']['a'] ?? ''));
             $ml = mb_strlen($meta);
             if ($meta === '' || $ml < SR_META_MIN || $ml > SR_META_MAX) $meta = $f['meta_desc'];   // keep the old meta rather than a bad one
+            $meta = meta_tidy($meta, $summary, SR_META_MIN, SR_META_MAX);   // never one that stops mid-sentence (helpers.php)
             $sl = mb_strlen($summary);
             $drift = fact_drift($summary . "\n" . $meta . "\n" . $sq . "\n" . $sa, $corpus, $hosts);
             if ($sl < SR_SUMMARY_MIN || $sl > SR_SUMMARY_MAX) $fault = "The summary is {$sl} characters; it must be " . SR_SUMMARY_MIN . '-350.';

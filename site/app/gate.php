@@ -22,6 +22,20 @@ const GATE_META_MIN           = 110;  // tool-consensus mobile-safe range
 const GATE_META_MAX           = 160;  // unified with the rendered SEO audit (was 135, which was stricter than the audit's 160 and silently blocked valid 136-160 metas)
 const GATE_SUMMARY_MIN        = 120;
 const GATE_SUMMARY_MAX        = 420;
+const STORY_MIN_WORDS         = 250;  // [ours] site check 2026-09-26: 13 stories under this were open to Google; slang needs 380 (gate_term)
+
+/** Words a reader gets on a story page: summary, background, timeline and FAQ, as the page's "min read" counts them. */
+function story_word_count(PDO $pdo, int $pageId): int {
+    $d = $pdo->prepare("SELECT d.id, p.summary, d.background FROM pages p JOIN dramas d ON d.page_id=p.id WHERE p.id=?");
+    $d->execute([$pageId]);
+    $r = $d->fetch(PDO::FETCH_ASSOC);
+    if (!$r) return 0;
+    $txt = [(string)$r['summary']];
+    foreach ((array)json_decode((string)$r['background'], true) as $b) if (is_string($b)) $txt[] = $b;
+    foreach ($pdo->query("SELECT title, description FROM events WHERE drama_id=" . (int)$r['id'] . " AND video_only=0") as $e) $txt[] = $e['title'] . ' ' . $e['description'];
+    foreach ($pdo->query("SELECT question, answer FROM faqs WHERE drama_id=" . (int)$r['id']) as $f) $txt[] = $f['question'] . ' ' . $f['answer'];
+    return str_word_count(strip_tags(implode(' ', $txt)));
+}
 
 /**
  * The three rules a published story must meet before it is offered to Google.
@@ -56,6 +70,10 @@ function drama_index_block(PDO $pdo, int $pageId): string {
     $dq->execute([$pageId]);
     if ((int)$dq->fetchColumn() < GATE_MIN_SOURCE_DOMAINS) {
         return "PUBLISHED (noindex): single-source story — live on the site, not offered to Google";
+    }
+    // a thin story waits for deepen (new sourced events) before Google sees it
+    if (($words = story_word_count($pdo, $pageId)) < STORY_MIN_WORDS) {
+        return "PUBLISHED (noindex): {$words} words, under " . STORY_MIN_WORDS . " — live on the site, not offered to Google until it is deepened";
     }
     // r168 (2026-09-13): the live quality judge (quality.php) says "publish
     // requires a pass", but nothing here ever asked it. Its 5-score verdict

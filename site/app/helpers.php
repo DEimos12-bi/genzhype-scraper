@@ -128,9 +128,24 @@ function img_srcset(?string $img): ?string {
 /** Ensure a meta description / summary reads as a finished thought: drop any dangling
  *  trailing connective and always close on terminal punctuation. Fixes truncated metas
  *  like "...public reactions" (word-safe cut left them hanging mid-sentence). */
-function meta_tidy(string $s): string {
+/**
+ * A meta description that ends a sentence. A cut one (an outside site check on 2026-09-26 found
+ * 78 live stories ending mid-sentence, "...his 2024 review of \"The Great\"") becomes whole
+ * sentences from itself, else from $fallback (the page summary), within the gate's
+ * $min..$max; only when no whole sentences fit are the dangling words dropped and a period added.
+ */
+function meta_tidy(string $s, string $fallback = '', int $min = 110, int $max = 160): string {
     $s = trim(preg_replace('/\s+/', ' ', $s));
-    if ($s === '' || preg_match('/[.!?\x{2026}]$/u', $s)) return $s;
+    if ($s === '' || preg_match('/[.!?]["”’)]?$/u', $s)) return $s;   // ends a sentence (an ellipsis does not)
+    foreach ([$s, $fallback] as $src) {
+        $out = '';
+        foreach (preg_split('/(?<=[.!?])["”’)]?\K\s+/u', trim(preg_replace('/\s+/', ' ', $src))) as $sent) {
+            if (!preg_match('/[.!?]["”’)]?$/u', $sent) || mb_strlen(trim($out . ' ' . $sent)) > $max) break;
+            $out = trim($out . ' ' . $sent);
+        }
+        if (mb_strlen($out) >= $min) return $out;
+    }
+    $s = rtrim($s, "\u{2026}. ");
     $s = preg_replace('/[\s,;:]+(and|or|but|the|a|an|to|of|in|on|for|as|at|by|from|with|that|which|who|is|are|was|were|its|their|his|her|amid|over|after|before)$/iu', '', $s);
     $s = rtrim($s, " ,;:—–-");
     return $s === '' ? $s : $s . '.';

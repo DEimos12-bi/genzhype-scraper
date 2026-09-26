@@ -195,6 +195,12 @@ function drama_deepen_page(PDO $pdo, int $pageId, bool $apply): array {
             } catch (Throwable $e) { /* leave the original verdict */ }
         }
     }
+    // a LIVE page that now breaks an index rule leaves Google until it is repaired, as the nightly
+    // watchdog would do (2026-09-26: an event deepen added to Technoblade's father's page stated an
+    // allegation as fact on a page open to Google; the page stays on the site)
+    $ix = $pdo->query("SELECT status, robots FROM pages WHERE id=" . $pageId)->fetch(PDO::FETCH_ASSOC);
+    if ($ix && $ix['status'] === 'published' && $ix['robots'] === 'index' && drama_index_block($pdo, $pageId) !== '')
+        $pdo->prepare("UPDATE pages SET robots='noindex', updated_at=NOW() WHERE id=?")->execute([$pageId]);
     if (empty($g['pass'])) {
         $fails = [];
         foreach ((array)($g['checks'] ?? []) as $c) if (empty($c['pass'])) $fails[] = (string)$c['label'];
@@ -206,9 +212,10 @@ function drama_deepen_page(PDO $pdo, int $pageId, bool $apply): array {
     require_once __DIR__ . '/human_review.php';
     if (($hold = hr_hold($pdo, $pageId)) !== '') return ['ok' => true, 'added' => $added, 'published' => false, 'why' => "held for a human check ({$hold})"];
 
-    // restore, but leave Google to the owner's 40/day reveal
+    // restore, but leave Google to the owner's 40/day reveal. Only a page coming back from the bin: a
+    // live page deepened by the same-story block or for being short (2026-09-26) keeps its index state
     $pdo->prepare("UPDATE pages SET status='published', robots='noindex',
-                   published_at=COALESCE(published_at, NOW()) WHERE id=?")->execute([$pageId]);
+                   published_at=COALESCE(published_at, NOW()) WHERE id=? AND status<>'published'")->execute([$pageId]);
     return ['ok' => true, 'added' => $added, 'published' => true];
 }
 

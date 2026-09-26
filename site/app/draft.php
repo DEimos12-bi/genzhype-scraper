@@ -158,7 +158,7 @@ function draft_drama(array $input): array {
         return $out;
     };
     $j['title_tag'] = $fix($j['title_tag'], 'title tag', 40, 60);
-    $j['meta_desc'] = meta_tidy($fix($j['meta_desc'], 'meta description', 120, 132));
+    $j['meta_desc'] = meta_tidy($fix($j['meta_desc'], 'meta description', 120, 155), (string)$j['summary']);   // gate: 110-160
     $j['summary']   = $fix($j['summary'], 'answer-first summary', 120, 420);
 
     $pdo  = db();
