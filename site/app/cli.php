@@ -196,7 +196,9 @@ function velocity_drain(PDO $pdo, int &$slots, bool $dry = false): array {
     if ($slots <= 0) return ['refused' => false, 'promoted' => 0, 'archived' => 0];
     require_once __DIR__ . '/gate_term.php';
     require_once __DIR__ . '/quality.php';
-    $held = $pdo->query("SELECT id, type, path FROM pages WHERE status='review' AND robots='noindex' ORDER BY updated_at ASC LIMIT " . ($slots * 2))->fetchAll();
+    $held = $pdo->query("SELECT id, type, path FROM pages WHERE status='review' AND robots='noindex'
+                          AND (human_review IS NULL OR human_review NOT IN ('needed','rejected'))   -- waiting for a person: admin > Human check
+                          ORDER BY updated_at ASC LIMIT " . ($slots * 2))->fetchAll();
     $promoted = 0; $archived = 0; $retained = 0;
     require_once __DIR__ . '/dedupe.php';
     foreach ($held as $h) {

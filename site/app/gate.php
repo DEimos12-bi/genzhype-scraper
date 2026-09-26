@@ -108,6 +108,14 @@ function page_publish_live(PDO $pdo, int $pageId): bool {
     // attribution; anything else publishes noindex exactly as before, and the
     // daily framing repair keeps eating the backlog until it qualifies.
     if ($isDrama) {
+        // a story about a death, sexual violence, abuse of minors or domestic abuse waits for a person
+        // (human_review.php, owner 2026-09-26): it stays in review until admin > Human check approves it
+        require_once __DIR__ . '/human_review.php';
+        if (($hold = hr_hold($pdo, $pageId)) !== '') {
+            $pdo->prepare("UPDATE pages SET status='review', robots='noindex', updated_at=NOW() WHERE id=?")->execute([$pageId]);
+            echo "  HELD FOR A HUMAN CHECK ({$hold}): admin > Human check\n";
+            return false;
+        }
         $why = drama_index_block($pdo, $pageId);
         if ($why !== '') {
             $pdo->prepare("UPDATE pages SET status='published', robots='noindex',

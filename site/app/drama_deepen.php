@@ -202,6 +202,10 @@ function drama_deepen_page(PDO $pdo, int $pageId, bool $apply): array {
                 'why' => 'still short: ' . implode(', ', array_slice($fails, 0, 2))];
     }
 
+    // a grave story goes back on the site only after a person read it (human_review.php)
+    require_once __DIR__ . '/human_review.php';
+    if (($hold = hr_hold($pdo, $pageId)) !== '') return ['ok' => true, 'added' => $added, 'published' => false, 'why' => "held for a human check ({$hold})"];
+
     // restore, but leave Google to the owner's 40/day reveal
     $pdo->prepare("UPDATE pages SET status='published', robots='noindex',
                    published_at=COALESCE(published_at, NOW()) WHERE id=?")->execute([$pageId]);
