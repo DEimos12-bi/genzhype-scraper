@@ -111,8 +111,8 @@ function repo_load_all(): array {
         $ev->execute([$did]);
         foreach ($ev->fetchAll() as $e) {
             $events[] = [
-                'date_iso' => $e['event_date'],
-                'date'     => date('M j, Y', strtotime($e['event_date'])),
+                'date_iso' => story_event_date($e['event_date'])[1],
+                'date'     => story_event_date($e['event_date'])[0],   // month-only dates showed as the last day of the month before (2026-09-27)
                 'title'    => $e['title'] ?? '',
                 'desc'     => $e['description'],
                 'sources'  => $e['source_id'] ? [(int)$e['source_id']] : [],
@@ -146,12 +146,12 @@ function repo_load_all(): array {
         foreach ($fq->fetchAll() as $f) $faqs[] = ['q' => $f['question'], 'a' => $f['answer']];
 
         $sources = []; $srcExcerpts = [];
-        $sq = $pdo->prepare("SELECT DISTINCT s.id, s.url, s.publisher, s.title, s.retrieved_on, s.excerpt
+        $sq = $pdo->prepare("SELECT DISTINCT s.id, s.url, s.publisher, s.title, s.retrieved_on, s.excerpt, s.published_on
                              FROM events e JOIN sources s ON s.id = e.source_id
                              WHERE e.drama_id=? ORDER BY s.id");
         $sq->execute([$did]);
         foreach ($sq->fetchAll() as $s) {
-            $sources[] = ['id' => (int)$s['id'], 'url' => $s['url'] ?? null, 'text' => trim(($s['publisher'] ?? '') . ', ' . ($s['title'] ?? '') . ', ' . date('M j, Y', strtotime($s['retrieved_on'] ?? 'now')) . '.')];
+            $sources[] = ['id' => (int)$s['id'], 'url' => $s['url'] ?? null, 'text' => repo_source_text($s)];
             if (!empty($s['excerpt'])) $srcExcerpts[] = ['excerpt' => $s['excerpt'], 'publisher' => $s['publisher'] ?? ''];
         }
         $pullQuote = find_pull_quote($srcExcerpts, true);   // safe=true filters grim/sensitive quotes per-quote
@@ -190,7 +190,7 @@ function repo_load_all(): array {
             'slug'          => $r['slug'],
             'title'         => $r['title'],
             'title_tag'     => $r['title_tag'],
-            'eyebrow'       => 'Creator Drama',
+            'eyebrow'       => ucwords(timeline_lanes()[$r['lane'] ?? 'drama']['label'] ?? 'Creator drama'),   // the lane's own label (2026-09-27: gaming said Creator Drama)
             'status'        => $status['short'],
             'status_long'   => $status['long'],
             'reviewed_by'   => $r['human_review'] === 'approved' ? (string)$r['reviewed_by'] : '',   // human_review.php
@@ -363,6 +363,17 @@ function repo_load_term_any(string $slug): ?array {
 }
 
 /** Load ONE drama in template shape regardless of status (admin preview). */
+/**
+ * A source list line: "Outlet, the article's title, its publish date." (owner 2026-09-27). Older rows stored the
+ * article's first words as the title and the day we fetched it as the date: those are left out, never shown as if real.
+ */
+function repo_source_text(array $s): string {
+    $title = trim((string)($s['title'] ?? ''));
+    if ($title !== '' && mb_substr(trim((string)($s['excerpt'] ?? '')), 0, 60) === mb_substr($title, 0, 60)) $title = '';
+    $d = source_date($s['published_on'] ?? '');
+    return trim(($s['publisher'] ?? '') . ($title !== '' ? ', ' . $title : '') . ($d ? ', ' . date('M j, Y', strtotime($d)) : '')) . '.';
+}
+
 function repo_load_drama_any(string $slug): ?array {
     $pdo = db();
     $st = $pdo->prepare("SELECT p.id page_id, p.slug, p.h1, p.title_tag, p.meta_desc, p.summary, p.cover,
@@ -381,8 +392,8 @@ function repo_load_drama_any(string $slug): ?array {
     $ev->execute([$did]);
     foreach ($ev->fetchAll() as $e) {
         $events[] = [
-            'date_iso' => $e['event_date'],
-            'date'     => date('M j, Y', strtotime($e['event_date'])),
+            'date_iso' => story_event_date($e['event_date'])[1],
+            'date'     => story_event_date($e['event_date'])[0],   // month-only dates showed as the last day of the month before (2026-09-27)
             'title'    => $e['title'] ?? '',
             'desc'     => $e['description'],
             'sources'  => $e['source_id'] ? [(int)$e['source_id']] : [],
@@ -405,13 +416,13 @@ function repo_load_drama_any(string $slug): ?array {
     foreach ($fq->fetchAll() as $f) $faqs[] = ['q'=>$f['question'],'a'=>$f['answer']];
 
     $sources = [];
-    $sq = $pdo->prepare("SELECT DISTINCT s.id, s.url, s.publisher, s.title, s.retrieved_on FROM events e JOIN sources s ON s.id=e.source_id WHERE e.drama_id=? ORDER BY s.id");
+    $sq = $pdo->prepare("SELECT DISTINCT s.id, s.url, s.publisher, s.title, s.retrieved_on, s.excerpt, s.published_on FROM events e JOIN sources s ON s.id=e.source_id WHERE e.drama_id=? ORDER BY s.id");
     $sq->execute([$did]);
-    foreach ($sq->fetchAll() as $s) $sources[] = ['id'=>(int)$s['id'],'url'=>$s['url'] ?? null,'text'=>trim(($s['publisher'] ?? '').', '.($s['title'] ?? '').', '.date('M j, Y', strtotime($s['retrieved_on'] ?? 'now')).'.')];
+    foreach ($sq->fetchAll() as $s) $sources[] = ['id'=>(int)$s['id'],'url'=>$s['url'] ?? null,'text'=>repo_source_text($s)];
 
     $status = story_status($r['lifecycle'], $r['last_event']);
     return [
-        'slug'=>$r['slug'], 'title'=>$r['title'], 'title_tag'=>$r['title_tag'], 'eyebrow'=>'Creator Drama',
+        'slug'=>$r['slug'], 'title'=>$r['title'], 'title_tag'=>$r['title_tag'], 'eyebrow'=>ucwords(timeline_lanes()[$r['lane'] ?? 'drama']['label'] ?? 'Creator drama'),
         // 2026-09-26 the lane, as repo_load_drama() carries it (r151): without it the pre-publish SEO audit
         // rendered every gaming story with a /drama/ canonical and failed it (the Skyblivion rebuild)
         'lane'=>$r['lane'],

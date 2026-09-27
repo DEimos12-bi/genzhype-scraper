@@ -1190,6 +1190,36 @@ switch ($cmd) {
         echo 'timeline strong: ' . ($r['timeline_strong'] ? 'yes' : 'no') . ($r['verified'] ? '' : ' (unverified: the AI reading did not run)') . "\n";
         break;
 
+    case 'accuracy':
+        // 2026-09-27 (owner, accuracy.php). "accuracy dates": every live story's timeline dates put right (code only).
+        // "accuracy hold": live pages Google can see that fail the hard rules are closed to it. "accuracy sweep [secs]":
+        // the full accuracy step (AI fact check + sentence tie) on live pages, Google-visible first, time-boxed.
+        require_once __DIR__ . '/accuracy.php';
+        if ($arg === 'dates') {
+            $n = ['pages' => 0, 'to_background' => 0, 'to_next' => 0, 'plans_removed' => 0];
+            foreach ($pdo->query("SELECT DISTINCT d.page_id FROM events e JOIN dramas d ON d.id=e.drama_id JOIN pages p ON p.id=d.page_id
+                                  WHERE p.status='published' AND e.video_only=0 AND (e.event_date LIKE '%-00'
+                                     OR e.event_date > DATE(GREATEST(p.published_at, COALESCE(p.content_updated_at, p.published_at))))")->fetchAll(PDO::FETCH_COLUMN) as $pid) {
+                $r = acc_fix_dates($pdo, (int)$pid);
+                $n['pages']++; foreach ($r as $k => $v) $n[$k] += $v;
+            }
+            echo "dates put right on {$n['pages']} live stories: {$n['to_background']} month/year-only events to the background, "
+               . "{$n['to_next']} plans to What happens next, {$n['plans_removed']} past plans off the timeline\n";
+        } elseif ($arg === 'hold') {
+            $held = 0;
+            foreach ($pdo->query("SELECT id, path FROM pages WHERE type='drama' AND status='published' AND robots='index'")->fetchAll(PDO::FETCH_ASSOC) as $p)
+                if ($hf = acc_hard_fails($pdo, (int)$p['id'])) {
+                    $pdo->prepare("UPDATE pages SET robots='noindex', updated_at=NOW() WHERE id=?")->execute([(int)$p['id']]);
+                    echo "  held {$p['path']}: " . implode('; ', $hf) . "\n"; $held++;
+                }
+            echo "{$held} Google-visible stories held until they pass\n";
+        } elseif ($arg === 'sweep') {
+            $o = acc_sweep($pdo, isset($argv[3]) && ctype_digit($argv[3]) ? (int)$argv[3] : 240);   // prints each page as it goes
+            echo "accuracy sweep: {$o['done']} checked, {$o['clean']} pass everything, {$o['removed']} unsupported sentences out, "
+               . "{$o['held']} closed to Google, {$o['reopened']} reopened\n";
+        } else echo "usage: cli.php accuracy dates|hold|sweep [seconds]\n";
+        break;
+
     case 'rebuild':
         // 2026-09-26 an existing page made again from the beginning by the pipeline (rebuild.php).
         // "cli.php rebuild 1268,1192". Owner-run, so it works while app/PAUSE holds the machine; it takes

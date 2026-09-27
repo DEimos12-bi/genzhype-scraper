@@ -79,6 +79,18 @@ function story_context_shape(?string $why, ?string $nextJson): array {
 }
 
 /** Human date for a next item: "October 15, 2026", "October 2026", "2026", or ''. */
+/**
+ * A timeline event's date as the page shows it, [label, iso]. 2026-09-27: "2026-08-00" (month only) was printed
+ * "Jul 31, 2026", a day no source gave. Now "Sep 15, 2026" / "Aug 2026" / "2026" / '' (no date), with a valid
+ * <time datetime> ("2026-09-15" / "2026-08" / "2026" / '').
+ */
+function story_event_date(string $d): array {
+    if (!preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $d, $m) || $m[1] === '0000') return ['', ''];
+    if ($m[2] === '00') return [$m[1], $m[1]];
+    if ($m[3] === '00') return [date('M Y', strtotime("{$m[1]}-{$m[2]}-01")), "{$m[1]}-{$m[2]}"];
+    return [date('M j, Y', strtotime($d)), $d];
+}
+
 function story_context_date_label(string $d): string {
     if (!preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $d, $m)) return '';
     if ($m[2] === '00') return $m[1];

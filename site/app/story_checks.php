@@ -21,7 +21,16 @@ function story_checks(PDO $pdo, int $pageId, string $engine = 'exa'): array {
         $fr = framing_repair_run($pdo, 16, $pageId);
         if (!empty($fr['repaired'])) echo "    framing: {$fr['repaired']} unconfirmed event(s) given alleged/according-to framing\n";
     } catch (Throwable $e) { echo "    framing repair failed: " . $e->getMessage() . "\n"; }
-    $v = verify_drama($pageId);
+    // accuracy (owner 2026-09-27, accuracy.php): real past dates; every sentence backed by a source (a sentence no
+    // source passage supports comes out); then the fact check, whose result the build uses
+    require_once __DIR__ . '/accuracy.php';
+    $acc = acc_run($pdo, $pageId);
+    $v = $acc['verify'];
+    $moved = array_sum($acc['dates']);
+    if ($acc['removal']['removed'] || $moved)
+        echo "    accuracy: {$acc['removal']['removed']} unsupported sentence(s) out, {$moved} timeline date(s) put right"
+           . ($acc['removal']['why_dropped'] ? ", 'Why it matters' dropped" : '') . "\n";
+    if (isset($acc['tie']['error'])) echo "    accuracy: sentence check not run ({$acc['tie']['error']}); the page holds until it runs\n";
     $q = quality_check_drama($pageId);
     // the top-3 test (owner rule): what this page has that the top results do not; stored, read by the gate.
     // It needs a key: the keyless Exa tier (shared by 8 features: slang drafts, deepen, clips...) hit

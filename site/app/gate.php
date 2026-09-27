@@ -45,6 +45,10 @@ function story_word_count(PDO $pdo, int $pageId): int {
  * to Google in 7 days, around the r168 rule below).
  */
 function drama_index_block(PDO $pdo, int $pageId): string {
+    // accuracy first (owner 2026-09-27): a timeline date that is not a real past day, a failed or missing fact check,
+    // a summary cut short or a cited source missing from the list keeps a page from Google (accuracy.php)
+    require_once __DIR__ . '/accuracy.php';
+    if ($hf = acc_hard_fails($pdo, $pageId)) return 'HELD (accuracy): ' . implode('; ', $hf) . ' - live on the site, not offered to Google';
     $unframed = 0;
     try {
         require_once __DIR__ . '/framing_repair.php';
@@ -423,6 +427,11 @@ function gate_check_drama(int $page_id): array {
     // 7. Minimum sourced, dated events
     $n = (int)$pdo->query("SELECT COUNT(*) FROM events WHERE drama_id={$did}")->fetchColumn();
     $add('events', "{$n} timeline events (need >= " . GATE_MIN_EVENTS . ")", $n >= GATE_MIN_EVENTS);
+
+    // accuracy (owner 2026-09-27): blocks whatever the editor says (accuracy.php)
+    require_once __DIR__ . '/accuracy.php';
+    $hf = acc_hard_fails($pdo, $page_id);
+    $add('accuracy', 'Accuracy: real past dates, fact check passed, summary kept, cited sources listed', !$hf, implode('; ', $hf));
     // option A bookkeeping: a story below the full bar is marked DEVELOPING so
     // the reader is told it is still moving, rather than being handed a thin
     // page dressed as a finished one.

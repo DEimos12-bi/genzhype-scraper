@@ -17,6 +17,8 @@ if (PHP_SAPI !== 'cli' && !defined('GZ_CAROUSEL_LIB')) { http_response_code(403)
  *  a random celebrity because the source article's thumbnail was of HER, not
  *  the beat's subject). One rotation-tier call: does the photo depict the
  *  sentence? Anything but a clear yes -> the card is skipped. FAIL-CLOSED. */
+require_once __DIR__ . '/ai.php';   // ai_count_call()
+
 function carousel_photo_fits(string $imgUrl, string $sentence): bool {
     $key = $GLOBALS['CONFIG']['ai']['gemini_key'] ?? '';
     if ($key === '') return false;
@@ -31,7 +33,8 @@ function carousel_photo_fits(string $imgUrl, string $sentence): bool {
                  . 'JSON: {"fits": true|false}'],
         ['inline_data' => ['mime_type' => 'image/jpeg',
                            'data' => base64_encode($bytes)]]]]]]);
-    foreach (['gemma-4-31b-it', 'gemini-3.5-flash-lite'] as $model) {
+    foreach (['gemma-4-31b-it'] as $model) {   // 3.5 Flash-Lite is the editor's (ai.php AI_JUDGE_RESERVED, 2026-09-27)
+        ai_count_call('gemini', $model);
         $ch = curl_init("https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent?key={$key}");
         curl_setopt_array($ch, [CURLOPT_POST => true, CURLOPT_POSTFIELDS => $body,
             CURLOPT_HTTPHEADER => ['Content-Type: application/json'],

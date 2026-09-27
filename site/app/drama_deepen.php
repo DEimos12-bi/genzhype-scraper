@@ -83,6 +83,7 @@ function dd_hunt(string $title, array $skipHosts, int $want = 4): array {
         if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)$date)) continue;   // undated = unusable
 
         $out[] = ['url' => $u, 'publisher' => $host, 'date' => $date,
+                  'title' => preg_match('#<title[^>]*>(.*?)</title>#is', $html, $tm) ? (string)source_title($tm[1], $u) : '',
                   'excerpt' => mb_substr($text, 0, 3000)];
     }
     return $out;
@@ -144,6 +145,7 @@ function drama_deepen_page(PDO $pdo, int $pageId, bool $apply): array {
 
     // write: one source row per article actually used, then its events
     $added = 0; $srcIds = [];
+    $newestBefore = page_newest_event($pdo, $pageId);   // the public date moves only past this (db.php)
     $maxSort = (int)$pdo->query("SELECT COALESCE(MAX(sort_order),0) FROM events WHERE drama_id={$dramaId}")->fetchColumn();
 
     foreach ($newEvents as $e) {
@@ -151,6 +153,7 @@ function drama_deepen_page(PDO $pdo, int $pageId, bool $apply): array {
         if (!isset($arts[$ai])) continue;
         $date = (string)($e['date'] ?? '');
         if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) continue;
+        if (str_ends_with($date, '-00') || $date > gmdate('Y-m-d')) continue;   // a real past day only (accuracy.php, 2026-09-27)
         $title = trim((string)($e['title'] ?? ''));
         if ($title === '') continue;
         // the event must actually be about this article's content
@@ -160,7 +163,7 @@ function drama_deepen_page(PDO $pdo, int $pageId, bool $apply): array {
             $pdo->prepare("INSERT INTO sources (url,domain,publisher,title,reliability,retrieved_on,excerpt,published_on)
                            VALUES (?,?,?,?,?,?,?,?)")
                 ->execute([$a['url'], $a['publisher'], $a['publisher'],
-                           mb_substr($a['excerpt'], 0, 200), 'secondary', $a['date'], $a['excerpt'], source_date($a['date'])]);
+                           source_title($a['title'] ?? '', $a['url']), 'secondary', $a['date'], $a['excerpt'], source_date($a['date'])]);
             $srcIds[$ai] = (int)$pdo->lastInsertId();
         }
 
@@ -171,7 +174,7 @@ function drama_deepen_page(PDO $pdo, int $pageId, bool $apply): array {
         $added++;
     }
     if (!$added) return ['ok' => false, 'why' => 'no event survived validation'];
-    page_content_touched($pdo, $pageId);   // new dated events: the page's public date moves (db.php)
+    page_content_touched_if_newer($pdo, $pageId, $newestBefore);   // a newer development moves the public date (db.php)
     // 2026-09-24 new events go where their dates put them, not at the end of the timeline
     try { require_once __DIR__ . '/timeline_order.php'; events_resort($pdo, $dramaId); } catch (Throwable $e) { error_log('deepen resort: ' . $e->getMessage()); }
     // 2026-09-24 the summary, status and status FAQ follow the new events (this run

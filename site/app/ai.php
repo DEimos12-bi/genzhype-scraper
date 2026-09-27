@@ -16,6 +16,12 @@ const AI_READER_SKIP  = ['nvidia/nvidia/nemotron-3-nano-30b-a3b', 'nvidia_b/nvid
 // own free 200,000 tokens a day), then qwen; gpt-oss-120b's tokens stay with the editor (quality.php).
 const AI_WRITER_ORDER = ['gemini', 'groq', 'nvidia', 'openrouter'];
 const AI_WRITER_SKIP  = ['groq/openai/gpt-oss-120b'];
+// 2026-09-27 GEMINI'S FREE QUOTA IS THE EDITOR'S (owner). Google counts its free limits per model, so
+// these three answer only the quality judge (quality.php sets $GLOBALS['__ai_judge'] around its call);
+// every other Gemini request uses Gemma 4 (it read an image correctly the same day) or the next
+// provider in its chain. Flash-Lite-latest is an alias Google does not resolve, so 3.5 Flash-Lite,
+// which it may point to, is reserved with it.
+const AI_JUDGE_RESERVED = ['gemini/gemini-2.5-flash', 'gemini/gemini-flash-lite-latest', 'gemini/gemini-3.5-flash-lite'];
 
 /**
  * Every "provider/model" of $order (and nvidia_b, which 'nvidia' brings in) that is NOT in $allow:
@@ -103,10 +109,34 @@ function ai_providers(): array {
  * $skip: "provider/model" entries to pass over (a caller retrying after an unusable reply).
  * Returns ['content'=>string,'provider'=>,'model'=>,'tokens'=>int] or ['error'=>...].
  */
+/**
+ * Every AI request, counted per day by model and by the file that asked it (owner 2026-09-27: "how many
+ * Gemini calls per day does the pipeline use"). cache/ai-calls/YYYY-MM-DD.json. Never blocks a call.
+ */
+function ai_count_call(string $provider, string $model): void {
+    try {
+        $who = 'unknown';
+        foreach (debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 8) as $fr)
+            if (!empty($fr['file']) && basename($fr['file']) !== 'ai.php') { $who = basename($fr['file'], '.php'); break; }
+        $dir = __DIR__ . '/cache/ai-calls';
+        if (!is_dir($dir)) @mkdir($dir, 0755, true);
+        $h = @fopen($dir . '/' . gmdate('Y-m-d') . '.json', 'c+');
+        if (!$h) return;
+        if (flock($h, LOCK_EX)) {
+            $d = json_decode((string)stream_get_contents($h), true) ?: [];
+            $d["$provider/$model"][$who] = ($d["$provider/$model"][$who] ?? 0) + 1;
+            ftruncate($h, 0); rewind($h); fwrite($h, json_encode($d));
+            flock($h, LOCK_UN);
+        }
+        fclose($h);
+    } catch (Throwable $e) { /* counting never stops a call */ }
+}
+
 function ai_chat(array $messages, array $order = ['gemini', 'openrouter', 'nvidia', 'nvidia_b'], float $temperature = 0.3, int $timeout = 120, array $skip = []): array {
     // account B is a continuation of the nvidia pool: any caller that asks for
     // 'nvidia' implicitly gets 'nvidia_b' as the next rung (2026-08-30)
     if (in_array('nvidia', $order, true) && !in_array('nvidia_b', $order, true)) $order[] = 'nvidia_b';
+    if (empty($GLOBALS['__ai_judge'])) $skip = array_merge($skip, AI_JUDGE_RESERVED);   // the editor's models (above)
     $providers = ai_providers();
     if (!$providers) return ['error' => 'no AI keys configured in app/config.php (ai section)'];
     $last = 'no provider attempted';
@@ -126,6 +156,7 @@ function ai_chat(array $messages, array $order = ['gemini', 'openrouter', 'nvidi
             // their <think> tokens eat the default completion cap otherwise
             if (!empty($p['max_tokens'])) $body['max_tokens'] = (int)$p['max_tokens'];
             $payload = json_encode($body);
+            ai_count_call($name, $model);
             $ch = curl_init($p['url']);
             curl_setopt_array($ch, [
                 CURLOPT_POST           => true,
@@ -144,6 +175,7 @@ function ai_chat(array $messages, array $order = ['gemini', 'openrouter', 'nvidi
             // timeout means an interactive caller (web) that must not block -> skip it
             if ($code === 429 && $mi === count($p['models']) - 1 && $timeout >= 60) {
                 sleep(20);
+                ai_count_call($name, $model);
                 $ch = curl_init($p['url']);
                 curl_setopt_array($ch, [
                     CURLOPT_POST => true, CURLOPT_POSTFIELDS => $payload,

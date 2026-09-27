@@ -183,8 +183,8 @@ function term_rebuild(PDO $pdo, int $pageId, string $step = 'all'): array {
  * text, timeline, questions or term entry, cover, Google setting and public date. The version it takes down
  * is kept in storage/rebuilds/replaced/ first. One transaction: all of it comes back or none of it.
  */
-function page_restore(PDO $pdo, int $pageId): array {
-    $from = rebuild_last_backup($pageId);
+function page_restore(PDO $pdo, int $pageId, string $from = ''): array {   // $from: a given copy (accuracy.php keeps its own)
+    $from = $from !== '' ? $from : rebuild_last_backup($pageId);
     if ($from === '') return ['error' => 'no rebuild copy of this page to put back'];
     $b = json_decode((string)file_get_contents($from), true);
     $pg = $b['page'] ?? null;

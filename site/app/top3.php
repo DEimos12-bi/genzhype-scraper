@@ -421,6 +421,7 @@ function top3_add_missing_posts(PDO $pdo, int $pageId, int $max = 4, bool $save 
     $answered = [];
 
     sources_install($pdo);
+    $newestBefore = page_newest_event($pdo, $pageId);   // the public date moves only past this (db.php)
     $insSrc = $pdo->prepare("INSERT INTO sources (url, domain, publisher, title, reliability, retrieved_on, excerpt, published_on) VALUES (?,?,?,?,?,?,?,?)");
     $insEv = $pdo->prepare("INSERT INTO events (drama_id, event_date, title, description, source_id, is_confirmed, sort_order, embed_html, embed_provider)
                             VALUES (?,?,?,?,?,0,9999,?,?)");
@@ -456,8 +457,8 @@ function top3_add_missing_posts(PDO $pdo, int $pageId, int $max = 4, bool $save 
         $out['skipped'][] = "{$p['url']}: the AI gave no answer for it (" . mb_substr(preg_replace('/\s+/', ' ', (string)$res['content']), 0, 120) . ')';
     if ($out['added'] || $out['attached']) {
         events_resort($pdo, $did);
-        if ($out['added']) page_content_touched($pdo, $pageId);   // new dated events: the public date moves (db.php)
-        else $pdo->prepare("UPDATE pages SET updated_at=NOW() WHERE id=?")->execute([$pageId]);   // a post on an event we had: cache only
+        // a newer development moves the public date; an older one, or a post on an event we had, only the cache (db.php)
+        page_content_touched_if_newer($pdo, $pageId, $newestBefore);
     }
     return $out;
 }

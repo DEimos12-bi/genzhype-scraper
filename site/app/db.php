@@ -64,3 +64,39 @@ function source_date(?string $d): ?string {
     $d = substr(trim((string)$d), 0, 10);
     return preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $d, $m) && checkdate((int)$m[2], (int)$m[3], (int)$m[1]) ? $d : null;
 }
+
+/** The newest real timeline day of a story (a full date, not in the future), '' when it has none. */
+function page_newest_event(PDO $pdo, int $pageId): string {
+    $st = $pdo->prepare("SELECT COALESCE(MAX(e.event_date), '') FROM events e JOIN dramas d ON d.id=e.drama_id
+                         WHERE d.page_id=? AND e.video_only=0 AND e.event_date NOT LIKE '%-00' AND e.event_date <= UTC_DATE()");
+    $st->execute([$pageId]);
+    return (string)$st->fetchColumn();
+}
+
+/**
+ * Events were added: the public date moves only when the page now has a newer development than $before (its newest
+ * day before the change). Owner 2026-09-27: 8 pages showed "Updated Sep 26" for events dated June and July. True
+ * when it moved; otherwise only the cache version moves.
+ */
+function page_content_touched_if_newer(PDO $pdo, int $pageId, string $before): bool {
+    if (page_newest_event($pdo, $pageId) > $before) { page_content_touched($pdo, $pageId); return true; }
+    $pdo->prepare("UPDATE pages SET updated_at=NOW() WHERE id=?")->execute([$pageId]);
+    return false;
+}
+
+/**
+ * An article's own title for the source list (owner 2026-09-27: "show real titles"; 1,559 of 1,714 sources on live
+ * stories showed the article's first words). The site's name after " | ", or after " - " when that part is the site's
+ * name, comes off; a block or error page's title ("Just a moment...") is no title. null when there is none.
+ */
+function source_title(?string $t, string $url = ''): ?string {
+    $t = trim(preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags((string)$t), ENT_QUOTES)));
+    if ($t === '' || preg_match('/^(just a moment|access denied|attention required|page not found|404|403|forbidden|are you a robot|sign in|log in|captcha)/i', $t)) return null;
+    $core = preg_replace('/[^a-z0-9]/', '', preg_replace('/\.[a-z.]{2,12}$/', '', preg_replace('/^www\./', '', strtolower((string)parse_url($url, PHP_URL_HOST)))));
+    $t = preg_replace('/\s+\|\s+[^|]{1,40}$/u', '', $t);
+    if (preg_match('/^(.*\S)\s+[-–—]\s+([^-–—]{1,40})$/u', $t, $m)) {
+        $tail = preg_replace('/[^a-z0-9]/', '', strtolower($m[2]));
+        if ($tail !== '' && (($core !== '' && (str_contains($core, $tail) || str_contains($tail, $core))) || in_array($tail, ['wikipedia', 'reddit', 'youtube', 'twitter', 'x'], true))) $t = $m[1];
+    }
+    return mb_strlen($t) >= 8 ? mb_substr($t, 0, 250) : null;
+}
