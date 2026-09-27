@@ -1,4 +1,4 @@
-vault returned no buffer key (attempt 1)
-vault returned no buffer key (attempt 2)
-vault returned no buffer key (attempt 3)
+vault unreachable from this runner (attempt 1): Expecting value: line 1 column 1 (char 0)
+vault unreachable from this runner (attempt 2): Expecting value: line 1 column 1 (char 0)
+vault unreachable from this runner (attempt 3): Expecting value: line 1 column 1 (char 0)
 Buffer: no token this run; the next scheduled run will retry
