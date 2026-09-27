@@ -116,7 +116,7 @@ function acc_tie(PDO $pdo, int $pageId, array $suspects): array {
     if (!$j || !isset($j['items'])) return ['error' => 'tie reply unreadable'];
     $quotes = [];
     foreach ((array)$j['items'] as $it) $quotes[(int)($it['n'] ?? 0)] = (string)($it['quote'] ?? '');
-    $unsupported = []; $tied = 0;
+    $unsupported = []; $tied = 0; $backed = [];
     foreach (array_values($suspects) as $i => $x) {
         $q = acc_norm($quotes[$i + 1] ?? '');
         // the quote must really be in the sources, and be about the sentence (share its content words)
@@ -126,9 +126,11 @@ function acc_tie(PDO $pdo, int $pageId, array $suspects): array {
             $qw = array_flip(back_words($q));
             $ok = $sw && count(array_filter($sw, fn($w) => isset($qw[$w]))) / count($sw) >= 0.3;
         }
-        if ($ok) $tied++; else $unsupported[] = $x + ['why' => 'no source passage supports it'];
+        if (!$ok) { $unsupported[] = $x + ['why' => 'no source passage supports it']; continue; }
+        $tied++;
+        foreach ($src as $sr) if (mb_strpos(acc_norm((string)$sr['excerpt']), $q) !== false) { $backed[] = $x + ['publisher' => (string)$sr['publisher']]; break; }
     }
-    return ['unsupported' => $unsupported, 'tied' => $tied, 'model' => $res['provider'] . '/' . $res['model']];
+    return ['unsupported' => $unsupported, 'tied' => $tied, 'backed' => $backed, 'model' => $res['provider'] . '/' . $res['model']];
 }
 
 /** The fact check sometimes copies the whole timeline line it was shown: "2. [2026-09-14] [UNCONFIRMED] Title: text". */
@@ -296,6 +298,35 @@ function acc_retitle(PDO $pdo, int $pageId, string $problem): bool {
     return true;
 }
 
+/**
+ * A sentence a source backs but in other words names that source (owner 2026-09-27: "a sentence that is true but worded
+ * differently gets 'according to [outlet]' instead of being deleted"). Events, FAQ answers and background only; the
+ * summary stays clean and our take is ours. A sentence that already names who says it is left as it is.
+ */
+function acc_attribute(PDO $pdo, int $pageId, array $backed): int {
+    $p = acc_page($pdo, $pageId);
+    if (!$p || !$backed) return 0;
+    $did = (int)$p['did']; $n = 0;
+    $bg = array_values(array_filter((array)json_decode((string)$p['background'], true), 'is_string'));
+    $bgChanged = false;
+    foreach ($backed as $b) {
+        $sent = (string)$b['sentence']; $pub = trim(preg_replace('/\s*\((original post)\)$/i', '', (string)($b['publisher'] ?? '')));
+        if ($pub === '' || preg_match('/\b(according to|reported|reports|said|says|told|per|wrote|claims?|alleg|announced|confirmed|stated)\b/i', $sent)) continue;
+        $with = preg_replace('/([.!?])?\s*$/u', ", according to {$pub}$1", rtrim($sent), 1);
+        if ($b['section'] === 'event' && isset($b['key'])) {
+            $st = $pdo->prepare("UPDATE events SET description=REPLACE(description, ?, ?) WHERE id=? AND drama_id=?");
+            $st->execute([$sent, $with, (int)$b['key'], $did]); $n += $st->rowCount();
+        } elseif ($b['section'] === 'faq' && isset($b['key'])) {
+            $st = $pdo->prepare("UPDATE faqs SET answer=REPLACE(answer, ?, ?) WHERE id=? AND drama_id=?");
+            $st->execute([$sent, $with, (int)$b['key'], $did]); $n += $st->rowCount();
+        } elseif ($b['section'] === 'background') {
+            foreach ($bg as $i => $para) if (str_contains($para, $sent)) { $bg[$i] = str_replace($sent, $with, $para); $bgChanged = true; $n++; break; }
+        }
+    }
+    if ($bgChanged) $pdo->prepare("UPDATE dramas SET background=? WHERE id=?")->execute([json_encode($bg, JSON_UNESCAPED_UNICODE), $did]);
+    return $n;
+}
+
 /** The latest stored fact check if it was made after the page last changed, as verify_drama() returns it; else null. */
 function acc_fresh_verify(PDO $pdo, int $pageId): ?array {
     $st = $pdo->prepare("SELECT r.passed, r.verdict, r.provider FROM ai_reviews r JOIN pages p ON p.id=r.page_id
@@ -331,9 +362,9 @@ function acc_run(PDO $pdo, int $pageId): array {
     $tie = acc_tie($pdo, $pageId, array_values($cand));
     $rep['tie'] = isset($tie['error']) ? ['error' => $tie['error']] : ['tied' => $tie['tied'], 'unsupported' => count($tie['unsupported'])];
     $cut = $tie['unsupported'] ?? [];   // no tie answer: nothing is cut, the page holds until the next run
-    // "Why it matters" is our analysis, not a report: when the fact check faults a sentence of it, the sentence goes
-    // (owner 2026-09-27: "fact-check it like the rest, and drop it when it fails"; a quote can share its words
-    // and say the opposite: Rayman's "an October dominated by GTA 6" against "games moved away from GTA 6")
+    // "Our take" (why_matters) is our analysis, labelled ours (owner 2026-09-27): it needs no quote, and the fact check judges
+    // only the facts it states; a sentence stating a fact the sources lack or contradict goes (Rayman's "an October
+    // dominated by GTA 6" against "games moved away from GTA 6"). The code check counts only new names and numbers in it.
     foreach ((array)($v['issues'] ?? []) as $i)
         if (is_array($i) && str_starts_with(strtolower((string)($i['section'] ?? '')), 'why') && trim((string)($i['sentence'] ?? '')) !== '')
             $cut[] = ['section' => 'why', 'sentence' => (string)$i['sentence']];
@@ -344,6 +375,7 @@ function acc_run(PDO $pdo, int $pageId): array {
     $rep['outdated'] = count($old);
     foreach ($old as $o) $cut[] = $o;
     $rep['removal'] = acc_remove($pdo, $pageId, $cut);
+    $rep['attributed'] = acc_attribute($pdo, $pageId, $tie['backed'] ?? []);
     $rep['retitled'] = false;
     foreach ((array)($v['issues'] ?? []) as $i)
         if (is_array($i) && ($i['type'] ?? '') === 'title') { $rep['retitled'] = acc_retitle($pdo, $pageId, (string)($i['detail'] ?? '')); break; }

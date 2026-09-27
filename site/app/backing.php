@@ -110,6 +110,7 @@ function back_unbacked(PDO $pdo, int $pageId): array {
     foreach ($parts as [$section, $key, $text])
         foreach (back_sentences($text) as $s) {
             [$bad, $support, $missing, $fact] = back_check($s, $corpus);
+            if ($section === 'why') $bad = $fact;   // our take is analysis: only a name or number the sources lack counts (owner 2026-09-27)
             if ($bad) $out[] = ['section' => $section, 'key' => $key, 'sentence' => $s, 'support' => $support, 'missing' => $missing, 'fact' => $fact];
         }
     return $out;
