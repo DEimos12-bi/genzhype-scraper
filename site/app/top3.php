@@ -470,7 +470,10 @@ function top3_old_targets(PDO $pdo): array {
                          LEFT JOIN gsc_inspection g ON g.page_id=p.id LEFT JOIN top3_checks t ON t.page_id=p.id
                          WHERE p.type='drama' AND p.status='published' AND t.page_id IS NULL
                            AND p.published_at < UTC_TIMESTAMP() - INTERVAL 2 DAY AND (g.page_id IS NULL OR g.verdict <> 'PASS')
-                         ORDER BY p.robots='index' DESC, g.coverage LIKE 'Discovered%' DESC, p.published_at DESC")->fetchAll(PDO::FETCH_ASSOC);
+                         -- best first (owner 2026-09-27): a page whose fact check and editor already pass lacks only this piece
+                         ORDER BY COALESCE((SELECT r.passed FROM ai_reviews r WHERE r.page_id=p.id AND r.stage='verify' ORDER BY r.id DESC LIMIT 1), 0) DESC,
+                                  COALESCE((SELECT r.passed FROM ai_reviews r WHERE r.page_id=p.id AND r.stage='quality' ORDER BY r.id DESC LIMIT 1), 0) DESC,
+                                  p.robots='index' DESC, g.coverage LIKE 'Discovered%' DESC, p.published_at DESC")->fetchAll(PDO::FETCH_ASSOC);
 }
 
 /**

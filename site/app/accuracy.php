@@ -349,7 +349,19 @@ function acc_run(PDO $pdo, int $pageId): array {
         if (is_array($i) && ($i['type'] ?? '') === 'title') { $rep['retitled'] = acc_retitle($pdo, $pageId, (string)($i['detail'] ?? '')); break; }
     if ($rep['removal']['removed'] > 0 || array_sum($rep['dates']) > 0 || $rep['retitled']) $v = verify_drama($pageId);   // the page as it now stands
     $rep['verify'] = $v;
+    acc_log($pdo, $pageId, (int)$rep['removal']['removed']);
     return $rep;
+}
+
+/** One accuracy run: how many unsupported sentences came out (owner 2026-09-27: the weekly average per page should fall
+ *  as the writer quotes its sources; admin > Editor check shows it). */
+function acc_log(PDO $pdo, int $pageId, int $removed): void {
+    static $ready = false;
+    try {
+        if (!$ready) { $pdo->exec("CREATE TABLE IF NOT EXISTS accuracy_log (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, page_id INT UNSIGNED NOT NULL,
+                                  removed INT NOT NULL, run_at DATETIME NOT NULL, KEY idx_run (run_at)) ENGINE=InnoDB"); $ready = true; }
+        $pdo->prepare("INSERT INTO accuracy_log (page_id, removed, run_at) VALUES (?,?,UTC_TIMESTAMP())")->execute([$pageId, $removed]);
+    } catch (Throwable $e) { error_log('acc_log: ' . $e->getMessage()); }
 }
 
 /**
@@ -413,6 +425,77 @@ function acc_sweep(PDO $pdo, int $maxSecs = 240, int $limit = 50): array {
             . " | Google: {$was} -> {$now}" . ($why !== '' ? ' (' . mb_substr($why, 0, 90) . ')' : '');
         $out['lines'][] = $line;
         echo "  {$line}\n";   // as it goes: a run cut short still shows what it did
+    }
+    return $out;
+}
+
+/**
+ * THE RE-CHECK OF LIVE PAGES (owner 2026-09-27: "re-judge live pages in batches of 20 and report after each batch; don't
+ * flip everything at once"). Each page gets the accuracy step and the calibrated editor, then the index rules decide
+ * whether Google may see it. Order: allegation and death pages first (the owner's Human check list, live or waiting),
+ * then the other live stories, newest first; new stories get all of it in the build. A batch of 20 is fixed when it
+ * starts; after its 20th page a report is written to storage/recheck/batch-N.json (admin > Editor check shows it).
+ * When the editor cannot answer (Gemini's daily quota) the page waits and the run stops: nothing is judged by another
+ * model. No page starts after $maxSecs. Pages waiting for the owner (status review) are checked but not published.
+ */
+function acc_recheck(PDO $pdo, int $maxSecs = 900): array {
+    require_once __DIR__ . '/gate.php';
+    require_once __DIR__ . '/quality.php';
+    $dir = dirname(__DIR__) . '/storage/recheck';
+    if (!is_dir($dir)) mkdir($dir, 0755, true);
+    $sf = "{$dir}/state.json";
+    $st = is_file($sf) ? (json_decode((string)file_get_contents($sf), true) ?: []) : [];
+    $t0 = time(); $out = ['checked' => 0, 'batches_done' => [], 'stopped' => ''];
+    while (time() - $t0 <= $maxSecs) {
+        if (empty($st['pages'])) {   // a new batch of 20: pages not re-checked yet under the 2026-09-27 rules
+            $ids = $pdo->query("SELECT p.id FROM pages p JOIN dramas d ON d.page_id=p.id
+                WHERE p.type='drama' AND (p.status='published' OR (p.status='review' AND p.human_review='needed'))
+                  AND NOT EXISTS (SELECT 1 FROM accuracy_log a WHERE a.page_id=p.id)
+                  AND NOT EXISTS (SELECT 1 FROM ai_reviews r WHERE r.page_id=p.id AND r.stage='quality' AND r.verdict LIKE '%reader view%'
+                                  AND r.created_at >= '2026-09-27 17:00:00')
+                ORDER BY (p.human_review IN ('needed','approved')) DESC, p.published_at DESC LIMIT 20")->fetchAll(PDO::FETCH_COLUMN);
+            if (!$ids) { $out['stopped'] = 'every live page is re-checked'; break; }
+            $st = ['batch' => (int)($st['batch'] ?? 0) + 1, 'pages' => array_map('intval', $ids), 'done' => [], 'started' => gmdate('c')];
+            file_put_contents($sf, json_encode($st, JSON_PRETTY_PRINT));
+        }
+        $todo = array_values(array_diff($st['pages'], array_map('intval', array_keys($st['done']))));
+        if (!$todo) {   // the batch is complete: its report
+            $rows = array_values($st['done']);
+            $rep = ['batch' => $st['batch'], 'started' => $st['started'], 'finished' => gmdate('c'), 'pages' => count($rows),
+                    'editor_pass' => count(array_filter($rows, fn($r) => $r['editor'] === 'pass')),
+                    'fact_check_pass' => count(array_filter($rows, fn($r) => $r['fact_check'] === 'pass')),
+                    'open_to_google' => count(array_filter($rows, fn($r) => $r['google'] === 'index')),
+                    'reopened' => count(array_filter($rows, fn($r) => $r['was'] === 'noindex' && $r['google'] === 'index')),
+                    'closed' => count(array_filter($rows, fn($r) => $r['was'] === 'index' && $r['google'] === 'noindex')),
+                    'sentences_removed' => array_sum(array_column($rows, 'removed')), 'detail' => $st['done']];
+            file_put_contents("{$dir}/batch-{$st['batch']}.json", json_encode($rep, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+            $out['batches_done'][] = $rep;
+            echo "  BATCH {$rep['batch']} DONE: {$rep['pages']} pages, editor pass {$rep['editor_pass']}, fact check pass {$rep['fact_check_pass']}, "
+               . "open to Google {$rep['open_to_google']} (reopened {$rep['reopened']}, closed {$rep['closed']}), {$rep['sentences_removed']} sentences out\n";
+            $st = ['batch' => $st['batch']];
+            file_put_contents($sf, json_encode($st, JSON_PRETTY_PRINT));
+            continue;
+        }
+        $pid = $todo[0];
+        $pdo = db_alive();
+        $p = $pdo->query("SELECT status, robots FROM pages WHERE id=" . $pid)->fetch(PDO::FETCH_ASSOC);
+        $acc = acc_run($pdo, $pid);
+        $pdo = db_alive();
+        $q = quality_check_drama($pid);
+        if (isset($q['error'])) { $out['stopped'] = 'editor unavailable, pages wait: ' . mb_substr($q['error'], 0, 120); break; }
+        $pdo = db_alive();
+        $now = $p['robots'];
+        if ($p['status'] === 'published') {
+            $now = drama_index_block($pdo, $pid) === '' ? 'index' : 'noindex';
+            if ($now !== $p['robots']) $pdo->prepare("UPDATE pages SET robots=?, updated_at=NOW() WHERE id=?")->execute([$now, $pid]);
+        }
+        $st['done'][$pid] = ['was' => $p['robots'], 'google' => $p['status'] === 'published' ? $now : 'waiting for the owner',
+                             'fact_check' => isset($acc['verify']['error']) ? 'not run' : (($acc['verify']['pass'] ?? false) ? 'pass' : 'fail'),
+                             'editor' => $q['pass'] ? 'pass' : 'fail', 'average' => $q['average'], 'removed' => (int)$acc['removal']['removed']];
+        file_put_contents($sf, json_encode($st, JSON_PRETTY_PRINT));
+        $out['checked']++;
+        echo "  {$pid}: fact check {$st['done'][$pid]['fact_check']}, editor {$st['done'][$pid]['editor']} ({$q['average']}), "
+           . "{$st['done'][$pid]['removed']} sentence(s) out | Google {$p['robots']} -> {$st['done'][$pid]['google']}\n";
     }
     return $out;
 }

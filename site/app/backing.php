@@ -114,3 +114,19 @@ function back_unbacked(PDO $pdo, int $pageId): array {
         }
     return $out;
 }
+
+/**
+ * Are these words really in the source text? (owner 2026-09-27: the writer must write only from the source quotes it is
+ * given). Case, quotes and spacing aside, the quote must appear as it is; a quote of 8+ words passes when any 8 words in
+ * a row of it appear (a writer may drop an ellipsis). Under 20 characters is no quote.
+ */
+function back_quote_found(string $quote, string $sourceText): bool {
+    $n = fn(string $t) => trim(preg_replace('/\s+/u', ' ', str_replace(['’', '‘', '“', '”', '–', '—', "\u{00a0}", '…'], ["'", "'", '"', '"', '-', '-', ' ', ' '], mb_strtolower(html_entity_decode($t, ENT_QUOTES)))));
+    $q = trim($n($quote), " \"'.,;:");
+    if (mb_strlen($q) < 20) return false;
+    $src = $n($sourceText);
+    if (mb_strpos($src, $q) !== false) return true;
+    $w = preg_split('/\s+/u', $q);
+    for ($i = 0; $i + 8 <= count($w); $i++) if (mb_strpos($src, implode(' ', array_slice($w, $i, 8))) !== false) return true;
+    return false;
+}

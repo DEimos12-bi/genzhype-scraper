@@ -360,3 +360,41 @@ function dup_merge_into(PDO $pdo, int $copyId, int $keeperId): bool {
         ->execute([$to, $copyId]);   // an earlier merge into this copy follows it to the keeper (no redirect chains)
     return true;
 }
+
+/**
+ * Same-story groups waiting for the owner's pick (storage/merge-pending.json, 2026-09-27). Each group lists its pages,
+ * the pairs judged the same story, and a deadline. 'pick' set = the owner chose the page to keep: every page judged the
+ * same as it merges into it. No pick by the deadline = the owner's rule: keep the page with the most events, then the
+ * most source sites (a tie goes to the timeline that runs latest), and merge only the pages judged the same as it
+ * directly. Run by the hourly job; returns what it did.
+ */
+function dup_pending_apply(PDO $pdo): array {
+    $f = dirname(__DIR__) . '/storage/merge-pending.json';
+    if (!is_file($f)) return [];
+    $groups = json_decode((string)file_get_contents($f), true) ?: [];
+    $done = [];
+    foreach ($groups as $gi => $g) {
+        if (!empty($g['applied'])) continue;
+        $pick = (int)($g['pick'] ?? 0);
+        if (!$pick && gmdate('c') < (string)$g['deadline']) continue;
+        if (!$pick) {
+            $best = null;
+            foreach ($g['pages'] as $pid) {
+                $r = $pdo->query("SELECT (SELECT COUNT(*) FROM events e WHERE e.drama_id=d.id AND e.video_only=0) ev,
+                                         (SELECT COUNT(DISTINCT s.domain) FROM events e JOIN sources s ON s.id=e.source_id WHERE e.drama_id=d.id) src,
+                                         (SELECT MAX(e.event_date) FROM events e WHERE e.drama_id=d.id AND e.video_only=0) last
+                                  FROM dramas d JOIN pages p ON p.id=d.page_id WHERE p.id=" . (int)$pid . " AND p.status='published'")->fetch(PDO::FETCH_ASSOC);
+                if ($r && ($best === null || [$r['ev'], $r['src'], $r['last']] > [$best[1]['ev'], $best[1]['src'], $best[1]['last']])) $best = [(int)$pid, $r];
+            }
+            if (!$best) continue;
+            $pick = $best[0];
+        }
+        foreach ($g['pages'] as $pid) {
+            $k = min($pid, $pick) . '-' . max($pid, $pick);
+            if ($pid !== $pick && !empty($g['same'][$k]) && dup_merge_into($pdo, (int)$pid, $pick)) $done[] = "{$g['group']}: {$pid} -> {$pick}" . (empty($g['pick']) ? ' (no pick by the deadline: the owner\'s rule)' : '');
+        }
+        $groups[$gi]['applied'] = gmdate('c'); $groups[$gi]['kept'] = $pick;
+    }
+    file_put_contents($f, json_encode($groups, JSON_PRETTY_PRINT));
+    return $done;
+}

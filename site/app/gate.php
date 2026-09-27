@@ -478,11 +478,16 @@ function gate_check_drama(int $page_id): array {
     // site and become a video. So the domain count no longer blocks
     // publishing; page_publish_live() uses it to decide INDEXABLE instead.
     // Everything else — framing, dates, byline, cover — still blocks.
+    // originality blocks a NEW story once at least half of new stories meet it (owner 2026-09-27; gate_originality_switch)
+    $ov = gate_original_value($pdo, $did);
+    $since = (string)gate_originality_switch($pdo)['since'];
+    if ($since !== '' && ($page['status'] !== 'published' || (string)$page['published_at'] >= $since))
+        $add('originality', 'Something the sources do not have (1 strong or 2 weak)', (bool)$ov['pass'], (string)$ov['label']);
     $advisory = ['domains'];
     $blocking = array_filter($checks, fn($c) => !in_array($c['id'], $advisory, true));
     $pass = !in_array(false, array_column($blocking, 'pass'), true);
     return ['pass' => $pass, 'checks' => $checks, 'page_id' => $page_id, 'slug' => $page['slug'],
-            'original_value' => gate_original_value($pdo, $did)];   // report-only, see gate_original_value()
+            'original_value' => $ov];   // blocking only for new stories after the switch
 }
 
 /** Render any page's full HTML in-process (works for drafts too). */
@@ -586,4 +591,26 @@ function seo_audit_page(int $pageId): array {
              'schema' => $schemaTypes, 'h1' => $h1, 'links' => $links,
              'featured' => !empty($pg['featured_img']) || !empty($pg['cover']), 'byline' => $byline];
     return ['pass' => !$fails, 'fails' => $fails, 'snap' => $snap];
+}
+
+/**
+ * THE ORIGINALITY BLOCK FOR NEW STORIES (owner 2026-09-27): "when at least half of NEW stories pass, switch the block on
+ * for new stories only; existing pages get improved over time". The share is the stories published in the last 7 days
+ * (10 or more) that meet gate_original_value(); at 50% the switch date is written to storage/originality-block.json
+ * once, and from then on a story published after it must meet the rule. Returns the switch date ('' = not yet) and
+ * the current share for the admin.
+ */
+function gate_originality_switch(PDO $pdo, bool $update = false): array {
+    $f = dirname(__DIR__) . '/storage/originality-block.json';
+    $st = is_file($f) ? (json_decode((string)file_get_contents($f), true) ?: []) : [];
+    if (!$update) return $st + ['since' => ''];
+    $n = 0; $ok = 0;
+    foreach ($pdo->query("SELECT d.id FROM pages p JOIN dramas d ON d.page_id=p.id WHERE p.type='drama' AND p.status='published'
+                          AND p.published_at >= UTC_TIMESTAMP() - INTERVAL 7 DAY")->fetchAll(PDO::FETCH_COLUMN) as $did) {
+        $n++; if (gate_original_value($pdo, (int)$did)['pass']) $ok++;
+    }
+    $st['share'] = $n ? round($ok / $n, 3) : 0; $st['new_stories'] = $n; $st['measured'] = gmdate('c');
+    if (empty($st['since']) && $n >= 10 && $ok * 2 >= $n) $st['since'] = gmdate('Y-m-d H:i:s');
+    file_put_contents($f, json_encode($st, JSON_PRETTY_PRINT));
+    return $st + ['since' => ''];
 }

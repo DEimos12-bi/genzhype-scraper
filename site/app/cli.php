@@ -1190,6 +1190,20 @@ switch ($cmd) {
         echo 'timeline strong: ' . ($r['timeline_strong'] ? 'yes' : 'no') . ($r['verified'] ? '' : ' (unverified: the AI reading did not run)') . "\n";
         break;
 
+    case 'recheck':
+        // 2026-09-27 (owner): live pages re-checked under the new rules in batches of 20, a report after each batch
+        // (accuracy.php acc_recheck). Its own hourly hPanel cron: "timeout -s 9 1800 php app/cli.php recheck".
+        // Honours app/PAUSE; one run at a time.
+        $lock = @fopen(__DIR__ . '/cache/recheck.lock', 'c');
+        if (!$lock || !flock($lock, LOCK_EX | LOCK_NB)) { echo "recheck: another run is working\n"; break; }
+        cron_log_tee();
+        if (is_file(__DIR__ . '/PAUSE')) { echo '[' . date('c') . "] recheck: PAUSED by app/PAUSE, no work done\n"; break; }
+        require_once __DIR__ . '/accuracy.php';
+        echo '[' . date('c') . "] re-check of live pages\n";
+        $o = acc_recheck($pdo, ($arg && ctype_digit($arg)) ? (int)$arg : 900);
+        echo "recheck: {$o['checked']} page(s) this run" . ($o['stopped'] !== '' ? " | stopped: {$o['stopped']}" : '') . "\n";
+        break;
+
     case 'accuracy':
         // 2026-09-27 (owner, accuracy.php). "accuracy dates": every live story's timeline dates put right (code only).
         // "accuracy hold": live pages Google can see that fail the hard rules are closed to it. "accuracy sweep [secs]":
@@ -1385,6 +1399,12 @@ switch ($cmd) {
         // 3) publish ONLY if config auto_publish=true  4) sitemap refresh
         set_time_limit(1800);
         $tickT0 = time();   // r145: every stage can ask how much of the 1800s is left
+        // 2026-09-27 same-story groups waiting for the owner's pick: after 24 h his rule decides (dedupe.php)
+        // 2026-09-27 the share of new stories meeting the originality rule; at 50% it starts blocking new ones (gate.php)
+        try { $os = gate_originality_switch(db(), true); echo "  originality: " . round(100 * ($os['share'] ?? 0)) . "% of {$os['new_stories']} new stories" . ($os['since'] !== '' ? " (blocking new stories since {$os['since']})" : '') . "\n"; }
+        catch (Throwable $e) { echo "  originality share failed: " . $e->getMessage() . "\n"; }
+        try { require_once __DIR__ . '/dedupe.php'; foreach (dup_pending_apply(db()) as $l) echo "  merged {$l}\n"; }
+        catch (Throwable $e) { echo "  pending merges failed: " . $e->getMessage() . "\n"; }
         // MUTUAL EXCLUSION: one tick at a time. A long tick (PSI/vision/AI) must not
         // overlap the next hourly fire — overlap = double-builds + a race on the
         // in-memory velocity $slots that could exceed the daily publish cap (the
