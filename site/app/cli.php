@@ -1190,6 +1190,31 @@ switch ($cmd) {
         echo 'timeline strong: ' . ($r['timeline_strong'] ? 'yes' : 'no') . ($r['verified'] ? '' : ' (unverified: the AI reading did not run)') . "\n";
         break;
 
+    case 'rebuild':
+        // 2026-09-26 an existing page made again from the beginning by the pipeline (rebuild.php).
+        // "cli.php rebuild 1268,1192". Owner-run, so it works while app/PAUSE holds the machine; it takes
+        // the build lock so it never writes beside the build worker.
+        require_once __DIR__ . '/rebuild.php';
+        $words = preg_split('/[\s,]+/', implode(',', array_slice($argv, 2)));
+        $step = in_array('write', $words, true) ? 'write' : (in_array('check', $words, true) ? 'check' : 'all');
+        $ids = array_filter(array_map('intval', $words));
+        if (!$ids) { echo "usage: cli.php rebuild <pageId>[,<pageId>...] [write|check]\n"; break; }
+        if (!build_lock_acquire()) { echo "rebuild: the build worker is running; try again when it ends\n"; break; }
+        foreach ($ids as $rid) {
+            $pdo = db_alive();
+            echo "\n== rebuild {$rid} (" . gmdate('H:i') . " UTC)\n";
+            try { $rr = page_rebuild($pdo, $rid, $step); }
+            catch (Throwable $e) { $rr = ['error' => 'crashed: ' . get_class($e) . ': ' . $e->getMessage()]; }
+            if (isset($rr['error'])) { echo "  NOT REBUILT: {$rr['error']}" . (isset($rr['backup']) ? " | copy: {$rr['backup']}" : '') . "\n"; continue; }
+            if (!empty($rr['written'])) { echo "  written; closed to Google until \"rebuild {$rid} check\" passes | copy: {$rr['backup']}\n"; continue; }
+            echo "  rebuilt " . rtrim((string)$GLOBALS['CONFIG']['base_url'], '/') . $rr['path'] . " | checks " . ($rr['ok'] ? 'PASS' : 'FAIL')
+               . " | Google: " . ($rr['indexed'] === null ? 'not live' : ($rr['indexed'] ? 'open' : 'closed (noindex)')) . "\n";
+            foreach ($rr['fails'] as $fl) echo "    - {$fl}\n";
+            echo "  copy of the old page: {$rr['backup']}\n";
+        }
+        build_lock_release();
+        break;
+
     case 'top3-old':
         // 2026-09-25 OLD PAGES: the top-3 test on Tavily for live stories Google has not indexed
         // (top3_old_run). Its own hPanel cron entry, outside the hourly run and the build worker,
@@ -2000,54 +2025,9 @@ switch ($cmd) {
                 }
                 continue;
             }
-            // 2026-09-24 the legal framing check failed both stories built at 22:30
-            // (4 unframed events each), one of which the editor had passed. Drama
-            // deepen already chains the framing repair; the build now runs it on the
-            // new page before any check, so the checks see the page readers will.
-            try {
-                require_once __DIR__ . '/framing_repair.php';
-                $fr = framing_repair_run($pdo, 16, (int)$d['page_id']);
-                if (!empty($fr['repaired'])) echo "    framing: {$fr['repaired']} unconfirmed event(s) given alleged/according-to framing\n";
-            } catch (Throwable $e) { echo "    framing repair failed: " . $e->getMessage() . "\n"; }
-            $v = verify_drama((int)$d['page_id']);
-            $q = quality_check_drama((int)$d['page_id']);
-            // the top-3 test (owner rule): what this page has that the top results do not; stored, read by the gate.
-            // It needs an Exa key: the keyless tier (shared by 8 features: slang drafts, deepen, clips...) hit
-            // its rate limit after ~20 searches in an hour on 2026-09-25, so builds must not spend it.
-            if (!empty($CONFIG['exa']['key'])) {
-                try {
-                    require_once __DIR__ . '/top3.php';
-                    $t3 = top3_check($pdo, (int)$d['page_id']);
-                    if (isset($t3['error'])) echo "    top 3: not checked ({$t3['error']})\n";
-                    // step 3: the original posts the top 3 show and we do not join our timeline, then the test runs again
-                    elseif (($t3['missing_posts'] ?? 0) > 0) {
-                        $fp = top3_add_missing_posts($pdo, (int)$d['page_id']);
-                        echo "    top 3 posts: added {$fp['added']}, attached {$fp['attached']}" . (isset($fp['error']) ? " ({$fp['error']})" : '') . "\n";
-                        if ($fp['added'] || $fp['attached']) top3_check($pdo, (int)$d['page_id']);
-                    }
-                } catch (Throwable $e) { echo "    top 3: failed (" . $e->getMessage() . ")\n"; }
-            } else {
-                echo "    top 3: skipped (needs an Exa key in config.php)\n";
-            }
-            // both sides in their own words (both_sides.php), when the sources hold them
-            try {
-                require_once __DIR__ . '/both_sides.php';
-                $bsr = bs_find($pdo, (int)$d['page_id']);
-                if (!isset($bsr['error'])) { bs_save($pdo, (int)$d['page_id'], $bsr['sides']); if ($bsr['sides']) echo "    both sides: " . $bsr['sides'][0]['who'] . ' / ' . $bsr['sides'][1]['who'] . "\n"; }
-            } catch (Throwable $e) { echo "    both sides failed: " . $e->getMessage() . "\n"; }
-            // confirmed vs claimed: events a primary source proves (identity links usually arrive at 6:00, so the daily pass does most)
-            try {
-                $cf = gate_confirm_story($pdo, (int)$pdo->query("SELECT id FROM dramas WHERE page_id=" . (int)$d['page_id'])->fetchColumn());
-                if ($cf) echo "    confirmed: {$cf} event(s) by a primary source\n";
-            } catch (Throwable $e) { echo "    confirm failed: " . $e->getMessage() . "\n"; }
-            // our read of the evidence (verdict.php), from what the page now holds
-            try {
-                require_once __DIR__ . '/verdict.php';
-                $vdr = vd_write($pdo, (int)$d['page_id']);
-                echo "    evidence read: " . (isset($vdr['error']) ? "not written ({$vdr['error']})" : $vdr['rating']) . "\n";
-            } catch (Throwable $e) { echo "    evidence read failed: " . $e->getMessage() . "\n"; }
-            $g = gate_check_drama((int)$d['page_id']);
-            $ok = ($v['pass'] ?? false) && ($q['pass'] ?? false) && ($g['pass'] ?? false);
+            // the checks every story gets after it is written (story_checks.php, shared with rebuild.php)
+            require_once __DIR__ . '/story_checks.php';
+            ['v' => $v, 'q' => $q, 'g' => $g, 'ok' => $ok] = story_checks($pdo, (int)$d['page_id'], 'exa');
             echo "  built {$d['slug']} | v=" . (($v['pass'] ?? 0)?'P':'i') . " q=" . (($q['pass'] ?? 0)?'P':'F') . " g=" . (($g['pass'] ?? 0)?'P':'F') . ($ok ? "  => READY" : "") . "\n";
             if (isset($d['context'])) echo "    context: why=" . ($d['context']['why'] ? 'yes' : 'no') . " next={$d['context']['next']}"
                 . ($d['context']['dropped'] ? ' (dropped: ' . implode('; ', array_slice($d['context']['dropped'], 0, 3)) . ')' : '') . "\n";

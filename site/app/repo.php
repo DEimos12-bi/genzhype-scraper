@@ -367,7 +367,7 @@ function repo_load_drama_any(string $slug): ?array {
     $pdo = db();
     $st = $pdo->prepare("SELECT p.id page_id, p.slug, p.h1, p.title_tag, p.meta_desc, p.summary, p.cover,
                                 p.published_at, p.updated_at, COALESCE(GREATEST(COALESCE(p.content_updated_at, p.published_at), p.published_at), p.published_at, p.updated_at) content_at, p.robots, p.cover_credit, p.cover_credit_url, p.status, p.human_review, p.reviewed_by, p.reviewed_at,
-                                d.id drama_id, d.title, d.lifecycle, d.background, d.why_matters, d.whats_next, d.both_sides, d.verdict, (SELECT MAX(e.event_date) FROM events e WHERE e.drama_id=d.id AND e.video_only=0 AND e.event_date <= UTC_DATE()) last_event
+                                d.id drama_id, d.lane, d.title, d.lifecycle, d.background, d.why_matters, d.whats_next, d.both_sides, d.verdict, (SELECT MAX(e.event_date) FROM events e WHERE e.drama_id=d.id AND e.video_only=0 AND e.event_date <= UTC_DATE()) last_event
                          FROM pages p JOIN dramas d ON d.page_id = p.id
                          WHERE p.slug = ? LIMIT 1");
     $st->execute([$slug]);
@@ -412,6 +412,9 @@ function repo_load_drama_any(string $slug): ?array {
     $status = story_status($r['lifecycle'], $r['last_event']);
     return [
         'slug'=>$r['slug'], 'title'=>$r['title'], 'title_tag'=>$r['title_tag'], 'eyebrow'=>'Creator Drama',
+        // 2026-09-26 the lane, as repo_load_drama() carries it (r151): without it the pre-publish SEO audit
+        // rendered every gaming story with a /drama/ canonical and failed it (the Skyblivion rebuild)
+        'lane'=>$r['lane'],
         'status'=>$status['short'], 'status_long'=>$status['long'],
         'reviewed_by'=>$r['human_review'] === 'approved' ? (string)$r['reviewed_by'] : '',
         'published_iso'=>date('c', strtotime($r['published_at'])), 'published'=>date('M j, Y', strtotime($r['published_at'])),

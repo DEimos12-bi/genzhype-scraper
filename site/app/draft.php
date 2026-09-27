@@ -122,19 +122,36 @@ function draft_drama(array $input): array {
     require_once __DIR__ . '/lanes.php';
     $__lane = in_array(($input['lane'] ?? 'drama'), array_keys(timeline_lanes()), true)
             ? ($input['lane'] ?? 'drama') : 'drama';
+    // REBUILD (rebuild.php, owner 2026-09-26): the same writer makes an existing story again from fresh
+    // sources at its own address. Its page, slug and lane stay; everything written on it is new.
+    $rebuildId = (int)($input['rebuild_page_id'] ?? 0);
+    $old = null;
+    if ($rebuildId) {
+        $st = db()->prepare("SELECT p.slug, d.id did, d.lane FROM pages p JOIN dramas d ON d.page_id=p.id WHERE p.id=? AND p.type='drama'");
+        $st->execute([$rebuildId]);
+        if (!($old = $st->fetch(PDO::FETCH_ASSOC))) return ['error' => "no story page {$rebuildId} to rebuild"];
+        if (isset(timeline_lanes()[(string)$old['lane']])) $__lane = (string)$old['lane'];
+    }
     if (empty($input['topic']) || count($input['sources'] ?? []) < 2) {
         return ['error' => 'need a topic and >= 2 sources with excerpts'];
     }
 
     [$sys, $user] = draft_drama_prompt($input);
 
-    $res = ai_chat([
+    $msgs = [
         ['role' => 'system', 'content' => $sys],
         ['role' => 'user',   'content' => $user],
-    ], AI_WRITER_ORDER, 0.3, 120, AI_WRITER_SKIP);
+    ];
+    $res = ai_chat($msgs, AI_WRITER_ORDER, 0.3, 120, AI_WRITER_SKIP);
     if (isset($res['error'])) return $res;
 
     $j = ai_json($res['content']);
+    // 2026-09-26 one model's unreadable reply ended the story (a rebuild of the Riot bans page):
+    // the next model in the chain writes it instead
+    if (!$j) {
+        $again = ai_chat($msgs, AI_WRITER_ORDER, 0.3, 120, array_merge(AI_WRITER_SKIP, [$res['provider'] . '/' . $res['model']]));
+        if (!isset($again['error']) && ($j = ai_json($again['content']))) $res = $again;
+    }
     if (!$j) return ['error' => 'model did not return valid JSON', 'raw' => substr($res['content'], 0, 400)];
     foreach (['title','title_tag','meta_desc','summary','events','faqs'] as $k) {
         if (empty($j[$k])) return ['error' => "draft missing field: $k"];
@@ -167,41 +184,43 @@ function draft_drama(array $input): array {
     require_once __DIR__ . '/story_context.php';
     story_context_install($pdo);
     $ctx = story_context_from_draft($j, $input['sources'], (string)$input['topic']);
-    $slug = draft_slugify($j['title']);
-    // WHERE THE DUPLICATES WERE BORN. This used to read:
-    //     if ($dup->fetch()) $slug .= '-' . date('Y');
-    // It saw the collision and worked around it, minting a SECOND page for a
-    // story the site already had. Measured 2026-08-25: 60 of 550 drama pages
-    // were redundant, 16 of them published, and one Twitch story existed 15
-    // times over. Those copies can never pass the editor's 'intent' score - a
-    // second telling cannot answer a search better than the first - so they sat
-    // in review being re-judged every hour forever.
-    // Now it refuses. The wording matters: the tick already retires a candidate
-    // whose error contains 'already exists', so this reuses that path rather
-    // than adding one.
-    $dup  = $pdo->prepare("SELECT id, slug FROM pages WHERE slug=?");
-    $dup->execute([$slug]);
-    if ($hit = $dup->fetch(PDO::FETCH_ASSOC)) {
-        return ['error' => 'a page for slug "' . $slug . '" already exists'];
-    }
-    try {
-        require_once __DIR__ . '/dedupe.php';
-        if ($twin = dup_twin_for_slug($pdo, $slug, 'drama')) {
-            return ['error' => 'near-duplicate of existing page "' . $twin['slug']
-                             . '" (' . $twin['status'] . ') already exists'];
+    $slug = $old ? (string)$old['slug'] : draft_slugify($j['title']);
+    if (!$old) {   // the copy checks are for new pages (a rebuild is the page they would find)
+        // WHERE THE DUPLICATES WERE BORN. This used to read:
+        //     if ($dup->fetch()) $slug .= '-' . date('Y');
+        // It saw the collision and worked around it, minting a SECOND page for a
+        // story the site already had. Measured 2026-08-25: 60 of 550 drama pages
+        // were redundant, 16 of them published, and one Twitch story existed 15
+        // times over. Those copies can never pass the editor's 'intent' score - a
+        // second telling cannot answer a search better than the first - so they sat
+        // in review being re-judged every hour forever.
+        // Now it refuses. The wording matters: the tick already retires a candidate
+        // whose error contains 'already exists', so this reuses that path rather
+        // than adding one.
+        $dup  = $pdo->prepare("SELECT id, slug FROM pages WHERE slug=?");
+        $dup->execute([$slug]);
+        if ($hit = $dup->fetch(PDO::FETCH_ASSOC)) {
+            return ['error' => 'a page for slug "' . $slug . '" already exists'];
         }
-    } catch (Throwable $e) { error_log('draft twin check: ' . $e->getMessage()); }
+        try {
+            require_once __DIR__ . '/dedupe.php';
+            if ($twin = dup_twin_for_slug($pdo, $slug, 'drama')) {
+                return ['error' => 'near-duplicate of existing page "' . $twin['slug']
+                                 . '" (' . $twin['status'] . ') already exists'];
+            }
+        } catch (Throwable $e) { error_log('draft twin check: ' . $e->getMessage()); }
 
-    // SAME STORY under another title (dedupe.php dup_story_twin; site check 2026-09-26: 16 pages told the
-    // Twitch 2021 leak). The news goes to the page we already have (deepen), never onto a second page;
-    // no AI answer = the candidate keeps its turn and is tried again later, nothing is guessed.
-    require_once __DIR__ . '/dedupe.php';
-    $same = dup_story_twin($pdo, ['title' => $j['title'], 'summary' => $j['summary'], 'events' => $j['events']]);
-    if ($same && isset($same['error'])) return ['error' => 'same-story check: ' . $same['error'] . '; tried again later'];
-    if ($same) {
-        try { require_once __DIR__ . '/drama_deepen.php'; drama_deepen_page($pdo, $same['page_id'], true); }
-        catch (Throwable $e) { error_log('draft same-story deepen: ' . $e->getMessage()); }
-        return ['error' => 'same story as existing page "' . $same['slug'] . '" already exists (' . $same['why'] . ')'];
+        // SAME STORY under another title (dedupe.php dup_story_twin; site check 2026-09-26: 16 pages told the
+        // Twitch 2021 leak). The news goes to the page we already have (deepen), never onto a second page;
+        // no AI answer = the candidate keeps its turn and is tried again later, nothing is guessed.
+        require_once __DIR__ . '/dedupe.php';
+        $same = dup_story_twin($pdo, ['title' => $j['title'], 'summary' => $j['summary'], 'events' => $j['events']]);
+        if ($same && isset($same['error'])) return ['error' => 'same-story check: ' . $same['error'] . '; tried again later'];
+        if ($same) {
+            try { require_once __DIR__ . '/drama_deepen.php'; drama_deepen_page($pdo, $same['page_id'], true); }
+            catch (Throwable $e) { error_log('draft same-story deepen: ' . $e->getMessage()); }
+            return ['error' => 'same story as existing page "' . $same['slug'] . '" already exists (' . $same['why'] . ')'];
+        }
     }
 
     // branded SVG cover is the guaranteed default
@@ -245,29 +264,45 @@ function draft_drama(array $input): array {
     $toArchive = [];
     $pdo->beginTransaction();
     try {
-        $pdo->prepare("INSERT INTO pages (type,slug,path,h1,title_tag,meta_desc,summary,status,robots,author_id,cover,cover_credit,cover_credit_url,published_at,updated_at)
-                       VALUES ('drama',?,?,?,?,?,?,'draft','noindex',1,?,?,?,NOW(),NOW())")
-            ->execute([$slug, timeline_url($slug, $__lane), $j['title'], $j['title_tag'], $j['meta_desc'], $j['summary'], $cover, $credit, $credit_url]);
-        $pageId = (int)$pdo->lastInsertId();
+        if ($old) {
+            $pageId = $rebuildId;
+            $pdo->prepare("UPDATE pages SET h1=?, title_tag=?, meta_desc=?, summary=?, cover=?, cover_credit=?, cover_credit_url=?, featured_img=NULL, robots='noindex', updated_at=NOW() WHERE id=?")   // closed to Google with the new words; the checks reopen it
+                ->execute([$j['title'], $j['title_tag'], $j['meta_desc'], $j['summary'], $cover, $credit, $credit_url, $pageId]);
+        } else {
+            $pdo->prepare("INSERT INTO pages (type,slug,path,h1,title_tag,meta_desc,summary,status,robots,author_id,cover,cover_credit,cover_credit_url,published_at,updated_at)
+                           VALUES ('drama',?,?,?,?,?,?,'draft','noindex',1,?,?,?,NOW(),NOW())")
+                ->execute([$slug, timeline_url($slug, $__lane), $j['title'], $j['title_tag'], $j['meta_desc'], $j['summary'], $cover, $credit, $credit_url]);
+            $pageId = (int)$pdo->lastInsertId();
+        }
         if (!empty($GLOBALS['__drama_featured'])) {
             $pdo->prepare("UPDATE pages SET featured_img=? WHERE id=?")->execute([$GLOBALS['__drama_featured'], $pageId]);
             unset($GLOBALS['__drama_featured']);
         }
 
-        $pdo->prepare("INSERT INTO dramas (page_id,title,lifecycle,started_on,primary_kw,background,mood,lane,why_matters,whats_next)
-                       VALUES (?,?,?,?,?,?,?,?,?,?)")
-            ->execute([
-                $pageId, $j['title'],
-                in_array($j['lifecycle'] ?? '', ['ongoing','resolved','dormant']) ? $j['lifecycle'] : 'ongoing',
-                $j['events'][0]['date'] ?? null,
-                mb_substr(strtolower($input['topic']), 0, 180),
-                json_encode($j['background'] ?? [], JSON_UNESCAPED_UNICODE),
-                $mood,
-                $__lane,
-                $ctx['why'] !== '' ? $ctx['why'] : null,
-                $ctx['next'] ? json_encode($ctx['next'], JSON_UNESCAPED_UNICODE) : null,
-            ]);
-        $dramaId = (int)$pdo->lastInsertId();
+        $lifecycle = in_array($j['lifecycle'] ?? '', ['ongoing','resolved','dormant']) ? $j['lifecycle'] : 'ongoing';
+        if ($old) {
+            $dramaId = (int)$old['did'];
+            $pdo->prepare("UPDATE dramas SET title=?, lifecycle=?, started_on=?, background=?, mood=?, why_matters=?, whats_next=?, both_sides=NULL, verdict=NULL WHERE id=?")
+                ->execute([$j['title'], $lifecycle, $j['events'][0]['date'] ?? null, json_encode($j['background'] ?? [], JSON_UNESCAPED_UNICODE), $mood,
+                           $ctx['why'] !== '' ? $ctx['why'] : null, $ctx['next'] ? json_encode($ctx['next'], JSON_UNESCAPED_UNICODE) : null, $dramaId]);
+            $pdo->prepare("DELETE FROM events WHERE drama_id=? AND video_only=0")->execute([$dramaId]);
+            $pdo->prepare("DELETE FROM faqs WHERE drama_id=?")->execute([$dramaId]);
+        } else {
+            $pdo->prepare("INSERT INTO dramas (page_id,title,lifecycle,started_on,primary_kw,background,mood,lane,why_matters,whats_next)
+                           VALUES (?,?,?,?,?,?,?,?,?,?)")
+                ->execute([
+                    $pageId, $j['title'],
+                    $lifecycle,
+                    $j['events'][0]['date'] ?? null,
+                    mb_substr(strtolower($input['topic']), 0, 180),
+                    json_encode($j['background'] ?? [], JSON_UNESCAPED_UNICODE),
+                    $mood,
+                    $__lane,
+                    $ctx['why'] !== '' ? $ctx['why'] : null,
+                    $ctx['next'] ? json_encode($ctx['next'], JSON_UNESCAPED_UNICODE) : null,
+                ]);
+            $dramaId = (int)$pdo->lastInsertId();
+        }
 
         // sources: insert provided sources, remember mapping source_num -> id
         $map = [];
@@ -376,7 +411,7 @@ function draft_drama(array $input): array {
     catch (Throwable $e) { error_log("draft_drama: article posts failed for drama {$dramaId}: " . $e->getMessage()); }
 
     ai_log($pageId, 'draft', $res, ['fields' => array_keys($j), 'events' => count($j['events'])], true);
-    return ['page_id' => $pageId, 'slug' => $slug, 'events' => count($j['events']), 'provider' => $res['provider'],
+    return ['page_id' => $pageId, 'slug' => $slug, 'events' => count($j['events']), 'provider' => $res['provider'], 'rebuilt' => (bool)$old,
             'embeds' => (int)($embedStat['embeds'] ?? 0),
             'context' => ['why' => $ctx['why'] !== '', 'next' => count($ctx['next']), 'dropped' => $ctx['dropped']]];
 }

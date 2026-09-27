@@ -220,7 +220,9 @@ function gate_quality(int $page_id, bool $withAI = false): array {
     ];
 
     // DEPT 7 — Safety & Brand
-    $unsafe = preg_match('/\b(nigg|fagg|kike|chink|spic|kkk)\w*/i', $body);
+    // whole words (2026-09-26): the old prefix match read "spice", "spicy" and a "KKKKKK" laugh as slurs
+    // and held all 5 pages it ever flagged (cheugy: "Pumpkin Spice Latte")
+    $unsafe = preg_match('/\b(nigg\w*|fagg\w*|kikes?|chinks?|spics?|kkk)\b/i', $body);
     $dept['Safety & Brand'] = [
         ['label' => 'no slurs / ad-safe text', 'pass' => !$unsafe, 'detail' => $unsafe ? 'FLAGGED' : 'clean', 'weight' => 3, 'hard' => true],
         ['label' => 'no em-dashes (brand rule)', 'pass' => mb_strpos($body, '—') === false, 'detail' => '', 'weight' => 1, 'hard' => false],

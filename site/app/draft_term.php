@@ -1206,6 +1206,15 @@ function draft_term(array $input): array {
     $lane = $input['lane'] ?? 'slang';
     $L = lanes()[$lane] ?? null;
     if (!$L) return ['error' => "unknown lane '{$lane}'"];
+    // REBUILD (rebuild.php, owner 2026-09-26): an existing entry written again from fresh sources at its
+    // own address. The page and slug stay; the entry is new.
+    $rebuildId = (int)($input['rebuild_page_id'] ?? 0);
+    $oldSlug = '';
+    if ($rebuildId) {
+        $st = db()->prepare("SELECT slug FROM pages WHERE id=? AND type='term'");
+        $st->execute([$rebuildId]);
+        if (($oldSlug = (string)$st->fetchColumn()) === '') return ['error' => "no term page {$rebuildId} to rebuild"];
+    }
     $sources = $input['sources'] ?? [];
     if (count($sources) < 2) {
         // try to fetch our own
@@ -1346,13 +1355,19 @@ function draft_term(array $input): array {
     // Same fix the video Director already carries (video_factory.php ~806):
     // put the healthy dedicated endpoint first and give it a real timeout.
     // CLI/cron only — no web caller waits on this.
-    $res = ai_chat([
+    $msgs = [
         ['role' => 'system', 'content' => $sys],
         ['role' => 'user',   'content' => $user],
-    ], ['nvidia_director', 'gemini', 'openrouter', 'nvidia'], 0.4, 300);
+    ];
+    $res = ai_chat($msgs, ['nvidia_director', 'gemini', 'openrouter', 'nvidia'], 0.4, 300);
     if (isset($res['error'])) return $res;
 
     $j = ai_json($res['content']);
+    // 2026-09-26 one unreadable reply is one model's bad answer: the next model in the chain writes it
+    if (!$j) {
+        $again = ai_chat($msgs, ['nvidia_director', 'gemini', 'openrouter', 'nvidia'], 0.4, 300, [$res['provider'] . '/' . $res['model']]);
+        if (!isset($again['error']) && ($j = ai_json($again['content']))) $res = $again;
+    }
     if (!$j) return ['error' => 'model did not return valid JSON', 'raw' => substr($res['content'], 0, 400)];
     foreach (['title','title_tag','meta_desc','short_def','summary','meaning'] as $k) {
         if (empty($j[$k])) return ['error' => "draft missing field: $k"];
@@ -1448,15 +1463,17 @@ function draft_term(array $input): array {
     // writes rather than throw away a finished draft ("MySQL server has gone
     // away" killed the first gaming draft at exactly this line).
     $pdo = db_alive();
-    $slug = term_slugify($term);
-    $dup  = $pdo->prepare("SELECT id FROM pages WHERE slug=?");
-    $dup->execute([$slug]);
-    if ($dup->fetch()) return ['error' => 'a page for slug "' . $slug . '" already exists'];
-    // near-duplicate guard: "brainrot" vs "brain-rot" must never become two pages
-    $norm = str_replace('-', '', $slug);
-    $nd = $pdo->prepare("SELECT slug FROM pages WHERE REPLACE(slug,'-','') = ? AND type='term' LIMIT 1");
-    $nd->execute([$norm]);
-    if ($hit = $nd->fetchColumn()) return ['error' => 'near-duplicate of existing page "' . $hit . '" already exists'];
+    $slug = $oldSlug !== '' ? $oldSlug : term_slugify($term);
+    if ($oldSlug === '') {   // the copy checks are for new pages (a rebuild is the page they would find)
+        $dup  = $pdo->prepare("SELECT id FROM pages WHERE slug=?");
+        $dup->execute([$slug]);
+        if ($dup->fetch()) return ['error' => 'a page for slug "' . $slug . '" already exists'];
+        // near-duplicate guard: "brainrot" vs "brain-rot" must never become two pages
+        $norm = str_replace('-', '', $slug);
+        $nd = $pdo->prepare("SELECT slug FROM pages WHERE REPLACE(slug,'-','') = ? AND type='term' LIMIT 1");
+        $nd->execute([$norm]);
+        if ($hit = $nd->fetchColumn()) return ['error' => 'near-duplicate of existing page "' . $hit . '" already exists'];
+    }
 
     $coverSub = ['slang' => 'meaning, origin &amp; how to use it', 'meme' => 'origin, spread &amp; the variants', 'gaming' => 'what it means in the chat', 'music' => 'the trend, explained'][$lane];
     $cover = term_make_cover($slug, $term, $pos, $L['kicker'], $coverSub);
@@ -1512,10 +1529,18 @@ function draft_term(array $input): array {
     gate_term_install($pdo);
     $pdo->beginTransaction();
     try {
-        $pdo->prepare("INSERT INTO pages (type,slug,path,h1,title_tag,meta_desc,summary,status,robots,author_id,cover,published_at,updated_at)
-                       VALUES ('term',?,?,?,?,?,?,'draft','noindex',1,?,NOW(),NOW())")
-            ->execute([$slug, $L['prefix'] . $slug . '/', $j['title'], $j['title_tag'], $j['meta_desc'], $j['summary'], $cover]);
-        $pageId = (int)$pdo->lastInsertId();
+        if ($oldSlug !== '') {
+            // the old entry makes way for the new one written below (rebuild.php keeps a copy first)
+            $pageId = $rebuildId;
+            $pdo->prepare("UPDATE pages SET h1=?, title_tag=?, meta_desc=?, summary=?, cover=?, featured_img=NULL, cover_credit=NULL, cover_credit_url=NULL, robots='noindex', updated_at=NOW() WHERE id=?")   // closed to Google with the new words; the checks reopen it
+                ->execute([$j['title'], $j['title_tag'], $j['meta_desc'], $j['summary'], $cover, $pageId]);
+            $pdo->prepare("DELETE FROM terms WHERE page_id=?")->execute([$pageId]);
+        } else {
+            $pdo->prepare("INSERT INTO pages (type,slug,path,h1,title_tag,meta_desc,summary,status,robots,author_id,cover,published_at,updated_at)
+                           VALUES ('term',?,?,?,?,?,?,'draft','noindex',1,?,NOW(),NOW())")
+                ->execute([$slug, $L['prefix'] . $slug . '/', $j['title'], $j['title_tag'], $j['meta_desc'], $j['summary'], $cover]);
+            $pageId = (int)$pdo->lastInsertId();
+        }
 
         // SEO-BATCH-1: persist the RETRIEVED artifact + the model's dated
         // citations so gate_check_term() can verify evidence rather than prose.
@@ -1660,5 +1685,5 @@ function draft_term(array $input): array {
                 'corrected' => !$meaningVerdict['pass'] && $meaningVerdict['dominant_meaning'] !== ''],
                $meaningVerdict['pass']);
     }
-    return ['page_id' => $pageId, 'slug' => $slug, 'provider' => $res['provider']];
+    return ['page_id' => $pageId, 'slug' => $slug, 'provider' => $res['provider'], 'rebuilt' => $oldSlug !== ''];
 }

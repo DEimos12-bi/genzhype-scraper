@@ -148,18 +148,7 @@ function page_publish_live(PDO $pdo, int $pageId): bool {
     // just is not offered to Google until a second independent source backs
     // it. Counted from the page's own citations.
     if (!$isDrama) {
-        $srcN = 0;
-        try {
-            $cq = $pdo->prepare("SELECT citations FROM terms WHERE page_id=?");
-            $cq->execute([$pageId]);
-            $doms = [];
-            foreach ((array)json_decode((string)$cq->fetchColumn(), true) as $c) {
-                $u = is_array($c) ? (string)($c['url'] ?? '') : '';
-                $h = $u !== '' ? parse_url($u, PHP_URL_HOST) : '';
-                if ($h) { $doms[strtolower($h)] = 1; }
-            }
-            $srcN = count($doms);
-        } catch (Throwable $e) { $srcN = 0; }
+        $srcN = term_source_domains($pdo, $pageId);
         if ($srcN < GATE_MIN_SOURCE_DOMAINS) {
             $pdo->prepare("UPDATE pages SET status='published', robots='noindex',
                            published_at=NOW(), updated_at=NOW() WHERE id=?")->execute([$pageId]);
@@ -170,6 +159,21 @@ function page_publish_live(PDO $pdo, int $pageId): bool {
     $pdo->prepare("UPDATE pages SET status='published', robots='index',
                    published_at=NOW(), updated_at=NOW() WHERE id=?")->execute([$pageId]);
     return true;
+}
+
+/** How many different sites a term page's citations come from (its index rule: GATE_MIN_SOURCE_DOMAINS). */
+function term_source_domains(PDO $pdo, int $pageId): int {
+    try {
+        $cq = $pdo->prepare("SELECT citations FROM terms WHERE page_id=?");
+        $cq->execute([$pageId]);
+        $doms = [];
+        foreach ((array)json_decode((string)$cq->fetchColumn(), true) as $c) {
+            $u = is_array($c) ? (string)($c['url'] ?? '') : '';
+            $h = $u !== '' ? parse_url($u, PHP_URL_HOST) : '';
+            if ($h) { $doms[strtolower($h)] = 1; }
+        }
+        return count($doms);
+    } catch (Throwable $e) { return 0; }
 }
 
 /**

@@ -360,6 +360,29 @@ function fetch_sources_for_candidate(int $cand_id, int $want = 4): array {
     foreach (['url', 'permalink', 'external_url'] as $k) {
         if (!empty($signals[$k]) && filter_var($signals[$k], FILTER_VALIDATE_URL)) $urls[] = $signals[$k];
     }
+    $sources = fs_fetch_sources($query, $urls, $want);
+    if (isset($sources['error'])) return $sources;
+
+    return [
+        'topic'   => $verdict['angle'] ?: $cand['name'],
+        'people'  => $verdict['primary_people'] ?? [],
+        'sources' => $sources,
+        'cand_id' => $cand_id,
+        // 2026-08-31: which timeline lane this story belongs to. A story that
+        // arrived from a gaming publication is gaming news and publishes under
+        // /gaming/; everything else stays creator drama under /drama/.
+        'lane'    => fs_story_lane($signals),   // r153: the lane test now lives in fs_story_lane() below
+    ];
+}
+
+/**
+ * Articles for a story: $seedUrls first, then news search for $query (web search when that gives
+ * fewer than 3), each fetched and read; original posts they embed ride along. The sources, or
+ * ['error' => ...] with fewer than 2. Used by fetch_sources_for_candidate() (a new story) and
+ * story_rebuild() (an existing story made again from fresh sources, rebuild.php, 2026-09-26).
+ */
+function fs_fetch_sources(string $query, array $seedUrls = [], int $want = 4): array {
+    $urls = array_values(array_filter($seedUrls, fn($u) => (bool)filter_var($u, FILTER_VALIDATE_URL)));
     foreach (fs_news_search($query, 6) as $u) $urls[] = $u;
     if (count($urls) < 3) foreach (fs_search($query, 6) as $u) $urls[] = $u;
     $urls = array_values(array_unique($urls));
@@ -415,17 +438,7 @@ function fetch_sources_for_candidate(int $cand_id, int $want = 4): array {
     if (count($sources) < 2) {
         return ['error' => 'could only fetch ' . count($sources) . ' usable source(s); need >= 2', 'tried' => count($urls)];
     }
-
-    return [
-        'topic'   => $verdict['angle'] ?: $cand['name'],
-        'people'  => $verdict['primary_people'] ?? [],
-        'sources' => $sources,
-        'cand_id' => $cand_id,
-        // 2026-08-31: which timeline lane this story belongs to. A story that
-        // arrived from a gaming publication is gaming news and publishes under
-        // /gaming/; everything else stays creator drama under /drama/.
-        'lane'    => fs_story_lane($signals),   // r153: the lane test now lives in fs_story_lane() below
-    ];
+    return $sources;
 }
 
 /** IDENTITY JOIN helper (2026-08-06): the clip author's handle, straight from
