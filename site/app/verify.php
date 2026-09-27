@@ -4,6 +4,7 @@
 // source mismatch. Pass => status 'draft' -> 'review'. Never auto-publishes.
 
 require_once __DIR__ . '/ai.php';
+require_once __DIR__ . '/framing_repair.php';   // FR_FRAMING_RX: the framing rule, owned by code
 
 function verify_drama(int $page_id): array {
     $pdo = db();
@@ -42,7 +43,7 @@ function verify_drama(int $page_id): array {
         $body .= "{$n}. [{$e['event_date']}] [{$conf}] {$e['title']}: {$e['description']}\n   cites: {$src}\n";
     }
 
-    $sys = "You are an adversarial fact-check editor for a drama publication. You are given the FULL SOURCE MATERIAL and a DRAFT. Audit STRICTLY but fairly: an event is properly sourced if its claim appears anywhere in the full source material, even if it cites a different source number. Flag ONLY real violations: 1) a claim that appears NOWHERE in the source material, 2) an UNCONFIRMED event whose description lacks alleged/reportedly/claims framing, 3) an event with no source attached, 4) clickbait/accusatory tone, 5) crime accusations stated as fact without an official action in the sources. A source's '(published YYYY-MM-DD)' date is stated by that source: an event that is the report itself (for example '<outlet> reports ...') may carry it, and a relative day in its text ('on Monday', 'yesterday') is counted from it. Output STRICT JSON only: {\"ok\": true|false, \"issues\": [{\"event\": n|null, \"type\": \"unsourced|framing|overreach|tone|legal\", \"detail\": \"...\"}]}. ok=true ONLY if zero issues.";
+    $sys = "You are an adversarial fact-check editor for a drama publication. You are given the FULL SOURCE MATERIAL and a DRAFT. Audit STRICTLY but fairly: an event is properly sourced if its claim appears anywhere in the full source material, even if it cites a different source number. Flag ONLY real violations: 1) a claim that appears NOWHERE in the source material, 2) an UNCONFIRMED event whose description neither names who says it ('according to <outlet or person>') nor uses alleged/reportedly/claims framing, 3) an event with no source attached, 4) clickbait/accusatory tone, 5) crime accusations stated as fact without an official action in the sources. A source's '(published YYYY-MM-DD)' date is stated by that source: an event that is the report itself (for example '<outlet> reports ...') may carry it, and a relative day in its text ('on Monday', 'yesterday') is counted from it. Output STRICT JSON only: {\"ok\": true|false, \"issues\": [{\"event\": n|null, \"type\": \"unsourced|framing|overreach|tone|legal\", \"detail\": \"...\"}]}. ok=true ONLY if zero issues.";
 
     $res = ai_chat([
         ['role' => 'system', 'content' => $sys],
@@ -54,7 +55,17 @@ function verify_drama(int $page_id): array {
     $v = ai_json($res['content']);
     if (!$v || !array_key_exists('ok', $v)) return ['error' => 'verifier did not return valid JSON', 'raw' => substr($res['content'], 0, 400)];
 
-    $passed = (bool)$v['ok'];
+    // 2026-09-26 the framing rule belongs to code (FR_FRAMING_RX: framing_repair.php, drama_index_block): the checker
+    // flagged Riot events framed 'according to Dexerto', which that rule accepts. Such a 'framing' issue is dropped.
+    $issues = (array)($v['issues'] ?? []);
+    $kept = array_values(array_filter($issues, function ($is) use ($events) {
+        if (!is_array($is) || ($is['type'] ?? '') !== 'framing') return true;
+        $e = $events[(int)($is['event'] ?? 0) - 1] ?? null;
+        return !($e && preg_match('/' . FR_FRAMING_RX . '/i', (string)$e['description']));
+    }));
+    if (count($kept) < count($issues)) $v['dropped_framing'] = count($issues) - count($kept);
+    $v['issues'] = $kept;
+    $passed = (bool)$v['ok'] || ($issues && !$kept);
     ai_log($page_id, 'verify', $res, $v, $passed);
 
     if ($passed && $page['status'] === 'draft') {

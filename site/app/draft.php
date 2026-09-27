@@ -75,7 +75,7 @@ function draft_drama_prompt(array $input): array {
         $srcBlock .= "SOURCE {$n}: publisher={$s['publisher']} url={$s['url']} date={$s['date']}\nEXCERPT: {$s['excerpt']}\n\n";
     }
 
-    $sys = "You are the GenZHype drafting desk. You turn PROVIDED sources into a neutral, dated drama timeline. ABSOLUTE RULES: 1) Use ONLY facts present in the provided source excerpts. NEVER invent names, dates, quotes or events. 2) Neutral tone; no clickbait. 3) Any claim not confirmed by an official/primary statement => is_confirmed=0 AND the description must frame it: name who says so with 'according to <outlet or person>', or use alleged/reportedly/claims when the claim is contested. Frame each event once; do not stack hedges, and do not hedge plain facts nobody disputes (a release date, a view count) beyond naming the source. 4) Title tag must be 50-60 characters. Meta description must be 120-132 characters, one complete sentence. Summary must be 120-420 characters, answer-first (what happened + current status). 5) One event per distinct dated development: a different person acting, or a different statement, post, filing or announcement, is its own event. Include every one the sources support; never split a single post, video or article into several events, never repeat a fact across events, never pad. 6) Each event cites the source number(s) it came from. 7) people = the REAL public figures/creators central to this story, FULL real names (e.g. 'Kai Cenat', 'Jimmy Donaldson'), most important first, max 4 — used to pull their real photos. Only names actually in the sources. Output STRICT JSON only, no commentary.";
+    $sys = "You are the GenZHype drafting desk. You turn PROVIDED sources into a neutral, dated drama timeline. ABSOLUTE RULES: 1) Use ONLY facts present in the provided source excerpts. NEVER invent names, dates, quotes or events, and never add a detail no source states: no channel ('on X', 'in a video'), reason, motive, number or outcome of your own. When a source only speculates (possibly, likely, may, could), keep it as that source's guess and name the source. 2) Neutral tone; no clickbait. 3) Any claim not confirmed by an official/primary statement => is_confirmed=0 AND the description must frame it: name who says so with 'according to <outlet or person>', or use alleged/reportedly/claims when the claim is contested. Frame each event once; do not stack hedges, and do not hedge plain facts nobody disputes (a release date, a view count) beyond naming the source. 4) Title tag must be 50-60 characters. Meta description must be 120-132 characters, one complete sentence. Summary must be 120-420 characters, answer-first (what happened + current status). 5) One event per distinct dated development: a different person acting, or a different statement, post, filing or announcement, is its own event. Include every one the sources support; never split a single post, video or article into several events, never repeat a fact across events, never pad. 6) Each event cites the source number(s) it came from. 7) people = the REAL public figures/creators central to this story, FULL real names (e.g. 'Kai Cenat', 'Jimmy Donaldson'), most important first, max 4 — used to pull their real photos. Only names actually in the sources. Output STRICT JSON only, no commentary.";
 
     // Competitor Engine: append the live competitive bar (depth/structure/sourcing derived
     // from real rival pages) so each draft is written to outrank what competitors publish.
@@ -149,10 +149,15 @@ function draft_drama(array $input): array {
     // 2026-09-26 one model's unreadable reply ended the story (a rebuild of the Riot bans page):
     // the next model in the chain writes it instead
     if (!$j) {
+        $bad = [$res['provider'] . '/' . $res['model'] . ' (' . strlen((string)$res['content']) . ' chars)'];
         $again = ai_chat($msgs, AI_WRITER_ORDER, 0.3, 120, array_merge(AI_WRITER_SKIP, [$res['provider'] . '/' . $res['model']]));
         if (!isset($again['error']) && ($j = ai_json($again['content']))) $res = $again;
+        else $bad[] = isset($again['error']) ? $again['error'] : $again['provider'] . '/' . $again['model'] . ' (' . strlen((string)$again['content']) . ' chars)';
     }
-    if (!$j) return ['error' => 'model did not return valid JSON', 'raw' => substr($res['content'], 0, 400)];
+    if (!$j) {
+        error_log('draft_drama unreadable replies: ' . implode('; ', $bad) . ' | tail: ' . substr((string)$res['content'], -200));
+        return ['error' => 'model did not return valid JSON (' . implode(', then ', $bad) . ')', 'raw' => substr($res['content'], 0, 400)];
+    }
     foreach (['title','title_tag','meta_desc','summary','events','faqs'] as $k) {
         if (empty($j[$k])) return ['error' => "draft missing field: $k"];
     }
