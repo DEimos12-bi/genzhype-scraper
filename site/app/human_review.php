@@ -7,6 +7,8 @@
 // Measured on the live site the same day: 87 of 685 stories (63 death, 27 sexual violence, 3 minors,
 // 3 domestic). A false alarm costs a minute of reading; a miss publishes a grave page unread, so a
 // match in the title or summary is enough, and elsewhere on the timeline it takes two.
+// Owner rule 7 (2026-09-27): violence and crime words hold a story too (assault, punched, attacked, abuse, arrested,
+// police, charged), and the owner reads it before it goes live.
 
 require_once __DIR__ . '/db.php';
 
@@ -14,6 +16,8 @@ const HR_CATEGORIES = [
     'death'           => '/\b(murder\w*|homicide\w*|manslaughter|killed|killing|shot dead|shot and killed|stabbed to death|found dead|dead body|body was found|died|dies|death of|deaths?\b(?! threat)|passed away|suicide\w*|overdos\w*|fatal\w*|funeral|obituar\w*|autopsy|coroner)\b/iu',
     'sexual violence' => '/\b(sexual(ly)? (assault\w*|abuse\w*|misconduct|harass\w*|exploit\w*)|rape\w*|raping|molest\w*|grooming|groomed|predator\w*|csam|child (sexual|porn\w*)|indecent|non-?consensual)\b/iu',
     'abuse of minors' => '/\b(child abuse|abus\w* (a |his |her |their )?(child|children|kids?|minors?|son|daughter)|minors?\b.{0,40}\b(abus\w*|exploit\w*|endanger\w*)|child endangerment|endanger\w* (a |the |his |her )?(child|children|kids?))\b/iu',
+    // owner rule 7 (2026-09-27): "widen the detector words: assault, punched, attacked, abuse, arrested, police, charged, death, killed"
+    'violence or crime' => '/\b(assault\w*|punch(?:ed|es|ing)|attack(?:ed|s|ing)|abus(?:e|ed|es|ing|ive)|arrest(?:ed|s|ing)?|police|charged)\b/iu',
     'domestic abuse'  => '/\b(domestic (violence|abuse|assault|battery)|abusive (relationship|partner|ex|boyfriend|girlfriend|husband|wife)|(beat|hit|choked|strangled) (his|her) (girlfriend|boyfriend|wife|husband|partner|ex)|intimate partner violence)\b/iu',
 ];
 
@@ -31,12 +35,17 @@ function hr_install(PDO $pdo): void {
 function hr_reasons(string $title, string $summary, string $eventsText): array {
     $core = ' ' . $title . '. ' . $summary . ' ';
     $all = $core . ' ' . $eventsText;
-    // game lore is not a death (the same guard as video_story_gravity)
-    if (preg_match('/\b(dungeon|raid|mythic|gameplay|game master|instakill|respawn|loot|boss fight|patch)\b/iu', $all)
-        && !preg_match('/\b(passed away|found dead|body was found|cause of death|autopsy|funeral|obituar\w*|shot dead)\b/iu', $all)) {
-        $core = (string)preg_replace('/\b(death\w*|dead|died|dies|killed|killing)\b/iu', ' ', $core);
-        $all = (string)preg_replace('/\b(death\w*|dead|died|dies|killed|killing)\b/iu', ' ', $all);
-    }
+    // game lore is not a death or an attack (the same idea as video_story_gravity), judged sentence by sentence: a
+    // sentence about a game (a boss, a dungeon, respawning) loses those words unless it also names something real.
+    // 2026-09-27: the whole-page version read "a 15,000-viewer raid" (a Twitch raid) as game lore and missed
+    // "Nitro Camden attacked by mother on stream"
+    $lore = '/\b(boss(?:es| fights?)?|dungeons?|mythic|respawn\w*|instakill|loot|npcs?|enemies|monsters?|zombies?|in-game|gameplay|game master|quests?|patch notes?)\b/iu';
+    $real = '/\b(passed away|found dead|body was found|cause of death|autopsy|funeral|obituar\w*|shot dead|police|arrest\w*|streamer|on stream|irl|mother|mom|father|dad|wife|husband|fans?|convention|hospital)\b/iu';
+    $strip = fn(string $t): string => implode(' ', array_map(fn(string $s) => preg_match($lore, $s) && !preg_match($real, $s)
+        ? (string)preg_replace('/\b(death\w*|dead|died|dies|killed|killing|attack(?:ed|s|ing)?|punch(?:ed|es|ing)?)\b/iu', ' ', $s) : $s,
+        preg_split('/(?<=[.!?])\s+/u', $t) ?: [$t]));
+    $core = $strip($core);
+    $all = $strip($all);
     $out = [];
     foreach (HR_CATEGORIES as $cat => $rx) {
         if (preg_match($rx, $core, $m)) $out[] = "{$cat}: \"" . mb_strtolower($m[0]) . '"';

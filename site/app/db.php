@@ -46,6 +46,38 @@ function page_content_touched(PDO $pdo, int $pageId): void {
     $pdo->prepare("UPDATE pages SET content_updated_at=UTC_TIMESTAMP(), updated_at=NOW() WHERE id=?")->execute([$pageId]);
 }
 
+/** A page made again (a redo): "Updated" moves to now (owner rule 2, 2026-09-27); the publish date stays (pages_publish_date_lock). */
+function page_redone(PDO $pdo, int $pageId): void {
+    page_content_touched($pdo, $pageId);
+}
+
+/**
+ * THE PUBLISH DATE NEVER CHANGES (owner rule 2, 2026-09-27). Once a page has been live (pages.live_once), the database
+ * itself keeps its published_at: every UPDATE that tries to move it is undone by a trigger, whatever code sent it (six
+ * code paths wrote published_at=NOW(), so a held page approved, or a live page published again, got a new date). A page
+ * going live for the first time still gets its date. Fixing a wrong date on purpose means dropping the trigger first.
+ * Idempotent; run outside a transaction (DDL commits an open one, r151).
+ */
+function pages_publish_date_lock(PDO $pdo): void {
+    static $done = false;
+    if ($done) return;
+    $done = true;
+    if ((int)$pdo->query("SELECT COUNT(*) FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE() AND TRIGGER_NAME='pages_publish_date_lock'")->fetchColumn() > 0) return;
+    try { $pdo->exec("ALTER TABLE pages ADD COLUMN live_once TINYINT(1) NOT NULL DEFAULT 0"); } catch (Throwable $e) { /* already there */ }
+    // live before: published now, merged copies (they were live), pages a person was asked to read while live, and
+    // pages whose publish time came after their draft time (page_publish_live set it)
+    $pdo->exec("UPDATE pages SET live_once=1 WHERE status='published' OR redirect_to IS NOT NULL OR human_review IS NOT NULL
+                OR published_at > created_at + INTERVAL 5 MINUTE");
+    $pdo->exec("CREATE TRIGGER pages_publish_date_lock BEFORE UPDATE ON pages FOR EACH ROW
+                BEGIN
+                  IF OLD.live_once = 1 THEN SET NEW.published_at = OLD.published_at; SET NEW.live_once = 1;
+                  ELSEIF NEW.status = 'published' THEN SET NEW.live_once = 1;
+                  END IF;
+                END");
+    $pdo->exec("CREATE TRIGGER pages_publish_date_lock_new BEFORE INSERT ON pages FOR EACH ROW
+                BEGIN IF NEW.status = 'published' THEN SET NEW.live_once = 1; END IF; END");
+}
+
 /**
  * sources.published_on (2026-09-26): the source's own date (an article's publish date, a post's date),
  * NULL when it states none. retrieved_on cannot tell: an undated source stores the day we fetched it

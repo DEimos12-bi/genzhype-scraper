@@ -82,6 +82,9 @@ function sitemap_build(): string {
     $lanesLive = $pdo->query("SELECT DISTINCT t.lane FROM terms t JOIN pages p ON p.id=t.page_id
                               WHERE p.status='published' AND p.robots='index'")->fetchAll(PDO::FETCH_COLUMN);
     foreach ($lanesLive as $lk) if (isset(lanes()[$lk])) $hubs[] = lanes()[$lk]['prefix'];
+    // the glossaries (owner rule 4, 2026-09-27), once a lane has terms folded into one
+    $gq = $pdo->prepare("SELECT COUNT(*) FROM pages WHERE type='term' AND status='archived' AND redirect_to LIKE ?");
+    foreach (['slang', 'meme', 'gaming'] as $lk) { $gq->execute([lanes()[$lk]['prefix'] . 'glossary/%']); if ((int)$gq->fetchColumn() > 0) $hubs[] = lanes()[$lk]['prefix'] . 'glossary/'; }
     $now = date('c');
     foreach ($hubs as $hub) {
         $loc = htmlspecialchars($base . $hub, ENT_XML1);

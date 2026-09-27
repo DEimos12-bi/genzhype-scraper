@@ -113,12 +113,14 @@ function drama_index_block(PDO $pdo, int $pageId): string {
  *
  * NOT a deletion and NOT a 410: rows stay, pages stay reachable by direct URL,
  * and flipping this back is a one-line change. Returns true if the page went
- * live indexable.
+ * live indexable. published_at=NOW() below dates a FIRST publish only: once a page has been live the
+ * database keeps its date (db.php pages_publish_date_lock, owner rule 2).
  */
 function page_publish_live(PDO $pdo, int $pageId): bool {
     $t = $pdo->prepare("SELECT type FROM pages WHERE id=?");
     $t->execute([$pageId]);
-    $isDrama = ((string)$t->fetchColumn() === 'drama');
+    $type = (string)$t->fetchColumn();
+    $isDrama = ($type === 'drama');
 
     // OWNER DECISION 2026-08-22: the blanket drama noindex hold is LIFTED —
     // but per page, never per lane. The August hold was blunt because there
@@ -151,6 +153,14 @@ function page_publish_live(PDO $pdo, int $pageId): bool {
     // (owner rule 2026-08-22): a single-source explainer still goes LIVE, it
     // just is not offered to Google until a second independent source backs
     // it. Counted from the page's own citations.
+    // a slang, meme or gaming term that is only a plain definition gets no page of its own: it goes to its lane's glossary
+    // (owner rule 4, 2026-09-27: its own page only with an original part AND real demand, page_rules.php)
+    if ($type === 'term') {
+        require_once __DIR__ . '/page_rules.php';
+        $route = term_route_page($pdo, $pageId);
+        if ($route === 'glossary' && term_fold($pdo, $pageId)) { echo "  FOLDED INTO THE GLOSSARY (rule 4: no original part, or under " . PR_TERM_DEMAND_MIN . " views a day)\n"; return false; }
+        if ($route === 'unknown') echo "  demand not measured (Wikimedia unreachable): published as a page, routed on its next check\n";
+    }
     if (!$isDrama) {
         $srcN = term_source_domains($pdo, $pageId);
         if ($srcN < GATE_MIN_SOURCE_DOMAINS) {

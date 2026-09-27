@@ -8,6 +8,7 @@ require_once __DIR__ . '/story_context.php';
 require_once __DIR__ . '/creator_stats.php';
 require_once __DIR__ . '/gate.php';   // gate_proof_label()
 require_once __DIR__ . '/verdict.php';   // VD_METHOD on the page
+require_once __DIR__ . '/page_rules.php';   // the owner's page rules: status from dates, our take, crime and death stories
 
 /* r146 (2026-09-07) THE 2-SECOND PAGE. Measured on the live host: every request
  * ran repo_load_all() from scratch — 3,617 queries, 14 MB of assembled content,
@@ -185,8 +186,8 @@ function repo_load_all(): array {
         // 'developing' (option A, 2026-08-22): a story published from 3-5 dated
         // events while it is still unfolding. The badge is the promise that we
         // are not passing a thin page off as a finished one.
-        $status = story_status($r['lifecycle'], $r['last_event']);
-        $data['dramas'][$r['slug']] = [
+        $status = story_status($r['lifecycle'], $r['last_event'], (array)json_decode((string)($r['whats_next'] ?? ''), true));
+        $data['dramas'][$r['slug']] = pr_story_view([
             'slug'          => $r['slug'],
             'title'         => $r['title'],
             'title_tag'     => $r['title_tag'],
@@ -222,7 +223,7 @@ function repo_load_all(): array {
             // never match and all 8 published gaming stories rendered "Page not
             // found" while the sitemap sent Google to them.
             'lane'          => $r['lane'],
-        ];
+        ]);   // rules 1, 3 and 6 as the reader sees them (page_rules.php)
     }
 
     // terms (encyclopedic entries: slang, memes, gaming, music)
@@ -420,8 +421,8 @@ function repo_load_drama_any(string $slug): ?array {
     $sq->execute([$did]);
     foreach ($sq->fetchAll() as $s) $sources[] = ['id'=>(int)$s['id'],'url'=>$s['url'] ?? null,'text'=>repo_source_text($s)];
 
-    $status = story_status($r['lifecycle'], $r['last_event']);
-    return [
+    $status = story_status($r['lifecycle'], $r['last_event'], (array)json_decode((string)($r['whats_next'] ?? ''), true));
+    return pr_story_view([
         'slug'=>$r['slug'], 'title'=>$r['title'], 'title_tag'=>$r['title_tag'], 'eyebrow'=>ucwords(timeline_lanes()[$r['lane'] ?? 'drama']['label'] ?? 'Creator drama'),
         // 2026-09-26 the lane, as repo_load_drama() carries it (r151): without it the pre-publish SEO audit
         // rendered every gaming story with a /drama/ canonical and failed it (the Skyblivion rebuild)
@@ -439,7 +440,7 @@ function repo_load_drama_any(string $slug): ?array {
         'verdict'=>json_decode((string)($r['verdict'] ?? ''), true) ?: null,
         'events'=>$events, 'parties'=>$parties, 'faqs'=>$faqs, 'sources'=>$sources,
         'related'=>[], 'robots'=>$r['robots'], 'page_id'=>(int)$r['page_id'], 'page_status'=>$r['status'],
-    ];
+    ]);   // rules 1, 3 and 6 as the reader sees them (page_rules.php)
 }
 
 /** Right-rail data for detail pages: fresh entries + latest dramas (design study 2026-06-12). */
@@ -480,22 +481,20 @@ function repo_rail(int $excludePageId = 0): array {
     return ['terms' => $terms, 'dramas' => $dramas, 'cats' => $cats];
 }
 
-const STORY_QUIET_DAYS = 30;   // owner 2026-09-26: "Developing" only while something new happened in the last 30 days
-
 /**
- * A story's status for readers: the lifecycle word while it moves, "No new developments" once its
- * newest event is STORY_QUIET_DAYS old (an outside site check on 2026-09-26: 158+ pages still said
- * "Developing" long after their last event). ['short' => cards, 'long' => the story page badge].
+ * A story's status for readers, from its dates (owner rule 1, 2026-09-27: "status matches today"): the lifecycle word
+ * only while something happened in the last PR_QUIET_DAYS or something dated is still ahead ($next: the stored
+ * "what happens next" items); otherwise "No new developments since <date>". ['short' => cards, 'long' => the badge].
  */
-function story_status(?string $lifecycle, ?string $lastEvent): array {
+function story_status(?string $lifecycle, ?string $lastEvent, array $next = []): array {
     $word = ['ongoing' => 'Ongoing', 'resolved' => 'Resolved', 'dormant' => 'Dormant', 'developing' => 'Developing'][(string)$lifecycle] ?? 'Ongoing';
-    if ($word === 'Resolved' || !$lastEvent) return ['short' => $word, 'long' => $word];
+    if ($word === 'Resolved' || !$lastEvent || pr_has_ahead($next)) return ['short' => $word, 'long' => $word];
     // 399 events carry only a year ("2023-00-00") and 428 only a month: such a date counts until the
     // end of its year or month, and the label names the year or month
     [$y, $m, $d] = array_map('intval', array_pad(explode('-', substr($lastEvent, 0, 10)), 3, '0'));
     if ($y < 1900) return ['short' => $word, 'long' => $word];
     $end = $m === 0 ? mktime(23, 59, 59, 12, 31, $y) : ($d === 0 ? mktime(23, 59, 59, $m + 1, 0, $y) : mktime(23, 59, 59, $m, $d, $y));
-    if ($end > time() - STORY_QUIET_DAYS * 86400) return ['short' => $word, 'long' => $word];
+    if ($end > time() - PR_QUIET_DAYS * 86400) return ['short' => $word, 'long' => $word];
     $since = $m === 0 ? (string)$y : date($d === 0 ? 'F Y' : ($y === (int)gmdate('Y') ? 'M j' : 'M j, Y'), mktime(0, 0, 0, $m, max(1, $d), $y));
     return ['short' => 'No new developments', 'long' => "No new developments since {$since}"];
 }
@@ -507,4 +506,36 @@ function repo_ticker(): array {
     // the last REAL update on the site (a new page or a new dated event), not the last maintenance touch
     $u = $pdo->query("SELECT MAX(COALESCE(content_updated_at, published_at)) FROM pages WHERE status='published'")->fetchColumn();
     return ['dramas' => (int)$d, 'creators' => (int)$t, 'terms' => (int)$t, 'updated' => $u ? date('M j, H:i', strtotime($u)) : date('M j, H:i')];
+}
+
+/**
+ * A lane's glossary (owner rule 4, 2026-09-27): the terms folded into it, A to Z, a section each. A folded term keeps
+ * its row; its old address answers 301 to its section (pages.redirect_to = "<lane>/glossary/#<slug>").
+ */
+function repo_glossary(string $lane): array {
+    require_once __DIR__ . '/lanes.php';
+    $L = lanes()[$lane] ?? null;
+    if (!$L || !in_array($lane, ['slang', 'meme', 'gaming'], true)) return ['lane' => $lane, 'entries' => []];
+    $st = db()->prepare("SELECT p.slug, p.updated_at, t.term, t.short_def, t.meaning, t.examples, t.first_seen, t.citations
+                         FROM pages p JOIN terms t ON t.page_id=p.id
+                         WHERE p.type='term' AND p.status='archived' AND p.redirect_to LIKE ? ORDER BY t.term");
+    $st->execute([$L['prefix'] . 'glossary/%']);
+    $entries = []; $updated = '';
+    foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $r) {
+        $meaning = json_decode((string)$r['meaning'], true);
+        $ex = (array)json_decode((string)$r['examples'], true);
+        $cites = [];
+        foreach ((array)json_decode((string)$r['citations'], true) as $c) {
+            if (!is_array($c) || empty($c['url'])) continue;
+            $by = trim((string)($c['publication'] ?: ($c['platform'] . ($c['handle'] ? ' ' . $c['handle'] : ''))));
+            $cites[] = ['url' => (string)$c['url'], 'by' => $by !== '' ? $by : (string)parse_url((string)$c['url'], PHP_URL_HOST), 'date' => (string)($c['date'] ?? '')];
+            if (count($cites) >= 3) break;
+        }
+        $entries[] = ['slug' => $r['slug'], 'term' => (string)$r['term'], 'short_def' => (string)$r['short_def'],
+                      'meaning' => is_array($meaning) ? (string)($meaning[0] ?? '') : (string)$r['meaning'],
+                      'example' => is_array($ex[0] ?? null) ? (string)($ex[0]['text'] ?? '') : (string)($ex[0] ?? ''),
+                      'first_seen' => (string)$r['first_seen'], 'cites' => $cites];
+        $updated = max($updated, (string)$r['updated_at']);
+    }
+    return ['lane' => $lane, 'prefix' => $L['prefix'], 'crumb' => html_entity_decode($L['crumb']), 'entries' => $entries, 'updated' => $updated];
 }

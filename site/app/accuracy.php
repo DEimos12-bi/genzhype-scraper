@@ -277,25 +277,50 @@ function acc_unlisted_outlets(PDO $pdo, int $pageId): array {
 
 /**
  * A title the fact check faulted for promising what the page does not give (owner 2026-09-27, #5: Skyblivion's "Release
- * Date and Final Marketing Push Timeline" had no date). Rewritten from the summary and timeline, same address; the
- * title tag keeps the gate's length. True when a new title was saved.
+ * Date and Final Marketing Push Timeline" had no date), or that breaks the owner's title rules 1 and 5 (page_rules.php).
+ * Title, title tag and description rewritten from the summary and timeline, same address; code re-checks the answer
+ * against the rules and asks once more if it still breaks one. True when a new title was saved.
  */
 function acc_retitle(PDO $pdo, int $pageId, string $problem): bool {
+    require_once __DIR__ . '/page_rules.php';
     $p = acc_page($pdo, $pageId);
     if (!$p) return false;
+    $meta = (string)$pdo->query("SELECT meta_desc FROM pages WHERE id={$pageId}")->fetchColumn();
+    $lane = (string)$pdo->query("SELECT lane FROM dramas WHERE id=" . (int)$p['did'])->fetchColumn();
     $ev = implode("\n", $pdo->query("SELECT CONCAT(event_date, ': ', title) FROM events WHERE drama_id=" . (int)$p['did'] . " AND video_only=0 ORDER BY sort_order")->fetchAll(PDO::FETCH_COLUMN));
-    $r = ai_chat([
-        ['role' => 'system', 'content' => 'Rewrite a news page title so it says only what the page contains. No promise the page does not keep, no teaser, '
-            . 'no question, sentence case. Output STRICT JSON only: {"h1":"40 to 70 characters","title_tag":"40 to 60 characters"}'],
-        ['role' => 'user', 'content' => "CURRENT TITLE: {$p['h1']}\nPROBLEM: {$problem}\nSUMMARY: {$p['summary']}\nTIMELINE:\n{$ev}"],
-    ], ['groq', 'nvidia'], 0.2, 75, ['groq/openai/gpt-oss-20b', 'groq/qwen/qwen3.8-27b', 'nvidia/nvidia/nemotron-3-nano-30b-a3b', 'nvidia_b/nvidia/nemotron-3-nano-30b-a3b']);
-    $j = isset($r['error']) ? null : ai_json((string)$r['content']);
-    $h1 = trim((string)($j['h1'] ?? '')); $tt = trim((string)($j['title_tag'] ?? ''));
-    if (mb_strlen($h1) < 20 || mb_strlen($h1) > 90 || mb_strlen($tt) < 40 || mb_strlen($tt) > 60) return false;
-    acc_backup($pdo, $pageId, 'title');
-    $pdo->prepare("UPDATE pages SET h1=?, title_tag=?, updated_at=NOW() WHERE id=?")->execute([$h1, $tt, $pageId]);
-    $pdo->prepare("UPDATE dramas SET title=? WHERE id=?")->execute([$h1, (int)$p['did']]);
-    return true;
+    $src = implode("\n", $pdo->query("SELECT DISTINCT s.excerpt FROM events e JOIN sources s ON s.id=e.source_id WHERE e.drama_id=" . (int)$p['did'])->fetchAll(PDO::FETCH_COLUMN));
+    $st = pr_story_state($pdo, $pageId);
+    $over = $st && pr_story_over($st['lifecycle'], $st['last'], $st['next']);
+    // the owner's title rules (1 and 5): hooks yes, lies no; code checks the answer before it is kept
+    $sys = 'Rewrite a news page title and its search description so they say only what the page contains. A hook is allowed, a lie is not: '
+         . 'no promise the page does not keep, no question, sentence case. A death, a crime or violence is never stated as fact: attribute it '
+         . '("police say", "alleged", "<name> says", "clip shows") or quote the person. A quote is words a source really says, in quotation marks, '
+         . 'with the speaker named next to it. '
+         . ($over ? 'This story is over: write a recap of what happened, in the past tense; never "announces", "reveals", "will", "ongoing" or "developing". ' : '')
+         . 'Output STRICT JSON only: {"h1":"40 to 70 characters","title_tag":"40 to 60 characters","meta_desc":"120 to 155 characters"}';
+    $why = $problem;
+    for ($try = 0; $try < 2; $try++) {
+        $r = ai_chat([
+            ['role' => 'system', 'content' => $sys],
+            ['role' => 'user', 'content' => "CURRENT TITLE: {$p['h1']}\nCURRENT DESCRIPTION: {$meta}\nPROBLEM: {$why}\nSUMMARY: {$p['summary']}\nTIMELINE:\n{$ev}"],
+        ], ['groq', 'nvidia'], 0.2, 75, ['groq/openai/gpt-oss-20b', 'groq/qwen/qwen3.8-27b', 'nvidia/nvidia/nemotron-3-nano-30b-a3b', 'nvidia_b/nvidia/nemotron-3-nano-30b-a3b']);
+        $j = isset($r['error']) ? null : ai_json((string)$r['content']);
+        $h1 = trim((string)($j['h1'] ?? '')); $tt = trim((string)($j['title_tag'] ?? '')); $md = trim((string)($j['meta_desc'] ?? ''));
+        if (mb_strlen($h1) < 20 || mb_strlen($h1) > 90 || mb_strlen($tt) < 40 || mb_strlen($tt) > 60) continue;
+        if (mb_strlen($md) < 110 || mb_strlen($md) > 160) $md = $meta;   // a description out of range: the old one stays, and is checked below
+        $left = [];
+        foreach (['title' => $h1, 'title tag' => $tt, 'description' => $md] as $where => $t) {
+            foreach (pr_headline_problems($t, $src, $where, $lane) as $x) $left[] = $x;
+            if ($over && preg_match(PR_ANNOUNCE_RX, $t, $m)) $left[] = "rule 1: the {$where} still says \"{$m[1]}\" about a story that is over";
+            if ($over && preg_match(PR_ACTIVE_RX, $t, $m)) $left[] = "rule 1: the {$where} still calls the story \"{$m[1]}\"";
+        }
+        if ($left) { $why = $problem . '; your last answer still broke a rule: ' . implode('; ', $left); continue; }
+        acc_backup($pdo, $pageId, 'title');
+        $pdo->prepare("UPDATE pages SET h1=?, title_tag=?, meta_desc=?, updated_at=NOW() WHERE id=?")->execute([$h1, $tt, $md, $pageId]);
+        $pdo->prepare("UPDATE dramas SET title=? WHERE id=?")->execute([$h1, (int)$p['did']]);
+        return true;
+    }
+    return false;   // nothing that passes the rules: the old title stays, and its hard fail holds the page
 }
 
 /**
@@ -344,7 +369,9 @@ function acc_fresh_verify(PDO $pdo, int $pageId): ?array {
  */
 function acc_run(PDO $pdo, int $pageId): array {
     require_once __DIR__ . '/verify.php';
+    require_once __DIR__ . '/page_rules.php';
     $rep = ['dates' => acc_fix_dates($pdo, $pageId)];
+    $rep['rules'] = rules_fix_page($pdo, $pageId)['changed'] ?? [];   // what the owner's rules fix by code alone, before the fact check reads the page
     $v = acc_fresh_verify($pdo, $pageId) ?? verify_drama($pageId);   // a run cut short resumes here
     // 2026-09-27 nothing is removed on the fact check's word alone: on Rayman it quoted a whole event for one
     // invented sentence and the event went. The fact check and the code check (backing.php) only NOMINATE
@@ -377,8 +404,13 @@ function acc_run(PDO $pdo, int $pageId): array {
     $rep['removal'] = acc_remove($pdo, $pageId, $cut);
     $rep['attributed'] = acc_attribute($pdo, $pageId, $tie['backed'] ?? []);
     $rep['retitled'] = false;
+    $titleWhy = [];
     foreach ((array)($v['issues'] ?? []) as $i)
-        if (is_array($i) && ($i['type'] ?? '') === 'title') { $rep['retitled'] = acc_retitle($pdo, $pageId, (string)($i['detail'] ?? '')); break; }
+        if (is_array($i) && ($i['type'] ?? '') === 'title') { $titleWhy[] = (string)($i['detail'] ?? ''); break; }
+    // rules 1 and 5 (owner 2026-09-27): a title or description that says "announces" about the past, calls an ended story
+    // ongoing, or states a death or crime as fact is rewritten, and code checks the new one before it is kept
+    foreach (pr_hard_fails($pdo, $pageId) as $r) if (preg_match('/^rule [15]: the (title|title tag|description|title or description)\b/', $r)) $titleWhy[] = $r;
+    if ($titleWhy) $rep['retitled'] = acc_retitle($pdo, $pageId, implode('; ', $titleWhy));
     if ($rep['removal']['removed'] > 0 || array_sum($rep['dates']) > 0 || $rep['retitled']) $v = verify_drama($pageId);   // the page as it now stands
     $rep['verify'] = $v;
     acc_log($pdo, $pageId, (int)$rep['removal']['removed']);
@@ -410,6 +442,8 @@ function acc_hard_fails(PDO $pdo, int $pageId, bool $render = true): array {
     if (array_filter($dates, fn($d) => (string)$d > $written)) $why[] = 'a timeline event dated after the page was written (a plan, not a past event)';
     if (mb_strlen(trim((string)$p['summary'])) < ACC_SUMMARY_MIN) $why[] = 'the summary is under ' . ACC_SUMMARY_MIN . ' characters';
     if ($u = acc_unlisted_outlets($pdo, $pageId)) $why[] = 'the text credits ' . $u[0]['outlet'] . ', which the source list does not have';
+    require_once __DIR__ . '/page_rules.php';
+    foreach (pr_hard_fails($pdo, $pageId) as $r) $why[] = $r;   // the owner's rules 1, 5 and 6 (page_rules.php)
     $v = $pdo->query("SELECT passed FROM ai_reviews WHERE page_id={$pageId} AND stage='verify' ORDER BY id DESC LIMIT 1")->fetchColumn();
     if ($v === false) $why[] = 'never fact-checked';
     elseif ((int)$v !== 1) $why[] = 'the latest fact check found unsupported or wrong statements';

@@ -1190,6 +1190,48 @@ switch ($cmd) {
         echo 'timeline strong: ' . ($r['timeline_strong'] ? 'yes' : 'no') . ($r['verified'] ? '' : ' (unverified: the AI reading did not run)') . "\n";
         break;
 
+    case 'glossary':
+        // owner rule 4 (2026-09-27): a slang, meme or gaming term keeps its own page only with an original part AND real
+        // demand; the rest go to their lane's glossary (page_rules.php). "glossary plan": the count for every live term
+        // page. "glossary fold": fold them in one batch, each page's state copied first. "glossary undo <copy file>".
+        require_once __DIR__ . '/page_rules.php';
+        term_demand_install($pdo);
+        if ($arg === 'undo') {
+            $copy = json_decode((string)@file_get_contents((string)($argv[3] ?? '')), true);
+            if (!is_array($copy)) { echo "glossary undo: give the copy file (storage/backups/glossary-fold-*.json)\n"; break; }
+            $put = $pdo->prepare("UPDATE pages SET status=?, robots=?, redirect_to=? WHERE id=? AND type='term'");
+            foreach ($copy as $c) $put->execute([$c['status'], $c['robots'], $c['redirect_to'], (int)$c['id']]);
+            echo 'glossary undo: ' . count($copy) . " page(s) put back\n" . 'sitemap: ' . sitemap_build() . "\n";
+            break;
+        }
+        $rows = $pdo->query("SELECT p.id, p.path, p.status, p.robots, p.redirect_to, t.lane FROM pages p JOIN terms t ON t.page_id=p.id
+                             WHERE p.type='term' AND p.status='published' AND t.lane IN ('slang','meme','gaming') ORDER BY t.lane, p.path")->fetchAll(PDO::FETCH_ASSOC);
+        $plan = []; $count = [];
+        foreach ($rows as $r) {
+            $route = term_route_page($pdo, (int)$r['id']);
+            $plan[] = $r + ['route' => $route];
+            $count[$r['lane']][$route] = ($count[$r['lane']][$route] ?? 0) + 1;
+        }
+        foreach ($count as $lane => $c) echo str_pad($lane, 8) . ' keep ' . ($c['page'] ?? 0) . ' | fold ' . ($c['glossary'] ?? 0) . (!empty($c['unknown']) ? ' | demand unknown ' . $c['unknown'] : '') . "\n";
+        if ($arg !== 'fold') { echo "(plan only: \"glossary fold\" applies it)\n"; break; }
+        $fold = array_values(array_filter($plan, fn($p) => $p['route'] === 'glossary'));
+        $copyFile = dirname(__DIR__) . '/storage/backups/glossary-fold-' . gmdate('Ymd-His') . '.json';
+        file_put_contents($copyFile, json_encode(array_map(fn($p) => array_intersect_key($p, array_flip(['id', 'path', 'status', 'robots', 'redirect_to'])), $fold), JSON_PRETTY_PRINT));
+        $n = 0;
+        foreach ($fold as $p) if (term_fold($pdo, (int)$p['id'])) $n++;
+        echo "folded {$n} page(s) into the glossaries; copy of their state: {$copyFile}\n" . 'sitemap: ' . sitemap_build() . "\n";
+        break;
+
+    case 'ruletest':
+        // 2026-09-27 (owner): the permanent test set (rule_tests.php). "ruletest" runs every case, "ruletest 5" one rule,
+        // "ruletest 5-fake-quote" one case. Made-up pages only (zz-ruletest-*), removed after each case.
+        require_once __DIR__ . '/rule_tests.php';
+        $res = rt_run($pdo, (string)$arg);
+        foreach ($res as $r) printf("%s  rule %d  %-26s %-5s %s\n      %s\n", $r['pass'] ? 'PASS' : 'FAIL', $r['rule'], $r['id'], $r['kind'], $r['what'], $r['detail']);
+        $bad = count(array_filter($res, fn($r) => !$r['pass']));
+        echo "\n" . (count($res) - $bad) . ' of ' . count($res) . " passed\n";
+        break;
+
     case 'recheck':
         // 2026-09-27 (owner): live pages re-checked under the new rules in batches of 20, a report after each batch
         // (accuracy.php acc_recheck). Its own hourly hPanel cron: "timeout -s 9 1800 php app/cli.php recheck".
@@ -1405,6 +1447,8 @@ switch ($cmd) {
         catch (Throwable $e) { echo "  originality share failed: " . $e->getMessage() . "\n"; }
         try { require_once __DIR__ . '/dedupe.php'; foreach (dup_pending_apply(db()) as $l) echo "  merged {$l}\n"; }
         catch (Throwable $e) { echo "  pending merges failed: " . $e->getMessage() . "\n"; }
+        // rule 2 (owner 2026-09-27): the database keeps every live page's publish date; back in place after a restore
+        try { pages_publish_date_lock(db()); } catch (Throwable $e) { echo "  publish date lock failed: " . $e->getMessage() . "\n"; }
         // MUTUAL EXCLUSION: one tick at a time. A long tick (PSI/vision/AI) must not
         // overlap the next hourly fire — overlap = double-builds + a race on the
         // in-memory velocity $slots that could exceed the daily publish cap (the
@@ -1564,10 +1608,14 @@ switch ($cmd) {
             // re-judged forever. That gap is what let nine pages burn an AI call an
             // hour indefinitely. Held pages now age out on the same rule, bounded so a
             // backlog can never archive in one go.
+            // A page waiting for the owner's Human check is not failing: it waits for him (rule 7, 2026-09-27: this sweep
+            // archived the 8 mixed-up pages 20 minutes after they were held for his approval, and an archived page
+            // answers 410 and cannot be approved back).
             try {
                 $oldHeld = $pdo->query("SELECT id, slug FROM pages
                                          WHERE status='review' AND robots='noindex'
                                            AND created_at < UTC_TIMESTAMP() - INTERVAL 7 DAY
+                                           AND (human_review IS NULL OR human_review <> 'needed')
                                          ORDER BY created_at ASC LIMIT 5")->fetchAll();
                 foreach ($oldHeld as $oh) {
                     $pdo->prepare("UPDATE pages SET status='archived' WHERE id=?")->execute([$oh['id']]);

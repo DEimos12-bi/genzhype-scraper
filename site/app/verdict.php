@@ -46,6 +46,8 @@ function vd_evidence(PDO $pdo, int $did): array {
  */
 function vd_write(PDO $pdo, int $pageId, bool $save = true): array {
     vd_install($pdo);
+    require_once __DIR__ . '/page_rules.php';
+    if (pr_is_grave($pdo, $pageId)) return ['error' => 'a crime, abuse or death story carries no evidence read (owner rule 6)'];
     $st = $pdo->prepare("SELECT d.id, p.h1, p.summary, d.both_sides, d.whats_next FROM dramas d JOIN pages p ON p.id=d.page_id WHERE d.page_id=?");
     $st->execute([$pageId]);
     $s = $st->fetch(PDO::FETCH_ASSOC);

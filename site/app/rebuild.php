@@ -95,7 +95,6 @@ function story_rebuild(PDO $pdo, int $pageId, string $step = 'all'): array {
     }
     $backup = rebuild_last_backup($pageId);
     if ($backup === '') return ['error' => 'nothing to check: this page was never rebuilt'];
-    $before = json_decode((string)file_get_contents($backup), true);
 
     $c = story_checks($pdo, $pageId, 'tavily');   // an old page: Tavily (owner 2026-09-25; Exa is for new stories)
     $pdo = db_alive();
@@ -106,10 +105,8 @@ function story_rebuild(PDO $pdo, int $pageId, string $step = 'all'): array {
     if (!($c['v']['pass'] ?? false)) $fails[] = 'fact check: ' . mb_substr(json_encode(array_slice((array)($c['v']['issues'] ?? []), 0, 2), JSON_UNESCAPED_UNICODE), 0, 200);
     foreach (($seo['fails'] ?? []) as $sf) $fails[] = 'seo: ' . $sf;
 
-    // the public date moves only when the timeline gained a newer dated event (real dates, 2026-09-26)
-    $oldLast = (string)max(array_merge([''], array_column(array_filter((array)($before['events'] ?? []), fn($e) => empty($e['video_only'])), 'event_date')));
-    $newLast = (string)$pdo->query("SELECT MAX(event_date) FROM events WHERE drama_id=" . (int)$p['did'] . " AND video_only=0")->fetchColumn();
-    if ($newLast > $oldLast) page_content_touched($pdo, $pageId);
+    // a redo moves "Updated" and never the publish date (owner rule 2, 2026-09-27; the database keeps the publish date)
+    page_redone($pdo, $pageId);
 
     $indexed = null;
     if ($p['status'] === 'published') {
