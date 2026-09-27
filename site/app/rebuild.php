@@ -6,12 +6,13 @@
 // address; a copy of everything it held is written to storage/rebuilds/ first. A live page stays live: the
 // index rules decide only whether Google is offered it, and its published date never moves. The writer
 // closes it to Google in the same save as the new words (a run cut off before the checks leaves it closed).
-//   php app/cli.php rebuild <pageId>[,<pageId>...] [write|check]   (no word = both)
+//   php app/cli.php rebuild <pageId>[,<pageId>...] [write|check|restore]   (no word = write + check)
 
 require_once __DIR__ . '/db.php';
 
-/** A copy of the page as it is now (page row + story, timeline, questions, or the term entry). Its path. */
-function rebuild_backup(PDO $pdo, int $pageId): string {
+/** A copy of the page as it is now (page row + story, timeline, questions, or the term entry). Its path.
+ *  $sub 'replaced': the copy page_restore() keeps of the version it takes down (not a rebuild's copy). */
+function rebuild_backup(PDO $pdo, int $pageId, string $sub = ''): string {
     $one = function (string $sql, array $args = []) use ($pdo) { $st = $pdo->prepare($sql); $st->execute($args); return $st->fetchAll(PDO::FETCH_ASSOC); };
     $out = ['taken_at' => gmdate('c'), 'page' => $one("SELECT * FROM pages WHERE id=?", [$pageId])[0] ?? null];
     if (($out['page']['type'] ?? '') === 'drama') {
@@ -22,7 +23,7 @@ function rebuild_backup(PDO $pdo, int $pageId): string {
     } else {
         $out['term'] = $one("SELECT * FROM terms WHERE page_id=?", [$pageId])[0] ?? null;
     }
-    $dir = dirname(__DIR__) . '/storage/rebuilds';
+    $dir = dirname(__DIR__) . '/storage/rebuilds' . ($sub !== '' ? '/' . $sub : '');
     if (!is_dir($dir)) mkdir($dir, 0755, true);
     $path = "{$dir}/{$pageId}-" . gmdate('Ymd-His') . '.json';
     file_put_contents($path, json_encode($out, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
@@ -175,6 +176,53 @@ function term_rebuild(PDO $pdo, int $pageId, string $step = 'all'): array {
             'fails' => $fails, 'quality' => $q['score'] ?? null, 'backup' => basename($backup)]]);
     } catch (Throwable $e) { error_log('record rebuild: ' . $e->getMessage()); }
     return ['ok' => $ok, 'indexed' => $indexed, 'fails' => $fails, 'backup' => $backup, 'path' => $p['path'], 'quality' => $q['score'] ?? null];
+}
+
+/**
+ * UNDO A REBUILD (owner 2026-09-26: "put flick back"): the page exactly as the newest rebuild copy holds it,
+ * text, timeline, questions or term entry, cover, Google setting and public date. The version it takes down
+ * is kept in storage/rebuilds/replaced/ first. One transaction: all of it comes back or none of it.
+ */
+function page_restore(PDO $pdo, int $pageId): array {
+    $from = rebuild_last_backup($pageId);
+    if ($from === '') return ['error' => 'no rebuild copy of this page to put back'];
+    $b = json_decode((string)file_get_contents($from), true);
+    $pg = $b['page'] ?? null;
+    if (!$pg || (int)$pg['id'] !== $pageId) return ['error' => "the copy {$from} is not this page"];
+    $kept = rebuild_backup($pdo, $pageId, 'replaced');
+    $insert = function (string $table, array $row) use ($pdo) {
+        $cols = array_keys($row);
+        $pdo->prepare("INSERT INTO {$table} (`" . implode('`,`', $cols) . "`) VALUES (" . implode(',', array_fill(0, count($cols), '?')) . ")")
+            ->execute(array_values($row));
+    };
+    $pdo->beginTransaction();
+    try {
+        $pdo->prepare("UPDATE pages SET h1=?, title_tag=?, meta_desc=?, summary=?, cover=?, cover_credit=?, cover_credit_url=?, featured_img=?,
+                       robots=?, content_updated_at=?, updated_at=NOW() WHERE id=?")
+            ->execute([$pg['h1'], $pg['title_tag'], $pg['meta_desc'], $pg['summary'], $pg['cover'], $pg['cover_credit'], $pg['cover_credit_url'],
+                       $pg['featured_img'], $pg['robots'], $pg['content_updated_at'] ?? null, $pageId]);
+        if ($pg['type'] === 'drama') {
+            $d = $b['drama'];
+            $pdo->prepare("UPDATE dramas SET title=?, lifecycle=?, started_on=?, background=?, mood=?, why_matters=?, whats_next=?, both_sides=?, verdict=? WHERE id=?")
+                ->execute([$d['title'], $d['lifecycle'], $d['started_on'], $d['background'], $d['mood'], $d['why_matters'], $d['whats_next'], $d['both_sides'], $d['verdict'], (int)$d['id']]);
+            $pdo->prepare("DELETE FROM events WHERE drama_id=? AND video_only=0")->execute([(int)$d['id']]);
+            $pdo->prepare("DELETE FROM faqs WHERE drama_id=?")->execute([(int)$d['id']]);
+            foreach ((array)$b['events'] as $e) if (empty($e['video_only'])) { unset($e['source_url']); $insert('events', $e); }
+            foreach ((array)$b['faqs'] as $q) $insert('faqs', $q);
+        } else {
+            $pdo->prepare("DELETE FROM terms WHERE page_id=?")->execute([$pageId]);
+            $insert('terms', $b['term']);
+        }
+        $pdo->commit();
+    } catch (Throwable $e) {
+        try { if ($pdo->inTransaction()) $pdo->rollBack(); } catch (Throwable $ignored) {}
+        return ['error' => 'not put back (nothing changed): ' . $e->getMessage(), 'backup' => $kept];
+    }
+    try {
+        require_once __DIR__ . '/record.php';
+        record_touch($pdo, $pg['type'] === 'drama' ? 'drama' : 'term', $pageId, '', 'build', ['rebuilt' => ['restored_at' => gmdate('c'), 'from' => basename($from), 'kept' => 'replaced/' . basename($kept)]]);
+    } catch (Throwable $e) { error_log('record restore: ' . $e->getMessage()); }
+    return ['restored' => true, 'from' => $from, 'kept' => $kept, 'path' => $pg['path'], 'robots' => $pg['robots']];
 }
 
 /** Either kind, by the page's type. $step: 'all', 'write' or 'check'. */

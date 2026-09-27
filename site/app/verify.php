@@ -20,15 +20,21 @@ function verify_drama(int $page_id): array {
     $events = $ev->fetchAll();
 
     // Full source excerpts so the verifier judges against the ACTUAL material.
-    $sq = $pdo->prepare("SELECT DISTINCT s.id, s.publisher, s.excerpt
+    sources_install($pdo);   // sources.published_on (db.php)
+    $sq = $pdo->prepare("SELECT DISTINCT s.id, s.publisher, s.excerpt, s.published_on
                          FROM events e JOIN sources s ON s.id=e.source_id WHERE e.drama_id=?");
     $sq->execute([$did]);
     $srcBlock = "SOURCE MATERIAL (full excerpts):\n";
     foreach ($sq->fetchAll() as $s) {
-        $srcBlock .= "[S{$s['id']}] {$s['publisher']}: " . ($s['excerpt'] ?: '(no excerpt stored)') . "\n\n";
+        $srcBlock .= "[S{$s['id']}] {$s['publisher']}" . ($s['published_on'] ? " (published {$s['published_on']})" : '') . ': '
+                   . ($s['excerpt'] ?: '(no excerpt stored)') . "\n\n";
     }
 
-    $body = $srcBlock . "DRAFT UNDER AUDIT:\nTITLE: {$page['h1']}\nSUMMARY: {$page['summary']}\n\nEVENTS:\n";
+    // 2026-09-26 the checker was never told today's date (the editor has been since 09-24): it read "September 17"
+    // as 2025 and called 2026 wrong. And it saw only article text, not the article's date, so an event dated by
+    // its article ("Bustle reports ...") was "unsourced" (the Riot and TikTok rebuilds).
+    $body = "TODAY'S DATE: " . gmdate('Y-m-d') . ". Every date on or before it is in the past: never treat a 2025 or 2026 date as future or invented because it is later than your training data.\n\n"
+           . $srcBlock . "DRAFT UNDER AUDIT:\nTITLE: {$page['h1']}\nSUMMARY: {$page['summary']}\n\nEVENTS:\n";
     foreach ($events as $i => $e) {
         $n = $i + 1;
         $conf = $e['is_confirmed'] ? 'confirmed' : 'UNCONFIRMED';
@@ -36,7 +42,7 @@ function verify_drama(int $page_id): array {
         $body .= "{$n}. [{$e['event_date']}] [{$conf}] {$e['title']}: {$e['description']}\n   cites: {$src}\n";
     }
 
-    $sys = "You are an adversarial fact-check editor for a drama publication. You are given the FULL SOURCE MATERIAL and a DRAFT. Audit STRICTLY but fairly: an event is properly sourced if its claim appears anywhere in the full source material, even if it cites a different source number. Flag ONLY real violations: 1) a claim that appears NOWHERE in the source material, 2) an UNCONFIRMED event whose description lacks alleged/reportedly/claims framing, 3) an event with no source attached, 4) clickbait/accusatory tone, 5) crime accusations stated as fact without an official action in the sources. Output STRICT JSON only: {\"ok\": true|false, \"issues\": [{\"event\": n|null, \"type\": \"unsourced|framing|overreach|tone|legal\", \"detail\": \"...\"}]}. ok=true ONLY if zero issues.";
+    $sys = "You are an adversarial fact-check editor for a drama publication. You are given the FULL SOURCE MATERIAL and a DRAFT. Audit STRICTLY but fairly: an event is properly sourced if its claim appears anywhere in the full source material, even if it cites a different source number. Flag ONLY real violations: 1) a claim that appears NOWHERE in the source material, 2) an UNCONFIRMED event whose description lacks alleged/reportedly/claims framing, 3) an event with no source attached, 4) clickbait/accusatory tone, 5) crime accusations stated as fact without an official action in the sources. A source's '(published YYYY-MM-DD)' date is stated by that source: an event that is the report itself (for example '<outlet> reports ...') may carry it, and a relative day in its text ('on Monday', 'yesterday') is counted from it. Output STRICT JSON only: {\"ok\": true|false, \"issues\": [{\"event\": n|null, \"type\": \"unsourced|framing|overreach|tone|legal\", \"detail\": \"...\"}]}. ok=true ONLY if zero issues.";
 
     $res = ai_chat([
         ['role' => 'system', 'content' => $sys],

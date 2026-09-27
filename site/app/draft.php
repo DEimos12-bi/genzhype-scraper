@@ -183,6 +183,7 @@ function draft_drama(array $input): array {
     // The columns are ensured here, before the transaction below (an ALTER commits it).
     require_once __DIR__ . '/story_context.php';
     story_context_install($pdo);
+    sources_install($pdo);   // sources.published_on (db.php), before the transaction below
     $ctx = story_context_from_draft($j, $input['sources'], (string)$input['topic']);
     $slug = $old ? (string)$old['slug'] : draft_slugify($j['title']);
     if (!$old) {   // the copy checks are for new pages (a rebuild is the page they would find)
@@ -307,7 +308,7 @@ function draft_drama(array $input): array {
         // sources: insert provided sources, remember mapping source_num -> id
         $map = [];
         foreach ($input['sources'] as $i => $s) {
-            $pdo->prepare("INSERT INTO sources (url,domain,publisher,title,reliability,retrieved_on,excerpt) VALUES (?,?,?,?,?,?,?)")
+            $pdo->prepare("INSERT INTO sources (url,domain,publisher,title,reliability,retrieved_on,excerpt,published_on) VALUES (?,?,?,?,?,?,?,?)")
                 ->execute([
                     $s['url'],
                     parse_url($s['url'], PHP_URL_HOST) ?: null,
@@ -316,6 +317,7 @@ function draft_drama(array $input): array {
                     $s['reliability'] ?? 'primary',
                     ($s['date'] ?? '') !== '' ? $s['date'] : date('Y-m-d'),   // undated source: the day we fetched it
                     $s['excerpt'],
+                    source_date($s['date'] ?? ''),   // the article's own date; the fact check shows it
                 ]);
             $map[$i + 1] = (int)$pdo->lastInsertId();
             // r93 ARCHIVE AT CAPTURE. This is the path that matters most: the

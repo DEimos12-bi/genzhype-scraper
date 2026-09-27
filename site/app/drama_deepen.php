@@ -92,6 +92,7 @@ function dd_hunt(string $title, array $skipHosts, int $want = 4): array {
  * One page: hunt, extract grounded events, write, re-gate, publish on pass.
  */
 function drama_deepen_page(PDO $pdo, int $pageId, bool $apply): array {
+    sources_install($pdo);   // sources.published_on (db.php)
     $p = $pdo->prepare("SELECT p.slug, p.h1, d.id drama_id, d.title, d.lane
                           FROM pages p JOIN dramas d ON d.page_id = p.id WHERE p.id = ?");
     $p->execute([$pageId]);
@@ -156,10 +157,10 @@ function drama_deepen_page(PDO $pdo, int $pageId, bool $apply): array {
         $a = $arts[$ai];
 
         if (!isset($srcIds[$ai])) {
-            $pdo->prepare("INSERT INTO sources (url,domain,publisher,title,reliability,retrieved_on,excerpt)
-                           VALUES (?,?,?,?,?,?,?)")
+            $pdo->prepare("INSERT INTO sources (url,domain,publisher,title,reliability,retrieved_on,excerpt,published_on)
+                           VALUES (?,?,?,?,?,?,?,?)")
                 ->execute([$a['url'], $a['publisher'], $a['publisher'],
-                           mb_substr($a['excerpt'], 0, 200), 'secondary', $a['date'], $a['excerpt']]);
+                           mb_substr($a['excerpt'], 0, 200), 'secondary', $a['date'], $a['excerpt'], source_date($a['date'])]);
             $srcIds[$ai] = (int)$pdo->lastInsertId();
         }
 

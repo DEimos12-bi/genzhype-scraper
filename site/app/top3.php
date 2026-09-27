@@ -420,7 +420,8 @@ function top3_add_missing_posts(PDO $pdo, int $pageId, int $max = 4, bool $save 
     $out['model'] = (string)($res['model'] ?? $res['provider'] ?? '');
     $answered = [];
 
-    $insSrc = $pdo->prepare("INSERT INTO sources (url, domain, publisher, title, reliability, retrieved_on, excerpt) VALUES (?,?,?,?,?,?,?)");
+    sources_install($pdo);
+    $insSrc = $pdo->prepare("INSERT INTO sources (url, domain, publisher, title, reliability, retrieved_on, excerpt, published_on) VALUES (?,?,?,?,?,?,?,?)");
     $insEv = $pdo->prepare("INSERT INTO events (drama_id, event_date, title, description, source_id, is_confirmed, sort_order, embed_html, embed_provider)
                             VALUES (?,?,?,?,?,0,9999,?,?)");
     $attach = $pdo->prepare("UPDATE events SET embed_html=?, embed_provider=? WHERE id=? AND (embed_html IS NULL OR embed_html='')");
@@ -447,7 +448,7 @@ function top3_add_missing_posts(PDO $pdo, int $pageId, int $max = 4, bool $save 
         if (!preg_match('/' . FR_FRAMING_RX . '/i', $desc)) { $out['skipped'][] = "{$p['url']}: event text lacks attribution"; continue; }
         if (!$save) { $out['would_add'][] = ['date' => $p['date'], 'title' => $title, 'desc' => $desc, 'url' => $p['url'], 'from' => $p['from']]; continue; }
         $insSrc->execute([$p['url'], preg_replace('/^www\./', '', (string)parse_url($p['url'], PHP_URL_HOST)), $plat($p['platform']) . ' (original post)',
-                          mb_substr($p['text'], 0, 200), 'primary', $p['date'], $p['text']]);
+                          mb_substr($p['text'], 0, 200), 'primary', $p['date'], $p['text'], source_date($p['date'])]);
         $insEv->execute([$did, $p['date'], $title, $desc, (int)$pdo->lastInsertId(), $p['embed']['html'], $p['embed']['provider']]);
         $out['added']++;
     }

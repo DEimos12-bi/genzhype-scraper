@@ -1196,16 +1196,17 @@ switch ($cmd) {
         // the build lock so it never writes beside the build worker.
         require_once __DIR__ . '/rebuild.php';
         $words = preg_split('/[\s,]+/', implode(',', array_slice($argv, 2)));
-        $step = in_array('write', $words, true) ? 'write' : (in_array('check', $words, true) ? 'check' : 'all');
+        $step = in_array('write', $words, true) ? 'write' : (in_array('check', $words, true) ? 'check' : (in_array('restore', $words, true) ? 'restore' : 'all'));
         $ids = array_filter(array_map('intval', $words));
-        if (!$ids) { echo "usage: cli.php rebuild <pageId>[,<pageId>...] [write|check]\n"; break; }
+        if (!$ids) { echo "usage: cli.php rebuild <pageId>[,<pageId>...] [write|check|restore]\n"; break; }
         if (!build_lock_acquire()) { echo "rebuild: the build worker is running; try again when it ends\n"; break; }
         foreach ($ids as $rid) {
             $pdo = db_alive();
             echo "\n== rebuild {$rid} (" . gmdate('H:i') . " UTC)\n";
-            try { $rr = page_rebuild($pdo, $rid, $step); }
+            try { $rr = $step === 'restore' ? page_restore($pdo, $rid) : page_rebuild($pdo, $rid, $step); }
             catch (Throwable $e) { $rr = ['error' => 'crashed: ' . get_class($e) . ': ' . $e->getMessage()]; }
             if (isset($rr['error'])) { echo "  NOT REBUILT: {$rr['error']}" . (isset($rr['backup']) ? " | copy: {$rr['backup']}" : '') . "\n"; continue; }
+            if (!empty($rr['restored'])) { echo "  put back as it was before the rebuild (Google: {$rr['robots']}) from {$rr['from']} | the rebuilt version is kept in {$rr['kept']}\n"; continue; }
             if (!empty($rr['written'])) { echo "  written; closed to Google until \"rebuild {$rid} check\" passes | copy: {$rr['backup']}\n"; continue; }
             echo "  rebuilt " . rtrim((string)$GLOBALS['CONFIG']['base_url'], '/') . $rr['path'] . " | checks " . ($rr['ok'] ? 'PASS' : 'FAIL')
                . " | Google: " . ($rr['indexed'] === null ? 'not live' : ($rr['indexed'] ? 'open' : 'closed (noindex)')) . "\n";

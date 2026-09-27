@@ -45,3 +45,22 @@ function db_alive(): PDO {
 function page_content_touched(PDO $pdo, int $pageId): void {
     $pdo->prepare("UPDATE pages SET content_updated_at=UTC_TIMESTAMP(), updated_at=NOW() WHERE id=?")->execute([$pageId]);
 }
+
+/**
+ * sources.published_on (2026-09-26): the source's own date (an article's publish date, a post's date),
+ * NULL when it states none. retrieved_on cannot tell: an undated source stores the day we fetched it
+ * there. The fact check (verify.php) shows it, so an event dated by its article ("Bustle reports ...")
+ * is not called unsourced. Idempotent; run outside a transaction (an ALTER commits an open one, r151).
+ */
+function sources_install(PDO $pdo): void {
+    static $done = false;
+    if ($done) return;
+    try { $pdo->exec("ALTER TABLE sources ADD COLUMN published_on DATE NULL"); } catch (Throwable $e) { /* already there */ }
+    $done = true;
+}
+
+/** A real YYYY-MM-DD for sources.published_on, or null (no date, month-only, or not a calendar day). */
+function source_date(?string $d): ?string {
+    $d = substr(trim((string)$d), 0, 10);
+    return preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $d, $m) && checkdate((int)$m[2], (int)$m[3], (int)$m[1]) ? $d : null;
+}
