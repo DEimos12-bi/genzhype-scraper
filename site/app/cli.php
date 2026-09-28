@@ -1234,6 +1234,14 @@ switch ($cmd) {
         } catch (Throwable $e) { echo "  no runs logged yet\n"; }
         break;
 
+    case 'humandigest':
+        // 2026-09-28 (owner): the Human check email. "humandigest" shows it, "humandigest send" sends it now
+        require_once __DIR__ . '/human_review.php';
+        if ($arg === 'send') { echo 'human check digest: ' . hr_digest_send($pdo, true) . "\n"; break; }
+        $hd = hr_digest_text($pdo);
+        echo $hd ? "SUBJECT: {$hd[0]}\n\n{$hd[1]}" : "nothing waits for the owner\n";
+        break;
+
     case 'ruletest':
         // 2026-09-27 (owner): the permanent test set (rule_tests.php). "ruletest" runs every case, "ruletest 5" one rule,
         // "ruletest 5-fake-quote" one case. Made-up pages only (zz-ruletest-*), removed after each case.
@@ -1463,6 +1471,8 @@ switch ($cmd) {
         try { pages_publish_date_lock(db()); } catch (Throwable $e) { echo "  publish date lock failed: " . $e->getMessage() . "\n"; }
         // what Laya will learn from (owner 2026-09-28): new stories' results 2 and 7 days after going live (laya_log.php)
         try { require_once __DIR__ . '/laya_log.php'; if (($ln = laya_followups(db())) > 0) echo "  laya: {$ln} story result(s) recorded\n"; } catch (Throwable $e) { echo "  laya follow-ups failed: " . $e->getMessage() . "\n"; }
+        // the owner's Human check by email, once a day while stories wait (owner 2026-09-28, human_review.php)
+        try { require_once __DIR__ . '/human_review.php'; $hd = hr_digest_send(db()); if (in_array($hd, ['sent'], true) || str_starts_with($hd, 'failed')) echo "  human check email: {$hd}\n"; } catch (Throwable $e) { echo "  human check email failed: " . $e->getMessage() . "\n"; }
         // MUTUAL EXCLUSION: one tick at a time. A long tick (PSI/vision/AI) must not
         // overlap the next hourly fire — overlap = double-builds + a race on the
         // in-memory velocity $slots that could exceed the daily publish cap (the

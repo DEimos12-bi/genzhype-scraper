@@ -126,3 +126,49 @@ function hr_decide(PDO $pdo, int $pageId, string $do, string $reviewer, string $
     }
     return [false, 'Unknown action.'];
 }
+
+/**
+ * Human check by email (owner 2026-09-28: "keep emailing them to me"). The stories that wait for his approval (not on the
+ * site until he approves) and the count of live ones still to read, with links. [subject, body] or null when none waits.
+ */
+function hr_digest_text(PDO $pdo): ?array {
+    hr_install($pdo);
+    $wait = $pdo->query("SELECT p.id, p.h1, p.path, p.review_reason, (SELECT r.passed FROM ai_reviews r WHERE r.page_id=p.id AND r.stage='verify' ORDER BY r.id DESC LIMIT 1) fact_check FROM pages p WHERE p.type='drama' AND p.human_review='needed' AND p.status='review' ORDER BY p.updated_at DESC")->fetchAll(PDO::FETCH_ASSOC);
+    if (!$wait) return null;
+    $live = (int)$pdo->query("SELECT COUNT(*) FROM pages WHERE type='drama' AND human_review='needed' AND status='published'")->fetchColumn();
+    $n = count($wait);
+    $body = "{$n} " . ($n === 1 ? 'story waits' : 'stories wait') . " for your approval. They are not on the site until you approve them.\n\n";
+    foreach (array_slice($wait, 0, 25) as $i => $w)
+        $body .= ($i + 1) . '. ' . $w['h1'] . "\n   Why it waits: " . (preg_replace('/;? ?fact-checked, waiting for your approval\.?/', '', (string)$w['review_reason']) ?: 'crime, abuse or death story')
+                 . "\n   Fact check: " . ($w['fact_check'] === null ? 'not run yet' : ((int)$w['fact_check'] === 1 ? 'passed' : 'found problems (it stays off the site either way until you approve)')) . "\n   Read it (log in to admin first): https://genzhype.com" . $w['path'] . "?preview=1\n\n";
+    if ($n > 25) $body .= "... and " . ($n - 25) . " more.\n\n";
+    $body .= "Approve or reject them in admin > Human check: https://genzhype.com/admin/?tab=review\n";
+    if ($live) $body .= "{$live} stories already live are listed there too, for a read.\n";
+    $body .= "\nThis email comes once a day while a story waits.\n";
+    return ['GenZHype: ' . $n . ' ' . ($n === 1 ? 'story waits' : 'stories wait') . ' for your approval', $body];
+}
+
+/**
+ * The hourly tick asks; the email goes out once a day (from 08:00 UTC) while stories wait, to the address in
+ * app/NOTIFY_EMAIL, through app/mailer.php (PHP's mail() delivers nothing on this host). A failed send is tried again
+ * 6 hours later. Every attempt is written to app/notify.log. $force: send now (cli.php humandigest send).
+ */
+function hr_digest_send(PDO $pdo, bool $force = false): string {
+    $to = trim((string)@file_get_contents(__DIR__ . '/NOTIFY_EMAIL'));
+    if ($to === '' || !filter_var($to, FILTER_VALIDATE_EMAIL)) return 'no address in app/NOTIFY_EMAIL';
+    $stateFile = __DIR__ . '/cache/hr_digest.json';
+    $st = json_decode((string)@file_get_contents($stateFile), true) ?: [];
+    if (!$force) {
+        if ((int)gmdate('G') < 8) return 'before 08:00 UTC';
+        if (!empty($st['sent_at']) && strtotime($st['sent_at']) > time() - 20 * 3600) return 'already sent today';
+        if (!empty($st['failed_at']) && strtotime($st['failed_at']) > time() - 6 * 3600) return 'last try failed less than 6 hours ago';
+    }
+    $mail = hr_digest_text($pdo);
+    if (!$mail) return 'nothing waits';
+    require_once __DIR__ . '/mailer.php';
+    $r = mailer_send($to, $mail[0], $mail[1]);
+    $st[$r['ok'] ? 'sent_at' : 'failed_at'] = gmdate('c');
+    @file_put_contents($stateFile, json_encode($st));
+    @file_put_contents(__DIR__ . '/notify.log', date('c') . ' human check digest smtp = ' . ($r['ok'] ? 'SENT' : 'FAILED: ' . $r['error']) . "\n", FILE_APPEND);
+    return $r['ok'] ? 'sent' : 'failed: ' . $r['error'];
+}
