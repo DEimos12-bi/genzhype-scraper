@@ -29,7 +29,7 @@ function genz_author_photo(): ?string {
  *  sameAs when it HAS CONTENT, not when it exists. sameAs asks Google to
  *  corroborate the entity against the profile; a crawlable-but-empty page
  *  reads as manufactured signal and is worse than declaring nothing. The
- *  footer "Follow" links deliberately keep ALL profiles — that is a human
+ *  footer "Follow" links are TikTok, Instagram and YouTube only (owner, 2026-09-28) — a human
  *  invitation, not a machine claim. Substance was measured per profile on
  *  2026-08-05 (Bluesky public API, TikTok/Pinterest profile-JSON, Reddit RSS,
  *  YouTube channel HTML); re-measure before re-adding anything.
