@@ -99,7 +99,7 @@ function hr_mark_live(PDO $pdo): int {
  * then goes live through page_publish_live (the index rules still apply). reject: the story goes
  * off the site (status 'archived', nothing deleted). [ok, message]
  */
-function hr_decide(PDO $pdo, int $pageId, string $do, string $reviewer): array {
+function hr_decide(PDO $pdo, int $pageId, string $do, string $reviewer, string $reason = ''): array {
     hr_install($pdo);
     $reviewer = trim(preg_replace('/\s+/', ' ', $reviewer));
     if (mb_strlen($reviewer) < 2 || mb_strlen($reviewer) > 100) return [false, 'Type your name (2 to 100 characters): it is shown on the page as the reviewer.'];
@@ -107,6 +107,8 @@ function hr_decide(PDO $pdo, int $pageId, string $do, string $reviewer): array {
     $st->execute([$pageId]);
     $p = $st->fetch(PDO::FETCH_ASSOC);
     if (!$p) return [false, 'That story was not found.'];
+    // what Laya will learn from (owner 2026-09-28): the decision and the reason given for it (laya_log.php)
+    if (in_array($do, ['approve', 'reject'], true)) { require_once __DIR__ . '/laya_log.php'; laya_log_decision($pdo, $pageId, $do, $reason, $reviewer); }
     if ($do === 'approve') {
         $pdo->prepare("UPDATE pages SET human_review='approved', reviewed_by=?, reviewed_at=UTC_TIMESTAMP(), updated_at=NOW() WHERE id=?")
             ->execute([$reviewer, $pageId]);

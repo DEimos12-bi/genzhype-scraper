@@ -79,6 +79,7 @@ function rt_cleanup(PDO $pdo): int {
             $pdo->exec("DELETE FROM faqs WHERE drama_id=" . (int)$did);
         }
         foreach (['dramas', 'terms', 'ai_reviews'] as $t) $pdo->exec("DELETE FROM {$t} WHERE page_id={$pid}");
+        if ($pdo->query("SHOW TABLES LIKE 'laya_log'")->fetchColumn()) $pdo->exec("DELETE FROM laya_log WHERE page_id={$pid}");   // a test page's log rows
         $pdo->exec("DELETE FROM pages WHERE id={$pid}");
         $n++;
     }

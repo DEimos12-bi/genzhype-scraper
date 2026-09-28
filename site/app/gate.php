@@ -182,6 +182,7 @@ function page_publish_live(PDO $pdo, int $pageId): bool {
             $pdo->prepare("UPDATE pages SET status='published', robots='noindex',
                            published_at=NOW(), updated_at=NOW() WHERE id=?")->execute([$pageId]);
             echo "  {$why}\n";
+            require_once __DIR__ . '/laya_log.php'; laya_log_publish($pdo, $pageId);   // live, held from Google: its numbers for Laya
             return false;
         }
         echo "  DRAMA CLEARED: framed + multi-sourced + passed the quality judge; publishing INDEXABLE\n";
@@ -209,6 +210,7 @@ function page_publish_live(PDO $pdo, int $pageId): bool {
     }
     $pdo->prepare("UPDATE pages SET status='published', robots='index',
                    published_at=NOW(), updated_at=NOW() WHERE id=?")->execute([$pageId]);
+    if ($isDrama) { require_once __DIR__ . '/laya_log.php'; laya_log_publish($pdo, $pageId); }   // its numbers for Laya (owner 2026-09-28)
     return true;
 }
 

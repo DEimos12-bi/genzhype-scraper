@@ -62,15 +62,43 @@ function news_sitemap_build(): string {
     return $out . ' (' . count($rows) . ' recent urls)';
 }
 
+/**
+ * Pages the new pipeline built (owner 2026-09-28: "their own sitemap, so Search Console shows the new pipeline's indexing
+ * rate separately from old pages"): made after the owner's final page rules went live (server commit 06f5fbd). They are
+ * listed only in sitemap-new-pipeline.xml, never also in sitemap.xml, so each Search Console report counts one group.
+ */
+const NEW_PIPELINE_SINCE = '2026-09-27 23:23:36';
+
+/** <url> lines for pages: the address, the date of the last real update, the featured image when it is a raster. */
+function sitemap_url_lines(array $rows, string $base): string {
+    $xml = '';
+    foreach ($rows as $r) {
+        $loc = htmlspecialchars($base . $r['path'], ENT_XML1);
+        $mod = date('c', strtotime($r['mod_at']));
+        // image-sitemap entry (Google image SEO): the page's featured image, raster only
+        $img = $r['featured_img'] ?: ($r['cover'] ?? '');
+        if ($img && !str_ends_with($img, '.svg')) {
+            $iloc = htmlspecialchars($base . $img, ENT_XML1);
+            $ititle = htmlspecialchars((string)$r['h1'], ENT_XML1);
+            $xml .= "  <url><loc>{$loc}</loc><lastmod>{$mod}</lastmod><image:image><image:loc>{$iloc}</image:loc><image:title>{$ititle}</image:title></image:image></url>\n";
+        } else {
+            $xml .= "  <url><loc>{$loc}</loc><lastmod>{$mod}</lastmod></url>\n";
+        }
+    }
+    return $xml;
+}
+
 function sitemap_build(): string {
     global $CONFIG;
     $pdo = db();
     // lastmod = the last REAL update (a new dated event), never a maintenance touch: Google trusts a
     // sitemap's dates only while they stay accurate (site check, 2026-09-26: 136 pages "changed" on Aug 29)
     $rows = $pdo->query("SELECT path, COALESCE(GREATEST(COALESCE(content_updated_at, published_at), published_at), published_at, updated_at) mod_at,
-                                h1, featured_img, cover FROM pages
+                                h1, featured_img, cover, created_at FROM pages
                          WHERE status='published' AND robots='index'
                          ORDER BY mod_at DESC")->fetchAll();
+    $newRows = array_values(array_filter($rows, fn($r) => (string)$r['created_at'] >= NEW_PIPELINE_SINCE));
+    $rows = array_values(array_filter($rows, fn($r) => (string)$r['created_at'] < NEW_PIPELINE_SINCE));
     $base = rtrim($CONFIG['base_url'], '/');
     $xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n";
     $xml .= "<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\" xmlns:image=\"http://www.google.com/schemas/sitemap-image/1.1\">\n";
@@ -90,23 +118,14 @@ function sitemap_build(): string {
         $loc = htmlspecialchars($base . $hub, ENT_XML1);
         $xml .= "  <url><loc>{$loc}</loc><lastmod>{$now}</lastmod></url>\n";
     }
-    foreach ($rows as $r) {
-        $loc = htmlspecialchars($base . $r['path'], ENT_XML1);
-        $mod = date('c', strtotime($r['mod_at']));
-        // image-sitemap entry (Google image SEO): the page's featured image, raster only
-        $img = $r['featured_img'] ?: ($r['cover'] ?? '');
-        if ($img && !str_ends_with($img, '.svg')) {
-            $iloc = htmlspecialchars($base . $img, ENT_XML1);
-            $ititle = htmlspecialchars((string)$r['h1'], ENT_XML1);
-            $xml .= "  <url><loc>{$loc}</loc><lastmod>{$mod}</lastmod><image:image><image:loc>{$iloc}</image:loc><image:title>{$ititle}</image:title></image:image></url>\n";
-        } else {
-            $xml .= "  <url><loc>{$loc}</loc><lastmod>{$mod}</lastmod></url>\n";
-        }
-    }
-    $xml .= "</urlset>\n";
+    $xml .= sitemap_url_lines($rows, $base) . "</urlset>\n";
     $out = dirname(__DIR__) . '/public_html/sitemap.xml';
     file_put_contents($out, $xml);
+    // the new pipeline's own sitemap (NEW_PIPELINE_SINCE)
+    file_put_contents(dirname(__DIR__) . '/public_html/sitemap-new-pipeline.xml', "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+        . "<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\" xmlns:image=\"http://www.google.com/schemas/sitemap-image/1.1\">\n"
+        . sitemap_url_lines($newRows, $base) . "</urlset>\n");
     llms_build();          // llms.txt stays in lockstep with the sitemap, same hooks
     news_sitemap_build();  // Google News sitemap regenerates too, so fresh articles surface fast
-    return $out . ' (' . (count($rows) + count($hubs)) . ' urls)';
+    return $out . ' (' . (count($rows) + count($hubs)) . ' urls; new pipeline: ' . count($newRows) . ')';
 }

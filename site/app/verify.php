@@ -62,6 +62,7 @@ function verify_drama(int $page_id): array {
         ['role' => 'user',   'content' => $body],
     ], ['groq', 'nvidia'], 0.3, 75,   // 2026-09-27 Groq first (1 s), then Nemotron; OpenRouter's free models hung 120 s each
        ['groq/openai/gpt-oss-20b', 'groq/qwen/qwen3.8-27b', 'nvidia/nvidia/nemotron-3-nano-30b-a3b', 'nvidia_b/nvidia/nemotron-3-nano-30b-a3b']);   // not the writer (20b) or the small models
+    check_run_log($pdo, 'fact_check', $page_id, (string)($res['error'] ?? ''));   // owner 2026-09-28: how often no AI answers, weekly
     if (isset($res['error'])) return $res;
 
     $v = ai_json($res['content']);
@@ -84,4 +85,30 @@ function verify_drama(int $page_id): array {
         $pdo->prepare("UPDATE pages SET status='review' WHERE id=?")->execute([$page_id]);
     }
     return ['pass' => $passed, 'issues' => $v['issues'] ?? [], 'provider' => $res['provider'], 'status' => $passed ? 'review' : $page['status']];
+}
+
+/**
+ * One AI check run, answered or not (owner 2026-09-28: "count how often the fact check fails with 'all providers failed',
+ * and tell me weekly"). admin > Editor check shows the week; `php app/cli.php checkhealth` prints it.
+ */
+function check_run_log(PDO $pdo, string $stage, int $pageId, string $error): void {
+    static $ready = false;
+    try {
+        // created once, only when missing: DDL commits an open transaction (r151)
+        if (!$ready) { if (!$pdo->query("SHOW TABLES LIKE 'check_runs'")->fetchColumn()) $pdo->exec("CREATE TABLE IF NOT EXISTS check_runs (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, stage VARCHAR(20) NOT NULL, page_id INT UNSIGNED NOT NULL,
+                                   ok TINYINT(1) NOT NULL, error VARCHAR(255) NULL, run_at DATETIME NOT NULL, KEY idx_stage_run (stage, run_at)) ENGINE=InnoDB"); $ready = true; }
+        $pdo->prepare("INSERT INTO check_runs (stage, page_id, ok, error, run_at) VALUES (?,?,?,?,UTC_TIMESTAMP())")
+            ->execute([$stage, $pageId, $error === '' ? 1 : 0, $error === '' ? null : mb_substr($error, 0, 255)]);
+    } catch (Throwable $e) { error_log('check_run_log: ' . $e->getMessage()); }
+}
+
+/** The last $days of one check: [runs, no answer (all providers failed), other errors]. */
+function check_run_week(PDO $pdo, string $stage = 'fact_check', int $days = 7): array {
+    try {
+        $st = $pdo->prepare("SELECT COUNT(*) n, SUM(ok=0 AND error LIKE '%all providers failed%') dead, SUM(ok=0 AND error NOT LIKE '%all providers failed%') other
+                             FROM check_runs WHERE stage=? AND run_at >= UTC_TIMESTAMP() - INTERVAL ? DAY");
+        $st->execute([$stage, $days]);
+        $r = $st->fetch(PDO::FETCH_ASSOC) ?: [];
+        return ['runs' => (int)($r['n'] ?? 0), 'dead' => (int)($r['dead'] ?? 0), 'other' => (int)($r['other'] ?? 0)];
+    } catch (Throwable $e) { return ['runs' => 0, 'dead' => 0, 'other' => 0]; }
 }

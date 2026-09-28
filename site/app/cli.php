@@ -1222,6 +1222,18 @@ switch ($cmd) {
         echo "folded {$n} page(s) into the glossaries; copy of their state: {$copyFile}\n" . 'sitemap: ' . sitemap_build() . "\n";
         break;
 
+    case 'checkhealth':
+        // 2026-09-28 (owner): how often the fact check got no AI answer ("all providers failed"), day by day for a week
+        require_once __DIR__ . '/verify.php';
+        $w = check_run_week($pdo, 'fact_check', 7);
+        echo "fact check, last 7 days: {$w['runs']} runs, {$w['dead']} with no AI answer (all providers failed), {$w['other']} other errors\n";
+        try {
+            foreach ($pdo->query("SELECT DATE(run_at) d, COUNT(*) n, SUM(ok=0 AND error LIKE '%all providers failed%') dead FROM check_runs
+                                  WHERE stage='fact_check' AND run_at >= UTC_TIMESTAMP() - INTERVAL 7 DAY GROUP BY d ORDER BY d") as $r)
+                echo "  {$r['d']}: {$r['n']} runs, {$r['dead']} with no answer\n";
+        } catch (Throwable $e) { echo "  no runs logged yet\n"; }
+        break;
+
     case 'ruletest':
         // 2026-09-27 (owner): the permanent test set (rule_tests.php). "ruletest" runs every case, "ruletest 5" one rule,
         // "ruletest 5-fake-quote" one case. Made-up pages only (zz-ruletest-*), removed after each case.
@@ -1449,6 +1461,8 @@ switch ($cmd) {
         catch (Throwable $e) { echo "  pending merges failed: " . $e->getMessage() . "\n"; }
         // rule 2 (owner 2026-09-27): the database keeps every live page's publish date; back in place after a restore
         try { pages_publish_date_lock(db()); } catch (Throwable $e) { echo "  publish date lock failed: " . $e->getMessage() . "\n"; }
+        // what Laya will learn from (owner 2026-09-28): new stories' results 2 and 7 days after going live (laya_log.php)
+        try { require_once __DIR__ . '/laya_log.php'; if (($ln = laya_followups(db())) > 0) echo "  laya: {$ln} story result(s) recorded\n"; } catch (Throwable $e) { echo "  laya follow-ups failed: " . $e->getMessage() . "\n"; }
         // MUTUAL EXCLUSION: one tick at a time. A long tick (PSI/vision/AI) must not
         // overlap the next hourly fire — overlap = double-builds + a race on the
         // in-memory velocity $slots that could exceed the daily publish cap (the
