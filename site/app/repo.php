@@ -31,7 +31,7 @@ function repo_data_version(PDO $pdo): string {
         $a = $pdo->query("SELECT COUNT(*) c, MAX(updated_at) u, MAX(content_updated_at) cu FROM pages WHERE status='published'")->fetch(PDO::FETCH_ASSOC);
         $b = $pdo->query("SELECT (SELECT MAX(id) FROM events) e, (SELECT MAX(id) FROM sources) s, (SELECT MAX(id) FROM faqs) f, (SELECT COUNT(*) FROM drama_tags) t,
                                  (SELECT MAX(id) FROM creator_stats) c")->fetch(PDO::FETCH_ASSOC);   // c: a new daily reading shows on the page
-        return md5(json_encode([$a, $b, filemtime(__FILE__)]));   // this file too: a change to what the loaders build rebuilds the cache
+        return md5(json_encode([$a, $b, filemtime(__FILE__), filemtime(__DIR__ . '/page_rules.php')]));   // these files too: a change to what the loaders build (or to the page rules they apply) rebuilds the cache
     } catch (Throwable $e) { return 'v-' . (int)(time() / REPO_CACHE_TTL); }
 }
 
@@ -275,14 +275,22 @@ function repo_term_shape(array $r, array $publishedSlugs = []): array {
         $url = isset($publishedSlugs[$rslug]) ? $publishedSlugs[$rslug] : null;
         $related[] = ['term' => $name, 'note' => $note, 'url' => $url];
     }
-    $sources = [];
+    // owner 2026-09-28: a post or a comment is "seen in use", not a source (the receipts show it as that); a search page
+    // is no source; each source links to its own address, once
+    $sources = []; $srcSeen = [];
     foreach ($jd($r['sources']) as $s) {
         $url = is_array($s) ? ($s['url'] ?? '') : (string)$s;
         if ($url === '') continue;
         $pub = is_array($s) ? ($s['publisher'] ?? (parse_url($url, PHP_URL_HOST) ?: 'source')) : (parse_url($url, PHP_URL_HOST) ?: 'source');
+        $host = preg_replace('/^www\./', '', strtolower((string)parse_url($url, PHP_URL_HOST)));
+        if (stripos((string)$pub, 'social usage') !== false || preg_match(PR_SOCIAL_RX, $host) || preg_match('#[/?](search|define\.php)\?|[?&]q=#i', $url) && preg_match('/knowyourmeme|google|bing|duckduckgo/', $host)) continue;
+        $key = rtrim(strtolower($url), '/');
+        if (isset($srcSeen[$key])) continue;
+        $srcSeen[$key] = 1;
         $ttl = is_array($s) ? ($s['title'] ?? '') : '';
         $sources[] = ['url' => $url, 'text' => trim($pub . ($ttl ? ' — ' . $ttl : ''))];
     }
+    $cleanCites = term_cites_clean((array)json_decode((string)($r['citations'] ?? '[]'), true), (string)$r['term']);
     return [
         'slug'          => $r['slug'],
         'lane'          => $lane,
@@ -313,7 +321,9 @@ function repo_term_shape(array $r, array $publishedSlugs = []): array {
         // This shaper is exactly where six earlier sibling drifts dropped
         // fields on the floor — the gate verified citations, the template
         // rendered them, and this line in between decided what survives.
-        'citations'     => $r['citations'] ?? '[]',
+        'citations'     => json_encode($cleanCites, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),   // each post on its own link (page_rules.php)
+        'why_now'       => term_trend($r)['line'],   // owner 2026-09-28: why it is everywhere now, with dates and places
+        'source_urls'   => array_values(array_filter(array_merge(array_column($sources, 'url'), array_map(fn($x) => is_array($x) ? (string)($x['url'] ?? '') : (string)$x, $jd($r['sources'])), [(string)($r['origin_url'] ?? '')]))),
         'cover'         => $r['cover'] ?: '/assets/covers/default.svg',
         'featured_img'  => $r['featured_img'] ?? null,
         'cover_credit'  => $r['cover_credit'] ?? null,
@@ -516,7 +526,7 @@ function repo_glossary(string $lane): array {
     require_once __DIR__ . '/lanes.php';
     $L = lanes()[$lane] ?? null;
     if (!$L || !in_array($lane, ['slang', 'meme', 'gaming'], true)) return ['lane' => $lane, 'entries' => []];
-    $st = db()->prepare("SELECT p.slug, p.updated_at, t.term, t.short_def, t.meaning, t.examples, t.first_seen, t.citations
+    $st = db()->prepare("SELECT p.slug, p.updated_at, t.term, t.short_def, t.meaning, t.examples, t.first_seen, t.citations, t.origin_date, t.sources, t.origin_url
                          FROM pages p JOIN terms t ON t.page_id=p.id
                          WHERE p.type='term' AND p.status='archived' AND p.redirect_to LIKE ? ORDER BY t.term");
     $st->execute([$L['prefix'] . 'glossary/%']);
@@ -524,17 +534,21 @@ function repo_glossary(string $lane): array {
     foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $r) {
         $meaning = json_decode((string)$r['meaning'], true);
         $ex = (array)json_decode((string)$r['examples'], true);
-        $cites = [];
-        foreach ((array)json_decode((string)$r['citations'], true) as $c) {
-            if (!is_array($c) || empty($c['url'])) continue;
+        // owner 2026-09-28: sources and "seen in use" posts apart, each label on its own link
+        $cites = []; $uses = [];
+        foreach (term_cites_clean((array)json_decode((string)$r['citations'], true), (string)$r['term']) as $c) {
+            $post = term_cite_is_post($c);
             $by = trim((string)(($c['publication'] ?? '') ?: (($c['platform'] ?? '') . (!empty($c['handle']) ? ' ' . $c['handle'] : ''))));
-            $cites[] = ['url' => (string)$c['url'], 'by' => $by !== '' ? $by : (string)parse_url((string)$c['url'], PHP_URL_HOST), 'date' => (string)($c['date'] ?? '')];
-            if (count($cites) >= 3) break;
+            $row = ['url' => (string)$c['url'], 'by' => $by !== '' ? $by : (string)parse_url((string)$c['url'], PHP_URL_HOST), 'date' => term_date((string)($c['date'] ?? ''))];
+            if ($post && count($uses) < 3) $uses[] = $row;
+            elseif (!$post && count($cites) < 3) $cites[] = $row;
         }
+        $srcUrls = array_merge(array_map(fn($x) => is_array($x) ? (string)($x['url'] ?? '') : (string)$x, (array)json_decode((string)$r['sources'], true)), [(string)$r['origin_url']]);
         $entries[] = ['slug' => $r['slug'], 'term' => (string)$r['term'], 'short_def' => (string)$r['short_def'],
                       'meaning' => is_array($meaning) ? (string)($meaning[0] ?? '') : (string)$r['meaning'],
                       'example' => is_array($ex[0] ?? null) ? (string)($ex[0]['text'] ?? '') : (string)($ex[0] ?? ''),
-                      'first_seen' => (string)$r['first_seen'], 'cites' => $cites];
+                      'first_seen' => (string)$r['first_seen'], 'cites' => $cites, 'uses' => $uses,
+                      'why_now' => term_trend($r)['line'], 'source_urls' => array_values(array_filter($srcUrls))];
         $updated = max($updated, (string)$r['updated_at']);
     }
     return ['lane' => $lane, 'prefix' => $L['prefix'], 'crumb' => html_entity_decode($L['crumb']), 'entries' => $entries, 'updated' => $updated];

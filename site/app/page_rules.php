@@ -404,9 +404,119 @@ function pr_story_view(array $d): array {
 
 const PR_TERM_DEMAND_MIN = 10.0;   // owner 2026-09-27: 10+ Wikipedia/Wiktionary views a day is real demand
 
-/** 'page' only with an original part AND real demand; everything else is a glossary entry. */
-function term_route(bool $original, ?float $viewsPerDay): string {
+/**
+ * Where a term belongs (owner 2026-09-28, "new beats demand"): a term first seen in the last 60 days or rising now gets its
+ * own page, explaining why it is everywhere now; an older term keeps one only with an original part AND real demand
+ * (10+ Wikipedia/Wiktionary views a day); everything else is a glossary entry.
+ */
+function term_route(bool $original, ?float $viewsPerDay, bool $current = false): string {
+    if ($current) return 'page';
     return $original && $viewsPerDay !== null && $viewsPerDay >= PR_TERM_DEMAND_MIN ? 'page' : 'glossary';
+}
+
+const PR_TERM_FRESH_DAYS  = 60;   // owner 2026-09-28: first seen in the last 60 days
+const PR_TERM_RISING_DAYS = 14;   // owner: several posts in the last 2 weeks, or outlet coverage
+const PR_TERM_RISING_POSTS = 3;   // [ours] "several" = 3 different people
+
+/** A citation that is a person using the term (a post, a comment: "seen in use"), not a source writing about it. */
+function term_cite_is_post(array $c): bool {
+    // by its address first: some rows store a website's name as their "platform" ("bbc.co.uk")
+    $host = preg_replace('/^www\./', '', strtolower((string)parse_url((string)($c['url'] ?? ''), PHP_URL_HOST)));
+    if ($host !== '' && preg_match(PR_SOCIAL_RX, $host)) return true;
+    return trim((string)($c['publication'] ?? '')) === ''
+        && (bool)preg_match('/^(x|twitter|reddit|youtube|tiktok|instagram|threads|bluesky|bsky|facebook|twitch|kick|steam|discord)$/i', trim((string)($c['platform'] ?? '')));
+}
+
+/** A term's citations with each post on its own link: a post whose link another person's post also carries (the writer
+ *  copied one link onto several posts, 2026-09-28) gets its own from the posts we collected, or is left out. */
+function term_cites_clean(array $cites, string $term): array {
+    static $own = [];
+    $byUrl = [];
+    foreach ($cites as $c) if (is_array($c) && term_cite_is_post($c)) $byUrl[(string)($c['url'] ?? '')][mb_strtolower(ltrim((string)($c['handle'] ?? ''), '@'))] = 1;
+    // the posts we collected are read only when a link is shared (two cache files; pages render this)
+    if (!isset($own[$term]) && array_filter($byUrl, fn($hs) => count($hs) > 1)) {
+        $own[$term] = [];
+        require_once __DIR__ . '/reach_usage.php';
+        ob_start();   // it narrates for the build log
+        foreach (reach_usage_citations($term, 40) as $u) $own[$term][mb_strtolower(ltrim((string)$u['handle'], '@'))] = $u;
+        ob_end_clean();
+    }
+    $out = []; $seen = [];
+    foreach ($cites as $c) {
+        if (!is_array($c) || trim((string)($c['url'] ?? '')) === '') continue;
+        if (term_cite_is_post($c)) {
+            $h = mb_strtolower(ltrim((string)($c['handle'] ?? ''), '@'));
+            if (count($byUrl[(string)$c['url']] ?? []) > 1) {          // one link, several people: not this post's own link
+                if (!isset($own[$term][$h])) continue;   // no link of its own: left out
+                $c['url'] = (string)$own[$term][$h]['url'];
+                $c['date'] = (string)($own[$term][$h]['date'] ?? ($c['date'] ?? ''));
+            }
+        }
+        $key = rtrim(strtolower((string)$c['url']), '/');
+        if (isset($seen[$key])) continue;                              // the same link twice: once
+        $seen[$key] = 1;
+        $out[] = $c;
+    }
+    return $out;
+}
+
+/** A stored or written date ("24 Sep 2026", "2026-09-24", "August 2026") as Y-m-d, '' when there is none. */
+function term_date(string $d): string {
+    $d = trim($d);
+    if ($d === '' || !preg_match('/\d{4}/', $d)) return '';
+    // a bare year is January 1 of it (strtotime read "2021" as 20:21 today, and rizz came out first seen this week)
+    $ts = strtotime(preg_match('/^\d{4}$/', $d) ? "{$d}-01-01" : (preg_match('/^\d{4}-\d{2}$/', $d) ? "{$d}-01" : (preg_match('/^[A-Za-z]+\.?\s+\d{4}$/', $d) ? "1 {$d}" : $d)));
+    return $ts ? gmdate('Y-m-d', $ts) : '';
+}
+
+/**
+ * What makes a term current, from what the page holds: when it was first seen, who has been posting it and who has
+ * written about it lately. ['fresh', 'rising', 'first_seen', 'posts', 'outlets', 'line' => one "why now" sentence or ''].
+ */
+function term_trend(array $t): array {
+    $today = time();
+    $first = term_date((string)($t['origin_date'] ?? ''));
+    if ($first === '' && preg_match('/\b((?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+(?:\d{1,2},?\s+)?\d{4})\b/i', (string)($t['first_seen'] ?? ''), $m)) $first = term_date($m[1]);
+    $posts = []; $outlets = [];
+    foreach (term_cites_clean((array)json_decode((string)($t['citations'] ?? '[]'), true), (string)($t['term'] ?? '')) as $c) {
+        $d = term_date((string)($c['date'] ?? ''));
+        if ($d === '' || strtotime($d) > $today || strtotime($d) < $today - 30 * 86400) continue;
+        if (term_cite_is_post($c)) $posts[mb_strtolower((string)($c['handle'] ?? '')) ?: (string)$c['url']] = ['date' => $d, 'platform' => trim((string)($c['platform'] ?? '')) ?: (string)parse_url((string)$c['url'], PHP_URL_HOST)];
+        else { $oh = mb_strtolower(preg_replace('/^www\./', '', (string)parse_url((string)$c['url'], PHP_URL_HOST))); $outlets[$oh] = ['date' => $d, 'name' => trim((string)($c['publication'] ?? '')) ?: $oh]; }
+    }
+    $since = gmdate('Y-m-d', $today - PR_TERM_RISING_DAYS * 86400);
+    $recentPosts = array_filter($posts, fn($p) => $p['date'] >= $since);
+    $recentOutlets = array_filter($outlets, fn($o) => $o['date'] >= $since);
+    $fresh = $first !== '' && $first >= gmdate('Y-m-d', $today - PR_TERM_FRESH_DAYS * 86400);
+    $rising = count($recentPosts) >= PR_TERM_RISING_POSTS || count($recentOutlets) >= 1;
+    // the "why now" line: dates and places, only from what the page cites (owner 2026-09-28 #3)
+    $bits = [];
+    if ($posts) {
+        $ds = array_column($posts, 'date'); sort($ds);
+        $plats = array_values(array_unique(array_column($posts, 'platform')));
+        $bits[] = count($posts) . ' post' . (count($posts) > 1 ? 's' : '') . ' on ' . implode(' and ', array_slice($plats, 0, 3))
+                . ($ds[0] === end($ds) ? ' on ' . date('M j, Y', strtotime($ds[0])) : ' between ' . date('M j', strtotime($ds[0])) . ' and ' . date('M j, Y', strtotime(end($ds))));
+    }
+    if ($outlets) {
+        uasort($outlets, fn($a, $b) => strcmp($b['date'], $a['date']));
+        $o = reset($outlets);
+        $names = array_values(array_unique(array_filter(array_column($outlets, 'name'))));
+        $bits[] = implode(' and ', array_slice($names ?: ['a news site'], 0, 2)) . ' wrote about it' . (count($outlets) > 1 ? ', most recently' : '') . ' on ' . date('M j, Y', strtotime($o['date']));
+    }
+    if ($fresh && !$bits) $bits[] = 'first seen ' . date('M j, Y', strtotime($first));
+    return ['fresh' => $fresh, 'rising' => $rising, 'first_seen' => $first, 'posts' => $posts, 'outlets' => $outlets,
+            'line' => $bits ? 'Why now: ' . implode('; ', $bits) . '.' : ''];
+}
+
+/** Wiktionary and Know Your Meme named in a text become links to their entries (owner 2026-09-28: "if we cite Wiktionary
+ *  or Know Your Meme, link it"). $escapedHtml is already escaped; $sources: the page's own source links. */
+function term_link_references(string $escapedHtml, string $term, array $sourceUrls): string {
+    $find = fn(string $rx) => array_values(array_filter($sourceUrls, fn($u) => preg_match($rx, (string)$u)))[0] ?? '';
+    $wikt = $find('#en\.wiktionary\.org/wiki/#') ?: 'https://en.wiktionary.org/wiki/' . rawurlencode(str_replace(' ', '_', mb_strtolower($term)));
+    $kym  = $find('#knowyourmeme\.com/memes/#') ?: 'https://knowyourmeme.com/search?q=' . rawurlencode($term);
+    foreach (['/\b(Wiktionary)\b(?![^<]*<\/a>)/u' => $wikt, '/\b(Know\s?Your\s?Meme)\b(?![^<]*<\/a>)/u' => $kym] as $rx => $url)
+        $escapedHtml = (string)preg_replace($rx, '<a href="' . htmlspecialchars($url, ENT_QUOTES) . '" target="_blank" rel="noopener nofollow">$1</a>', $escapedHtml);
+    return $escapedHtml;
 }
 
 /** A term page's original part: a dated origin artifact of a real kind (a post, an archive, an official record, a video,
@@ -460,8 +570,10 @@ function term_demand_measure(string $term): ?float {
 /** Where a term page belongs (rule 4): 'page', 'glossary', or 'unknown' when its demand could not be read. */
 function term_route_page(PDO $pdo, int $pageId): string {
     term_demand_install($pdo);
-    $t = $pdo->query("SELECT t.term, t.origin_url, t.origin_type, t.scene_embed_provider, t.demand_views, t.demand_at FROM terms t WHERE t.page_id=" . $pageId)->fetch(PDO::FETCH_ASSOC);
+    $t = $pdo->query("SELECT t.term, t.origin_url, t.origin_type, t.origin_date, t.first_seen, t.citations, t.scene_embed_provider, t.demand_views, t.demand_at FROM terms t WHERE t.page_id=" . $pageId)->fetch(PDO::FETCH_ASSOC);
     if (!$t) return 'unknown';
+    $trend = term_trend($t);
+    if ($trend['fresh'] || $trend['rising']) return 'page';   // new beats demand (owner 2026-09-28)
     if (!term_original($t)) return 'glossary';   // a plain definition: no need to ask about demand
     $views = $t['demand_views'] !== null && (string)$t['demand_at'] >= gmdate('Y-m-d', strtotime('-30 days')) ? (float)$t['demand_views'] : null;
     if ($views === null) {

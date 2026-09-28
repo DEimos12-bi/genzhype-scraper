@@ -855,7 +855,7 @@ function fetch_term_sources(string $term, int $want = 3, string $lane = 'slang',
     if ($usage) {
         $lines = [];
         foreach ($usage as $u) {
-            $lines[] = "[{$u['platform']} {$u['date']}] {$u['handle']}: {$u['quote']}";
+            $lines[] = "[{$u['platform']} {$u['date']}] {$u['handle']} ({$u['url']}): {$u['quote']}";   // each post with its own link (2026-09-28)
         }
         $sources[] = [
             'url'         => $usage[0]['url'],
@@ -1570,6 +1570,9 @@ function draft_term(array $input): array {
                 'quote'       => mb_substr((string)($c['quote'] ?? ''), 0, 300),
             ];
         }
+        // each post keeps its own link: the writer copied one link onto several people's posts (2026-09-28, page_rules.php)
+        require_once __DIR__ . '/page_rules.php';
+        $citeStore = term_cites_clean($citeStore, $term);
         // SEO-BATCH-1: top up with machine-harvested citations when the model's
         // own picks fall short of the gate's 3. Only rows that INDEPENDENTLY
         // clear gate_term_valid_citations() are added — the gate is untouched.
