@@ -468,6 +468,21 @@ function term_cites_clean(array $cites, string $term): array {
     return $out;
 }
 
+/**
+ * Did an outlet write ABOUT the term (not just use it)? The headline names the term and is about it as a word or a meme
+ * (2026-09-28: "GTA 6 'Breaking Records' For XBOX Pre-Orders" uses "pre-order"; "Abuse Goblin Meme Meaning and Origin"
+ * is about "abuse goblin"). Blog platforms are not outlets.
+ */
+function term_cite_is_coverage(array $c, string $term): bool {
+    if (term_cite_is_post($c)) return false;
+    $host = preg_replace('/^www\./', '', strtolower((string)parse_url((string)($c['url'] ?? ''), PHP_URL_HOST)));
+    if (preg_match('/(^|\.)(note\.com|medium\.com|substack\.com|blogspot\.com|wordpress\.com|tumblr\.com|quora\.com|fandom\.com|wikia\.com|urbandictionary\.com|wiktionary\.org|wikipedia\.org|knowyourmeme\.com)$/', $host)) return false;
+    $title = mb_strtolower((string)($c['title'] ?? ''));
+    $stem = preg_replace('/(es|s)$/u', '', mb_strtolower(trim($term)));
+    if ($stem === '' || !str_contains(preg_replace('/[^\p{L}\p{N} ]/u', ' ', $title), preg_replace('/[^\p{L}\p{N} ]/u', ' ', $stem))) return false;
+    return (bool)preg_match('/\b(meme|memes|meaning|means|mean|slang|trend|trending|viral|origin|explained|explainer|what is|what are|what does|what\'s|rise of|phenomenon|term|phrase|word|craze|everywhere|why (everyone|people|gen z))\b/u', $title);
+}
+
 /** A stored or written date ("24 Sep 2026", "2026-09-24", "August 2026") as Y-m-d, '' when there is none. */
 function term_date(string $d): string {
     $d = trim($d);
@@ -494,7 +509,10 @@ function term_trend(array $t): array {
             if (term_cite_is_comment($c) || (int)($c['views'] ?? 0) < PR_TERM_REACH_MIN) continue;
             $posts[mb_strtolower((string)($c['handle'] ?? '')) ?: (string)$c['url']] = ['date' => $d, 'platform' => trim((string)($c['platform'] ?? '')) ?: (string)parse_url((string)$c['url'], PHP_URL_HOST)];
         }
-        else { $oh = mb_strtolower(preg_replace('/^www\./', '', (string)parse_url((string)$c['url'], PHP_URL_HOST))); $outlets[$oh] = ['date' => $d, 'name' => trim((string)($c['publication'] ?? '')) ?: $oh]; }
+        elseif (term_cite_is_coverage($c, (string)($t['term'] ?? ''))) {   // an article about the term, not one that just uses it
+            $oh = mb_strtolower(preg_replace('/^www\./', '', (string)parse_url((string)$c['url'], PHP_URL_HOST)));
+            $outlets[$oh] = ['date' => $d, 'name' => trim((string)($c['publication'] ?? '')) ?: $oh];
+        }
     }
     $since = gmdate('Y-m-d', $today - PR_TERM_RISING_DAYS * 86400);
     $recentPosts = array_filter($posts, fn($p) => $p['date'] >= $since);

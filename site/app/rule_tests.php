@@ -308,9 +308,16 @@ function rt_cases(): array {
         }],
         [4, 'outlet-coverage', 'fix', 'A term an outlet wrote about in the last 2 weeks gets its own page', function (PDO $pdo) {
             $pid = rt_term($pdo, 'r4-outlet', ['original' => false, 'demand' => 0, 'origin_date' => '2019',
-                'citations' => [['platform' => '', 'publication' => 'Dexerto', 'date' => rt_day(5), 'url' => 'https://www.dexerto.com/zz-ruletest/w', 'quote' => 'zz ruletest word']]]);
+                'citations' => [['platform' => '', 'publication' => 'Dexerto', 'title' => 'What does zz ruletest word mean? The meme explained', 'date' => rt_day(5), 'url' => 'https://www.dexerto.com/zz-ruletest/w', 'quote' => 'zz ruletest word']]]);
             $r = term_route_page($pdo, $pid);
             return [$r === 'page', "routed to: {$r}"];
+        }],
+        [4, 'usage-not-coverage', 'guard', 'An article that only uses the word ("GTA 6 breaks records for pre-orders") is not coverage: the term stays in the glossary', function (PDO $pdo) {
+            $pid = rt_term($pdo, 'r4-usage', ['term' => 'zz preorder', 'original' => false, 'demand' => 0, 'origin_date' => '2019', 'citations' => [
+                ['platform' => '', 'publication' => 'Insider Gaming', 'title' => "GTA 6 'Breaking Records' For XBOX zz preorders", 'date' => rt_day(3), 'url' => 'https://insider-gaming.com/zz-ruletest/p', 'quote' => 'zz preorder'],
+                ['platform' => '', 'publication' => 'note.com', 'title' => 'Thoughts on the zz preorder meme', 'date' => rt_day(3), 'url' => 'https://note.com/zz-ruletest/n', 'quote' => 'zz preorder']]]);
+            $r = term_route_page($pdo, $pid);
+            return [$r === 'glossary', "routed to: {$r}"];
         }],
         [4, 'old-quiet', 'guard', 'An old term nobody posts or writes about now, with no demand, stays in the glossary', function (PDO $pdo) {
             $pid = rt_term($pdo, 'r4-quiet', ['original' => false, 'demand' => 0, 'origin_date' => '2019',
@@ -337,7 +344,7 @@ function rt_cases(): array {
         [4, 'why-now-glossary', 'fix', 'A glossary entry an outlet wrote about lately says why it is around now, with the date and the outlet', function (PDO $pdo) {
             rt_need('repo_glossary');
             rt_term($pdo, 'r4-why', ['status' => 'archived', 'term' => 'zz ruletest why', 'redirect_to' => '/slang/glossary/#' . RT_PREFIX . 'r4-why', 'citations' => [
-                ['platform' => '', 'publication' => 'Dexerto', 'date' => rt_day(4), 'url' => 'https://www.dexerto.com/zz-ruletest/why', 'quote' => 'zz ruletest why']]]);
+                ['platform' => '', 'publication' => 'Dexerto', 'title' => 'Why zz ruletest why is the meme everywhere', 'date' => rt_day(4), 'url' => 'https://www.dexerto.com/zz-ruletest/why', 'quote' => 'zz ruletest why']]]);
             $html = view('glossary', ['g' => repo_glossary('slang')]);
             $ok = preg_match('#id="' . RT_PREFIX . 'r4-why".*?Why now: ([^<]*)#s', $html, $m);
             return [(bool)$ok, $ok ? 'Why now: ' . $m[1] : 'no why-now line'];
