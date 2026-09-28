@@ -228,7 +228,8 @@ function repo_load_all(): array {
 
     // terms (encyclopedic entries: slang, memes, gaming, music)
     $publishedSlugs = [];
-    foreach ($pdo->query("SELECT p.slug, p.path FROM pages p WHERE p.type='term' AND p.status='published'")->fetchAll() as $row) {
+    // a related term links only to a page Google may index (2026-09-28: /slang/pepe/ linked a held page)
+    foreach ($pdo->query("SELECT p.slug, p.path FROM pages p WHERE p.type='term' AND p.status='published' AND p.robots='index'")->fetchAll() as $row) {
         $publishedSlugs[strtolower($row['slug'])] = $row['path'];
     }
     $rows = $pdo->query("SELECT p.id page_id, p.slug, p.h1, p.title_tag, p.meta_desc, p.summary, p.cover, p.featured_img, p.cover_credit, p.cover_credit_url,
@@ -359,7 +360,7 @@ function repo_load_term_any(string $slug): ?array {
     $r = $st->fetch();
     if (!$r) return null;
     $publishedSlugs = [];
-    foreach ($pdo->query("SELECT slug, path FROM pages WHERE type='term' AND status='published'")->fetchAll() as $row) {
+    foreach ($pdo->query("SELECT slug, path FROM pages WHERE type='term' AND status='published' AND robots='index'")->fetchAll() as $row) {   // as the site loader
         $publishedSlugs[strtolower($row['slug'])] = $row['path'];
     }
     $shape = repo_term_shape($r, $publishedSlugs);

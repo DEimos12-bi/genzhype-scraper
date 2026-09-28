@@ -6,11 +6,21 @@ function db(bool $force = false) {
     global $CONFIG;
     $d = $CONFIG['db'];
     $dsn = "mysql:host={$d['host']};dbname={$d['name']};charset={$d['charset']}";
-    $pdo = new PDO($dsn, $d['user'], $d['pass'], [
-        PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
-        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-        PDO::ATTR_EMULATE_PREPARES   => false,
-    ]);
+    // A burst of visitors can make the host refuse a new connection for a moment ("[2002] Operation not permitted": 186
+    // times in one 181-page crawl on 2026-09-28, each an empty 500 for the crawler). Try again shortly before giving up.
+    for ($try = 0; ; $try++) {
+        try {
+            $pdo = new PDO($dsn, $d['user'], $d['pass'], [
+                PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                PDO::ATTR_EMULATE_PREPARES   => false,
+            ]);
+            break;
+        } catch (PDOException $e) {
+            if ($try >= 4 || !str_contains($e->getMessage(), '[2002]')) throw $e;
+            usleep(150000 * (2 ** $try));   // 0.15, 0.3, 0.6, 1.2 s
+        }
+    }
     // PROBE_PROFILE=1 (CLI diagnostics only): per-query timings via SHOW PROFILES
     if (PHP_SAPI === 'cli' && getenv('PROBE_PROFILE')) { try { $pdo->exec('SET profiling=1, profiling_history_size=100'); } catch (Throwable $e) {} }
     return $pdo;
