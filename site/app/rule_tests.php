@@ -50,7 +50,8 @@ function rt_story(PDO $pdo, string $key, array $o): int {
     return $pid;
 }
 
-/** A made-up term page, [page id]. $o: lane, term, status, published_at, redirect_to, short_def, original (bool), demand (views a day). */
+/** A made-up term page, [page id]. $o: lane, term, status, published_at, redirect_to, short_def, original (bool), demand (views a day),
+ *  origin_date, citations, meaning. */
 function rt_term(PDO $pdo, string $key, array $o): int {
     $slug = RT_PREFIX . $key;
     $lane = $o['lane'] ?? 'slang';
@@ -61,8 +62,10 @@ function rt_term(PDO $pdo, string $key, array $o): int {
                    $o['status'] ?? 'draft', $o['published_at'] ?? gmdate('Y-m-d H:i:s'), $o['redirect_to'] ?? null]);
     $pid = (int)$pdo->lastInsertId();
     // by default a term that keeps its own page (an origin post and 50 views a day), so rule 4 leaves it alone
-    $pdo->prepare("INSERT INTO terms (page_id, lane, term, short_def, citations, origin_url, origin_type, demand_views, demand_at) VALUES (?,?,?,?,'[]',?,?,?,UTC_DATE())")
-        ->execute([$pid, $lane, $term, $o['short_def'] ?? 'A made-up word the test set uses.', ($o['original'] ?? true) ? 'https://x.com/zzruletest/status/9' : null, ($o['original'] ?? true) ? 'social_post' : null, $o['demand'] ?? 50]);
+    $pdo->prepare("INSERT INTO terms (page_id, lane, term, short_def, citations, origin_url, origin_type, origin_date, meaning, demand_views, demand_at) VALUES (?,?,?,?,?,?,?,?,?,?,UTC_DATE())")
+        ->execute([$pid, $lane, $term, $o['short_def'] ?? 'A made-up word the test set uses.', json_encode($o['citations'] ?? []),
+                   ($o['original'] ?? true) ? 'https://x.com/zzruletest/status/9' : null, ($o['original'] ?? true) ? 'social_post' : null,
+                   $o['origin_date'] ?? null, json_encode($o['meaning'] ?? ['A made-up word the test set uses, for testing only.']), $o['demand'] ?? 50]);
     return $pid;
 }
 
@@ -282,6 +285,70 @@ function rt_cases(): array {
             ob_start(); page_publish_live($pdo, $pid); ob_end_clean();
             $r = $pdo->query("SELECT status, redirect_to FROM pages WHERE id={$pid}")->fetch(PDO::FETCH_ASSOC);
             return [$r['status'] === 'archived' && str_starts_with((string)$r['redirect_to'], '/slang/glossary/#'), "status {$r['status']}, goes to " . ($r['redirect_to'] ?? 'nowhere')];
+        }],
+        // owner 2026-09-28: new beats demand; posts are "seen in use"; each label on its own link; why-now lines
+        [4, 'new-term', 'fix', 'A term first seen 20 days ago gets its own page, whatever its Wikipedia views', function (PDO $pdo) {
+            $pid = rt_term($pdo, 'r4-new', ['original' => false, 'demand' => 0, 'origin_date' => rt_day(20)]);
+            $r = term_route_page($pdo, $pid);
+            return [$r === 'page', "routed to: {$r}"];
+        }],
+        [4, 'rising-posts', 'fix', 'A term in 3 different posts with 10k+ views each in the last 2 weeks gets its own page', function (PDO $pdo) {
+            $posts = [];
+            foreach (['alpha', 'beta', 'gamma'] as $i => $h) $posts[] = ['platform' => 'TikTok', 'handle' => "@zzruletest{$h}", 'publication' => '', 'date' => rt_day(3 + $i), 'url' => "https://www.tiktok.com/@zzruletest{$h}/video/{$i}", 'views' => 25000, 'quote' => 'zz ruletest word in use'];
+            $pid = rt_term($pdo, 'r4-rising', ['original' => false, 'demand' => 0, 'origin_date' => '2019', 'citations' => $posts]);
+            $r = term_route_page($pdo, $pid);
+            return [$r === 'page', "routed to: {$r}"];
+        }],
+        [4, 'comments-not-rising', 'guard', '3 recent YouTube comments are "seen in use", not a trend: the term stays in the glossary', function (PDO $pdo) {
+            $posts = [];
+            foreach (['a', 'b', 'c'] as $i => $h) $posts[] = ['platform' => 'YouTube', 'handle' => "@zzruletestc{$h}", 'date' => rt_day(2 + $i), 'url' => "https://www.youtube.com/watch?v=zzruletest&lc=k{$i}", 'quote' => 'zz ruletest word'];
+            $pid = rt_term($pdo, 'r4-comments', ['original' => false, 'demand' => 0, 'origin_date' => '2019', 'citations' => $posts]);
+            $r = term_route_page($pdo, $pid);
+            return [$r === 'glossary', "routed to: {$r}"];
+        }],
+        [4, 'outlet-coverage', 'fix', 'A term an outlet wrote about in the last 2 weeks gets its own page', function (PDO $pdo) {
+            $pid = rt_term($pdo, 'r4-outlet', ['original' => false, 'demand' => 0, 'origin_date' => '2019',
+                'citations' => [['platform' => '', 'publication' => 'Dexerto', 'date' => rt_day(5), 'url' => 'https://www.dexerto.com/zz-ruletest/w', 'quote' => 'zz ruletest word']]]);
+            $r = term_route_page($pdo, $pid);
+            return [$r === 'page', "routed to: {$r}"];
+        }],
+        [4, 'old-quiet', 'guard', 'An old term nobody posts or writes about now, with no demand, stays in the glossary', function (PDO $pdo) {
+            $pid = rt_term($pdo, 'r4-quiet', ['original' => false, 'demand' => 0, 'origin_date' => '2019',
+                'citations' => [['platform' => 'YouTube', 'handle' => '@zzruletestold', 'date' => '2025-01-10', 'url' => 'https://www.youtube.com/watch?v=zzruletest&lc=old', 'quote' => 'zz ruletest word']]]);
+            $r = term_route_page($pdo, $pid);
+            return [$r === 'glossary', "routed to: {$r}"];
+        }],
+        [4, 'own-links', 'fix', 'Posts by different people never share one link (the writer copied one link onto several posts)', function (PDO $pdo) {
+            rt_need('term_cites_clean');
+            $same = 'https://www.youtube.com/watch?v=zzruletest&lc=one';
+            $c = term_cites_clean([['platform' => 'YouTube', 'handle' => '@zzruletesta', 'url' => $same], ['platform' => 'YouTube', 'handle' => '@zzruletestb', 'url' => $same],
+                                   ['publication' => 'Dexerto', 'url' => 'https://www.dexerto.com/zz-ruletest/x'], ['publication' => 'Dexerto', 'url' => 'https://www.dexerto.com/zz-ruletest/x']], 'zz ruletest word');
+            $urls = array_column($c, 'url');
+            return [count($urls) === count(array_unique($urls)) && !in_array($same, $urls, true), count($c) . ' kept, each on its own link: ' . implode(', ', $urls)];
+        }],
+        [4, 'seen-in-use', 'fix', 'On a term page a YouTube comment is shown as "seen in use", not among the sources', function (PDO $pdo) {
+            $pid = rt_term($pdo, 'r4-seen', ['status' => 'published', 'citations' => [
+                ['platform' => 'YouTube', 'handle' => '@zzruletestuser', 'publication' => '', 'date' => rt_day(4), 'url' => 'https://www.youtube.com/watch?v=zzruletest&lc=u1', 'quote' => 'this zz ruletest word is everywhere now'],
+                ['platform' => '', 'publication' => 'Dexerto', 'title' => 'What zz ruletest word means', 'date' => rt_day(6), 'url' => 'https://www.dexerto.com/zz-ruletest/y', 'quote' => 'zz ruletest word is a made-up word people use']]]);
+            $html = (string)render_page_html($pid);
+            $seen = strpos($html, '>Seen in use<'); $yt = strpos($html, 'lc=u1');
+            return [$seen !== false && $yt !== false && $yt > $seen, $seen === false ? 'no "Seen in use" section' : ($yt > $seen ? 'the comment is under "Seen in use"' : 'the comment is shown as a source')];
+        }],
+        [4, 'why-now-glossary', 'fix', 'A glossary entry an outlet wrote about lately says why it is around now, with the date and the outlet', function (PDO $pdo) {
+            rt_need('repo_glossary');
+            rt_term($pdo, 'r4-why', ['status' => 'archived', 'term' => 'zz ruletest why', 'redirect_to' => '/slang/glossary/#' . RT_PREFIX . 'r4-why', 'citations' => [
+                ['platform' => '', 'publication' => 'Dexerto', 'date' => rt_day(4), 'url' => 'https://www.dexerto.com/zz-ruletest/why', 'quote' => 'zz ruletest why']]]);
+            $html = view('glossary', ['g' => repo_glossary('slang')]);
+            $ok = preg_match('#id="' . RT_PREFIX . 'r4-why".*?Why now: ([^<]*)#s', $html, $m);
+            return [(bool)$ok, $ok ? 'Why now: ' . $m[1] : 'no why-now line'];
+        }],
+        [4, 'wiktionary-link', 'fix', 'Wiktionary named in an entry links to its page', function (PDO $pdo) {
+            rt_need('repo_glossary');
+            rt_term($pdo, 'r4-wikt', ['status' => 'archived', 'term' => 'zz ruletest wikt', 'redirect_to' => '/slang/glossary/#' . RT_PREFIX . 'r4-wikt',
+                'meaning' => ['A made-up word for the test set, defined in its own way (Wiktionary) and used nowhere else.']]);
+            $html = view('glossary', ['g' => repo_glossary('slang')]);
+            $ok = (bool)preg_match('#<a href="https://en\.wiktionary\.org/wiki/[^"]+"[^>]*>Wiktionary</a>#', $html);
+            return [$ok, $ok ? 'linked' : 'Wiktionary is named without a link'];
         }],
         [4, 'dup-early', 'fix', 'A term that already has a page is refused at once, not after minutes of writing (2026-09-28)', function (PDO $pdo) {
             require_once __DIR__ . '/draft_term.php';

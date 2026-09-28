@@ -416,7 +416,15 @@ function term_route(bool $original, ?float $viewsPerDay, bool $current = false):
 
 const PR_TERM_FRESH_DAYS  = 60;   // owner 2026-09-28: first seen in the last 60 days
 const PR_TERM_RISING_DAYS = 14;   // owner: several posts in the last 2 weeks, or outlet coverage
-const PR_TERM_RISING_POSTS = 3;   // [ours] "several" = 3 different people
+const PR_TERM_RISING_POSTS = 3;       // owner 2026-09-28: "3+ different posts with real reach"
+const PR_TERM_REACH_MIN    = 10000;   // owner: "e.g. 10k+ views each"; a post with no view count does not count
+
+/** A comment under someone else's post or video (YouTube &lc=, a Reddit comment permalink): "seen in use" only, never
+ *  evidence that a term is rising (owner 2026-09-28: "3 random comments isn't a trend"). */
+function term_cite_is_comment(array $c): bool {
+    $u = (string)($c['url'] ?? '');
+    return (bool)preg_match('#[?&]lc=#', $u) || (bool)preg_match('#reddit\.com/r/[^/]+/comments/[^/]+/[^/]+/[a-z0-9]+#i', $u);
+}
 
 /** A citation that is a person using the term (a post, a comment: "seen in use"), not a source writing about it. */
 function term_cite_is_post(array $c): bool {
@@ -470,8 +478,8 @@ function term_date(string $d): string {
 }
 
 /**
- * What makes a term current, from what the page holds: when it was first seen, who has been posting it and who has
- * written about it lately. ['fresh', 'rising', 'first_seen', 'posts', 'outlets', 'line' => one "why now" sentence or ''].
+ * What makes a term current, from what the page holds: when it was first seen, which outlets wrote about it lately, and
+ * which posts with 10k+ views used it (comments never count). ['fresh', 'rising', 'first_seen', 'posts', 'outlets', 'line' => one "why now" sentence or ''].
  */
 function term_trend(array $t): array {
     $today = time();
@@ -481,7 +489,11 @@ function term_trend(array $t): array {
     foreach (term_cites_clean((array)json_decode((string)($t['citations'] ?? '[]'), true), (string)($t['term'] ?? '')) as $c) {
         $d = term_date((string)($c['date'] ?? ''));
         if ($d === '' || strtotime($d) > $today || strtotime($d) < $today - 30 * 86400) continue;
-        if (term_cite_is_post($c)) $posts[mb_strtolower((string)($c['handle'] ?? '')) ?: (string)$c['url']] = ['date' => $d, 'platform' => trim((string)($c['platform'] ?? '')) ?: (string)parse_url((string)$c['url'], PHP_URL_HOST)];
+        if (term_cite_is_post($c)) {
+            // only a post (not a comment) with 10k+ views is evidence of a trend; the rest is "seen in use"
+            if (term_cite_is_comment($c) || (int)($c['views'] ?? 0) < PR_TERM_REACH_MIN) continue;
+            $posts[mb_strtolower((string)($c['handle'] ?? '')) ?: (string)$c['url']] = ['date' => $d, 'platform' => trim((string)($c['platform'] ?? '')) ?: (string)parse_url((string)$c['url'], PHP_URL_HOST)];
+        }
         else { $oh = mb_strtolower(preg_replace('/^www\./', '', (string)parse_url((string)$c['url'], PHP_URL_HOST))); $outlets[$oh] = ['date' => $d, 'name' => trim((string)($c['publication'] ?? '')) ?: $oh]; }
     }
     $since = gmdate('Y-m-d', $today - PR_TERM_RISING_DAYS * 86400);
@@ -494,7 +506,7 @@ function term_trend(array $t): array {
     if ($posts) {
         $ds = array_column($posts, 'date'); sort($ds);
         $plats = array_values(array_unique(array_column($posts, 'platform')));
-        $bits[] = count($posts) . ' post' . (count($posts) > 1 ? 's' : '') . ' on ' . implode(' and ', array_slice($plats, 0, 3))
+        $bits[] = count($posts) . ' post' . (count($posts) > 1 ? 's' : '') . ' with ' . number_format(PR_TERM_REACH_MIN / 1000) . 'k+ views on ' . implode(' and ', array_slice($plats, 0, 3))
                 . ($ds[0] === end($ds) ? ' on ' . date('M j, Y', strtotime($ds[0])) : ' between ' . date('M j', strtotime($ds[0])) . ' and ' . date('M j, Y', strtotime(end($ds))));
     }
     if ($outlets) {
