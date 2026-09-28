@@ -342,6 +342,12 @@ function rt_cases(): array {
             $urls = array_column($c, 'url');
             return [count($urls) === count(array_unique($urls)) && !in_array($same, $urls, true), count($c) . ' kept, each on its own link: ' . implode(', ', $urls)];
         }],
+        [4, 'made-up-post-link', 'fix', 'A post link the writer made up (a tweet id that is not a number) is never shown (2026-09-28: /slang/crit/)', function (PDO $pdo) {
+            $c = term_cites_clean([['platform' => 'X', 'handle' => '@zzruletesta', 'url' => 'https://twitter.com/zzruletesta/status/gXxYoZjSfE'],
+                                   ['platform' => 'X', 'handle' => '@zzruletestb', 'url' => 'https://x.com/zzruletestb/status/2090746493300801885']], 'zz ruletest word');
+            $urls = array_column($c, 'url');
+            return [$urls === ['https://x.com/zzruletestb/status/2090746493300801885'], 'kept: ' . implode(', ', $urls)];
+        }],
         [4, 'seen-in-use', 'fix', 'On a term page a YouTube comment is shown as "seen in use", not among the sources', function (PDO $pdo) {
             $pid = rt_term($pdo, 'r4-seen', ['status' => 'published', 'citations' => [
                 ['platform' => 'YouTube', 'handle' => '@zzruletestuser', 'publication' => '', 'date' => rt_day(4), 'url' => 'https://www.youtube.com/watch?v=zzruletest&lc=u1', 'quote' => 'this zz ruletest word is everywhere now'],

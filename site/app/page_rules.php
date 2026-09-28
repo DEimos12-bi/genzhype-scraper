@@ -452,6 +452,8 @@ function term_cites_clean(array $cites, string $term): array {
     $out = []; $seen = [];
     foreach ($cites as $c) {
         if (!is_array($c) || trim((string)($c['url'] ?? '')) === '') continue;
+        // a post link the writer made up: a tweet id is digits (2026-09-28: /slang/crit/ cited status/gXxYoZjSfE, a 404)
+        if (preg_match('#(?:twitter|x)\.com/[^/]+/status(?:es)?/([^/?\#]+)#i', (string)$c['url'], $sm) && !ctype_digit($sm[1])) continue;
         if (term_cite_is_post($c)) {
             $h = mb_strtolower(ltrim((string)($c['handle'] ?? ''), '@'));
             if (count($byUrl[(string)$c['url']] ?? []) > 1) {          // one link, several people: not this post's own link
