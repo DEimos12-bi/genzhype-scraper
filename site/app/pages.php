@@ -4,7 +4,7 @@
 function static_pages(): array {
     return [
         'about' => [
-            'slug'=>'about','title'=>'About &amp; editor','heading'=>'About GenZHype',
+            'slug'=>'about','title'=>'About & editor','heading'=>'About GenZHype',
             'desc'=>'GenZHype is an independent desk founded by Deimos EMK, documenting creator and influencer culture as AI-drafted, source-checked, dated timelines.',
             'body_html'=>'<p class="body">GenZHype is an independent desk that documents internet creator and influencer culture as <strong>dated, sourced timelines</strong>. Our promise is simple: the receipts, not the gossip.</p>
 <h2 class="sec">Who runs GenZHype</h2>
@@ -48,7 +48,7 @@ function static_pages(): array {
 <p class="body">Trend data starts on the day a page enters collection, so brand-new pages can show no chart yet. Wikipedia pageviews measure reading interest, not usage. Where a number cannot be computed honestly, the page shows nothing instead of an estimate. The rules a page must pass before publishing are in our <a href="/editorial-policy/">editorial policy</a>.</p>'],
 
         'author/deimos-emk' => [
-            'slug'=>'author/deimos-emk','title'=>'Deimos EMK, founder &amp; editor','heading'=>'Deimos EMK',
+            'slug'=>'author/deimos-emk','title'=>'Deimos EMK, founder & editor','heading'=>'Deimos EMK',
             'desc'=>'Deimos EMK is the founder and editor of GenZHype, running the automated editorial system that documents Gen Z slang, memes and creator culture.',
             'body_html'=>'<p class="body"><strong>Deimos EMK</strong> is the founder and editor of GenZHype. He started the desk to cover internet culture the way it should be covered: with receipts. Primary sources, clear dates, allegations framed as allegations, and a standing right of reply for anyone featured.</p>
 <p class="body">Deimos EMK is the pen name of <strong>Kaddari El Mahdi</strong> (<a href="https://www.linkedin.com/in/kaddari-elmahdi-8b145731a" target="_blank" rel="me noopener">LinkedIn</a>), who runs the desk under it.</p>
@@ -86,7 +86,7 @@ function static_pages(): array {
 <p class="body">A timeline\'s "Updated" date moves only when a new dated development is added, so a new date always means new information. A correction to existing text is made in place.</p>'],
 
         'contact' => [
-            'slug'=>'contact','title'=>'Contact','heading'=>'Contact &amp; tips',
+            'slug'=>'contact','title'=>'Contact','heading'=>'Contact & tips',
             'desc'=>'Contact GenZHype for tips, sources, corrections, a right of reply, copyright or privacy questions: contact@genzhype.com.',
             'body_html'=>'<p class="body">Everything reaches one inbox: <a href="mailto:contact@genzhype.com"><strong>contact@genzhype.com</strong></a>. GenZHype is run by Kaddari El Mahdi, who writes here as <a href="/author/deimos-emk/">Deimos EMK</a>.</p>
 <h2 class="sec">What to send</h2>
@@ -105,7 +105,7 @@ function static_pages(): array {
 <p class="body">Send your response, clarification, or denial to <a href="mailto:contact@genzhype.com">contact@genzhype.com</a> with the page URL. We will fairly reflect substantive responses on the relevant page, attributed to you, and we will correct anything demonstrably inaccurate.</p>'],
 
         'dmca' => [
-            'slug'=>'dmca','title'=>'DMCA','heading'=>'DMCA &amp; copyright',
+            'slug'=>'dmca','title'=>'DMCA','heading'=>'DMCA & copyright',
             'desc'=>'GenZHype respects copyright. How to submit a DMCA takedown notice for content you own.',
             'body_html'=>'<p class="body">GenZHype embeds original posts from their source platforms rather than re-hosting them, and uses its own original cover graphics. We respect copyright.</p>
 <p class="body">If you believe content on this site infringes your copyright, send a notice to <a href="mailto:contact@genzhype.com">contact@genzhype.com</a> including: identification of the work, the URL of the material, your contact information, a statement of good-faith belief, and a statement under penalty of perjury that you are authorized to act. We process valid notices promptly.</p>'],

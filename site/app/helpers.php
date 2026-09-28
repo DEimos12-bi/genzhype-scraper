@@ -26,6 +26,7 @@ function view($__tpl, array $__vars = []) {
 
 // Send a 404 and render the 404 view.
 function not_found() {
+    header('X-LiteSpeed-Cache-Control: no-cache');   // never cached (LiteSpeed page cache, 2026-09-28)
     http_response_code(404);
     echo view('404');
     exit;
@@ -41,6 +42,7 @@ function not_found() {
  * Driven by pages.status='archived', never by a hardcoded slug list.
  */
 function gone() {
+    header('X-LiteSpeed-Cache-Control: no-cache');   // never cached (LiteSpeed page cache, 2026-09-28)
     http_response_code(410);
     echo view('410');
     exit;
