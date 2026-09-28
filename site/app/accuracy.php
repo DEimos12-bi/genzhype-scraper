@@ -291,11 +291,12 @@ function acc_retitle(PDO $pdo, int $pageId, string $problem): bool {
     $src = implode("\n", $pdo->query("SELECT DISTINCT s.excerpt FROM events e JOIN sources s ON s.id=e.source_id WHERE e.drama_id=" . (int)$p['did'])->fetchAll(PDO::FETCH_COLUMN));
     $st = pr_story_state($pdo, $pageId);
     $over = $st && pr_story_over($st['lifecycle'], $st['last'], $st['next']);
+    [$srcDates] = pr_page_status_facts($pdo, (int)$p['did']);
     // the owner's title rules (1 and 5): hooks yes, lies no; code checks the answer before it is kept
     $sys = 'Rewrite a news page title and its search description so they say only what the page contains. A hook is allowed, a lie is not: '
          . 'no promise the page does not keep, no question, sentence case. A death, a crime or violence is never stated as fact: attribute it '
          . '("police say", "alleged", "<name> says", "clip shows") or quote the person. A quote is words a source really says, in quotation marks, '
-         . 'with the speaker named next to it. '
+         . 'with the speaker named next to it. The description states only what the sources say: a status in it names its source and that source\'s date, and nothing is credited to anyone the sources do not quote. '
          . ($over ? 'This story is over: write a recap of what happened, in the past tense; never "announces", "reveals", "will", "ongoing" or "developing". ' : '')
          . 'Output STRICT JSON only: {"h1":"40 to 70 characters","title_tag":"40 to 60 characters","meta_desc":"120 to 155 characters"}';
     $why = $problem;
@@ -313,6 +314,7 @@ function acc_retitle(PDO $pdo, int $pageId, string $problem): bool {
             foreach (pr_headline_problems($t, $src, $where, $lane) as $x) $left[] = $x;
             if ($over && preg_match(PR_ANNOUNCE_RX, $t, $m)) $left[] = "rule 1: the {$where} still says \"{$m[1]}\" about a story that is over";
             if ($over && preg_match(PR_ACTIVE_RX, $t, $m)) $left[] = "rule 1: the {$where} still calls the story \"{$m[1]}\"";
+            foreach (back_sentences($t) ?: [$t] as $sent) if (preg_match('/\bAs of\b/', $sent) && !pr_asof_sourced($sent, $srcDates)) $left[] = "rule 1: the {$where} dates a status by no source it names";
         }
         if ($left) { $why = $problem . '; your last answer still broke a rule: ' . implode('; ', $left); continue; }
         acc_backup($pdo, $pageId, 'title');
@@ -381,6 +383,7 @@ function acc_run(PDO $pdo, int $pageId): array {
     $cand = [];
     foreach ((array)($v['issues'] ?? []) as $i) {
         if (!is_array($i) || !in_array($i['type'] ?? '', ['unsourced', 'overreach'], true)) continue;
+        if (str_starts_with(strtolower((string)($i['section'] ?? '')), 'description')) continue;   // the description is rewritten below, not cut
         $q = acc_strip_line((string)($i['sentence'] ?? ''));
         foreach (back_sentences($q) ?: ($q !== '' ? [$q] : []) as $one) $cand[acc_norm($one)] = ['section' => (string)($i['section'] ?? ''), 'sentence' => $one];
     }
@@ -407,6 +410,9 @@ function acc_run(PDO $pdo, int $pageId): array {
     $titleWhy = [];
     foreach ((array)($v['issues'] ?? []) as $i)
         if (is_array($i) && ($i['type'] ?? '') === 'title') { $titleWhy[] = (string)($i['detail'] ?? ''); break; }
+    // owner 2026-09-28: the description Google shows is fact-checked like the body; a faulted one is rewritten with the title
+    foreach ((array)($v['issues'] ?? []) as $i)
+        if (is_array($i) && str_starts_with(strtolower((string)($i['section'] ?? '')), 'description')) $titleWhy[] = 'the description: ' . (string)($i['detail'] ?? $i['sentence'] ?? '');
     // rules 1 and 5 (owner 2026-09-27): a title or description that says "announces" about the past, calls an ended story
     // ongoing, or states a death or crime as fact is rewritten, and code checks the new one before it is kept
     foreach (pr_hard_fails($pdo, $pageId) as $r) if (preg_match('/^rule [15]: the (title|title tag|description|title or description)\b/', $r)) $titleWhy[] = $r;
@@ -469,7 +475,7 @@ function acc_sweep(PDO $pdo, int $maxSecs = 240, int $limit = 50): array {
     require_once __DIR__ . '/gate.php';
     $t0 = time(); $out = ['done' => 0, 'clean' => 0, 'held' => 0, 'reopened' => 0, 'removed' => 0, 'lines' => []];
     $ids = $pdo->query("SELECT p.id FROM pages p JOIN dramas d ON d.page_id=p.id
-                        WHERE p.type='drama' AND p.status='published'
+                        WHERE p.type='drama' AND p.status='published' AND p.retry_block IS NULL   -- held for good (page_rules.php pr_redo_allowed)
                           AND NOT EXISTS (SELECT 1 FROM ai_reviews r WHERE r.page_id=p.id AND r.stage='verify' AND r.passed=1 AND r.created_at >= p.updated_at)
                         ORDER BY COALESCE((SELECT r2.passed FROM ai_reviews r2 WHERE r2.page_id=p.id AND r2.stage='verify' ORDER BY r2.id DESC LIMIT 1), 0) ASC,   -- failed or never checked first (held ones)
                                  (p.robots='index') DESC, p.id DESC LIMIT " . (int)$limit)->fetchAll(PDO::FETCH_COLUMN);
@@ -515,7 +521,7 @@ function acc_recheck(PDO $pdo, int $maxSecs = 900): array {
     while (time() - $t0 <= $maxSecs) {
         if (empty($st['pages'])) {   // a new batch of 20: pages not re-checked yet under the 2026-09-27 rules
             $ids = $pdo->query("SELECT p.id FROM pages p JOIN dramas d ON d.page_id=p.id
-                WHERE p.type='drama' AND (p.status='published' OR (p.status='review' AND p.human_review='needed'))
+                WHERE p.type='drama' AND (p.status='published' OR (p.status='review' AND p.human_review='needed')) AND p.retry_block IS NULL
                   AND NOT EXISTS (SELECT 1 FROM accuracy_log a WHERE a.page_id=p.id)
                   AND NOT EXISTS (SELECT 1 FROM ai_reviews r WHERE r.page_id=p.id AND r.stage='quality' AND r.verdict LIKE '%reader view%'
                                   AND r.created_at >= '2026-09-27 17:00:00')

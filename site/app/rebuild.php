@@ -63,6 +63,10 @@ function story_rebuild(PDO $pdo, int $pageId, string $step = 'all'): array {
     if (!($p = $st->fetch(PDO::FETCH_ASSOC))) return ['error' => 'not a story page'];
 
     if ($step !== 'check') {
+        require_once __DIR__ . '/page_rules.php';
+        pr_install($pdo);
+        $blocked = (string)$pdo->query("SELECT COALESCE(retry_block, '') FROM pages WHERE id=" . $pageId)->fetchColumn();
+        if ($blocked !== '') return ['error' => "not redone: {$blocked}"];
         $cand = rebuild_candidate($pdo, $pageId);
         $verdict = json_decode((string)($cand['ai_verdict'] ?? '{}'), true) ?: [];
         $signals = json_decode((string)($cand['signals'] ?? '{}'), true) ?: [];
@@ -78,11 +82,14 @@ function story_rebuild(PDO $pdo, int $pageId, string $step = 'all'): array {
         $sources = fs_fetch_sources($query, array_slice(array_values(array_unique($seeds)), 0, 8), 4);
         if (isset($sources['error'])) return ['error' => 'sources: ' . $sources['error'] . ' (page left as it was)'];
         echo "  sources: " . count($sources) . " read (" . implode(', ', array_unique(array_map(fn($s) => (string)$s['publisher'], $sources))) . ")\n";
+        // old past-event news: rewritten as what happened only from a source about the outcome; else left held, for good
+        if (($no = pr_redo_allowed($pdo, $pageId, $sources)) !== '') return ['error' => "not redone: {$no}"];
+        $recap = pr_past_news($pdo, $pageId);
 
         $backup = rebuild_backup($pdo, $pageId);
         $d = draft_drama(['topic' => trim((string)($verdict['angle'] ?? '')) ?: ($cand['name'] ?? '') ?: ((string)$p['primary_kw'] ?: (string)$p['h1']),
                           'people' => (array)($verdict['primary_people'] ?? []), 'sources' => $sources,
-                          'lane' => (string)$p['lane'], 'rebuild_page_id' => $pageId]);
+                          'lane' => (string)$p['lane'], 'rebuild_page_id' => $pageId, 'recap' => $recap]);
         $pdo = db_alive();   // drafting = minutes of AI
         if (isset($d['error'])) return ['error' => 'writer: ' . $d['error'], 'backup' => $backup];
         echo "  written by {$d['provider']}: {$d['events']} events, " . (int)$d['embeds'] . " embeds\n";

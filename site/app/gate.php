@@ -116,7 +116,44 @@ function drama_index_block(PDO $pdo, int $pageId): string {
  * live indexable. published_at=NOW() below dates a FIRST publish only: once a page has been live the
  * database keeps its date (db.php pages_publish_date_lock, owner rule 2).
  */
+/**
+ * Can the site show this page? (owner 2026-09-28: "a page that fails to render can never be published"; every admin
+ * preview of a draft crashed for weeks on a double include in public_html/index.php, unseen because only the web route
+ * had it.) The page goes through the real front door (index.php, as an admin preview) in a separate PHP process, so an
+ * error anywhere on the way is caught. '' = it rendered, else why not.
+ */
+function page_render_check(int $pageId): string {
+    $st = db()->prepare("SELECT path FROM pages WHERE id=?");
+    $st->execute([$pageId]);
+    $path = (string)$st->fetchColumn();
+    if ($path === '') return 'no such page';
+    $dir = __DIR__ . '/cache/render-check';
+    @mkdir($dir, 0755, true);
+    $sid = 'rc' . $pageId . getmypid();
+    $code = '$_SERVER["REQUEST_URI"]=' . var_export($path . '?preview=1', true) . '; $_SERVER["HTTP_HOST"]="genzhype.com"; $_GET["preview"]="1";'
+          . ' session_id(' . var_export($sid, true) . '); @session_start(); $_SESSION["gzh_admin"]=1;'
+          . ' register_shutdown_function(function () { echo "\n<!--rc-status:" . (int)http_response_code() . "-->"; }); chdir(' . var_export(dirname(__DIR__) . '/public_html', true) . '); include "index.php";';
+    $php = PHP_BINARY ?: '/opt/alt/php82/usr/bin/php';
+    // proc_open: exec and shell_exec are disabled on this host (clip_fetch.php runs its tools the same way)
+    $p = proc_open(['timeout', '60', $php, '-d', 'display_errors=1', '-d', 'session.save_path=' . $dir, '-r', $code], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
+    if (!is_resource($p)) return 'the render check could not start';
+    $html = (string)stream_get_contents($pipes[1]) . "\n" . (string)stream_get_contents($pipes[2]);
+    fclose($pipes[1]); fclose($pipes[2]);
+    $rc = proc_close($p);
+    @unlink($dir . '/sess_' . $sid);
+    if (preg_match('/(Fatal error|Uncaught|Parse error)[^\n<]{0,200}/', $html, $m)) return 'the page crashes: ' . trim(strip_tags($m[0]));
+    if ($rc !== 0) return "the page did not render (exit {$rc})";
+    if (preg_match('/<!--rc-status:(\d+)-->/', $html, $m) && (int)$m[1] >= 400) return "the page answers {$m[1]}";
+    if (!preg_match('/<h1\b/i', $html) || stripos($html, '</html>') === false) return 'the page renders without its title or ends early (a 404 or a cut-off page)';
+    return '';
+}
 function page_publish_live(PDO $pdo, int $pageId): bool {
+    // a page the site cannot show is never published (owner 2026-09-28)
+    if (($broken = page_render_check($pageId)) !== '') {
+        $pdo->prepare("UPDATE pages SET robots='noindex', updated_at=NOW() WHERE id=?")->execute([$pageId]);
+        echo "  NOT PUBLISHED: {$broken}\n";
+        return false;
+    }
     $t = $pdo->prepare("SELECT type FROM pages WHERE id=?");
     $t->execute([$pageId]);
     $type = (string)$t->fetchColumn();

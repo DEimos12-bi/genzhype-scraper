@@ -1215,6 +1215,14 @@ function draft_term(array $input): array {
         $st->execute([$rebuildId]);
         if (($oldSlug = (string)$st->fetchColumn()) === '') return ['error' => "no term page {$rebuildId} to rebuild"];
     }
+    // a page already there is refused before minutes of fetching and writing (2026-09-28: "skinwalker" spent 9 minutes on a
+    // draft that the copy check further down then refused); that check stays, for a page made while this one was written
+    if ($oldSlug === '') {
+        $slug0 = term_slugify($term);
+        $e = db()->prepare("SELECT slug FROM pages WHERE slug=? OR (type='term' AND REPLACE(slug,'-','') = ?) LIMIT 1");
+        $e->execute([$slug0, str_replace('-', '', $slug0)]);
+        if ($hit = $e->fetchColumn()) return ['error' => 'a page for slug "' . $hit . '" already exists'];
+    }
     $sources = $input['sources'] ?? [];
     if (count($sources) < 2) {
         // try to fetch our own

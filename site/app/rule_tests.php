@@ -94,6 +94,12 @@ function rt_badge(int $pid): string {
     return trim(html_entity_decode(strip_tags($m[1] ?? '')));
 }
 
+/** "The short version" a reader sees on a story page. */
+function rt_tldr(int $pid): string {
+    preg_match('#<aside class="tldr"[^>]*>.*?<p>(.*?)</p>#s', (string)render_page_html($pid), $m);
+    return trim(html_entity_decode(strip_tags($m[1] ?? '')));
+}
+
 /** A function the rule needs does not exist yet: the case fails, and says so. */
 function rt_need(string $fn): void {
     if (!function_exists($fn)) throw new RuntimeException("no code check yet ({$fn} does not exist)");
@@ -155,6 +161,28 @@ function rt_cases(): array {
             return [$t === 'Nintendo announced two Directs', "the entry says \"{$t}\""];
         }],
 
+        [1, 'asof-today', 'fix', 'A status stamped with today\'s date becomes the latest development, dated by its report (2026-09-28)', function (PDO $pdo) use ($over) {
+            $t = rt_tldr(rt_story($pdo, 'r1-asof', ['events' => $over, 'summary' => 'Alpha said Beta broke their joint sponsorship deal and Beta disputed it, according to Dexerto. As of ' . gmdate('F j, Y') . ', the feud remains unresolved.']));
+            return [!str_contains($t, 'As of ' . gmdate('F j, Y')) && str_contains($t, 'reported by'), "the reader sees: \"" . mb_substr($t, -120) . '"'];
+        }],
+        [1, 'asof-sourced', 'guard', 'A status dated by its source and naming it stays', function (PDO $pdo) use ($over) {
+            $asOf = 'As of ' . date('F j, Y', strtotime(rt_day(20))) . ', per Kotaku, the sponsor was still reviewing the deal.';
+            $t = rt_tldr(rt_story($pdo, 'r1-asof2', ['events' => $over, 'summary' => 'Alpha said Beta broke their joint sponsorship deal and Beta disputed it, according to Dexerto. ' . $asOf]));
+            return [str_contains($t, $asOf), "the reader sees: \"" . mb_substr($t, -120) . '"'];
+        }],
+        [1, 'asof-stored', 'fix', 'The pipeline replaces a today-stamped status in the stored page too (no AI)', function (PDO $pdo) use ($over) {
+            rt_need('rules_fix_page');
+            $pid = rt_story($pdo, 'r1-asof3', ['events' => $over, 'summary' => 'Alpha said Beta broke their joint sponsorship deal and Beta disputed it, according to Dexerto. As of ' . gmdate('F j, Y') . ', the feud remains unresolved.']);
+            rules_fix_page($pdo, $pid);
+            $sm = (string)$pdo->query("SELECT summary FROM pages WHERE id={$pid}")->fetchColumn();
+            return [!str_contains($sm, 'As of ' . gmdate('F j, Y')) && str_contains($sm, 'reported by'), "stored: \"" . mb_substr($sm, -120) . '"'];
+        }],
+        [1, 'asof-description', 'fix', 'A description that stamps a status with today\'s date and credits "the court" is caught', function (PDO $pdo) use ($over) {
+            $pid = rt_story($pdo, 'r1-asof4', ['events' => $over, 'meta' => 'As of ' . gmdate('F j, Y') . ', the court says Alpha remains banned from the sponsorship program and Beta has not replied.']);
+            $r = rt_rule_reasons($pdo, $pid, 1);
+            return [(bool)preg_grep('/description/', $r), $r ? $r[0] : 'nothing caught it'];
+        }],
+
         // RULE 2: the publish date never changes
         [2, 'publish-again', 'fix', 'Publishing a live page again keeps its first publish date', function (PDO $pdo) {
             $pid = rt_term($pdo, 'r2-pub', ['status' => 'published', 'published_at' => '2026-09-01 10:00:00']);
@@ -182,6 +210,45 @@ function rt_cases(): array {
             $r = $pdo->query("SELECT published_at, content_updated_at FROM pages WHERE id={$pid}")->fetch(PDO::FETCH_ASSOC);
             return [$r['published_at'] === '2026-09-01 10:00:00' && substr((string)$r['content_updated_at'], 0, 10) >= gmdate('Y-m-d', time() - 86400),
                     "published {$r['published_at']}, updated {$r['content_updated_at']}"];
+        }],
+
+        // 10 (owner 2026-09-28): a page the site cannot show is never published
+        [10, 'broken-not-published', 'fix', 'A page that fails to render is not published', function (PDO $pdo) {
+            $pdo->exec("INSERT INTO pages (type,slug,path,h1,title_tag,meta_desc,summary,status,robots) VALUES ('drama','" . RT_PREFIX . "r10-broken','/drama/" . RT_PREFIX . "r10-broken/','x','x','x','x','draft','noindex')");
+            $pid = (int)$pdo->lastInsertId();   // a story page with no story behind it: the site answers 404
+            ob_start(); page_publish_live($pdo, $pid); ob_end_clean();
+            $st = (string)$pdo->query("SELECT status FROM pages WHERE id={$pid}")->fetchColumn();
+            return [$st === 'draft', "status after publish: {$st}"];
+        }],
+        [10, 'draft-preview', 'fix', 'A draft opens in the admin preview through the real front door (it crashed every time)', function (PDO $pdo) {
+            rt_need('page_render_check');
+            $r = page_render_check(rt_story($pdo, 'r10-preview', []));
+            return [$r === '', $r === '' ? 'renders' : $r];
+        }],
+
+        // 11 (owner 2026-09-28): old past-event news is rewritten only from a source about the outcome, else held for good
+        [11, 'past-news-held', 'fix', 'Past news with no newer source is not redone, and is marked so it is not retried', function (PDO $pdo) {
+            rt_need('pr_redo_allowed');
+            $pid = rt_story($pdo, 'r11-held', ['h1' => 'Nintendo announces two Direct presentations for September', 'lane' => 'gaming',
+                'events' => [[30, 'Nintendo announces two Directs', 'Nintendo said it would hold two Directs, according to IGN.', 'https://www.ign.com/zz-ruletest/n1'],
+                             [21, 'The first Direct airs', 'The first Direct aired, according to IGN.', 'https://www.ign.com/zz-ruletest/n2']]]);
+            $why = pr_redo_allowed($pdo, $pid, [['date' => rt_day(25)], ['date' => rt_day(40)]]);
+            $mark = (string)$pdo->query("SELECT COALESCE(retry_block, '') FROM pages WHERE id={$pid}")->fetchColumn();
+            return [$why !== '' && $mark !== '', $why !== '' ? "refused: {$why}" : 'the redo was allowed'];
+        }],
+        [11, 'past-news-outcome', 'guard', 'Past news with a source newer than its last event may be rewritten as what happened', function (PDO $pdo) {
+            rt_need('pr_redo_allowed');
+            $pid = rt_story($pdo, 'r11-ok', ['h1' => 'Nintendo announces two Direct presentations for September', 'lane' => 'gaming',
+                'events' => [[30, 'Nintendo announces two Directs', 'Nintendo said it would hold two Directs, according to IGN.', 'https://www.ign.com/zz-ruletest/n1'],
+                             [21, 'The first Direct airs', 'The first Direct aired, according to IGN.', 'https://www.ign.com/zz-ruletest/n2']]]);
+            $why = pr_redo_allowed($pdo, $pid, [['date' => rt_day(3)]]);
+            return [$why === '', $why === '' ? 'allowed' : "refused: {$why}"];
+        }],
+        [11, 'live-story', 'guard', 'A story still moving is redone as usual', function (PDO $pdo) {
+            rt_need('pr_redo_allowed');
+            $pid = rt_story($pdo, 'r11-live', ['events' => [[2, 'Alpha posts about the deal', 'Alpha said Beta broke the deal, according to Dexerto.', 'https://www.dexerto.com/zz-ruletest/a']]]);
+            $why = pr_redo_allowed($pdo, $pid, []);
+            return [$why === '', $why === '' ? 'allowed' : "refused: {$why}"];
         }],
 
         // RULE 3: our take names a fact from the page, or it is dropped
@@ -215,6 +282,14 @@ function rt_cases(): array {
             ob_start(); page_publish_live($pdo, $pid); ob_end_clean();
             $r = $pdo->query("SELECT status, redirect_to FROM pages WHERE id={$pid}")->fetch(PDO::FETCH_ASSOC);
             return [$r['status'] === 'archived' && str_starts_with((string)$r['redirect_to'], '/slang/glossary/#'), "status {$r['status']}, goes to " . ($r['redirect_to'] ?? 'nowhere')];
+        }],
+        [4, 'dup-early', 'fix', 'A term that already has a page is refused at once, not after minutes of writing (2026-09-28)', function (PDO $pdo) {
+            require_once __DIR__ . '/draft_term.php';
+            rt_term($pdo, 'dupword', ['term' => 'zz ruletest dupword']);
+            $t = microtime(true);
+            $r = draft_term(['term' => 'zz ruletest dupword', 'lane' => 'slang']);
+            $secs = round(microtime(true) - $t, 1);
+            return [str_contains((string)($r['error'] ?? ''), 'already exists') && $secs < 5, "refused in {$secs} s: " . ($r['error'] ?? 'written')];
         }],
         [4, 'glossary-page', 'fix', 'The slang glossary shows a folded term in its own section', function (PDO $pdo) {
             rt_need('repo_glossary');
@@ -308,6 +383,7 @@ function rt_run(PDO $pdo, string $only = ''): array {
     hr_install($pdo);   // schema changes commit; done before any case
     require_once __DIR__ . '/page_rules.php';
     term_demand_install($pdo);
+    if (function_exists('pr_install')) pr_install($pdo);
     rt_cleanup($pdo);
     $out = [];
     foreach (rt_cases() as [$rule, $id, $kind, $what, $fn]) {

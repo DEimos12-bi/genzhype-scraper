@@ -152,7 +152,7 @@ function repo_load_all(): array {
                              WHERE e.drama_id=? ORDER BY s.id");
         $sq->execute([$did]);
         foreach ($sq->fetchAll() as $s) {
-            $sources[] = ['id' => (int)$s['id'], 'url' => $s['url'] ?? null, 'text' => repo_source_text($s)];
+            $sources[] = ['id' => (int)$s['id'], 'url' => $s['url'] ?? null, 'text' => repo_source_text($s), 'publisher' => (string)($s['publisher'] ?? ''), 'published_on' => source_date($s['published_on'] ?? '')];
             if (!empty($s['excerpt'])) $srcExcerpts[] = ['excerpt' => $s['excerpt'], 'publisher' => $s['publisher'] ?? ''];
         }
         $pullQuote = find_pull_quote($srcExcerpts, true);   // safe=true filters grim/sensitive quotes per-quote
@@ -419,7 +419,7 @@ function repo_load_drama_any(string $slug): ?array {
     $sources = [];
     $sq = $pdo->prepare("SELECT DISTINCT s.id, s.url, s.publisher, s.title, s.retrieved_on, s.excerpt, s.published_on FROM events e JOIN sources s ON s.id=e.source_id WHERE e.drama_id=? ORDER BY s.id");
     $sq->execute([$did]);
-    foreach ($sq->fetchAll() as $s) $sources[] = ['id'=>(int)$s['id'],'url'=>$s['url'] ?? null,'text'=>repo_source_text($s)];
+    foreach ($sq->fetchAll() as $s) $sources[] = ['id'=>(int)$s['id'],'url'=>$s['url'] ?? null,'text'=>repo_source_text($s),'publisher'=>(string)($s['publisher'] ?? ''),'published_on'=>source_date($s['published_on'] ?? '')];
 
     $status = story_status($r['lifecycle'], $r['last_event'], (array)json_decode((string)($r['whats_next'] ?? ''), true));
     return pr_story_view([
@@ -527,7 +527,7 @@ function repo_glossary(string $lane): array {
         $cites = [];
         foreach ((array)json_decode((string)$r['citations'], true) as $c) {
             if (!is_array($c) || empty($c['url'])) continue;
-            $by = trim((string)($c['publication'] ?: ($c['platform'] . ($c['handle'] ? ' ' . $c['handle'] : ''))));
+            $by = trim((string)(($c['publication'] ?? '') ?: (($c['platform'] ?? '') . (!empty($c['handle']) ? ' ' . $c['handle'] : ''))));
             $cites[] = ['url' => (string)$c['url'], 'by' => $by !== '' ? $by : (string)parse_url((string)$c['url'], PHP_URL_HOST), 'date' => (string)($c['date'] ?? '')];
             if (count($cites) >= 3) break;
         }

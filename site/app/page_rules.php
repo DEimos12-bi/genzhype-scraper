@@ -73,12 +73,17 @@ function pr_status_problems(PDO $pdo, int $pageId): array {
     $out = [];
     $over = pr_story_over($s['lifecycle'], $s['last'], $s['next']);
     $since = $s['last'] !== '' ? pr_date_label($s['last']) : '';
+    $texts = ['title' => $p['h1'] . ' ' . $p['title_tag'], 'description' => $p['meta_desc'], 'summary' => $p['summary']];
+    foreach ($pdo->query("SELECT answer FROM faqs WHERE drama_id=" . $s['did'])->fetchAll(PDO::FETCH_COLUMN) as $a) $texts['FAQ'] = ($texts['FAQ'] ?? '') . ' ' . $a;
     if ($over) {
-        $texts = ['title' => $p['h1'] . ' ' . $p['title_tag'], 'description' => $p['meta_desc'], 'summary' => $p['summary']];
-        foreach ($pdo->query("SELECT answer FROM faqs WHERE drama_id=" . $s['did'])->fetchAll(PDO::FETCH_COLUMN) as $a) $texts['FAQ'] = ($texts['FAQ'] ?? '') . ' ' . $a;
         foreach ($texts as $where => $t) if (preg_match(PR_ACTIVE_RX, (string)$t, $m))
             $out[] = "rule 1: the {$where} calls the story \"{$m[1]}\", but nothing new has happened since {$since}";
     }
+    // a status sentence dated by no source, or naming none ("As of <the day we wrote it>")
+    [$srcDates] = pr_page_status_facts($pdo, $s['did']);
+    foreach (['summary' => $p['summary'], 'description' => $p['meta_desc']] + (isset($texts['FAQ']) ? ['FAQ' => $texts['FAQ']] : []) as $where => $t)
+        foreach (back_sentences((string)$t) as $sent)
+            if (preg_match('/\bAs of\b/', $sent) && !pr_asof_sourced($sent, $srcDates)) { $out[] = "rule 1: the {$where} dates a status \"" . mb_substr($sent, 0, 60) . "...\" by no source it names"; break; }
     // "announces" about something already done: the story is over, or a date the page gave as ahead has passed
     $passed = false;
     foreach ($s['next'] as $n) if (($d = (string)($n['date'] ?? '')) !== '' && pr_date_end($d) > 0 && pr_date_end($d) < time()) $passed = true;
@@ -87,9 +92,50 @@ function pr_status_problems(PDO $pdo, int $pageId): array {
     return $out;
 }
 
-/** A status sentence built from the dates only: "As of September 28, 2026, no new developments have been reported since Sep 12." */
-function pr_status_sentence(string $last): string {
-    return 'As of ' . gmdate('F j, Y') . ', no new developments have been reported' . ($last !== '' ? ' since ' . pr_date_label($last) : '') . '.';
+/**
+ * The latest development a source reported, as one sentence dated by that report (owner 2026-09-28: "never stamp today's
+ * date on a status ... the status must come from a source"): "The latest development, reported by Dexerto on Sep 21: ...".
+ * $latest: ['date' => the event's date, 'by' => its source's outlet, 'title' => the event]. '' when there is none.
+ */
+function pr_latest_sentence(array $latest): string {
+    $title = rtrim(pr_past_title(trim((string)($latest['title'] ?? ''))), " .");
+    if ($title === '') return '';
+    $raw = (string)($latest['by'] ?? '');
+    $by = trim((string)preg_replace('/\s*\(original post\)\s*$/i', '', $raw));
+    $when = ($latest['date'] ?? '') !== '' ? pr_date_label((string)$latest['date']) : '';
+    return 'The latest development' . ($by !== '' ? (stripos($raw, 'original post') !== false ? ", posted on {$by}" : ", reported by {$by}") : '')
+         . ($when !== '' ? " on {$when}" : '') . ': ' . $title . '.';
+}
+
+/** Is a sentence's "As of <date>" the date of one of the page's sources (a day either side), with a source named? */
+function pr_asof_sourced(string $sent, array $srcDates): bool {
+    if (!preg_match('/\bAs of ([A-Z][a-z]+\.?\s+\d{1,2}(?:,?\s+\d{4})?|[A-Z][a-z]+\s+\d{4})\b/u', $sent, $m)) return !preg_match('/\bAs of\b/', $sent);
+    $txt = str_replace('.', '', $m[1]);
+    $monthOnly = !preg_match('/\s\d{1,2}(\b|,)/', $txt);
+    $ts = strtotime($monthOnly ? "1 {$txt}" : (preg_match('/\d{4}/', $txt) ? $txt : $txt . ' ' . gmdate('Y')));
+    if (!$ts) return false;
+    $dated = false;
+    foreach ($srcDates as $sd) {
+        if (!$sd || !($st = strtotime((string)$sd))) continue;
+        if ($monthOnly ? gmdate('Y-m', $st) === gmdate('Y-m', $ts) : abs($st - $ts) <= 86400) $dated = true;
+    }
+    return $dated && (bool)preg_match('/\b(per|according to|reported|reports|said|says|told|posted|wrote)\b/i', $sent);
+}
+
+/** Status sentences not dated by a source that names it, replaced by the latest development (one; the rest go). */
+function pr_fix_asof(string $text, array $srcDates, string $latestSentence): string {
+    $parts = back_sentences($text) ?: [$text];
+    $hit = false;
+    foreach ($parts as $i => $sent) if (preg_match('/\bAs of\b/', $sent) && !pr_asof_sourced($sent, $srcDates)) { $parts[$i] = $hit ? '' : $latestSentence; $hit = true; }
+    return $hit ? trim(preg_replace('/\s+/', ' ', implode(' ', array_filter($parts)))) : $text;
+}
+
+/** A page's source dates and its latest reported development, from the stored page. */
+function pr_page_status_facts(PDO $pdo, int $did): array {
+    $dates = $pdo->query("SELECT DISTINCT s.published_on FROM events e JOIN sources s ON s.id=e.source_id WHERE e.drama_id={$did} AND s.published_on IS NOT NULL")->fetchAll(PDO::FETCH_COLUMN);
+    $l = $pdo->query("SELECT e.event_date date, e.title, COALESCE(s.publisher, '') `by` FROM events e LEFT JOIN sources s ON s.id=e.source_id
+                      WHERE e.drama_id={$did} AND e.video_only=0 AND e.event_date <= UTC_DATE() AND e.event_date NOT LIKE '%-00' ORDER BY e.event_date DESC, e.sort_order DESC LIMIT 1")->fetch(PDO::FETCH_ASSOC) ?: [];
+    return [array_values(array_filter($dates)), pr_latest_sentence($l)];
 }
 
 /** The sentences of $text that call the story going on, replaced by one status sentence built from the dates. */
@@ -111,11 +157,11 @@ const PR_PAST = ['announces' => 'announced', 'reveals' => 'revealed', 'unveils' 
     'reports' => 'reported', 'alleges' => 'alleged', 'speaks' => 'spoke', 'cancels' => 'canceled', 'delays' => 'delayed', 'adds' => 'added',
     'removes' => 'removed', 'deletes' => 'deleted', 'holds' => 'held', 'faces' => 'faced', 'receives' => 'received', 'signs' => 'signed',
     'breaks' => 'broke', 'hits' => 'hit', 'sets' => 'set', 'plans' => 'planned', 'shows' => 'showed', 'explains' => 'explained', 'warns' => 'warned',
-    'asks' => 'asked', 'agrees' => 'agreed', 'refuses' => 'refused', 'appears' => 'appeared', 'gets' => 'got', 'goes' => 'went', 'makes' => 'made'];
+    'asks' => 'asked', 'agrees' => 'agreed', 'comments' => 'commented', 'reaches' => 'reached', 'gains' => 'gained', 'criticizes' => 'criticized', 'defends' => 'defended', 'accepts' => 'accepted', 'refuses' => 'refused', 'appears' => 'appeared', 'gets' => 'got', 'goes' => 'went', 'makes' => 'made'];
 
 function pr_past_title(string $t): string {
     // the subject: 1-4 words opening the entry, none a possessive ("Alpha's claims go viral" is left alone)
-    return (string)preg_replace_callback('/^((?:[\p{Lu}\p{N}][\p{L}\p{N}.&\-]*\s+){1,4})([a-z]+)\b/u', function ($m) {
+    return (string)preg_replace_callback('/^((?:[\p{Lu}\p{N}][\p{L}\p{N}_.&\-]*\s+){1,4})([a-z]+)\b/u', function ($m) {
         if (preg_match("/['’]s?\s*$/u", $m[1]) || !isset(PR_PAST[$m[2]])) return $m[0];
         return $m[1] . PR_PAST[$m[2]];
     }, $t, 1);
@@ -272,15 +318,16 @@ function rules_fix_page(PDO $pdo, int $pageId): array {
         $t = pr_past_title((string)$e['title']);
         if ($t !== (string)$e['title']) { $pdo->prepare("UPDATE events SET title=? WHERE id=?")->execute([$t, (int)$e['id']]); $done[] = "entry now \"{$t}\""; }
     }
-    // rule 1: a story that is over no longer says it is going on (summary and FAQ answers; titles go to the AI rewrite)
-    if (pr_story_over($s['lifecycle'], $s['last'], $s['next'])) {
-        $status = pr_status_sentence($s['last']);
-        $fix = fn(string $text): string => pr_fix_status_text($text, $status);
-        $sum = (string)$pdo->query("SELECT summary FROM pages WHERE id={$pageId}")->fetchColumn();
-        if (($new = $fix($sum)) !== $sum) { $pdo->prepare("UPDATE pages SET summary=? WHERE id=?")->execute([$new, $pageId]); $done[] = 'summary status from the dates'; }
-        foreach ($pdo->query("SELECT id, answer FROM faqs WHERE drama_id={$did}")->fetchAll(PDO::FETCH_ASSOC) as $f)
-            if (($new = $fix((string)$f['answer'])) !== (string)$f['answer']) { $pdo->prepare("UPDATE faqs SET answer=? WHERE id=?")->execute([$new, (int)$f['id']]); $done[] = 'FAQ status from the dates'; }
-    }
+    // rule 1: a story that is over no longer says it is going on, and no status is dated by anything but a source that it
+    // names (owner 2026-09-28): such a sentence becomes the latest development, dated by its report (summary and FAQ
+    // answers; the title and description go to the AI rewrite)
+    [$srcDates, $latest] = pr_page_status_facts($pdo, $did);
+    $over = pr_story_over($s['lifecycle'], $s['last'], $s['next']);
+    $fix = fn(string $text): string => pr_fix_asof($over && $latest !== '' ? pr_fix_status_text($text, $latest) : $text, $srcDates, $latest);
+    $sum = (string)$pdo->query("SELECT summary FROM pages WHERE id={$pageId}")->fetchColumn();
+    if ($latest !== '' && ($new = $fix($sum)) !== $sum) { $pdo->prepare("UPDATE pages SET summary=? WHERE id=?")->execute([$new, $pageId]); $done[] = 'summary status: the latest development, dated by its report'; }
+    foreach ($pdo->query("SELECT id, answer FROM faqs WHERE drama_id={$did}")->fetchAll(PDO::FETCH_ASSOC) as $f)
+        if ($latest !== '' && ($new = $fix((string)$f['answer'])) !== (string)$f['answer']) { $pdo->prepare("UPDATE faqs SET answer=? WHERE id=?")->execute([$new, (int)$f['id']]); $done[] = 'FAQ status: the latest development, dated by its report'; }
     $grave = pr_is_grave($pdo, $pageId);
     $timeline = pr_timeline_text($pdo, $did);
     // rule 6: a crime, abuse or death story carries no take and no evidence read
@@ -333,15 +380,22 @@ function pr_story_view(array $d): array {
     foreach ($d['events'] ?? [] as $i => $e)
         if (!empty($e['why']) && ($grave || !pr_take_specific((string)$e['why'], $timeline))) $d['events'][$i]['why'] = null;
     if ($grave) $d['verdict'] = null;
-    // rule 1: an ended story's summary and FAQ never say it is going on (a status refresh can write that back between
-    // two checks): the sentence is replaced by one built from the dates
-    if (str_starts_with((string)($d['status'] ?? ''), 'No new developments') || ($d['status'] ?? '') === 'Resolved') {
-        $past = array_filter(array_column($d['events'] ?? [], 'date_iso'), fn($x) => $x !== '' && $x <= gmdate('Y-m-d'));
-        $last = $past ? (string)max($past) : '';
-        $last = strlen($last) === 7 ? $last . '-00' : (strlen($last) === 4 ? $last . '-00-00' : $last);
-        $status = pr_status_sentence($last);
-        $d['summary'] = pr_fix_status_text((string)($d['summary'] ?? ''), $status);
-        foreach ($d['faqs'] ?? [] as $i => $f) $d['faqs'][$i]['a'] = pr_fix_status_text((string)$f['a'], $status);
+    // rule 1: an ended story's summary and FAQ never say it is going on, and a status is dated by a source it names, never
+    // by the day we wrote it (owner 2026-09-28); such a sentence becomes the latest development, dated by its report
+    $byId = []; $srcDates = [];
+    foreach ($d['sources'] ?? [] as $src) { $byId[(int)$src['id']] = (string)($src['publisher'] ?? ''); if (!empty($src['published_on'])) $srcDates[] = (string)$src['published_on']; }
+    $latest = ['date' => '', 'by' => '', 'title' => ''];
+    foreach ($d['events'] ?? [] as $e) {
+        $iso = (string)($e['date_iso'] ?? '');
+        if (strlen($iso) !== 10 || $iso > gmdate('Y-m-d') || $iso < $latest['date']) continue;
+        $latest = ['date' => $iso, 'by' => $byId[(int)($e['sources'][0] ?? 0)] ?? '', 'title' => (string)($e['title'] ?? '')];
+    }
+    $latestSentence = pr_latest_sentence($latest);
+    if ($latestSentence !== '') {
+        $over = str_starts_with((string)($d['status'] ?? ''), 'No new developments') || ($d['status'] ?? '') === 'Resolved';
+        $fix = fn(string $t): string => pr_fix_asof($over ? pr_fix_status_text($t, $latestSentence) : $t, $srcDates, $latestSentence);
+        $d['summary'] = $fix((string)($d['summary'] ?? ''));
+        foreach ($d['faqs'] ?? [] as $i => $f) $d['faqs'][$i]['a'] = $fix((string)$f['a']);
     }
     return $d;
 }
@@ -427,4 +481,37 @@ function term_fold(PDO $pdo, int $pageId): bool {
     $pdo->prepare("UPDATE pages SET status='archived', robots='noindex', redirect_to=?, updated_at=NOW() WHERE id=?")
         ->execute([$prefix . 'glossary/#' . $t['slug'], $pageId]);
     return true;
+}
+
+// ---------------------------------------------------------------- old past-event news: outcome source or held, once
+
+/** pages.retry_block: why the pipeline must not try this page again (owner 2026-09-28). Outside a transaction. */
+function pr_install(PDO $pdo): void {
+    static $done = false;
+    if ($done) return;
+    try { $pdo->exec("ALTER TABLE pages ADD COLUMN retry_block VARCHAR(160) NULL"); } catch (Throwable $e) { /* already there */ }
+    $done = true;
+}
+
+/** Old news about something that already happened: the story is over, or a date it gave as ahead has passed, and its
+ *  title or description still announces it (Nintendo's two Directs, announced and aired). */
+function pr_past_news(PDO $pdo, int $pageId): bool {
+    return (bool)preg_grep('/announces what already happened|about something that already happened/', pr_status_problems($pdo, $pageId));
+}
+
+/**
+ * May a redo rewrite this page from these sources? (owner 2026-09-28: "the redo doesn't work (Nintendo came out worse).
+ * For these, either rewrite as 'what happened' with a new source about the outcome, or leave them held. Don't keep
+ * retrying.") '' = yes; else why not, and the page is marked so nothing tries it again.
+ */
+function pr_redo_allowed(PDO $pdo, int $pageId, array $sources): string {
+    pr_install($pdo);
+    $block = (string)$pdo->query("SELECT COALESCE(retry_block, '') FROM pages WHERE id=" . $pageId)->fetchColumn();
+    if ($block !== '') return $block;
+    if (!pr_past_news($pdo, $pageId)) return '';
+    $last = page_newest_event($pdo, $pageId);
+    foreach ($sources as $src) if (($d = source_date((string)($src['date'] ?? ''))) && $d > $last) return '';
+    $why = 'past news, no source about the outcome (' . gmdate('Y-m-d') . '): held as it is, not retried';
+    $pdo->prepare("UPDATE pages SET retry_block=? WHERE id=?")->execute([$why, $pageId]);
+    return $why;
 }

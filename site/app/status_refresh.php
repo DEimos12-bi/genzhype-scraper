@@ -44,8 +44,7 @@ function sr_install(PDO $pdo): void {
 
 /**
  * Refresh one story's status text from its timeline.
- * $asOf: the date the status is true as of. Today when the caller has just searched
- * for new coverage (drama_deepen); otherwise leave '' and the latest event's date is used.
+ * $asOf: kept for callers; since 2026-09-28 the status is dated by the page's newest source, never by today.
  */
 function drama_status_refresh(PDO $pdo, int $pageId, string $asOf = '', bool $save = true): array {
     $t0 = microtime(true);
@@ -59,8 +58,15 @@ function drama_status_refresh(PDO $pdo, int $pageId, string $asOf = '', bool $sa
     $today = gmdate('Y-m-d');
     $lastPast = '';
     foreach ($f['events'] as $e) if ($e['date'] <= $today && $e['date'] > $lastPast && strncmp($e['date'], '0000', 4) !== 0) $lastPast = $e['date'];
-    if ($asOf === '' || $asOf > $today) $asOf = $lastPast !== '' ? $lastPast : $today;
-    $asOfTxt = story_context_date_label($asOf);
+    // owner 2026-09-28: "never stamp today's date on a status": the status is dated by the newest source and names it
+    // (a caller's $asOf, which was today after a fresh search, no longer decides)
+    $ns = $pdo->prepare("SELECT s.published_on, s.publisher FROM events e JOIN sources s ON s.id=e.source_id JOIN dramas d ON d.id=e.drama_id
+                         WHERE d.page_id=? AND s.published_on IS NOT NULL AND s.published_on <= UTC_DATE() ORDER BY s.published_on DESC LIMIT 1");
+    $ns->execute([$pageId]);
+    $newest = $ns->fetch(PDO::FETCH_ASSOC) ?: [];
+    $asOf = (string)($newest['published_on'] ?? '') ?: $lastPast;
+    $asOfBy = trim((string)preg_replace('/\s*\(original post\)\s*$/i', '', (string)($newest['publisher'] ?? '')));
+    $asOfTxt = story_context_date_label($asOf) . ($asOfBy !== '' && story_context_date_label($asOf) !== '' ? ", per {$asOfBy}" : '');
     if ($asOfTxt === '') return ['ok' => false, 'why' => 'no usable date for the status line'];
 
     $events = $f['events'];
@@ -75,7 +81,7 @@ function drama_status_refresh(PDO $pdo, int $pageId, string $asOf = '', bool $sa
     $sys = "You are GenZHype's status desk. New dated events reached this story's timeline after its summary was written, so the summary, status and FAQ may now be out of date or contradict the timeline. Update ONLY what the timeline makes out of date.\n"
          . "RULES:\n"
          . "1. Use ONLY facts in the TIMELINE and the CURRENT PAGE. Never add a name, number, date, quote, platform or claim they do not state.\n"
-         . "2. summary: " . SR_SUMMARY_MIN . "-350 characters. Sentence 1 answers what happened and who. The last sentence starts 'As of {$asOfTxt},' and says where the story stands, from the LATEST dated events. Keep attribution ('according to <outlet>', 'reportedly', 'alleged') on any claim that is not a confirmed primary-source statement. If late events point different ways (e.g. a dismissal, then later activity), state each with its date and source instead of choosing; never call the story ongoing in text that reports it ended unless an event says it continues.\n"
+         . "2. summary: " . SR_SUMMARY_MIN . "-350 characters. Sentence 1 answers what happened and who. The last sentence starts 'As of {$asOfTxt},' and says where the story stands exactly as that source states it; if it states no status, it names the latest development and who reported it. Never a status no source states. Keep attribution ('according to <outlet>', 'reportedly', 'alleged') on any claim that is not a confirmed primary-source statement. If late events point different ways (e.g. a dismissal, then later activity), state each with its date and source instead of choosing; never call the story ongoing in text that reports it ended unless an event says it continues.\n"
          . "2b. An event marked SCHEDULED is a plan or announced date, not something that happened: say it is planned or expected, with its date.\n"
          . "3. lifecycle: resolved only when a timeline event reports an ending (ruling, dismissal, settlement, release, cancellation, accepted apology); dormant when the latest event is over 30 days old with nothing pending; otherwise ongoing.\n"
          . "4. meta_desc: " . SR_META_MIN . "-155 characters, one complete sentence. Return the current one unchanged unless it contradicts the latest events or reads cut off (not a complete sentence).\n"
