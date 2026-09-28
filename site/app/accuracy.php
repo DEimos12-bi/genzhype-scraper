@@ -157,6 +157,27 @@ function acc_cut(string $text, array $sentences): string {
  * background|faq|event (key = faq id / event id / list index), or the fact check's own section names
  * ("faq 2", "event 3", "next 1"; the number is the position on the page). ['removed' => n, 'events_dropped' => n, ...].
  */
+/**
+ * A summary built from the timeline alone, for when the cuts leave too little: what remains of it, then the first and the
+ * latest development, each dated and named by the outlet that reported it (no AI, nothing the timeline does not hold).
+ * $eventIds: the events still on the page.
+ */
+function acc_summary_from_timeline(PDO $pdo, int $did, string $left, array $eventIds): string {
+    require_once __DIR__ . '/page_rules.php';
+    if (!$eventIds) return trim($left);
+    $rows = $pdo->query("SELECT e.event_date date, e.title, COALESCE(s.publisher, '') `by` FROM events e LEFT JOIN sources s ON s.id=e.source_id
+                         WHERE e.id IN (" . implode(',', array_map('intval', $eventIds)) . ") AND e.event_date <= UTC_DATE() AND e.event_date NOT LIKE '%-00'
+                         ORDER BY e.event_date, e.sort_order")->fetchAll(PDO::FETCH_ASSOC);
+    if (!$rows) return trim($left);
+    $first = $rows[0]; $last = end($rows);
+    $by = fn(array $r) => trim((string)preg_replace('/\s*\(original post\)\s*$/i', '', (string)$r['by']));
+    $lines = [trim($left)];
+    if ($first !== $last) $lines[] = 'It began on ' . pr_date_label((string)$first['date']) . ($by($first) !== '' ? ', as ' . $by($first) . ' reported' : '') . ': '
+                                   . rtrim(pr_past_title((string)$first['title']), ' .') . '.';
+    $lines[] = pr_latest_sentence($last);
+    return trim(implode(' ', array_filter($lines)));
+}
+
 function acc_remove(PDO $pdo, int $pageId, array $items): array {
     $out = ['removed' => 0, 'events_dropped' => 0, 'faqs_dropped' => 0, 'why_dropped' => false, 'not_found' => 0];
     if (!$items) return $out;
@@ -195,6 +216,12 @@ function acc_remove(PDO $pdo, int $pageId, array $items): array {
     $bg = array_values(array_filter($bg, fn($b) => mb_strlen(trim($b)) >= 25));
     $next = array_values(array_filter($next, fn($nx) => mb_strlen(trim((string)($nx['text'] ?? ''))) >= 20));
     if (mb_strlen(trim($why)) < 40) { $out['why_dropped'] = trim((string)$p['why_matters']) !== ''; $why = ''; }
+    // a summary the cuts leave too short is filled from the timeline itself, never left empty (2026-09-28: page 1760's
+    // summary went from two sentences to nothing, and page 928's the same way the night before)
+    if ($summary !== (string)$p['summary'] && mb_strlen(trim($summary)) < ACC_SUMMARY_MIN) {
+        $kept = array_filter($evText, fn($t) => mb_strlen(trim((string)$t)) >= 20);
+        $summary = acc_summary_from_timeline($pdo, $did, $summary, array_keys($kept));
+    }
     $pdo->prepare("UPDATE pages SET summary=?, updated_at=NOW() WHERE id=?")->execute([$summary, $pageId]);
     $pdo->prepare("UPDATE dramas SET why_matters=?, background=?, whats_next=? WHERE id=?")
         ->execute([$why !== '' ? $why : null, json_encode($bg, JSON_UNESCAPED_UNICODE), $next ? json_encode($next, JSON_UNESCAPED_UNICODE) : null, $did]);
@@ -418,6 +445,15 @@ function acc_run(PDO $pdo, int $pageId): array {
     foreach (pr_hard_fails($pdo, $pageId) as $r) if (preg_match('/^rule [15]: the (title|title tag|description|title or description)\b/', $r)) $titleWhy[] = $r;
     if ($titleWhy) $rep['retitled'] = acc_retitle($pdo, $pageId, implode('; ', $titleWhy));
     if ($rep['removal']['removed'] > 0 || array_sum($rep['dates']) > 0 || $rep['retitled']) $v = verify_drama($pageId);   // the page as it now stands
+    // the final check can fault the title or the description when the first did not (2026-09-28: page 1760's "the court says
+    // he remains incarcerated" was caught only here, after the one rewrite had passed): it gets that rewrite, then one check
+    if (!$rep['retitled'] && ($v['pass'] ?? true) === false) {
+        $late = [];
+        foreach ((array)($v['issues'] ?? []) as $i)
+            if (is_array($i) && (($i['type'] ?? '') === 'title' || str_starts_with(strtolower((string)($i['section'] ?? '')), 'description')))
+                $late[] = (str_starts_with(strtolower((string)($i['section'] ?? '')), 'description') ? 'the description: ' : '') . (string)($i['detail'] ?? $i['sentence'] ?? '');
+        if ($late && ($rep['retitled'] = acc_retitle($pdo, $pageId, implode('; ', $late)))) $v = verify_drama($pageId);
+    }
     $rep['verify'] = $v;
     acc_log($pdo, $pageId, (int)$rep['removal']['removed']);
     return $rep;

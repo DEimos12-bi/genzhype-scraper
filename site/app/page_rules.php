@@ -157,11 +157,11 @@ const PR_PAST = ['announces' => 'announced', 'reveals' => 'revealed', 'unveils' 
     'reports' => 'reported', 'alleges' => 'alleged', 'speaks' => 'spoke', 'cancels' => 'canceled', 'delays' => 'delayed', 'adds' => 'added',
     'removes' => 'removed', 'deletes' => 'deleted', 'holds' => 'held', 'faces' => 'faced', 'receives' => 'received', 'signs' => 'signed',
     'breaks' => 'broke', 'hits' => 'hit', 'sets' => 'set', 'plans' => 'planned', 'shows' => 'showed', 'explains' => 'explained', 'warns' => 'warned',
-    'asks' => 'asked', 'agrees' => 'agreed', 'comments' => 'commented', 'reaches' => 'reached', 'gains' => 'gained', 'criticizes' => 'criticized', 'defends' => 'defended', 'accepts' => 'accepted', 'refuses' => 'refused', 'appears' => 'appeared', 'gets' => 'got', 'goes' => 'went', 'makes' => 'made'];
+    'asks' => 'asked', 'agrees' => 'agreed', 'comments' => 'commented', 'reaches' => 'reached', 'gains' => 'gained', 'pleads' => 'pleaded', 'criticizes' => 'criticized', 'defends' => 'defended', 'accepts' => 'accepted', 'refuses' => 'refused', 'appears' => 'appeared', 'gets' => 'got', 'goes' => 'went', 'makes' => 'made'];
 
 function pr_past_title(string $t): string {
     // the subject: 1-4 words opening the entry, none a possessive ("Alpha's claims go viral" is left alone)
-    return (string)preg_replace_callback('/^((?:[\p{Lu}\p{N}][\p{L}\p{N}_.&\-]*\s+){1,4})([a-z]+)\b/u', function ($m) {
+    return (string)preg_replace_callback('/^((?:[\p{Lu}\p{N}][\p{L}\p{N}_.&\-\x{2010}\x{2011}]*\s+){1,4})([a-z]+)\b/u', function ($m) {
         if (preg_match("/['’]s?\s*$/u", $m[1]) || !isset(PR_PAST[$m[2]])) return $m[0];
         return $m[1] . PR_PAST[$m[2]];
     }, $t, 1);

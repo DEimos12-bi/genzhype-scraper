@@ -186,6 +186,14 @@ function rt_cases(): array {
             return [(bool)preg_grep('/description/', $r), $r ? $r[0] : 'nothing caught it'];
         }],
 
+        [1, 'summary-floor', 'fix', 'Removing unsupported sentences never leaves an empty summary: it is filled from the timeline (2026-09-28)', function (PDO $pdo) use ($over) {
+            $sum = 'Alpha was banned from the sponsorship program for breaking the rules. As of ' . gmdate('F j, Y') . ', Alpha remains banned and has not appealed.';
+            $pid = rt_story($pdo, 'r1-floor', ['events' => $over, 'summary' => $sum]);
+            acc_remove($pdo, $pid, [['section' => 'summary', 'sentence' => 'Alpha was banned from the sponsorship program for breaking the rules.'], ['section' => 'summary', 'sentence' => 'As of ' . gmdate('F j, Y') . ', Alpha remains banned and has not appealed.']]);
+            $sm = (string)$pdo->query("SELECT summary FROM pages WHERE id={$pid}")->fetchColumn();
+            return [mb_strlen($sm) >= 80 && str_contains($sm, 'reported by') && !str_contains($sm, 'remains banned'), "summary now: \"" . mb_substr($sm, 0, 160) . '"'];
+        }],
+
         // RULE 2: the publish date never changes
         [2, 'publish-again', 'fix', 'Publishing a live page again keeps its first publish date', function (PDO $pdo) {
             $pid = rt_term($pdo, 'r2-pub', ['status' => 'published', 'published_at' => '2026-09-01 10:00:00']);
