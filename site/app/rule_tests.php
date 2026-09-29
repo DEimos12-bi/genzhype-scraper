@@ -109,6 +109,18 @@ function rt_need(string $fn): void {
     if (!function_exists($fn)) throw new RuntimeException("no code check yet ({$fn} does not exist)");
 }
 
+/** The glossary page that holds an entry, as a reader sees it (25 entries a page since 2026-09-29; a "zz" test word
+    sorts last, so it is on the last page, not the first). */
+function rt_glossary_html(string $lane, string $slug): string {
+    $g = repo_glossary($lane);
+    $i = array_search($slug, array_column($g['entries'], 'slug'), true);
+    $p = $i === false ? 1 : intdiv($i, LIST_PER_PAGE) + 1;
+    $had = $_GET['page'] ?? null;
+    if ($p > 1) $_GET['page'] = (string)$p; else unset($_GET['page']);
+    try { return view('glossary', ['g' => $g]); }
+    finally { if ($had === null) unset($_GET['page']); else $_GET['page'] = $had; }
+}
+
 /** [rule, id, 'fix'|'guard', what it checks, fn(PDO): [passed, what happened]]. */
 function rt_cases(): array {
     $over = [[40, 'Alpha posts about the deal', 'Alpha said Beta broke the deal, according to Dexerto.', 'https://www.dexerto.com/zz-ruletest/a'],
@@ -360,7 +372,7 @@ function rt_cases(): array {
             rt_need('repo_glossary');
             rt_term($pdo, 'r4-why', ['status' => 'archived', 'term' => 'zz ruletest why', 'redirect_to' => '/slang/glossary/#' . RT_PREFIX . 'r4-why', 'citations' => [
                 ['platform' => '', 'publication' => 'Dexerto', 'title' => 'Why zz ruletest why is the meme everywhere', 'date' => rt_day(4), 'url' => 'https://www.dexerto.com/zz-ruletest/why', 'quote' => 'zz ruletest why']]]);
-            $html = view('glossary', ['g' => repo_glossary('slang')]);
+            $html = rt_glossary_html('slang', RT_PREFIX . 'r4-why');
             $ok = preg_match('#id="' . RT_PREFIX . 'r4-why".*?Why now: ([^<]*)#s', $html, $m);
             return [(bool)$ok, $ok ? 'Why now: ' . $m[1] : 'no why-now line'];
         }],
@@ -368,7 +380,7 @@ function rt_cases(): array {
             rt_need('repo_glossary');
             rt_term($pdo, 'r4-wikt', ['status' => 'archived', 'term' => 'zz ruletest wikt', 'redirect_to' => '/slang/glossary/#' . RT_PREFIX . 'r4-wikt',
                 'meaning' => ['A made-up word for the test set, defined in its own way (Wiktionary) and used nowhere else.']]);
-            $html = view('glossary', ['g' => repo_glossary('slang')]);
+            $html = rt_glossary_html('slang', RT_PREFIX . 'r4-wikt');
             $ok = (bool)preg_match('#<a href="https://en\.wiktionary\.org/wiki/[^"]+"[^>]*>Wiktionary</a>#', $html);
             return [$ok, $ok ? 'linked' : 'Wiktionary is named without a link'];
         }],
@@ -383,7 +395,7 @@ function rt_cases(): array {
         [4, 'glossary-page', 'fix', 'The slang glossary shows a folded term in its own section', function (PDO $pdo) {
             rt_need('repo_glossary');
             rt_term($pdo, 'r4-fold', ['status' => 'archived', 'term' => 'zz ruletest word', 'redirect_to' => '/slang/glossary/#' . RT_PREFIX . 'r4-fold']);
-            $html = view('glossary', ['g' => repo_glossary('slang')]);
+            $html = rt_glossary_html('slang', RT_PREFIX . 'r4-fold');
             return [str_contains($html, 'id="' . RT_PREFIX . 'r4-fold"'), str_contains($html, 'zz ruletest word') ? 'the term has its section' : 'the term is missing'];
         }],
 

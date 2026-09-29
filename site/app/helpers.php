@@ -48,6 +48,37 @@ function gone() {
     exit;
 }
 
+// LIST PAGES, 25 ITEMS A PAGE (owner 2026-09-29: "each type of page shows only 25 items, then move to the other").
+// The type pages (/drama/, /slang/, /meme/, /gaming/, /hype/) and the glossaries. Page 2 on lives at ?page=N, its own
+// address and canonical (Google: each page of a series is a page of its own, reached by plain <a> links); ?page=1
+// answers 301 to the plain address, and a page past the end or anything but a number is a 404.
+// Called by the template before any output (view() buffers, so the redirect and the 404 still work).
+const LIST_PER_PAGE = 25;
+function list_page(string $base, int $total, int $per = LIST_PER_PAGE): array {
+    $pages = max(1, (int)ceil($total / $per));
+    $n = 1;
+    if (isset($_GET['page'])) {
+        $raw = $_GET['page'];
+        if (!is_string($raw) || !preg_match('/^[1-9][0-9]{0,3}$/', $raw)) not_found();
+        $n = (int)$raw;
+        if ($n === 1) { header('Location: ' . url($base), true, 301); exit; }
+        if ($n > $pages) not_found();
+    }
+    return ['base' => $base, 'page' => $n, 'pages' => $pages, 'offset' => ($n - 1) * $per, 'per' => $per];
+}
+function list_page_url(string $base, int $n): string {
+    return $n <= 1 ? $base : $base . '?page=' . $n;
+}
+// page 2 on gets its own title and description ("(Page 2 of 6)"), so no two pages of a list read the same
+function list_page_title(string $title, array $pg): string {
+    if ($pg['page'] < 2) return $title;
+    $tag = " (Page {$pg['page']} of {$pg['pages']})";
+    return str_contains($title, ' | GenZHype') ? str_replace(' | GenZHype', $tag . ' | GenZHype', $title) : $title . $tag;
+}
+function list_page_desc(string $desc, array $pg): string {
+    return $pg['page'] < 2 ? $desc : rtrim($desc) . " Page {$pg['page']} of {$pg['pages']}.";
+}
+
 /**
  * Encyclopedia inline links (KYM pattern, design study 2026-06-12): inside an
  * ALREADY-ESCAPED body paragraph, link the first mention of every OTHER
