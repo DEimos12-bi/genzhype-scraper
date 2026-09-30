@@ -94,7 +94,8 @@ function dd_feed_items(string $xml, int $max = 15): array {
                 $l = trim((string)$it->get_permalink());
                 if ($t === '' || $l === '') continue;
                 $desc = trim(html_entity_decode(strip_tags((string)$it->get_description()), ENT_QUOTES, 'UTF-8'));
-                $items[] = ['title' => $t, 'link' => $l, 'desc' => mb_substr($desc, 0, 400)];
+                // the item's own date (UTC), saved on the queue entry (owner 2026-09-30: the article's date, not the day we found it)
+                $items[] = ['title' => $t, 'link' => $l, 'desc' => mb_substr($desc, 0, 400), 'date' => (string)($it->get_gmdate('Y-m-d H:i:s') ?? '')];
             }
             if ($items) return $items;
         } catch (\Throwable $e) { /* fall through to regex */ }
@@ -115,7 +116,8 @@ function dd_feed_items_regex(string $xml, int $max = 15): array {
             };
             $t = $get('title');
             $l = $get('link');
-            if ($t !== '' && $l !== '') $items[] = ['title' => $t, 'link' => $l, 'desc' => mb_substr($get('description'), 0, 400)];
+            if ($t !== '' && $l !== '') $items[] = ['title' => $t, 'link' => $l, 'desc' => mb_substr($get('description'), 0, 400),
+                                                 'date' => $get('pubDate') ?: ($get('published') ?: ($get('dc:date') ?: $get('updated')))];
         }
     }
     return $items;
@@ -132,6 +134,8 @@ function dd_keyword_hits(string $text): int {
 function discover_dramas_run(): array {
     $pdo = db();
     require_once __DIR__ . '/desk.php';
+    require_once __DIR__ . '/story_picker.php';   // sp_date(); candidates.item_date (owner 2026-09-30)
+    sp_install($pdo);
     $seen = 0; $queued = 0; $dropped = 0; $deadFeeds = [];
     // LANE ROUTING (2026-08-22). Every feed item was inserted as 'drama',
     // including all 137 KnowYourMeme items — memes were being judged as news
@@ -141,8 +145,8 @@ function discover_dramas_run(): array {
     // feed by definition, so its items start in the meme lane; anything
     // clearly about a game routes to gaming. Everything else is drama, as
     // before.
-    $ins = $pdo->prepare("INSERT INTO candidates (type,name,angle,heat_score,era,status,signals)
-                          VALUES (?,?,?,?,'present','new',?)");
+    $ins = $pdo->prepare("INSERT INTO candidates (type,name,angle,heat_score,era,status,signals,item_date)
+                          VALUES (?,?,?,?,'present','new',?,?)");
     foreach (DD_FEEDS as $label => $url) {
         $xml = fs_http_get($url, 15);
         if (!$xml) { $deadFeeds[] = $label; continue; }
@@ -157,7 +161,7 @@ function discover_dramas_run(): array {
             // THE DESK (2026-09-05): every raw item also enters the one intake,
             // BEFORE this door's keyword screen, so the general judge sees
             // what the door drops. Non-fatal; shadow until app/DESK_LIVE exists.
-            desk_signal($pdo, 'rss:' . $label, $it['title'], $it['link'], '', 'rss');
+            desk_signal($pdo, 'rss:' . $label, $it['title'], $it['link'], '', 'rss', null, sp_date((string)($it['date'] ?? '')) ?: null);
             $hits = dd_keyword_hits($it['title'] . ' ' . $it['desc']);
             // 2026-08-31: the keyword list is creator-centric (tiktok, streamer,
             // youtuber...). A real gaming headline - "GTA 6 delayed to November
@@ -178,6 +182,7 @@ function discover_dramas_run(): array {
                 "surfaced via {$label} feed",
                 min(90, ($fromGamingFeed ? 55 : 40) + $hits * 10),   // keyword density = heat proxy; AI judges next
                 json_encode(['source' => "rss:{$label}", 'url' => $it['link'], 'desc' => $it['desc']], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
+                sp_date((string)($it['date'] ?? '')) ?: null,   // the article's own date
             ]);
             $queued++;
         }
@@ -196,7 +201,8 @@ function discover_dramas_run(): array {
         if ($title === '') continue;
         $seen++;
         desk_signal($pdo, 'scout:reddit:' . $sub, $title, (string)($p['permalink'] ?? ''), (string)($p['author'] ?? ''), 'reddit',
-                    !empty($p['created_utc']) ? date('Y-m-d H:i:s', (int)$p['created_utc']) : null);
+                    !empty($p['created_utc']) ? date('Y-m-d H:i:s', (int)$p['created_utc']) : null,
+                    !empty($p['created_utc']) ? gmdate('Y-m-d H:i:s', (int)$p['created_utc']) : null);
         $hits = dd_keyword_hits($title);
         if ($hits < 1) { $dropped++; continue; }
         $lane = dd_lane_for('reddit-' . $sub, $title);
@@ -211,6 +217,7 @@ function discover_dramas_run(): array {
             json_encode(['source' => "scout:r/{$sub}",
                          'url' => 'https://www.reddit.com' . (string)($p['permalink'] ?? ''),
                          'ups' => (int)($p['ups'] ?? 0)], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
+            !empty($p['created_utc']) ? gmdate('Y-m-d H:i:s', (int)$p['created_utc']) : null,   // the post's own time
         ]);
         $queued++;
     }

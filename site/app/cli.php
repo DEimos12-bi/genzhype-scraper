@@ -1242,6 +1242,43 @@ switch ($cmd) {
         echo $hd ? "SUBJECT: {$hd[0]}\n\n{$hd[1]}" : "nothing waits for the owner\n";
         break;
 
+    case 'picker':
+        // THE STORY PICKER RULES (owner 2026-09-30, story_picker.php): "picker status", "picker on|off" (the switch is the
+        // file app/PICKER_ON), "picker check <candidate id>" (read one, write nothing), "picker expire" (the queue entries
+        // over 14 days; "picker expire apply" retires them), "picker report [days]" (built / merged / watched / dropped),
+        // "picker backtest <seconds> [k] [n]" (the last 14 days replayed, nothing written; shard k of n), "picker backtest report".
+        require_once __DIR__ . '/story_picker.php';
+        sp_install($pdo);
+        $sub = (string)($arg ?? 'status');
+        if ($sub === 'on')  { touch(__DIR__ . '/PICKER_ON'); echo "picker: ON (new stories are checked before writing)\n"; break; }
+        if ($sub === 'off') { @unlink(__DIR__ . '/PICKER_ON'); echo "picker: OFF (the old picker runs)\n"; break; }
+        if ($sub === 'check') {
+            $c = sp_cand($pdo, (int)($argv[3] ?? 0));
+            if (!$c) { echo "no such candidate\n"; break; }
+            $r = sp_evaluate($pdo, $c, gmdate('Y-m-d H:i:s'));
+            echo "#{$c['id']} {$c['name']}\n  => {$r['decision']} ({$r['rule']}): {$r['why']}\n  topic: " . ($r['read']['topic'] ?? '-') . "\n";
+            foreach ($r['items'] as $it) printf("  %s %-7s %-28s %s %s\n", (!empty($it['on_topic']) || !empty($it['seed'])) ? '+' : '-', $it['kind'], mb_substr(sp_host($it['url']), 0, 28), substr((string)$it['date'], 0, 10) ?: 'undated', mb_substr((string)$it['title'], 0, 70));
+            break;
+        }
+        if ($sub === 'expire') {
+            $list = sp_expire_list($pdo);
+            echo count($list) . ' queue entries over ' . SP_QUEUE_MAX_DAYS . " days\n";
+            foreach (array_slice($list, 0, 10) as $e) echo "  #{$e['id']} found " . substr($e['created_at'], 0, 10) . ' | ' . mb_substr($e['name'], 0, 100) . "\n";
+            if (($argv[3] ?? '') === 'apply') { $n = 0; while (($h = sp_housekeeping($pdo))['expired'] > 0) $n += $h['expired']; echo "expired {$n}\n"; }
+            break;
+        }
+        if ($sub === 'report') { print_r(sp_report($pdo, (int)($argv[3] ?? 7))); break; }
+        if ($sub === 'backtest') {
+            require_once __DIR__ . '/story_picker_backtest.php';
+            if (($argv[3] ?? '') === 'report') { $all = spb_results(); $by = []; foreach ($all as $r) $by[$r['how']] = ($by[$r['how']] ?? 0) + 1; arsort($by); echo count($all) . " read\n"; print_r($by); break; }
+            print_r(spb_run($pdo, max(30, (int)($argv[3] ?? 300)), (int)($argv[4] ?? 0), max(1, (int)($argv[5] ?? 1))));
+            break;
+        }
+        $w = (int)$pdo->query("SELECT COUNT(*) FROM candidates WHERE status='watch'")->fetchColumn();
+        echo 'picker: ' . (sp_on() ? 'ON' : 'OFF') . " | watch list {$w} | queue entries over " . SP_QUEUE_MAX_DAYS . ' days: ' . count(sp_expire_list($pdo)) . "\n";
+        print_r(sp_report($pdo, 7)['counts']);
+        break;
+
     case 'ruletest':
         // 2026-09-27 (owner): the permanent test set (rule_tests.php). "ruletest" runs every case, "ruletest 5" one rule,
         // "ruletest 5-fake-quote" one case. Made-up pages only (zz-ruletest-*), removed after each case.
@@ -2055,6 +2092,10 @@ switch ($cmd) {
         // r153 (desk switched on 2026-09-10, owner decision "breaking -> publish fast"):
         // a story the desk judged BREAKING is drafted first, ahead of older retries.
         // The gates are untouched: breaking goes first, it does not go through easier.
+        // THE STORY PICKER (owner 2026-09-30, story_picker.php; on only with app/PICKER_ON): queue entries over 14 days
+        // expire and the watch list is re-checked (24h) or dropped (48h) before anything new is picked
+        require_once __DIR__ . '/story_picker.php';
+        if (sp_on()) { $hk = sp_housekeeping($pdo); if ($hk['line'] !== '') echo "picker: {$hk['line']}\n"; $pdo = db_alive(); }
         $cands = $pdo->query("SELECT id, name, COALESCE(draft_attempts,0) tries, signals FROM candidates
                               WHERE status='selected' AND type='drama' AND COALESCE(draft_attempts,0) < 5
                               ORDER BY (JSON_UNQUOTE(JSON_EXTRACT(signals, '$.urgency')) = 'breaking') DESC,
@@ -2086,6 +2127,7 @@ switch ($cmd) {
         // tick and starve every stage behind it.
         $tried = 0;
         $DRAMA_MAX_TRIES = 4;
+        $pkChecks = 0;   // story picker reads this run (SP_CHECKS_PER_RUN)
         foreach ($cands as $cd) {
             if ($built >= $N) break;
             if ($tried >= $DRAMA_MAX_TRIES) {
@@ -2094,8 +2136,21 @@ switch ($cmd) {
                 break;
             }
             if (time() - $tickT0 > (!empty($GLOBALS['VIDEO_HOUR']) ? 0 : (!empty($GLOBALS['VID_STARVED']) ? 600 : 1200))) { echo '  drama build: stopping at +' . (int)round((time() - $tickT0) / 60) . "m to keep time for video and intelligence\n"; cnote('drama build: stopped by the time budget'); break; }   // r147
+            // THE STORY PICKER RULES (owner 2026-09-30, story_picker.php; on only with app/PICKER_ON): new (an item dated in
+            // the last 72h), about its own topic, 2 outlets or 1 + the original post (else the watch list), and a saga's new
+            // chapter goes on the page we have. Only a 'build' is written, and only from the sources about its topic.
+            $pkUrls = null;
+            if (sp_on()) {
+                if ($pkChecks >= SP_CHECKS_PER_RUN) { echo "  picker: {$pkChecks} stories read this run, the rest wait\n"; break; }
+                $pkChecks++;
+                $pk = sp_pick($pdo, $cd);
+                $pdo = db_alive();
+                echo "  picker #{$cd['id']}: {$pk['decision']}, {$pk['why']}\n";
+                if ($pk['decision'] !== 'build') continue;
+                $pkUrls = $pk['urls'];
+            }
             $tried++;
-            $src = fetch_sources_for_candidate((int)$cd['id']);
+            $src = fetch_sources_for_candidate((int)$cd['id'], 4, $pkUrls);
             if (isset($src['error'])) {
                 echo "  skip #{$cd['id']}: {$src['error']}\n";
                 $pdo->prepare("UPDATE candidates SET status='rejected', reject_reason=? WHERE id=?")->execute(['autopilot: ' . mb_substr($src['error'],0,200), $cd['id']]);
@@ -2151,6 +2206,12 @@ switch ($cmd) {
             // the checks every story gets after it is written (story_checks.php, shared with rebuild.php)
             require_once __DIR__ . '/story_checks.php';
             ['v' => $v, 'q' => $q, 'g' => $g, 'ok' => $ok] = story_checks($pdo, (int)$d['page_id'], 'exa');
+            // after writing (story_picker.php, on only with app/PICKER_ON): a page no longer about its topic, or with no event
+            // from the last 72 hours, is archived and never published
+            if (sp_on()) {
+                $pc = sp_page_check($pdo, (int)$d['page_id'], (int)$cd['id']);
+                if (!$pc['ok']) { $ok = false; echo "  PICKER: {$d['slug']} archived, not published: {$pc['why']}\n"; }
+            }
             echo "  built {$d['slug']} | v=" . (($v['pass'] ?? 0)?'P':'i') . " q=" . (($q['pass'] ?? 0)?'P':'F') . " g=" . (($g['pass'] ?? 0)?'P':'F') . ($ok ? "  => READY" : "") . "\n";
             if (isset($d['context'])) echo "    context: why=" . ($d['context']['why'] ? 'yes' : 'no') . " next={$d['context']['next']}"
                 . ($d['context']['dropped'] ? ' (dropped: ' . implode('; ', array_slice($d['context']['dropped'], 0, 3)) . ')' : '') . "\n";

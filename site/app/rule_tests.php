@@ -476,7 +476,65 @@ function rt_cases(): array {
             $r = $pdo->query("SELECT status, human_review FROM pages WHERE id={$pid}")->fetch(PDO::FETCH_ASSOC);
             return [$r['status'] === 'review' && $r['human_review'] === 'needed', "status {$r['status']}, human check: " . ($r['human_review'] ?? 'none')];
         }],
+        // RULE 12: the story picker (owner 2026-09-30, story_picker.php): new, on its own topic, 2 outlets, sagas merged
+        [12, 'old-story', 'fix', 'A story whose newest article is from April is dropped as old (the RaKai page, 6 months late)', fn() => rt_sp_case(
+            [['url' => 'https://timesofindia.indiatimes.com/a', 'title' => 'RaKai targets Mari', 'date' => '2026-04-07 12:00:00', 'seed' => true]], 'drop', 'age')],
+        [12, 'old-tiktok', 'fix', 'A site writing up a June TikTok in September: the TikTok dates the story, so it is old', fn() => rt_sp_case(
+            [['url' => 'https://dailydot.com/a', 'title' => 'TikToker stops tipping', 'date' => '2026-09-30 09:00:00', 'seed' => true],
+             ['url' => 'https://www.tiktok.com/@x/video/7516000000000000000', 'title' => 'the video', 'date' => '2026-06-15 10:00:00', 'kind' => 'post', 'on_topic' => true, 'from' => 'embed']], 'drop', 'age')],
+        [12, 'off-topic-watch', 'fix', 'A new screenshot with only last month\'s leak articles found is not built: it waits (the crop duster post)', fn() => rt_sp_case(
+            [['url' => 'https://www.reddit.com/r/GTA6/comments/x', 'title' => 'crop duster photo', 'date' => '2026-09-30 09:00:00', 'seed' => true, 'kind' => 'post'],
+             ['url' => 'https://www.notebookcheck.net/a', 'title' => 'Second group claims access to GTA 6 build', 'date' => '2026-08-20 12:00:00', 'on_topic' => false, 'from' => 'search']], 'watch', 'sources')],
+        [12, 'one-outlet-watch', 'fix', 'One outlet only (Xbox on Kotaku, AION on Insider Gaming): the watch list, not a page', fn() => rt_sp_case(
+            [['url' => 'https://kotaku.com/a', 'title' => 'Xbox cloud', 'date' => '2026-09-30 09:00:00', 'seed' => true]], 'watch', 'sources')],
+        [12, 'watch-drop', 'fix', 'Still one outlet 48 hours later: dropped', fn() => rt_sp_case(
+            [['url' => 'https://kotaku.com/a', 'title' => 'Xbox cloud', 'date' => '2026-09-30 09:00:00', 'seed' => true]], 'drop', 'watch_expired', ['watch_since' => '2026-09-28 11:00:00'])],
+        [12, 'two-outlets', 'guard', 'Two independent outlets from today: built', fn() => rt_sp_case(
+            [['url' => 'https://kotaku.com/a', 'title' => 'Xbox cloud gaming is collapsing', 'date' => '2026-09-30 09:00:00', 'seed' => true],
+             ['url' => 'https://www.theverge.com/b', 'title' => 'Microsoft trims cloud gaming hours', 'date' => '2026-09-30 08:00:00', 'on_topic' => true, 'from' => 'search']], 'build', 'ok')],
+        [12, 'outlet-and-post', 'guard', 'One outlet + the story\'s own post from today: built', fn() => rt_sp_case(
+            [['url' => 'https://dailydot.com/a', 'title' => 'TikToker says', 'date' => '2026-09-30 09:00:00', 'seed' => true],
+             ['url' => 'https://www.tiktok.com/@x/video/1', 'title' => 'the video', 'date' => '2026-09-29 20:00:00', 'kind' => 'post', 'on_topic' => true, 'from' => 'embed']], 'build', 'ok')],
+        [12, 'same-site', 'fix', 'Two articles from one site count as one outlet', fn() => rt_sp_case(
+            [['url' => 'https://kotaku.com/a', 'title' => 'Xbox cloud', 'date' => '2026-09-30 09:00:00', 'seed' => true],
+             ['url' => 'https://kotaku.com/b', 'title' => 'More Xbox cloud news', 'date' => '2026-09-30 10:00:00', 'on_topic' => true, 'from' => 'search']], 'watch', 'sources')],
+        [12, 'wikipedia', 'fix', 'Wikipedia is not an outlet', fn() => rt_sp_case(
+            [['url' => 'https://insider-gaming.com/a', 'title' => 'AION 2 tops Steam', 'date' => '2026-09-30 09:00:00', 'seed' => true],
+             ['url' => 'https://en.wikipedia.org/wiki/Aion_2', 'title' => 'Aion 2 - Wikipedia', 'date' => '2026-09-30 10:00:00', 'on_topic' => true, 'from' => 'search']], 'watch', 'sources')],
+        [12, 'syndicated', 'fix', 'The same headline on another site (a syndicated copy) counts once', fn() => rt_sp_case(
+            [['url' => 'https://kotaku.com/a', 'title' => 'Xbox Cloud Gaming Is Collapsing', 'date' => '2026-09-30 09:00:00', 'seed' => true],
+             ['url' => 'https://www.gamerant.com/b', 'title' => 'Xbox Cloud Gaming Is Collapsing - Game Rant', 'date' => '2026-09-30 10:00:00', 'on_topic' => true, 'from' => 'search']], 'watch', 'sources')],
+        [12, 'old-outlet', 'fix', 'An article from 4 weeks ago is not coverage of today\'s story (Polygon, Sep 4, for a Sep 30 story)', fn() => rt_sp_case(
+            [['url' => 'https://kotaku.com/a', 'title' => 'Xbox cloud', 'date' => '2026-09-30 09:00:00', 'seed' => true],
+             ['url' => 'https://www.polygon.com/b', 'title' => 'Xbox caps cloud hours', 'date' => '2026-09-04 10:00:00', 'on_topic' => true, 'from' => 'search']], 'watch', 'sources')],
+        [12, 'search-thread', 'fix', 'A Reddit thread the search found is not the story\'s own post', fn() => rt_sp_case(
+            [['url' => 'https://kotaku.com/a', 'title' => 'Xbox cloud', 'date' => '2026-09-30 09:00:00', 'seed' => true],
+             ['url' => 'https://www.reddit.com/r/xbox/comments/b', 'title' => 'thoughts?', 'date' => '', 'kind' => 'post', 'on_topic' => true, 'from' => 'search']], 'watch', 'sources')],
+        [12, 'saga', 'fix', 'A new chapter of a story we already have goes on that page, never a new page (the GTA 6 leak saga)', fn() => rt_sp_case(
+            [['url' => 'https://www.dexerto.com/a', 'title' => 'Take-Two files new subpoena', 'date' => '2026-09-30 09:00:00', 'seed' => true],
+             ['url' => 'https://www.ign.com/b', 'title' => 'Take-Two goes after GTA 6 leakers again', 'date' => '2026-09-30 08:00:00', 'on_topic' => true, 'from' => 'search']], 'merge', 'saga', ['saga' => 799, 'saga_title' => 'GTA 6 Leak Controversy'])],
+        [12, 'queue-expire', 'fix', 'A queue entry over 14 days old expires', fn() => rt_sp_case([], 'expire', 'queue_age', ['found_at' => '2026-09-15 10:00:00'])],
+        [12, 'page-new-event', 'fix', 'A written page whose events are all 41 days old is not published', function () {
+            rt_need('sp_events_fresh');
+            $old = sp_events_fresh(['2026-08-19', '2026-08-20'], '2026-09-30 11:50:00');
+            $new = sp_events_fresh(['2026-08-19', '2026-09-29'], '2026-09-30 11:50:00');
+            return [!$old && $new, 'Aug 19-20 only: ' . ($old ? 'passes' : 'refused') . '; with Sep 29: ' . ($new ? 'passes' : 'refused')];
+        }],
+        [12, 'post-time', 'fix', 'A post on X is dated by its own id, not by the day we found it', function () {
+            rt_need('sp_post_time');
+            $d = sp_post_time('https://x.com/a/status/1600000000000000000');
+            return [substr($d, 0, 10) === '2022-12-06', 'dated ' . ($d ?: 'nothing')];
+        }],
     ];
+}
+
+/** Rule 12: a story picker decision at a fixed moment (2026-09-30 12:00 UTC, found 10:00). */
+function rt_sp_case(array $items, string $wantDecision, string $wantRule, array $extra = []): array {
+    if (is_file(__DIR__ . '/story_picker.php')) require_once __DIR__ . '/story_picker.php';
+    rt_need('sp_decide');
+    $r = sp_decide(array_merge(['now' => '2026-09-30 12:00:00', 'found_at' => '2026-09-30 10:00:00', 'watch_since' => null,
+                                'queue_expiry' => true, 'saga' => 0], $extra, ['items' => $items]));
+    return [$r['decision'] === $wantDecision && $r['rule'] === $wantRule, "{$r['decision']} ({$r['rule']}): {$r['why']}"];
 }
 
 /** Every case, each on a clean slate. [['rule','id','kind','what','pass','detail'], ...] */

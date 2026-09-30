@@ -343,7 +343,7 @@ function footage_clips_gather(int $drama_id, int $max = 8): array {
  * Build a draft-ready input array from a SELECTED candidate.
  * Returns ['topic'=>, 'sources'=>[...]] or ['error'=>..].
  */
-function fetch_sources_for_candidate(int $cand_id, int $want = 4): array {
+function fetch_sources_for_candidate(int $cand_id, int $want = 4, ?array $onlyUrls = null): array {
     $pdo = db();
     $c = $pdo->prepare("SELECT * FROM candidates WHERE id=? AND status='selected'");
     $c->execute([$cand_id]);
@@ -360,7 +360,9 @@ function fetch_sources_for_candidate(int $cand_id, int $want = 4): array {
     foreach (['url', 'permalink', 'external_url'] as $k) {
         if (!empty($signals[$k]) && filter_var($signals[$k], FILTER_VALIDATE_URL)) $urls[] = $signals[$k];
     }
-    $sources = fs_fetch_sources($query, $urls, $want);
+    // the story picker (story_picker.php, owner 2026-09-30) hands over the articles and posts about the story's own topic:
+    // write from those only, no new search (a search is what found last month's leak for a new screenshot)
+    $sources = $onlyUrls !== null ? fs_fetch_sources($query, $onlyUrls, $want, false) : fs_fetch_sources($query, $urls, $want);
     if (isset($sources['error'])) return $sources;
 
     return [
@@ -381,10 +383,10 @@ function fetch_sources_for_candidate(int $cand_id, int $want = 4): array {
  * ['error' => ...] with fewer than 2. Used by fetch_sources_for_candidate() (a new story) and
  * story_rebuild() (an existing story made again from fresh sources, rebuild.php, 2026-09-26).
  */
-function fs_fetch_sources(string $query, array $seedUrls = [], int $want = 4): array {
+function fs_fetch_sources(string $query, array $seedUrls = [], int $want = 4, bool $search = true): array {
     $urls = array_values(array_filter($seedUrls, fn($u) => (bool)filter_var($u, FILTER_VALIDATE_URL)));
-    foreach (fs_news_search($query, 6) as $u) $urls[] = $u;
-    if (count($urls) < 3) foreach (fs_search($query, 6) as $u) $urls[] = $u;
+    if ($search) foreach (fs_news_search($query, 6) as $u) $urls[] = $u;
+    if ($search && count($urls) < 3) foreach (fs_search($query, 6) as $u) $urls[] = $u;
     $urls = array_values(array_unique($urls));
 
     $sources = [];

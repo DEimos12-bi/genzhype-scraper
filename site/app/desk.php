@@ -133,7 +133,7 @@ function desk_origin_kind(string $origin): array {
 /* A. INTAKE. Called by every fetcher for every raw item, BEFORE its own
  * keyword screens and dedupe, so the desk sees what the doors drop. Non-fatal. */
 function desk_signal(PDO $pdo, string $origin, string $text, string $url = '', string $author = '',
-                     string $platform = '', ?string $seenAt = null): ?int {
+                     string $platform = '', ?string $seenAt = null, ?string $itemDate = null): ?int {
     static $ready = false;
     try {
         if (!$ready) { desk_install($pdo); $ready = true; }
@@ -151,10 +151,10 @@ function desk_signal(PDO $pdo, string $origin, string $text, string $url = '', s
         $cid = (int)$pdo->query("SELECT id FROM desk_clusters WHERE ckey=" . $pdo->quote($ckey))->fetchColumn();
         if (!$cid) return null;
         $hash = md5(mb_strtolower($origin) . '|' . $ckey . '|' . $url . '|' . mb_strtolower($author));
-        $ins = $pdo->prepare("INSERT IGNORE INTO desk_signals (cluster_id,sig_hash,origin,origin_kind,lane_hint,platform,text,url,author,seen_at)
-                              VALUES (?,?,?,?,?,?,?,?,?,?)");
+        $ins = $pdo->prepare("INSERT IGNORE INTO desk_signals (cluster_id,sig_hash,origin,origin_kind,lane_hint,platform,text,url,author,seen_at,item_date)
+                              VALUES (?,?,?,?,?,?,?,?,?,?,?)");
         $ins->execute([$cid, $hash, mb_substr($origin, 0, 60), $kind, $laneHint, mb_substr($platform, 0, 30),
-                       mb_substr($text, 0, 500), mb_substr($url, 0, 500), mb_substr($author, 0, 120), $seen]);
+                       mb_substr($text, 0, 500), mb_substr($url, 0, 500), mb_substr($author, 0, 120), $seen, $itemDate]);   // item_date: the item's own date when the fetcher knows it (2026-09-30)
         if ($ins->rowCount() > 0) {
             // the card's counters and lists come from its own signals (a few rows)
             $pdo->prepare("UPDATE desk_clusters c SET
@@ -364,11 +364,14 @@ function desk_route(PDO $pdo, int $cid, string $kind, string $lane, string $urge
     // stories go to the drama assistant (select.php) as 'new'; vocabulary is
     // already judged for shape and lane, it enters 'selected' like the Scout does
     $status = $type === 'drama' ? 'new' : 'selected';
-    $pdo->prepare("INSERT INTO candidates (type,name,angle,heat_score,era,status,signals,ai_verdict)
-                   VALUES (?,?,?,?,'present',?,?,?)")
+    // the earliest own date among the items it was heard from (owner 2026-09-30: the article's date, not the day we found it)
+    $idq = $pdo->prepare("SELECT MIN(item_date) FROM desk_signals WHERE cluster_id=?");
+    $idq->execute([$cid]);
+    $pdo->prepare("INSERT INTO candidates (type,name,angle,heat_score,era,status,signals,ai_verdict,item_date)
+                   VALUES (?,?,?,?,'present',?,?,?,?)")
         ->execute([$type, mb_substr($routeName, 0, 240), mb_substr($why, 0, 255), $heat, $status,
                    json_encode($signals, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
-                   (string)$c['verdict_json']]);
+                   (string)$c['verdict_json'], $idq->fetchColumn() ?: null]);
     $newId = (int)$pdo->lastInsertId();
     $pdo->prepare("UPDATE desk_clusters SET status='routed', routed_to=? WHERE id=?")->execute([$newId, $cid]);
     return true;
