@@ -510,6 +510,25 @@ function rt_cases(): array {
         [12, 'search-thread', 'fix', 'A Reddit thread the search found is not the story\'s own post', fn() => rt_sp_case(
             [['url' => 'https://kotaku.com/a', 'title' => 'Xbox cloud', 'date' => '2026-09-30 09:00:00', 'seed' => true],
              ['url' => 'https://www.reddit.com/r/xbox/comments/b', 'title' => 'thoughts?', 'date' => '', 'kind' => 'post', 'on_topic' => true, 'from' => 'search']], 'watch', 'sources')],
+        [12, 'post-undated', 'fix', 'An undated post the article links does not make "1 outlet + the original post" (Xbox: Kotaku + a Reddit thread)', fn() => rt_sp_case(
+            [['url' => 'https://kotaku.com/a', 'title' => 'Xbox cloud', 'date' => '2026-09-30 09:00:00', 'seed' => true],
+             ['url' => 'https://www.reddit.com/r/xbox/comments/b', 'title' => 'thread', 'date' => '', 'kind' => 'post', 'on_topic' => true, 'from' => 'embed']], 'watch', 'sources')],
+        [12, 'post-old', 'fix', 'A post from 5 days ago does not either, even when the article reports something new today', fn() => rt_sp_case(
+            [['url' => 'https://kotaku.com/a', 'title' => 'Studio responds', 'date' => '2026-09-30 09:00:00', 'seed' => true],
+             ['url' => 'https://x.com/a/status/1', 'title' => 'the first post', 'date' => '2026-09-25 10:00:00', 'kind' => 'post', 'on_topic' => true, 'from' => 'embed']], 'watch', 'sources', ['event_date' => '2026-09-30 09:00:00'])],
+        [12, 'nothing-dated', 'fix', 'Nothing dated found (an empty search looks the same): it waits a day, it is not dropped at once', fn() => rt_sp_case(
+            [['url' => 'https://www.pcgamer.com/a', 'title' => 'Gears of War specs', 'date' => '', 'seed' => true]], 'watch', 'age_unknown')],
+        [12, 'nothing-dated-24h', 'guard', 'Still nothing dated a day later: dropped', fn() => rt_sp_case(
+            [['url' => 'https://www.pcgamer.com/a', 'title' => 'Gears of War specs', 'date' => '', 'seed' => true]], 'drop', 'age', ['watch_since' => '2026-09-29 11:00:00'])],
+        [12, 'own-post-newer', 'fix', 'The AI dates it to June, but the story\'s own post is from yesterday: it is new (Pikachu back from the ISS)', fn() => rt_sp_case(
+            [['url' => 'https://www.dexerto.com/a', 'title' => 'Pikachu spent 67 days on the ISS', 'date' => '2026-09-30 09:00:00', 'seed' => true],
+             ['url' => 'https://x.com/a/status/1', 'title' => 'the post', 'date' => '2026-09-29 18:00:00', 'kind' => 'post', 'on_topic' => true, 'from' => 'embed']], 'build', 'ok', ['event_date' => '2026-06-17 12:00:00'])],
+        [12, 'old-second-reading', 'fix', 'Read as old while 2 outlets wrote about it today: one more reading in 24h before it is dropped', fn() => rt_sp_case(
+            [['url' => 'https://www.pcgamer.com/a', 'title' => 'Court docs reveal', 'date' => '2026-09-30 09:00:00', 'seed' => true],
+             ['url' => 'https://arstechnica.com/b', 'title' => 'Microsoft exec warned of AI doom loops', 'date' => '2026-09-30 08:00:00', 'on_topic' => true, 'from' => 'search']], 'watch', 'age_recheck', ['event_date' => '2026-09-20 12:00:00'])],
+        [12, 'old-second-reading-24h', 'guard', 'Still read as old a day later: dropped', fn() => rt_sp_case(
+            [['url' => 'https://www.pcgamer.com/a', 'title' => 'Court docs reveal', 'date' => '2026-09-30 09:00:00', 'seed' => true],
+             ['url' => 'https://arstechnica.com/b', 'title' => 'Microsoft exec warned of AI doom loops', 'date' => '2026-09-30 08:00:00', 'on_topic' => true, 'from' => 'search']], 'drop', 'age', ['event_date' => '2026-09-20 12:00:00', 'watch_since' => '2026-09-29 11:00:00'])],
         [12, 'saga', 'fix', 'A new chapter of a story we already have goes on that page, never a new page (the GTA 6 leak saga)', fn() => rt_sp_case(
             [['url' => 'https://www.dexerto.com/a', 'title' => 'Take-Two files new subpoena', 'date' => '2026-09-30 09:00:00', 'seed' => true],
              ['url' => 'https://www.ign.com/b', 'title' => 'Take-Two goes after GTA 6 leakers again', 'date' => '2026-09-30 08:00:00', 'on_topic' => true, 'from' => 'search']], 'merge', 'saga', ['saga' => 799, 'saga_title' => 'GTA 6 Leak Controversy'])],

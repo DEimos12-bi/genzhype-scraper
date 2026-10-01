@@ -362,8 +362,21 @@ function fetch_sources_for_candidate(int $cand_id, int $want = 4, ?array $onlyUr
     }
     // the story picker (story_picker.php, owner 2026-09-30) hands over the articles and posts about the story's own topic:
     // write from those only, no new search (a search is what found last month's leak for a new screenshot)
-    $sources = $onlyUrls !== null ? fs_fetch_sources($query, $onlyUrls, $want, false) : fs_fetch_sources($query, $urls, $want);
+    $sources = $onlyUrls !== null ? fs_fetch_sources($query, $onlyUrls, $want, false, 1) : fs_fetch_sources($query, $urls, $want);
     if (isset($sources['error'])) return $sources;
+    // the picker passed it on 1 outlet + the story's own post: a post we cannot read (Reddit refuses servers) still counts
+    // as a source, with the words the listener kept from it
+    if ($onlyUrls !== null && count($sources) < 2) {
+        $own = (string)($signals['url'] ?? '');
+        if (str_starts_with($own, '/r/')) $own = 'https://www.reddit.com' . $own;
+        $txt = trim((string)($signals['desc'] ?? $cand['name']));
+        if ($own !== '' && in_array($own, $onlyUrls, true) && preg_match('#reddit\.com|x\.com|twitter\.com|tiktok\.com|youtube\.com|youtu\.be#i', $own) && mb_strlen($txt) >= 40
+            && !in_array($own, array_column($sources, 'url'), true)) {
+            $sources[] = ['url' => $own, 'publisher' => ucfirst((string)preg_replace('/^www\.|\.com$/', '', (string)parse_url($own, PHP_URL_HOST))) . ' (original post)',
+                          'date' => substr((string)($cand['item_date'] ?? ''), 0, 10), 'reliability' => 'primary', 'excerpt' => mb_substr($txt, 0, 1500), 'title' => mb_substr($txt, 0, 200)];
+        }
+        if (count($sources) < 2) return ['error' => 'could only fetch ' . count($sources) . ' usable source(s); need >= 2', 'tried' => count($onlyUrls)];
+    }
 
     return [
         'topic'   => $verdict['angle'] ?: $cand['name'],
@@ -383,7 +396,7 @@ function fetch_sources_for_candidate(int $cand_id, int $want = 4, ?array $onlyUr
  * ['error' => ...] with fewer than 2. Used by fetch_sources_for_candidate() (a new story) and
  * story_rebuild() (an existing story made again from fresh sources, rebuild.php, 2026-09-26).
  */
-function fs_fetch_sources(string $query, array $seedUrls = [], int $want = 4, bool $search = true): array {
+function fs_fetch_sources(string $query, array $seedUrls = [], int $want = 4, bool $search = true, int $min = 2): array {
     $urls = array_values(array_filter($seedUrls, fn($u) => (bool)filter_var($u, FILTER_VALIDATE_URL)));
     if ($search) foreach (fs_news_search($query, 6) as $u) $urls[] = $u;
     if ($search && count($urls) < 3) foreach (fs_search($query, 6) as $u) $urls[] = $u;
@@ -437,7 +450,7 @@ function fs_fetch_sources(string $query, array $seedUrls = [], int $want = 4, bo
         }
     }
 
-    if (count($sources) < 2) {
+    if (count($sources) < $min) {
         return ['error' => 'could only fetch ' . count($sources) . ' usable source(s); need >= 2', 'tried' => count($urls)];
     }
     return $sources;

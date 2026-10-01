@@ -12,16 +12,25 @@
 require_once __DIR__ . '/story_picker.php';
 
 const SPB_DIR = __DIR__ . '/../storage/picker-backtest';
+/** A second run keeps its own results: SPB_RUN=v2 -> storage/picker-backtest-v2 (the sample of 100 after the owner's answers, 2026-10-01). */
+function spb_dir(): string { $r = preg_replace('/[^a-z0-9]/', '', (string)getenv('SPB_RUN')); return SPB_DIR . ($r !== '' ? '-' . $r : ''); }
+/** The owner's four flagged stories (crop duster, Xbox, AION, TikToker): always in a sample run. */
+const SPB_FLAGGED = [15900, 16024, 16012, 15947];
 // the 14 days before the owner's request (2026-09-30 ~21:00 UTC), fixed so the counts do not drift as the clock moves
 const SPB_FROM = '2026-09-16 21:00:00';
 const SPB_TO   = '2026-09-30 21:30:00';
 
 function spb_population(PDO $pdo): array {
-    return $pdo->query("SELECT * FROM candidates WHERE type='drama' AND created_at >= '" . SPB_FROM . "' AND created_at < '" . SPB_TO . "'
+    $all = $pdo->query("SELECT * FROM candidates WHERE type='drama' AND created_at >= '" . SPB_FROM . "' AND created_at < '" . SPB_TO . "'
                         AND JSON_EXTRACT(ai_verdict, '$.build') = true ORDER BY id")->fetchAll(PDO::FETCH_ASSOC);
+    $want = (int)getenv('SPB_SAMPLE');
+    if ($want < 1 || $want >= count($all)) return $all;
+    $pick = [];
+    for ($k = 0; $k < $want; $k++) $pick[(int)floor($k * count($all) / $want)] = true;
+    return array_values(array_filter($all, fn($c, $i) => isset($pick[$i]) || in_array((int)$c['id'], SPB_FLAGGED, true), ARRAY_FILTER_USE_BOTH));
 }
 
-function spb_state_file(int $k): string { return SPB_DIR . "/state-{$k}.json"; }
+function spb_state_file(int $k): string { return spb_dir() . "/state-{$k}.json"; }
 
 /** The page a built candidate became (the writer keeps the candidate's angle as the page's key phrase). */
 function spb_page_of(PDO $pdo, array $cand): ?array {
@@ -86,7 +95,7 @@ function spb_one(PDO $pdo, array $cand): array {
 
 /** Read candidates until $seconds are spent. Shard $k of $n takes every n-th candidate. */
 function spb_run(PDO $pdo, int $seconds, int $k = 0, int $n = 1): array {
-    @mkdir(SPB_DIR, 0775, true);
+    @mkdir(spb_dir(), 0775, true);
     $f = spb_state_file($k);
     $st = is_file($f) ? (json_decode((string)file_get_contents($f), true) ?: []) : [];
     $st += ['done' => [], 'errors' => []];
@@ -122,7 +131,7 @@ function spb_run(PDO $pdo, int $seconds, int $k = 0, int $n = 1): array {
 /** All shards together. */
 function spb_results(): array {
     $all = [];
-    foreach (glob(SPB_DIR . '/state-*.json') ?: [] as $f) foreach ((json_decode((string)file_get_contents($f), true)['done'] ?? []) as $id => $r) $all[(int)$id] = $r;
+    foreach (glob(spb_dir() . '/state-*.json') ?: [] as $f) foreach ((json_decode((string)file_get_contents($f), true)['done'] ?? []) as $id => $r) $all[(int)$id] = $r;
     ksort($all);
     return $all;
 }

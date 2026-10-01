@@ -196,19 +196,36 @@ function sp_decide(array $f): array {
     // the AI's reading, when there is one: when the development it reports HAPPENED (a September article on a June TikTok
     // -> June), never later than the newest dated item found; and the earliest evidence, for the story's age
     $ev = !empty($f['event_date']) ? strtotime((string)$f['event_date']) : 0;
-    if ($ev && $dated($topic)) { $dates = [min($ev, max($dated($topic)))]; $what = 'development'; }
+    // the newer of the AI's date and the story's own newest post (Pikachu: the AI gave the June launch, its own posts were 2 days old)
+    if ($ev && $dated($topic)) { $dates = [max(min($ev, max($dated($topic))), $postDates ? max($postDates) : 0)]; $what = 'development'; }
     if (!empty($f['first_evidence']) && ($fe = strtotime((string)$f['first_evidence'])) && $dates) $dates[] = min($fe, max($dates));
     $ageH = $dates ? (int)round(($now - min($dates)) / 3600) : null;
-    if (!$dates)
+    $waited = !empty($f['watch_since']) ? $now - strtotime((string)$f['watch_since']) : 0;
+    if (!$dates) {
+        // nothing dated found (a search that came back empty looks the same): it waits and is read again, then dropped
+        if ($waited < SP_WATCH_RECHECK_H * 3600)
+            return ['decision' => 'watch', 'rule' => 'age_unknown', 'why' => 'no dated article or post about it yet: read again in ' . SP_WATCH_RECHECK_H . 'h', 'outlets' => 0, 'posts' => 0, 'age_h' => null];
         return ['decision' => 'drop', 'rule' => 'age', 'why' => 'no dated article or post about it', 'outlets' => 0, 'posts' => 0, 'age_h' => null];
+    }
     $newest = max($dates);
+    // "old" on one reading, while 2+ outlets wrote about it in the last 72 hours: one more reading in 24h before it is dropped
+    if ($now - $newest > SP_NEW_HOURS * 3600 && !$waited) {
+        $fresh = sp_count_outlets(array_filter($topic, fn($i) => ($i['kind'] ?? sp_kind((string)$i['url'])) !== 'post' && ($i['date'] ?? '') !== '' && strtotime($i['date']) >= $now - SP_NEW_HOURS * 3600));
+        if ($fresh['outlets'] >= SP_MIN_OUTLETS)
+            return ['decision' => 'watch', 'rule' => 'age_recheck', 'why' => 'reads as old (' . gmdate('M j, Y', $newest) . ") but {$fresh['outlets']} outlets wrote about it in the last " . SP_NEW_HOURS . 'h: read again in ' . SP_WATCH_RECHECK_H . 'h before dropping', 'outlets' => $fresh['outlets'], 'posts' => 0, 'age_h' => $ageH];
+    }
     if ($now - $newest > SP_NEW_HOURS * 3600)
         return ['decision' => 'drop', 'rule' => 'age', 'why' => ($what === 'development' ? 'old story: what it reports happened on ' : "old story: its newest {$what} about it is from ") . gmdate('M j, Y', $newest) . ($postDates && count($dated($topic)) > count($postDates) ? ' (articles about it are newer)' : ''), 'outlets' => 0, 'posts' => 0, 'age_h' => $ageH];
     // 2+3. SOURCES about this topic: 2+ independent outlets that wrote about it lately, or 1 outlet + the original post.
     //      The original post is the story's own (the candidate itself, the posts it came with or its article embeds),
     //      never a discussion thread the search turned up.
-    $c = sp_count_outlets(array_filter($topic, fn($i) => (($i['date'] ?? '') === '' || strtotime($i['date']) >= $now - SP_OUTLET_DAYS * 86400)
-        && (($i['kind'] ?? sp_kind((string)$i['url'])) !== 'post' || ($i['from'] ?? '') !== 'search')));
+    //      Owner 2026-10-01: that post must also be dated in the last 72 hours (Xbox passed on Kotaku plus an undated
+    //      Reddit thread the article linked); an undated post proves nothing about when the story happened.
+    $c = sp_count_outlets(array_filter($topic, function ($i) use ($now) {
+        $t = ($i['date'] ?? '') !== '' ? strtotime($i['date']) : 0;
+        if (($i['kind'] ?? sp_kind((string)$i['url'])) === 'post') return ($i['from'] ?? '') !== 'search' && $t && $t >= $now - SP_NEW_HOURS * 3600;
+        return !$t || $t >= $now - SP_OUTLET_DAYS * 86400;
+    }));
     $sourced = $c['outlets'] >= SP_MIN_OUTLETS || ($c['outlets'] >= 1 && $c['posts'] >= 1);
     if (!$sourced) {
         $since = !empty($f['watch_since']) ? strtotime((string)$f['watch_since']) : $now;
@@ -314,6 +331,7 @@ function sp_gather(PDO $pdo, array $cand, bool $fetchSeed = true): array {
                 }
             }
         }
+        if ($seedDate !== '' && !empty($cand['created_at']) && strtotime($seedDate) > strtotime((string)$cand['created_at'])) $seedDate = sp_date((string)$cand['created_at']);   // updated later: not after the day we found it
         $items[] = ['url' => $seedUrl, 'title' => (string)$cand['name'], 'desc' => $seedDesc ?? '', 'date' => $seedDate, 'kind' => $kind === 'copy' ? 'copy' : $kind,
                     'on_topic' => true, 'seed' => true, 'from' => 'seed'];
     }
@@ -435,7 +453,7 @@ function sp_ai_read(array $cand, array $items, array $suspects): array {
         . " \"on_topic\": [<numbers of the items about THIS specific topic: the same event or development. An item about the same game, person or company but a different event is NOT on topic (e.g. a new screenshot vs last month's leak). A post (X, TikTok, Reddit, YouTube) is on topic only if it IS this story's own original post (what the story reports happened), not an older post an article cites as background>],\n"
         . " \"latest_event\": \"<YYYY-MM-DD: when the newest development this candidate reports HAPPENED, from the items (not when an article was published about it: an article written in September about a TikTok posted in June -> the June date)>\",\n"
         . " \"first_evidence\": \"<YYYY-MM-DD: the date of the earliest original post or evidence of this story>\",\n"
-        . " \"saga\": \"<" . ($pages !== '' ? "letter of the page this candidate is a NEW CHAPTER of: the same people or company AND the same chain of events (the same leak, feud, lawsuit, ban, launch). A different incident involving the same person or game is NOT a chapter; empty if none" : 'empty') . ">\",\n"
+        . " \"saga\": \"<" . ($pages !== '' ? "letter of the page this candidate most likely CONTINUES (the same story, saga or dispute: a reply, a new filing, a ban or a result in it); empty if none is clearly the same story. A second, stricter check decides" : 'empty') . ">\",\n"
         . " \"why\": \"<max 20 words>\"}";
     $res = ai_chat([['role' => 'user', 'content' => $prompt]], $GLOBALS['SP_AI_ORDER'] ?? SP_AI_ORDER, 0.0, 60, sp_ai_skip());
     if (isset($res['error'])) return ['error' => (string)$res['error']];
@@ -452,6 +470,27 @@ function sp_ai_read(array $cand, array $items, array $suspects): array {
 }
 
 /**
+ * The strict second reading of a proposed merge: is the candidate the next development of the SAME EVENT the page is
+ * about? ['same' => bool, 'event' => the event both are about, 'why'], or null when no model answered.
+ */
+function sp_saga_confirm(PDO $pdo, array $cand, array $items, array $read): ?array {
+    require_once __DIR__ . '/ai.php';
+    require_once __DIR__ . '/dedupe.php';
+    $heads = [];
+    foreach ($items as $k => $it) if (!empty($it['seed']) || in_array($k, (array)$read['on_topic'], true)) $heads[] = '- ' . mb_substr((string)$it['title'], 0, 140);
+    $res = ai_chat([['role' => 'user', 'content' =>
+        "NEW STORY: \"" . $cand['name'] . "\"\nIts topic: " . (string)($read['topic'] ?? '') . "\nHeadlines about it:\n" . implode("\n", array_slice($heads, 0, 6))
+        . "\n\nPAGE ALREADY ON OUR SITE:\n" . dup_story_side_of($pdo, (int)$read['saga'])
+        . "\nIs the new story the NEXT DEVELOPMENT OF THE SAME EVENT that page is about (the same leak, the same feud, the same lawsuit, the same ban, the same accusation, the same tournament)? "
+        . "A follow-up INSIDE the same dispute or saga (a reply to it, a lawsuit threat over it, a ban or apology because of it, a new filing in the same case, the result of the same tournament) IS the same event. The same game, person, company or franchise alone is NOT enough: another patch, another feature, a review score, release times, system specs, a different leak or a different dispute are DIFFERENT events and get their own page. "
+        . "STRICT JSON {\"same_event\": true|false, \"event\": \"<the one event both are about, max 10 words, empty if none>\", \"why\": \"<max 15 words>\"}"]],
+        $GLOBALS['SP_AI_ORDER'] ?? SP_AI_ORDER, 0.0, 60, sp_ai_skip());
+    $j = isset($res['error']) ? null : ai_json((string)$res['content']);
+    if (!is_array($j) || !isset($j['same_event'])) return null;
+    return ['same' => (bool)$j['same_event'] && trim((string)($j['event'] ?? '')) !== '', 'event' => mb_substr((string)($j['event'] ?? ''), 0, 120), 'why' => mb_substr((string)($j['why'] ?? ''), 0, 160)];
+}
+
+/**
  * The full check of one candidate at moment $now (live: now; backtest: a past moment). Reads what it needs (a search,
  * the candidate's own article, at most one AI reading) and returns sp_decide()'s answer plus what it read.
  * $gathered: items already read (the backtest reads once and replays three moments).
@@ -465,16 +504,21 @@ function sp_evaluate(PDO $pdo, array $cand, string $now, ?array $gathered = null
     $pre = sp_decide(array_merge($f, ['items' => []]));
     if ($pre['decision'] === 'expire') return $pre + ['items' => $items, 'read' => null];
     $all = array_values(array_filter(array_map(fn($i) => ($i['date'] ?? '') !== '' ? strtotime($i['date']) : 0, $items), fn($t) => $t && $t <= strtotime($now) + 3600));
-    if (!$all || strtotime($now) - max($all) > SP_NEW_HOURS * 3600)
-        return ['decision' => 'drop', 'rule' => 'age', 'why' => $all ? 'old story: nothing about it is dated after ' . gmdate('M j, Y', max($all)) : 'no dated article or post about it',
-                'outlets' => 0, 'posts' => 0, 'age_h' => $all ? (int)round((strtotime($now) - min($all)) / 3600) : null, 'items' => $items, 'read' => null];
+    if (!$all) return sp_decide($f) + ['items' => $items, 'read' => null];   // nothing dated: waits 24h, then dropped (sp_decide)
+    if (strtotime($now) - max($all) > SP_NEW_HOURS * 3600)
+        return ['decision' => 'drop', 'rule' => 'age', 'why' => 'old story: nothing about it is dated after ' . gmdate('M j, Y', max($all)),
+                'outlets' => 0, 'posts' => 0, 'age_h' => (int)round((strtotime($now) - min($all)) / 3600), 'items' => $items, 'read' => null];
     $others = array_filter($items, fn($i) => empty($i['seed']));
     // the AI reading only where it can change the answer: when even counting every result as on its topic the story
     // would not reach 2 outlets (or 1 + its own post) by $sourcesBy (the backtest: 48h later), it waits and is dropped
     // whatever the reading says (the topic test can only take sources away)
     $by = strtotime($sourcesBy !== '' ? $sourcesBy : $now);
-    $couldRecent = array_filter($items, fn($i) => (($i['date'] ?? '') === '' || (strtotime($i['date']) <= $by + 3600 && strtotime($i['date']) >= $by - SP_OUTLET_DAYS * 86400))
-        && (($i['kind'] ?? '') !== 'post' || ($i['from'] ?? '') !== 'search'));
+    $nowT = strtotime($now);
+    $couldRecent = array_filter($items, function ($i) use ($by, $nowT) {
+        $t = ($i['date'] ?? '') !== '' ? strtotime($i['date']) : 0;
+        if (($i['kind'] ?? '') === 'post') return ($i['from'] ?? '') !== 'search' && $t && $t <= $by + 3600 && $t >= $nowT - SP_NEW_HOURS * 3600;
+        return !$t || ($t <= $by + 3600 && $t >= $by - SP_OUTLET_DAYS * 86400);
+    });
     $cc = sp_count_outlets($couldRecent);
     $could = $cc['outlets'] >= SP_MIN_OUTLETS || ($cc['outlets'] >= 1 && $cc['posts'] >= 1);
     $suspects = ($read === null && $could) ? sp_saga_suspects($pdo, $cand, $before) : [];
@@ -485,6 +529,15 @@ function sp_evaluate(PDO $pdo, array $cand, string $now, ?array $gathered = null
     }
     if (!empty($read['skipped'])) $others = [];   // no reading: the candidate's own posts keep counting, search results do not
     if (isset($read['error'])) return ['decision' => 'hold', 'rule' => 'ai', 'why' => 'no AI answer: ' . $read['error'], 'items' => $items, 'read' => $read];
+    // a proposed merge is read a second time, strictly: only the same event merges (owner 2026-10-01; the first backtest
+    // sent "Witcher 3 release times" onto a page about Roach's movement). No answer = it keeps its turn, nothing is guessed.
+    if (!empty($read['saga']) && !isset($read['saga_checked'])) {
+        $ok = sp_saga_confirm($pdo, $cand, $items, $read);
+        if ($ok === null) return ['decision' => 'hold', 'rule' => 'ai', 'why' => 'no AI answer on the merge check', 'items' => $items, 'read' => ['error' => 'no answer on the merge check']];
+        $read['saga_checked'] = true;
+        if (!$ok['same']) { $read['saga_refused'] = $read['saga_title'] . ' (' . $ok['why'] . ')'; $read['saga'] = 0; $read['saga_title'] = ''; }
+        else $read['saga_event'] = $ok['event'];
+    }
     foreach ($items as $k => &$it) if (empty($it['seed']) && ($others || ($it['from'] ?? '') === 'search')) $it['on_topic'] = in_array($k, $read['on_topic'], true);
     unset($it);
     $f['items'] = $items;
