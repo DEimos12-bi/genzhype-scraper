@@ -12,9 +12,12 @@
 require_once __DIR__ . '/story_picker.php';
 
 const SPB_DIR = __DIR__ . '/../storage/picker-backtest';
+// the 14 days before the owner's request (2026-09-30 ~21:00 UTC), fixed so the counts do not drift as the clock moves
+const SPB_FROM = '2026-09-16 21:00:00';
+const SPB_TO   = '2026-09-30 21:30:00';
 
 function spb_population(PDO $pdo): array {
-    return $pdo->query("SELECT * FROM candidates WHERE type='drama' AND created_at >= '" . gmdate('Y-m-d H:i:s', time() - 14 * 86400) . "'
+    return $pdo->query("SELECT * FROM candidates WHERE type='drama' AND created_at >= '" . SPB_FROM . "' AND created_at < '" . SPB_TO . "'
                         AND JSON_EXTRACT(ai_verdict, '$.build') = true ORDER BY id")->fetchAll(PDO::FETCH_ASSOC);
 }
 
@@ -45,7 +48,7 @@ function spb_one(PDO $pdo, array $cand): array {
     $cand['item_date'] = null;   // replay as it arrived: the queue did not keep the article's date then
     $cand['watch_since'] = null;
     $items = sp_gather($pdo, $cand, true);
-    $r = sp_evaluate($pdo, $cand, $at(0), $items, null, $at(0));
+    $r = sp_evaluate($pdo, $cand, $at(0), $items, null, $at(0), $at(48));
     $path = [$r['decision']];
     $read = $r['read'] ?? null;
     if ($r['decision'] === 'watch') {
@@ -88,15 +91,20 @@ function spb_run(PDO $pdo, int $seconds, int $k = 0, int $n = 1): array {
     $st = is_file($f) ? (json_decode((string)file_get_contents($f), true) ?: []) : [];
     $st += ['done' => [], 'errors' => []];
     $t0 = time(); $did = 0;
+    $doneAny = spb_results();
+    // each lane starts its AI readings on another provider (one slow provider must not hold up every lane)
+    $orders = [['nvidia', 'groq', 'gemini', 'nvidia_director', 'openrouter'], ['gemini', 'nvidia', 'groq', 'nvidia_director', 'openrouter'],
+               ['nvidia_director', 'groq', 'nvidia', 'gemini', 'openrouter'], ['groq', 'nvidia', 'gemini', 'nvidia_director', 'openrouter']];
+    $GLOBALS['SP_AI_ORDER'] = getenv('SPB_GROQ_FIRST') ? ['groq', 'openrouter', 'nvidia', 'gemini', 'nvidia_director'] : $orders[$k % 4];
     foreach (spb_population($pdo) as $i => $cand) {
         if ($i % $n !== $k) continue;
-        if (isset($st['done'][$cand['id']])) continue;
+        if (isset($st['done'][$cand['id']]) || isset($doneAny[$cand['id']])) continue;   // done by any lane
         if (time() - $t0 > $seconds) break;
         try {
             $res = spb_one($pdo, $cand);
             if ($res['final'] === 'hold') {   // no AI answer: try once more on a later run, then record it as unanswered
                 $st['errors'][$cand['id']] = ($st['errors'][$cand['id']] ?? 0) + 1;
-                if ($st['errors'][$cand['id']] < 2) continue;
+                if ($st['errors'][$cand['id']] < 3) continue;
             }
             $st['done'][$cand['id']] = $res;
         } catch (Throwable $e) {

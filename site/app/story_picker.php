@@ -38,7 +38,7 @@ const SP_OUTLET_DAYS        = 7;    // [ours] an outlet counts when it wrote abo
 const SP_SYNDICATED_SIMILAR = 0.75; // [ours] two headlines sharing this share of their words are one syndicated story
 /** The picker's AI readings: the reader chain, then Gemma (14,400 a day on our Gemini key) and OpenRouter's free models
     (2026-09-30: the reader chain alone answered nothing while NVIDIA returned 503s). */
-const SP_AI_ORDER = ['nvidia', 'groq', 'gemini', 'openrouter'];
+const SP_AI_ORDER = ['groq', 'nvidia', 'nvidia_director', 'gemini', 'openrouter'];   // Groq first: 0.5 s an answer vs NVIDIA's 20-30 s (2026-09-30)
 function sp_ai_skip(): array { require_once __DIR__ . '/ai.php'; return array_values(array_diff(AI_READER_SKIP, ['gemini/gemma-4-31b-it'])); }
 
 /** Hosts whose links are original evidence (a post by a person or an account), never an outlet. */
@@ -193,12 +193,17 @@ function sp_decide(array $f): array {
     $postDates = $dated(array_filter($topic, fn($i) => ($i['kind'] ?? sp_kind((string)$i['url'])) === 'post'));
     $dates = $postDates ?: $dated($topic);
     $what = $postDates ? 'original post' : 'article';
+    // the AI's reading, when there is one: when the development it reports HAPPENED (a September article on a June TikTok
+    // -> June), never later than the newest dated item found; and the earliest evidence, for the story's age
+    $ev = !empty($f['event_date']) ? strtotime((string)$f['event_date']) : 0;
+    if ($ev && $dated($topic)) { $dates = [min($ev, max($dated($topic)))]; $what = 'development'; }
+    if (!empty($f['first_evidence']) && ($fe = strtotime((string)$f['first_evidence'])) && $dates) $dates[] = min($fe, max($dates));
     $ageH = $dates ? (int)round(($now - min($dates)) / 3600) : null;
     if (!$dates)
         return ['decision' => 'drop', 'rule' => 'age', 'why' => 'no dated article or post about it', 'outlets' => 0, 'posts' => 0, 'age_h' => null];
     $newest = max($dates);
     if ($now - $newest > SP_NEW_HOURS * 3600)
-        return ['decision' => 'drop', 'rule' => 'age', 'why' => "old story: its newest {$what} about it is from " . gmdate('M j, Y', $newest) . ($postDates && count($dated($topic)) > count($postDates) ? ' (articles about it are newer)' : ''), 'outlets' => 0, 'posts' => 0, 'age_h' => $ageH];
+        return ['decision' => 'drop', 'rule' => 'age', 'why' => ($what === 'development' ? 'old story: what it reports happened on ' : "old story: its newest {$what} about it is from ") . gmdate('M j, Y', $newest) . ($postDates && count($dated($topic)) > count($postDates) ? ' (articles about it are newer)' : ''), 'outlets' => 0, 'posts' => 0, 'age_h' => $ageH];
     // 2+3. SOURCES about this topic: 2+ independent outlets that wrote about it lately, or 1 outlet + the original post.
     //      The original post is the story's own (the candidate itself, the posts it came with or its article embeds),
     //      never a discussion thread the search turned up.
@@ -257,6 +262,14 @@ function sp_news_items(string $query, int $max = 10): array {
     return $out;
 }
 
+/** The candidate's own headline as search words: no site suffix, links, quotes or markup, its first 10 words. */
+function sp_headline_query(array $cand): string {
+    $h = html_entity_decode((string)$cand['name'], ENT_QUOTES, 'UTF-8');
+    $h = preg_replace('/\s+[-|–—]\s+[^-|–—]{2,30}$/u', '', $h);
+    $h = preg_replace('/https?:\/\/\S+|\[[^\]]*\]\([^)]*\)|[“”"‘’\'`*]/u', ' ', $h);
+    return implode(' ', array_slice(preg_split('/\s+/', trim($h)), 0, 10));
+}
+
 /** The search words for a candidate, without the outlet names that pulled back the same outlet ("... Kotaku"). */
 function sp_query(array $cand): string {
     $v = json_decode((string)($cand['ai_verdict'] ?? ''), true) ?: [];
@@ -285,17 +298,23 @@ function sp_gather(PDO $pdo, array $cand, bool $fetchSeed = true): array {
     if ($seedUrl !== '' && filter_var($seedUrl, FILTER_VALIDATE_URL)) {
         $kind = sp_kind($seedUrl);
         if ($seedDate === '') $seedDate = sp_post_time($seedUrl);
+        if ($seedDate === '' && $kind === 'post') {   // a Reddit post: the listener kept its created time (desk_signals.seen_at)
+            $dq = $pdo->prepare("SELECT COALESCE(item_date, seen_at) FROM desk_signals WHERE url IN (?, ?) AND origin LIKE 'scout:reddit:%' ORDER BY seen_at LIMIT 1");
+            $dq->execute([(string)parse_url($seedUrl, PHP_URL_PATH), $seedUrl]);
+            $seedDate = sp_date((string)$dq->fetchColumn());
+        }
         if ($fetchSeed && $kind === 'outlet') {
             $html = fs_http_get($seedUrl, 12);
             if ($html) {
                 if ($seedDate === '') $seedDate = sp_date(fs_published_date($html));
+                $seedDesc = mb_substr(trim(preg_replace('/\s+/u', ' ', fs_extract_text($html))), 0, 400);
                 foreach (fs_harvest_social($html, 4) as $soc) {
                     $embedded[] = ['url' => $soc['url'], 'title' => 'post embedded in the candidate article', 'date' => sp_post_time($soc['url']),
                                    'kind' => 'post', 'on_topic' => true, 'seed' => false, 'from' => 'embed'];
                 }
             }
         }
-        $items[] = ['url' => $seedUrl, 'title' => (string)$cand['name'], 'date' => $seedDate, 'kind' => $kind === 'copy' ? 'copy' : $kind,
+        $items[] = ['url' => $seedUrl, 'title' => (string)$cand['name'], 'desc' => $seedDesc ?? '', 'date' => $seedDate, 'kind' => $kind === 'copy' ? 'copy' : $kind,
                     'on_topic' => true, 'seed' => true, 'from' => 'seed'];
     }
     // the posts the desk heard about it, dated by the post (Reddit created_utc) where the fetcher knew it
@@ -315,7 +334,11 @@ function sp_gather(PDO $pdo, array $cand, bool $fetchSeed = true): array {
     }
     foreach ($embedded as $e) $items[] = $e;
     $have = array_flip(array_column($items, 'url'));
-    foreach (sp_news_items(sp_query($cand), 10) as $r) {
+    // the editor's search words sometimes find nothing ("Microsoft Flight Simulator expensive plane waste simulation":
+    // 0 results, 2026-09-30 backtest): with fewer than 3 results the story's own headline is searched too
+    $found = sp_news_items($q1 = sp_query($cand), 10);
+    if (count($found) < 3 && ($q2 = sp_headline_query($cand)) !== '' && $q2 !== $q1) foreach (sp_news_items($q2, 10) as $r) $found[] = $r;
+    foreach ($found as $r) {
         if (isset($have[$r['url']])) { continue; }
         $items[] = ['url' => $r['url'], 'title' => $r['title'], 'desc' => $r['desc'], 'date' => $r['date'], 'kind' => sp_kind($r['url']),
                     'on_topic' => false, 'seed' => false, 'from' => 'search', 'source' => $r['source']];
@@ -392,10 +415,10 @@ function sp_ai_read(array $cand, array $items, array $suspects): array {
     require_once __DIR__ . '/ai.php';
     $v = json_decode((string)($cand['ai_verdict'] ?? ''), true) ?: [];
     $list = '';
-    foreach ($items as $i => $it) {
+    foreach (array_slice($items, 0, 18) as $i => $it) {
         $list .= ($i + 1) . '. ' . ($it['seed'] ? '[THE CANDIDATE ITSELF] ' : '') . $it['kind'] . ' ' . sp_host((string)$it['url'])
-               . ' ' . ($it['date'] !== '' ? substr($it['date'], 0, 10) : 'undated') . ' "' . mb_substr((string)$it['title'], 0, 160) . '"'
-               . (!empty($it['desc']) ? ' - ' . mb_substr((string)$it['desc'], 0, 160) : '') . "\n";
+               . ' ' . ($it['date'] !== '' ? substr($it['date'], 0, 10) : 'undated') . ' "' . mb_substr((string)$it['title'], 0, 140) . '"'
+               . (!empty($it['desc']) ? ' - ' . mb_substr((string)$it['desc'], 0, !empty($it['seed']) ? 350 : 110) : '') . "\n";
     }
     $pages = '';
     $letters = range('A', 'Z');
@@ -409,10 +432,12 @@ function sp_ai_read(array $cand, array $items, array $suspects): array {
         . ($pages !== '' ? "PAGES ALREADY ON THE SITE that share a person, company or game with it:\n{$pages}\n" : '')
         . "Answer in STRICT JSON:\n"
         . "{\"topic\": \"<the candidate's specific topic, max 12 words>\",\n"
-        . " \"on_topic\": [<numbers of the items about THIS specific topic: the same event or development. An item about the same game, person or company but a different event is NOT on topic (e.g. a new screenshot vs last month's leak)>],\n"
+        . " \"on_topic\": [<numbers of the items about THIS specific topic: the same event or development. An item about the same game, person or company but a different event is NOT on topic (e.g. a new screenshot vs last month's leak). A post (X, TikTok, Reddit, YouTube) is on topic only if it IS this story's own original post (what the story reports happened), not an older post an article cites as background>],\n"
+        . " \"latest_event\": \"<YYYY-MM-DD: when the newest development this candidate reports HAPPENED, from the items (not when an article was published about it: an article written in September about a TikTok posted in June -> the June date)>\",\n"
+        . " \"first_evidence\": \"<YYYY-MM-DD: the date of the earliest original post or evidence of this story>\",\n"
         . " \"saga\": \"<" . ($pages !== '' ? "letter of the page this candidate is a NEW CHAPTER of: the same people or company AND the same chain of events (the same leak, feud, lawsuit, ban, launch). A different incident involving the same person or game is NOT a chapter; empty if none" : 'empty') . ">\",\n"
         . " \"why\": \"<max 20 words>\"}";
-    $res = ai_chat([['role' => 'user', 'content' => $prompt]], SP_AI_ORDER, 0.0, 60, sp_ai_skip());
+    $res = ai_chat([['role' => 'user', 'content' => $prompt]], $GLOBALS['SP_AI_ORDER'] ?? SP_AI_ORDER, 0.0, 60, sp_ai_skip());
     if (isset($res['error'])) return ['error' => (string)$res['error']];
     $j = ai_json((string)$res['content']);
     if (!is_array($j) || !isset($j['on_topic'])) return ['error' => 'unreadable answer'];
@@ -421,7 +446,8 @@ function sp_ai_read(array $cand, array $items, array $suspects): array {
     $saga = 0; $sagaTitle = '';
     $L = strtoupper(trim((string)($j['saga'] ?? '')));
     if ($L !== '' && ($k = array_search($L[0], $letters, true)) !== false && isset($suspects[$k])) { $saga = (int)$suspects[$k]['id']; $sagaTitle = (string)$suspects[$k]['h1']; }
-    return ['topic' => mb_substr((string)($j['topic'] ?? ''), 0, 120), 'on_topic' => $on, 'saga' => $saga, 'saga_title' => $sagaTitle,
+    return ['topic' => mb_substr((string)($j['topic'] ?? ''), 0, 120), 'on_topic' => $on,
+            'latest_event' => sp_date((string)($j['latest_event'] ?? '')), 'first_evidence' => sp_date((string)($j['first_evidence'] ?? '')), 'saga' => $saga, 'saga_title' => $sagaTitle,
             'why' => mb_substr((string)($j['why'] ?? ''), 0, 200), 'provider' => (string)($res['provider'] ?? '')];
 }
 
@@ -430,7 +456,7 @@ function sp_ai_read(array $cand, array $items, array $suspects): array {
  * the candidate's own article, at most one AI reading) and returns sp_decide()'s answer plus what it read.
  * $gathered: items already read (the backtest reads once and replays three moments).
  */
-function sp_evaluate(PDO $pdo, array $cand, string $now, ?array $gathered = null, ?array $read = null, string $before = ''): array {
+function sp_evaluate(PDO $pdo, array $cand, string $now, ?array $gathered = null, ?array $read = null, string $before = '', string $sourcesBy = ''): array {
     $items = $gathered ?? sp_gather($pdo, $cand);
     $foundAt = (string)$cand['created_at'];
     $f = ['now' => $now, 'found_at' => $foundAt, 'watch_since' => $cand['watch_since'] ?? null, 'queue_expiry' => true,
@@ -443,16 +469,27 @@ function sp_evaluate(PDO $pdo, array $cand, string $now, ?array $gathered = null
         return ['decision' => 'drop', 'rule' => 'age', 'why' => $all ? 'old story: nothing about it is dated after ' . gmdate('M j, Y', max($all)) : 'no dated article or post about it',
                 'outlets' => 0, 'posts' => 0, 'age_h' => $all ? (int)round((strtotime($now) - min($all)) / 3600) : null, 'items' => $items, 'read' => null];
     $others = array_filter($items, fn($i) => empty($i['seed']));
-    $suspects = $read === null ? sp_saga_suspects($pdo, $cand, $before) : [];
+    // the AI reading only where it can change the answer: when even counting every result as on its topic the story
+    // would not reach 2 outlets (or 1 + its own post) by $sourcesBy (the backtest: 48h later), it waits and is dropped
+    // whatever the reading says (the topic test can only take sources away)
+    $by = strtotime($sourcesBy !== '' ? $sourcesBy : $now);
+    $couldRecent = array_filter($items, fn($i) => (($i['date'] ?? '') === '' || (strtotime($i['date']) <= $by + 3600 && strtotime($i['date']) >= $by - SP_OUTLET_DAYS * 86400))
+        && (($i['kind'] ?? '') !== 'post' || ($i['from'] ?? '') !== 'search'));
+    $cc = sp_count_outlets($couldRecent);
+    $could = $cc['outlets'] >= SP_MIN_OUTLETS || ($cc['outlets'] >= 1 && $cc['posts'] >= 1);
+    $suspects = ($read === null && $could) ? sp_saga_suspects($pdo, $cand, $before) : [];
     if ($read === null) {
-        $read = ($others || $suspects) ? sp_ai_read($cand, $items, $suspects)
-                                       : ['topic' => (string)$cand['name'], 'on_topic' => [], 'saga' => 0, 'saga_title' => '', 'why' => 'nothing else found'];
+        $read = ($could && ($others || $suspects)) ? sp_ai_read($cand, $items, $suspects)
+              : ['topic' => (string)$cand['name'], 'on_topic' => [], 'saga' => 0, 'saga_title' => '',
+                 'why' => $could ? 'nothing else found' : 'not enough outlets even counting every result: no AI reading needed', 'skipped' => !$could];
     }
+    if (!empty($read['skipped'])) $others = [];   // no reading: the candidate's own posts keep counting, search results do not
     if (isset($read['error'])) return ['decision' => 'hold', 'rule' => 'ai', 'why' => 'no AI answer: ' . $read['error'], 'items' => $items, 'read' => $read];
     foreach ($items as $k => &$it) if (empty($it['seed']) && ($others || ($it['from'] ?? '') === 'search')) $it['on_topic'] = in_array($k, $read['on_topic'], true);
     unset($it);
     $f['items'] = $items;
     $f['saga'] = $read['saga']; $f['saga_title'] = $read['saga_title'];
+    $f['event_date'] = (string)($read['latest_event'] ?? ''); $f['first_evidence'] = (string)($read['first_evidence'] ?? '');
     return sp_decide($f) + ['items' => $items, 'read' => $read];
 }
 
