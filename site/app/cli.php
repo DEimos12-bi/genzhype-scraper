@@ -2153,6 +2153,7 @@ switch ($cmd) {
             $src = fetch_sources_for_candidate((int)$cd['id'], 4, $pkUrls);
             if (isset($src['error'])) {
                 echo "  skip #{$cd['id']}: {$src['error']}\n";
+                if ($pkUrls !== null) { echo '    picker: ' . sp_fetch_failed($pdo, (int)$cd['id'], (string)$src['error']) . "\n"; continue; }   // approved by the picker: it waits, it is not thrown away
                 $pdo->prepare("UPDATE candidates SET status='rejected', reject_reason=? WHERE id=?")->execute(['autopilot: ' . mb_substr($src['error'],0,200), $cd['id']]);
                 continue;
             }

@@ -326,7 +326,11 @@ function sp_gather(PDO $pdo, array $cand, bool $fetchSeed = true): array {
                 if ($seedDate === '') $seedDate = sp_date(fs_published_date($html));
                 $seedDesc = mb_substr(trim(preg_replace('/\s+/u', ' ', fs_extract_text($html))), 0, 400);
                 foreach (fs_harvest_social($html, 4) as $soc) {
-                    $embedded[] = ['url' => $soc['url'], 'title' => 'post embedded in the candidate article', 'date' => sp_post_time($soc['url']),
+                    // only a post we can read: its words are what the AI judges and what the writer cites (2026-10-01, first
+                    // live run: a deleted X post counted as "the story's own post" and the writer then had one source)
+                    $ptxt = fs_social_excerpt((string)$soc['provider'], (string)$soc['url']);
+                    if ($ptxt === '') continue;
+                    $embedded[] = ['url' => $soc['url'], 'title' => mb_substr($ptxt, 0, 220), 'date' => sp_post_time($soc['url']),
                                    'kind' => 'post', 'on_topic' => true, 'seed' => false, 'from' => 'embed'];
                 }
             }
@@ -649,6 +653,25 @@ function sp_page_check(PDO $pdo, int $pageId, int $candId): array {
     return ['ok' => false, 'why' => $why];
 }
 
+/**
+ * A story the picker approved, but the writer could not fetch two readable sources for it (an outlet that blocks our
+ * reader): it waits on the watch list and is tried again, and is dropped 48 hours after it first waited.
+ */
+function sp_fetch_failed(PDO $pdo, int $candId, string $error): string {
+    $c = sp_cand($pdo, $candId);
+    $since = !empty($c['watch_since']) ? strtotime((string)$c['watch_since']) : 0;
+    if ($since && time() - $since >= SP_WATCH_DROP_H * 3600) {
+        $pdo->prepare("UPDATE candidates SET status='rejected', reject_reason=? WHERE id=?")->execute([mb_substr('picker: its sources could not be read in ' . SP_WATCH_DROP_H . 'h (' . $error . ')', 0, 255), $candId]);
+        sp_log($pdo, $candId, 'drop', 'fetch', 'its sources could not be read in ' . SP_WATCH_DROP_H . 'h: ' . $error);
+        return 'dropped, its sources could not be read in ' . SP_WATCH_DROP_H . 'h';
+    }
+    $sg = json_decode((string)($c['signals'] ?? ''), true) ?: [];
+    unset($sg['picker']['decision']);   // the next check reads it afresh
+    $pdo->prepare("UPDATE candidates SET status='watch', watch_since=COALESCE(watch_since, UTC_TIMESTAMP()), picker_checked_at=UTC_TIMESTAMP(), signals=? WHERE id=?")
+        ->execute([json_encode($sg, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE), $candId]);
+    sp_log($pdo, $candId, 'watch', 'fetch', 'approved, but its sources could not be read: ' . $error);
+    return 'watch list, tried again in ' . SP_WATCH_RECHECK_H . 'h';
+}
 /** Queue entries over 14 days (the stories waiting to be written), oldest first. */
 function sp_expire_list(PDO $pdo, int $limit = 0): array {
     $sql = "SELECT id, name, created_at, item_date, status FROM candidates
