@@ -544,7 +544,71 @@ function rt_cases(): array {
             $d = sp_post_time('https://x.com/a/status/1600000000000000000');
             return [substr($d, 0, 10) === '2022-12-06', 'dated ' . ($d ?: 'nothing')];
         }],
+
+        // RULE 13: the trend detector (owner 2026-10-01, trend.php): rising, new, 2+ platforms, not an ordinary word
+        [13, 'ordinary-word', 'fix', '"gamepad" is an ordinary gaming word: never a trend, however often it is used', fn() => rt_tr_case(
+            ['recent_posts' => 40, 'recent_authors' => 30, 'platforms' => ['reddit', 'youtube'], 'baseline_3d' => 2, 'ordinary' => true, 'label' => 'an ordinary gaming word'], false)],
+        [13, 'dict-plain', 'fix', 'The dictionary lists "stamina" as a plain word: ordinary', function () {
+            rt_need_tr();
+            $r = tr_dict_read(['English lemmas', 'English nouns', 'English uncountable nouns']);
+            return [$r['ordinary'] === true, $r['label']];
+        }],
+        [13, 'dict-gaming', 'fix', 'The dictionary lists "loadout" under video games: an ordinary gaming word', function () {
+            rt_need_tr();
+            $r = tr_dict_read(['English lemmas', 'English nouns', 'en:Video games']);
+            return [$r['ordinary'] === true, $r['label']];
+        }],
+        [13, 'dict-slang', 'guard', 'The dictionary lists "rizz" as slang: not an ordinary word', function () {
+            rt_need_tr();
+            $r = tr_dict_read(['English lemmas', 'English nouns', 'English slang', 'English neologisms']);
+            return [$r['ordinary'] === false, $r['label']];
+        }],
+        [13, 'dict-none', 'guard', 'A new meme name is not in the dictionary: not an ordinary word', function () {
+            rt_need_tr();
+            $r = tr_dict_read([]);
+            return [$r['ordinary'] === false, $r['label']];
+        }],
+        [13, 'old-term', 'fix', 'A term in our signals for 6 weeks is not new, even when it spikes', fn() => rt_tr_case(
+            ['recent_posts' => 30, 'recent_authors' => 20, 'platforms' => ['reddit', 'x'], 'baseline_3d' => 2, 'first_heard' => '2026-08-19'], false)],
+        [13, 'since-start', 'fix', 'A term heard since the day our listener started has an unknown age: not new', fn() => rt_tr_case(
+            ['recent_posts' => 30, 'recent_authors' => 20, 'platforms' => ['reddit', 'x'], 'baseline_3d' => 2, 'first_heard' => '2026-09-01', 'listener_start' => '2026-08-31'], false)],
+        [13, 'one-platform', 'fix', 'New and rising, but on one platform only: not a trend yet', fn() => rt_tr_case(
+            ['recent_posts' => 30, 'recent_authors' => 20, 'platforms' => ['reddit'], 'baseline_3d' => 2], false)],
+        [13, 'not-rising', 'fix', 'A word used as much as usual (6 posts against its own average of 5) is common, not rising', fn() => rt_tr_case(
+            ['recent_posts' => 6, 'recent_authors' => 6, 'platforms' => ['reddit', 'youtube'], 'baseline_3d' => 5], false)],
+        [13, 'rising', 'guard', 'New, on 2 platforms, 30 posts against its own average of 2: a trend', fn() => rt_tr_case(
+            ['recent_posts' => 30, 'recent_authors' => 12, 'platforms' => ['reddit', 'x'], 'baseline_3d' => 2], true)],
+        [13, 'interim', 'guard', 'With only 2 days of counts, new + 2 platforms + 6 posts by 4 people passes, and says "rising not judged yet"', function () {
+            $r = rt_tr_decide(['recent_posts' => 6, 'recent_authors' => 4, 'platforms' => ['reddit', 'x'], 'baseline_3d' => 0, 'history_days' => 2]);
+            return [$r['trend'] && $r['interim'], $r['why']];
+        }],
+        [13, 'dict-slang-interim', 'fix', 'A word the dictionary already lists as slang cannot pass before a rise can be measured ("washed", "diss")', fn() => rt_tr_case(
+            ['recent_posts' => 8, 'recent_authors' => 6, 'platforms' => ['reddit', 'x'], 'baseline_3d' => 0, 'history_days' => 2, 'label' => 'in the dictionary as slang'], false)],
+        [13, 'too-few', 'fix', 'Two posts are not a trend', fn() => rt_tr_case(
+            ['recent_posts' => 2, 'recent_authors' => 2, 'platforms' => ['reddit', 'x'], 'baseline_3d' => 0, 'history_days' => 2], false)],
+        [13, 'post-once', 'fix', 'The same post read on two hourly runs is one post', function () {
+            rt_need_tr();
+            $p = ['platform' => 'reddit', 'sub' => 'gaming', 'author' => 'Someone', 'text' => "This  new gamepad is great"];
+            $q = ['platform' => 'reddit', 'sub' => 'gaming', 'author' => 'someone', 'text' => 'This new gamepad is great'];
+            return [tr_post_hash($p) === tr_post_hash($q) && tr_post_hash($p) !== tr_post_hash(['author' => 'other'] + $p), 'same post, same mark; another author, another mark'];
+        }],
     ];
+}
+
+/** Rule 13: the trend detector's functions, loaded when the file exists. */
+function rt_need_tr(): void {
+    if (is_file(__DIR__ . '/trend.php')) require_once __DIR__ . '/trend.php';
+    rt_need('tr_decide');
+}
+/** A trend decision on 2026-10-01 with 20 days of counts, for a term first heard 5 days ago, unless $m says otherwise. */
+function rt_tr_decide(array $m): array {
+    rt_need_tr();
+    return tr_decide($m + ['now' => '2026-10-01', 'history_days' => 20, 'first_heard' => '2026-09-26', 'listener_start' => '2026-08-30',
+                           'ordinary' => false, 'label' => '', 'recent_reach' => 0]);
+}
+function rt_tr_case(array $m, bool $wantTrend): array {
+    $r = rt_tr_decide($m);
+    return [$r['trend'] === $wantTrend, ($r['trend'] ? 'trend' : 'not a trend') . ': ' . $r['why']];
 }
 
 /** Rule 12: a story picker decision at a fixed moment (2026-09-30 12:00 UTC, found 10:00). */

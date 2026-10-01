@@ -255,6 +255,12 @@ function scout_run(PDO $pdo, int $screenCap = 6): array {
     catch (Throwable $e) { echo "  scout: steam ear skipped: " . $e->getMessage() . "\n"; }
     $stats['posts'] = count($posts);
 
+    // THE TREND DETECTOR's day-by-day counts (trend.php, owner 2026-10-01): how many different posts used each term
+    // today, by how many people, on which platforms. A post is counted once however often this cache is re-read.
+    // Recorded whether or not the detector is switched on: "rising" needs weeks of these counts.
+    try { require_once __DIR__ . '/trend.php'; $tr = tr_record($pdo, $posts, 'scout_tokenize'); echo "  trend counts: {$tr['posts']} new post(s), {$tr['terms']} term(s)\n"; }
+    catch (Throwable $e) { echo '  trend counts skipped: ' . $e->getMessage() . "\n"; }
+
     // ---- 2. NOTICE: fold this harvest into the vocabulary ledger ----------
     $seen = [];   // term => ['authors'=>set,'platforms'=>set,'posts'=>[...]]
     foreach ($posts as $p) {

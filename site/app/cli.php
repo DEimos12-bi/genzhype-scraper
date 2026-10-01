@@ -1242,6 +1242,25 @@ switch ($cmd) {
         echo $hd ? "SUBJECT: {$hd[0]}\n\n{$hd[1]}" : "nothing waits for the owner\n";
         break;
 
+    case 'trend':
+        // THE TREND DETECTOR (owner 2026-10-01, trend.php): "trend status", "trend on|off" (the switch is the file app/TREND_ON),
+        // "trend check <term>" (its numbers, the dictionary's answer and the decision; writes nothing but the dictionary cache).
+        require_once __DIR__ . '/trend.php';
+        tr_install($pdo);
+        $sub = (string)($arg ?? 'status');
+        if ($sub === 'on')  { touch(__DIR__ . '/TREND_ON'); echo "trend detector: ON\n"; break; }
+        if ($sub === 'off') { @unlink(__DIR__ . '/TREND_ON'); echo "trend detector: OFF\n"; break; }
+        if ($sub === 'check') {
+            $t = mb_strtolower(trim(implode(' ', array_slice($argv, 3))));
+            $r = tr_check($pdo, $t);
+            echo "\"{$t}\": " . ($r['trend'] ? 'TREND' . ($r['interim'] ? ' (interim)' : '') : 'not a trend') . " | {$r['why']}\n";
+            echo '  numbers: ' . json_encode($r['numbers'], JSON_UNESCAPED_SLASHES) . "\n";
+            break;
+        }
+        $d = $pdo->query("SELECT COUNT(DISTINCT day) d, COUNT(*) n, MIN(day) f FROM term_daily")->fetch(PDO::FETCH_ASSOC);
+        echo 'trend detector: ' . (tr_on() ? 'ON' : 'OFF') . " | daily counts: {$d['d']} day(s) since {$d['f']}, {$d['n']} rows | rising is judged from " . TR_MIN_HISTORY_DAYS . " days of counts\n";
+        break;
+
     case 'picker':
         // THE STORY PICKER RULES (owner 2026-09-30, story_picker.php): "picker status", "picker on|off" (the switch is the
         // file app/PICKER_ON), "picker check <candidate id>" (read one, write nothing), "picker expire" (the queue entries
