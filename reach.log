@@ -1,0 +1,69 @@
+twitter-cli install exit=0
+rdt-cli install exit=0
+From https://github.com/DEimos12-bi/genzhype-scraper
+ * branch            video-feed -> FETCH_HEAD
+ * [new branch]      video-feed -> origin/video-feed
+video feed bytes=51419
+  page 406: grave story, skipped
+  search 'Twitch Embroiled Self Donation': 0 hits, raw='{\n  "ok": true,\n  "schema_version": "1",\n  "data": []\n}\n'
+    -> 15 raw hit(s), 0 kept (dropped: 0 not-this-person, 15 off-topic)
+  page 543: 0 candidate(s) from 2 search(es)
+    -> 1 raw hit(s), 1 kept (dropped: 0 not-this-person, 0 off-topic)
+    -> 15 raw hit(s), 0 kept (dropped: 0 not-this-person, 15 off-topic)
+  page 534: 1 candidate(s) from 2 search(es)
+    -> 15 raw hit(s), 15 kept (dropped: 0 not-this-person, 0 off-topic)
+  page 508: 15 candidate(s) from 1 search(es)
+  search '"Brent Rivera" Rivera\'s TikTok': 0 hits, raw='{\n  "ok": true,\n  "schema_version": "1",\n  "data": []\n}\n'
+    -> 12 raw hit(s), 0 kept (dropped: 2 not-this-person, 10 off-topic)
+  search "Rivera's TikTok": 0 hits, raw='{\n  "ok": true,\n  "schema_version": "1",\n  "data": []\n}\n'
+  page 491: 0 candidate(s) from 3 search(es)
+    -> 15 raw hit(s), 7 kept (dropped: 0 not-this-person, 8 off-topic)
+  page 479: 7 candidate(s) from 1 search(es)
+x-pages: 5 page(s), 9 search(es) used
+x-pages exit=0 bytes=7097
+From https://github.com/DEimos12-bi/genzhype-scraper
+ * branch            reach-feed -> FETCH_HEAD
+ * [new branch]      reach-feed -> origin/reach-feed
+terms feed bytes=1099
+terms wanted: 12
+  melted: x=10 reddit=10
+  deathmatches: x=10 reddit=10
+  minimap: x=10 reddit=10
+  leap: x=10 reddit=10
+  the spawn: x=10 reddit=10
+  bloods: x=10 reddit=10
+  have unlocked: x=10 reddit=10
+  gooo: x=10 reddit=10
+  minecraft arg character verity: x=0 reddit=10
+  you're blatantly not me nan: x=10 reddit=10
+  no signal backrooms trend: x=0 reddit=10
+  discord mascot murder meme: x=0 reddit=10
+wrote drop/term-usage.json
+term-usage exit=0 bytes=80760
+  r/teenagers: 25 posts
+  r/GenZ: 25 posts
+  r/OutOfTheLoop: 25 posts
+  r/memes: 25 posts
+  r/dankmemes: 25 posts
+  r/me_irl: 25 posts
+  r/MemeEconomy: 25 posts
+  r/gaming: 25 posts
+  r/pcgaming: 25 posts
+  r/Games: 25 posts
+  r/leagueoflegends: 25 posts
+  r/VALORANT: 25 posts
+  r/2007scape: 25 posts
+  r/LivestreamFail: 25 posts
+  r/GamingLeaksAndRumours: 25 posts
+  r/youtubedrama: 25 posts
+  r/GTA6: 25 posts
+  x 'new slang': 20 posts
+  x 'why is everyone saying': 20 posts
+  x 'what does it mean when someone says': 20 posts
+scout harvest: 485 posts -> drop/scout-posts.json
+scout exit=0 bytes=200794
+A api anon: 200, tags=0
+B page anon: 200, 21168 bytes, tags=0
+C api cookies: 200, tags=0
+tiktok ear: method=None hashtags=0
+tiktok exit=0 bytes=345
