@@ -1,0 +1,387 @@
+2026-10-03 05:20:22,514 INFO caption font: /usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf
+2026-10-03 05:20:22,516 INFO job feed from repo branch (generated 2026-10-03T05:10:21+00:00)
+2026-10-03 05:20:22,516 INFO FORCED re-render job for page 1305
+2026-10-03 05:20:22,516 INFO job from static feed (generated 2026-10-03T05:10:21+00:00)
+2026-10-03 05:20:22,516 INFO processing page_id=1305 slug=world-of-warcraft-forever-gold-buying-crackdown-timeline
+2026-10-03 05:20:22,516 INFO STYLE punch: lead=faces cuts~1.5s xfade=0.08 zoom=0.16 punch=1.17 bgm_3 evidence_cap=2 footage_consec=2
+2026-10-03 05:20:22,516 INFO voice: en-US-AndrewMultilingualNeural
+2026-10-03 05:20:22,516 INFO STAGE: visuals
+2026-10-03 05:20:22,517 INFO PROVENANCE: 3 clip(s) were embedded by reporters in this story's own articles; the footage gate cannot veto those
+2026-10-03 05:20:22,517 INFO MONEY MOMENT offsets from the source articles: {'uQuKE0KDgiM': 3}
+2026-10-03 05:20:22,517 INFO story clips available: 9 (kick, tiktok, youtube)
+2026-10-03 05:20:22,526 INFO trimmed letterbox (480, 360) -> (450, 270): https://i.ytimg.com/vi/Y5zzSMSVhRo/hqdefault.jpg
+2026-10-03 05:20:22,530 INFO CONTAIN MODE: 450x270 needs 7.1x upscale to cover; rendering whole on a blurred fill instead
+2026-10-03 05:20:25,494 INFO vision rotation: still-relevance served by gemini-3.5-flash-lite
+2026-10-03 05:20:25,495 INFO STILL GATE: judged off-topic, dropped: https://i.ytimg.com/vi/Y5zzSMSVhRo/hqdefault.jpg
+2026-10-03 05:20:25,545 INFO CONTAIN MODE: 1920x1080 needs 1.8x upscale to cover; rendering whole on a blurred fill instead
+2026-10-03 05:20:36,037 INFO vision rotation: still-relevance served by gemini-3.5-flash-lite
+2026-10-03 05:20:36,079 INFO CONTAIN MODE: 1200x647 needs 3.0x upscale to cover; rendering whole on a blurred fill instead
+2026-10-03 05:20:36,090 INFO face detected in vis-1305-2: 49x63 at (604,137)
+2026-10-03 05:20:36,985 INFO vision still-relevance: gemini-3.5-flash-lite HTTP 503
+2026-10-03 05:20:39,285 INFO vision still-relevance: gemini-flash-latest HTTP 503
+2026-10-03 05:20:56,936 INFO vision rotation: still-relevance served by gemma-4-31b-it
+2026-10-03 05:20:56,981 INFO CONTAIN MODE: 1920x1080 needs 1.8x upscale to cover; rendering whole on a blurred fill instead
+2026-10-03 05:20:59,648 INFO vision rotation: still-relevance served by gemini-3.5-flash-lite
+2026-10-03 05:20:59,669 INFO trimmed letterbox (480, 360) -> (480, 270): https://i.ytimg.com/vi/uQuKE0KDgiM/hqdefault.jpg
+2026-10-03 05:20:59,670 INFO text-heavy visual (heuristic) -> contain mode (no crop/zoom): https://i.ytimg.com/vi/uQuKE0KDgiM/hqdefault.jpg
+2026-10-03 05:20:59,672 INFO TEXT FLOOR: 480x270 is too small to read at 1080 wide (<800); dropped rather than shown as a strip: https://i.ytimg.com/vi/uQuKE0KDgiM/hqdefault.jpg
+2026-10-03 05:20:59,960 INFO visual pool: 3 distinct of 5 candidates (0 from people, 0 name(s) mapped: {})
+2026-10-03 05:20:59,962 INFO trimmed letterbox (480, 360) -> (450, 270): https://i.ytimg.com/vi/Y5zzSMSVhRo/hqdefault.jpg
+2026-10-03 05:20:59,963 INFO visual_i 1 ready (event thumbnail: Developers Acknowledge Gold Buying Issues in Q&A)
+2026-10-03 05:20:59,963 INFO visual_i 2 ready (event thumbnail: World of Warcraft Releases Official Video Material)
+2026-10-03 05:20:59,963 INFO visual_i 3 ready (the actual moment (Sep 19 report photo): Blizzard livestream discusses RMT and G)
+2026-10-03 05:20:59,963 INFO visual_i 4 ready (the actual moment (Sep 21 report photo): Blizzard announces aggressive punishmen)
+2026-10-03 05:20:59,963 INFO STAGE: receipts
+2026-10-03 05:21:00,017 INFO receipts: 4 card(s) downloaded of 26 entries (event entries carry no card by design)
+2026-10-03 05:21:00,017 INFO STAGE: screenshots
+2026-10-03 05:21:02,556 INFO Readability injected from vendor/Readability.js
+2026-10-03 05:21:10,556 INFO screenshot: no headline block found; skipping (no raw-page fallback): https://www.pcgamesn.com/world-of-warcraft/forever-buying-gold-rmt-gdkp
+2026-10-03 05:21:20,742 INFO screenshot: no headline block found; skipping (no raw-page fallback): https://www.pcgamer.com/games/world-of-warcraft/blizzard-warns-world-of-warcraft-forever-p
+2026-10-03 05:21:29,811 INFO Readability column 48..712 (15 nodes) on https://insider-gaming.com/world-of-warcraft-forever-de
+2026-10-03 05:21:29,819 INFO crop r30c: 712x876 at 24,98 (col 664, lead-img False) https://insider-gaming.com/world-of-warcraft-forever-devs-hi
+2026-10-03 05:21:45,022 INFO vision rotation: screenshot-clean served by gemini-3.5-flash-lite
+2026-10-03 05:21:45,023 INFO REAL source screenshot: https://insider-gaming.com/world-of-warcraft-forever-devs-hint-you-could-be-permanently-banned-for-b
+2026-10-03 05:21:46,676 INFO screenshot: DEAD PAGE (http 403, title 'Just a moment...') — the source itself is gone, not a detection failure: https://www.hotspawn.com/world-of-warcraft/news/wow-forever-rmt-and-gdkp-stance
+2026-10-03 05:21:52,781 INFO Readability column 20..740 (9 nodes) on https://www.warcrafttavern.com/forever/news/blizzard-pl
+2026-10-03 05:21:52,789 INFO crop r30c: 760x950 at 0,269 (col 720, lead-img False) https://www.warcrafttavern.com/forever/news/blizzard-plans-a
+2026-10-03 05:21:55,034 INFO vision rotation: screenshot-clean served by gemini-3.5-flash-lite
+2026-10-03 05:21:55,035 INFO REAL source screenshot: https://www.warcrafttavern.com/forever/news/blizzard-plans-a-more-aggressive-stance-on-gold-buying-i
+2026-10-03 05:22:04,084 INFO screenshot: no ON-TOPIC headline (['world', 'warcraft', 'forever']) on https://eu.forums.blizzard.com/en/wow/t/actions-taken-against-botting-; skipping
+2026-10-03 05:22:04,092 INFO screenshot budget spent; 9 article(s) fall back to og photos/subject
+2026-10-03 05:22:04,293 INFO event receipts: 2 clean screenshot(s), 6 og report photo(s); the rest fall back to subject photos
+2026-10-03 05:22:04,293 INFO STAGE: tts
+2026-10-03 05:22:04,293 INFO expressive TTS: script structure unclear; single-pass
+2026-10-03 05:22:04,293 INFO expressive TTS unavailable for page 1305; single-pass synthesis
+2026-10-03 05:22:04,293 INFO MPT voice module not found; using in-file edge-tts fallback
+2026-10-03 05:22:04,293 INFO TTS attempt 1/4 voice=en-US-AndrewMultilingualNeural rate=+5% (300s budget left)
+2026-10-03 05:22:32,354 INFO TTS ok: 50.81s audio, 112 word timings
+2026-10-03 05:22:32,354 INFO STAGE: compose
+2026-10-03 05:22:32,355 INFO bgm: SIGNATURE bed bgm_2.mp3 (same on every video, by design)
+2026-10-03 05:22:32,355 INFO no broll terms in feed; cursor mode off (v4 per-shot queries may still fetch)
+2026-10-03 05:22:32,366 INFO EDL: 20 shot(s) from 20 directed (words=112)
+2026-10-03 05:22:33,673 INFO footage: cookies active
+2026-10-03 05:22:33,673 INFO CLIP window: youtube at t=3s (reporter's timestamp)
+2026-10-03 05:22:43,706 INFO CLIP REFUSED (youtube): ERROR: [youtube] uQuKE0KDgiM: Sign in to confirm you’re not a bot. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dlp/yt-dlp/wiki/FAQ#ho | https://www.youtube.com/watch?v=uQuKE0KDgiM
+2026-10-03 05:22:43,707 INFO HOOK: candidate unavailable (fetch failed); trying next
+2026-10-03 05:22:43,707 INFO CLIP staged by the server: 71cff3f56a5af2f66faaed5ba70311a45393365d.mp4 (https://kick.com/lasqa/clips/clip_01M2TFJT3YS7SKJP8SNK4EYBC5)
+2026-10-03 05:23:06,627 INFO face detected in clipfr-0.jpg: 37x50 at (97,425)
+2026-10-03 05:23:06,756 INFO face detected in clipfr-1.jpg: 34x46 at (99,427)
+2026-10-03 05:23:06,849 INFO face detected in clipfr-2.jpg: 36x48 at (101,425)
+2026-10-03 05:23:06,931 INFO clip frame too similar to one already kept; skipped
+2026-10-03 05:23:06,951 INFO face detected in clipfr-5.jpg: 38x49 at (83,432)
+2026-10-03 05:23:07,064 INFO face detected in clipfr-11.jpg: 40x53 at (107,418)
+2026-10-03 05:23:07,141 INFO CLIP FRAMES: +5 stills harvested from the money-moment clip (pool 3 -> 8)
+2026-10-03 05:23:07,141 INFO HOOK = OPENING CLIP: 71cff3f56a5af2f66faaed5ba70311a45393365d.mp4 (t=0s)
+2026-10-03 05:23:07,147 INFO CLIP FIT: no clip's title matches scene 2's words ('wave that could change everything'); the planned still stands
+2026-10-03 05:23:07,147 INFO visual_i 3 -> real story image (vis-1305-2)
+2026-10-03 05:23:07,147 INFO pinned image would repeat within 3 scenes; LRU pool pick instead
+2026-10-03 05:23:07,148 INFO CLIP FIT: no clip's title matches scene 3's words ('During beta launch livestream,'); the planned still stands
+2026-10-03 05:23:07,171 INFO receipt 0 -> og report photo (photo scene)
+2026-10-03 05:23:07,171 INFO CLIP FIT: no clip's title matches scene 4's words ("Randy 'Kaivax' Jordan and Josh Greenfield"); the planned still stands
+2026-10-03 05:23:07,171 INFO CLIP FIT: no clip's title matches scene 5's words ('reportedly discussed stance on real-money tradin'); the planned still stands
+2026-10-03 05:23:07,172 INFO CLIP FIT: no clip's title matches scene 6's words ('Developers warned that clamping down on'); the planned still stands
+2026-10-03 05:23:07,177 INFO IMAGE CAP: receipt 2 shows a picture already in 2 shot(s); subject photo instead
+2026-10-03 05:23:07,177 INFO receipt 2 missing/unresolved; subject photo fallback
+2026-10-03 05:23:07,218 INFO IMAGE CAP: pool stills all fill 2 shot(s); spending an under-used story image instead
+2026-10-03 05:23:07,219 INFO CLIP FIT: no clip's title matches scene 7's words ('GDKP guilds and gold buying could'); the planned still stands
+2026-10-03 05:23:07,219 INFO IMAGE CAP: pool stills all fill 2 shot(s); spending an under-used story image instead
+2026-10-03 05:23:07,219 INFO CLIP FIT: no clip's title matches scene 8's words ('allegedly bring permanent account bans.'); the planned still stands
+2026-10-03 05:23:07,220 INFO IMAGE CAP: every real image fills 2 shot(s); a repeat is the last resort
+2026-10-03 05:23:07,220 INFO CLIP FIT: no clip's title matches scene 9's words ('Josh Greenfield reportedly said Blizzard'); the planned still stands
+2026-10-03 05:23:07,254 INFO generic stock skipped for broll scene 11 (real proof/still instead)
+2026-10-03 05:23:07,254 INFO IMAGE CAP: fresh candidates all fill 2 shot(s); reusing an under-cap image inside the window instead
+2026-10-03 05:23:07,254 INFO IMAGE CAP: fresh candidates all fill 2 shot(s); reusing an under-cap image inside the window instead
+2026-10-03 05:23:07,254 INFO CLIP FIT: no clip's title matches scene 11's words ('to stop the in-game economy from spiraling.'); the planned still stands
+2026-10-03 05:23:07,254 INFO visual_i 4 -> real story image (vis-1305-3)
+2026-10-03 05:23:07,255 INFO IMAGE CAP: vis-1305-3 already fills 2 shot(s); LRU pool pick instead
+2026-10-03 05:23:07,255 INFO IMAGE CAP: every real image fills 2 shot(s); a repeat is the last resort
+2026-10-03 05:23:07,255 INFO CLIP FIT: no clip's title matches scene 12's words ('According to Greenfield,'); the planned still stands
+2026-10-03 05:23:07,255 INFO receipt 8 missing/unresolved; subject photo fallback
+2026-10-03 05:23:07,255 INFO IMAGE CAP: every real image fills 2 shot(s); a repeat is the last resort
+2026-10-03 05:23:07,255 INFO CLIP FIT: no clip's title matches scene 13's words ('breaking real-money trading rules allegedly'); the planned still stands
+2026-10-03 05:23:07,255 INFO IMAGE CAP: every real image fills 2 shot(s); a repeat is the last resort
+2026-10-03 05:23:07,256 INFO CLIP FIT: no clip's title matches scene 14's words ('leads to permanent bans instead of temporary sus'); the planned still stands
+2026-10-03 05:23:07,256 INFO IMAGE CAP: every real image fills 2 shot(s); a repeat is the last resort
+2026-10-03 05:23:07,256 INFO CLIP FIT: no clip's title matches scene 15's words ('In a WoW Q&A,'); the planned still stands
+2026-10-03 05:23:07,282 INFO receipt 13 missing/unresolved; subject photo fallback
+2026-10-03 05:23:07,282 INFO IMAGE CAP: every real image fills 2 shot(s); a repeat is the last resort
+2026-10-03 05:23:07,282 INFO CLIP FIT: no clip's title matches scene 17's words ('allegedly admitted users often buy gold off-site'); the planned still stands
+2026-10-03 05:23:07,283 INFO visual_i 2 -> real story image (vis-1305-1) [PLANNED CLIP shot]
+2026-10-03 05:23:07,283 INFO IMAGE CAP: vis-1305-1 already fills 2 shot(s); LRU pool pick instead
+2026-10-03 05:23:07,283 INFO IMAGE CAP: every real image fills 2 shot(s); a repeat is the last resort
+2026-10-03 05:23:07,283 INFO CLIP FIT: no clip's title matches scene 18's words ('WoW reportedly released official YouTube media'); the planned still stands
+2026-10-03 05:23:07,283 INFO visual_i 1 -> real story image (visidx-1305-1)
+2026-10-03 05:23:25,430 INFO FOOTAGE unavailable for Y5zzSMSVhRo; thumbnail fallback
+2026-10-03 05:23:25,431 INFO CLIP FIT: no clip's title matches scene 19's words ('as Forever project communications'); the planned still stands
+2026-10-03 05:23:25,431 INFO generic stock skipped for broll scene 20 (real proof/still instead)
+2026-10-03 05:23:25,431 INFO IMAGE CAP: every real image fills 2 shot(s); a repeat is the last resort
+2026-10-03 05:23:25,431 INFO CLIP FIT: no clip's title matches scene 20's words ('about features and rules continued.'); the planned still stands
+2026-10-03 05:23:25,432 INFO SPEND THE POOL: 1 repeat(s) swapped for unused images (7 distinct stills now on screen)
+2026-10-03 05:23:25,432 INFO REPEAT HOLD: 0 beat(s) moved to a picture with a use left, 1 held on the previous picture (cap 2 shots)
+2026-10-03 05:23:25,432 INFO RENDER REPORT: {"style": "punch", "ck_mode": true, "cookie_bytes": 1668, "story_vids": 1, "scenes": 19, "runtime_s": 51.3, "footage_scenes": 1, "gap_fill_scenes": 0, "opportunistic_footage": 1, "still_photo_scenes": 16, "card_scenes": 2, "frozen_stills": 0, "footage_fetches": 2, "seq": "fsssssssscsssscssss"}
+2026-10-03 05:23:25,432 INFO CLIP verify disabled (VIDEO_CLIP_VERIFY=0)
+2026-10-03 05:23:25,432 INFO scene plan (v4 EDL): 19 scene(s) (2 receipt, 1 b-roll), pool=8
+2026-10-03 05:23:25,432 INFO   scene 1: 0.00-1.88s type=broll(FOOTAGE) motion=punch_build sfx=none music=bed visual=71cff3f56a5af2f66faaed5ba70311a45393365d.mp4
+2026-10-03 05:23:25,432 INFO   scene 2: 1.88-3.62s type=photo motion=pan_right sfx=none music=bed visual=vis-1305-2
+2026-10-03 05:23:25,432 INFO   scene 3: 3.62-5.52s type=photo motion=punch_hit sfx=none music=bed visual=clipfr-0.jpg
+2026-10-03 05:23:25,432 INFO   scene 4: 5.52-8.28s type=photo motion=zoom_out sfx=pop music=bed visual=receipt-og-1305-0.jpg
+2026-10-03 05:23:25,432 INFO   scene 5: 8.28-12.24s type=photo motion=punch_build sfx=none music=bed visual=vis-1305-3
+2026-10-03 05:23:25,432 INFO   scene 6: 12.24-14.41s type=photo motion=pan_left sfx=none music=bed visual=vis-1305-2
+2026-10-03 05:23:25,432 INFO   scene 7: 14.41-17.21s type=photo motion=punch_hit sfx=pop music=bed visual=vis-1305-1
+2026-10-03 05:23:25,432 INFO   scene 8: 17.21-19.82s type=photo motion=zoom_out sfx=none music=bed visual=vis-1305-3
+2026-10-03 05:23:25,432 INFO   scene 9: 19.82-22.50s type=photo motion=punch_build sfx=none music=bed visual=clipfr-2.jpg
+2026-10-03 05:23:25,433 INFO   scene 10: 22.50-24.44s type=receipt motion=contain sfx=pop music=bed visual=shot-1305-4.png
+2026-10-03 05:23:25,433 INFO   scene 11: 24.44-28.59s type=photo motion=punch_hit sfx=none music=bed visual=vis-1305-3
+2026-10-03 05:23:25,433 INFO   scene 12: 28.59-31.46s type=photo motion=punch_build sfx=pop music=bed visual=clipfr-11.jpg
+2026-10-03 05:23:25,433 INFO   scene 13: 31.46-35.31s type=photo motion=pan_left sfx=none music=bed visual=clipfr-0.jpg
+2026-10-03 05:23:25,433 INFO   scene 14: 35.31-37.01s type=photo motion=punch_hit sfx=none music=bed visual=clipfr-1.jpg
+2026-10-03 05:23:25,433 INFO   scene 15: 37.01-39.85s type=receipt motion=contain sfx=pop music=bed visual=shot-1305-10.png
+2026-10-03 05:23:25,433 INFO   scene 16: 39.85-43.10s type=photo motion=punch_build sfx=none music=bed visual=vis-1305-2
+2026-10-03 05:23:25,433 INFO   scene 17: 43.10-45.94s type=photo motion=pan_right sfx=none music=bed visual=clipfr-2.jpg
+2026-10-03 05:23:25,433 INFO   scene 18: 45.94-47.93s type=photo motion=punch_hit sfx=none music=bed visual=visidx-1305-1
+2026-10-03 05:23:25,433 INFO   scene 19: 47.93-51.26s type=photo motion=zoom_out sfx=none music=bed visual=clipfr-5.jpg
+2026-10-03 05:23:25,433 INFO VARIETY: 1 scene(s) re-pointed (cap 6 of 18 still scenes)
+2026-10-03 05:23:25,433 INFO VARIETY: 12 distinct stills, top visual carries 3/18 (17%)
+2026-10-03 05:23:25,433 INFO SELFCHECK: repeats=0 short_scenes=none caption_cov=100% (window=3, assets=21)
+[0;93m2026-10-03 05:23:27.731925090 [W:onnxruntime:Default, device_discovery.cc:146 GetPciBusId] Skipping pci_bus_id for PCI path at "/sys/devices/LNXSYSTM:00/LNXSYBUS:00/ACPI0004:00/MSFT1000:00/5620e0c7-8062-4dce-aeb7-520c7ef76171" because filename "5620e0c7-8062-4dce-aeb7-520c7ef76171" did not match expected pattern of [0-9a-f]+:[0-9a-f]+:[0-9a-f]+[.][0-9a-f]+[m
+2026-10-03 05:23:28,006 INFO depth: session ready
+2026-10-03 05:23:28,768 INFO depth: clipfr-0.jpg in 0.76s
+2026-10-03 05:23:28,847 INFO DEPTH SCENE clipfr-0.jpg motion=punch_hit dur=1.9s
+2026-10-03 05:23:29,983 INFO depth: receipt-og-1305-0.jpg in 0.77s
+2026-10-03 05:23:30,028 INFO DEPTH SCENE receipt-og-1305-0.jpg motion=zoom_out dur=2.8s
+2026-10-03 05:23:30,988 INFO depth: vis-1305-3 in 0.78s
+2026-10-03 05:23:31,035 INFO DEPTH SCENE vis-1305-3 motion=punch_build dur=4.0s
+2026-10-03 05:23:32,985 INFO depth: clipfr-2.jpg in 0.78s
+2026-10-03 05:23:33,034 INFO DEPTH SCENE clipfr-2.jpg motion=punch_build dur=2.7s
+2026-10-03 05:23:34,639 INFO depth: clipfr-11.jpg in 0.76s
+2026-10-03 05:23:34,684 INFO DEPTH SCENE clipfr-11.jpg motion=punch_build dur=2.9s
+2026-10-03 05:23:35,809 INFO depth: clipfr-1.jpg in 0.76s
+2026-10-03 05:23:35,856 INFO DEPTH SCENE clipfr-1.jpg motion=punch_hit dur=1.7s
+2026-10-03 05:23:37,903 INFO depth: clipfr-5.jpg in 0.76s
+2026-10-03 05:23:37,948 INFO DEPTH SCENE clipfr-5.jpg motion=zoom_out dur=3.3s
+2026-10-03 05:23:47,138 INFO TEXT AVOID: burned-in text on 10 of 19 scene(s) (9.2s)
+2026-10-03 05:23:47,147 INFO TEXT AVOID: hook moved off burned-in text, top y 652 -> 650
+2026-10-03 05:23:49,293 INFO CAPTION PLACEMENT: 34 caption event(s) by position: {"card": 5, "home": 12, "home-least-covered": 2, "top": 7, "top-least-covered": 8}
+2026-10-03 05:23:51,007 INFO bgm: SIGNATURE bed bgm_2.mp3 (same on every video, by design)
+2026-10-03 05:23:51,516 INFO sound: bed bgm_2.mp3 over 1 interval(s), 0 swell(s)
+2026-10-03 05:23:52,044 INFO sound: 5 SFX placed
+2026-10-03 05:23:52,105 INFO sound: final -17.6 dBFS avg / -1.5 dBFS peak
+2026-10-03 05:30:10,867 INFO COMPOSE TIMING: {'prepare_s': 26.8, 'draw_encode_s': 378.5, 'remux_s': 0.1, 'scenes': 19, 'seconds': 51.3}
+2026-10-03 05:30:10,949 INFO STAGE: judge
+2026-10-03 05:30:18,224 INFO vision rotation: JUDGE served by gemini-3.5-flash-lite
+2026-10-03 05:30:18,226 INFO vision judge: pass=True weird=[] mismatches=[] artifact_misses=[] scores={'readability': 10, 'framing': 10, 'variety': 9, 'edit_variety': 9, 'completeness': 10} issues=[]
+2026-10-03 05:30:18,226 INFO STAGE: filmstrip
+2026-10-03 05:30:33,278 INFO caption font: /usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf
+2026-10-03 05:30:33,629 INFO filmstrip built: build/sheet-1305.jpg
+2026-10-03 05:30:33,629 INFO STAGE: post
+2026-10-03 05:30:33,704 INFO delivering video-1305.mp4 (85.6 MB as base64)
+2026-10-03 05:32:49,176 WARNING post attempt 1/2 failed (requests: HTTPSConnectionPool(host='genzhype.com', port=443): Max retries exceeded with url: /api/video_receive.php (Caused by ConnectTimeoutError(<HTTPSConnection(host='genzhype.com', port=443) at 0x7fcddffd40b0>, 'Connection to genzhype.com timed out. (connect timeout=45)'))); the drop branch is the backstop, so this does not linger
+2026-10-03 05:35:09,998 WARNING post attempt 2/2 failed (requests: HTTPSConnectionPool(host='genzhype.com', port=443): Max retries exceeded with url: /api/video_receive.php (Caused by ConnectTimeoutError(<HTTPSConnection(host='genzhype.com', port=443) at 0x7fcdbcc61040>, 'Connection to genzhype.com timed out. (connect timeout=45)'))); the drop branch is the backstop, so this does not linger
+2026-10-03 05:35:14,998 WARNING HTTP delivery failed; artifact staged for the video-drop branch (drop-meta-1305.json)
+2026-10-03 05:35:14,999 INFO STAGE: done
+2026-10-03 05:35:14,999 INFO job feed from repo branch (generated 2026-10-03T05:10:21+00:00)
+2026-10-03 05:35:14,999 INFO job from static feed (generated 2026-10-03T05:10:21+00:00)
+2026-10-03 05:35:14,999 INFO processing page_id=574 slug=hank-green-admits-to-overreliance-on-ai-tools
+2026-10-03 05:35:15,000 INFO STYLE rapid: lead=receipts cuts~1.0s xfade=0.00 zoom=0.20 punch=1.22 bgm_2 evidence_cap=3 footage_consec=2
+2026-10-03 05:35:15,000 INFO voice: en-US-BrianMultilingualNeural
+2026-10-03 05:35:15,000 INFO STAGE: visuals
+2026-10-03 05:35:15,000 INFO PROVENANCE: 1 clip(s) were embedded by reporters in this story's own articles; the footage gate cannot veto those
+2026-10-03 05:35:15,000 INFO story clips available: 7 (tiktok, youtube)
+2026-10-03 05:35:15,000 INFO person photos from feed (site-resolved): Hank Green x1
+2026-10-03 05:35:15,295 INFO UPSIZED: https://commons.wikimedia.org/wiki/Special:FilePath/Hank_Green_Headshot.jpg?width=1600
+2026-10-03 05:35:15,435 INFO face detected in vis-574-0: 579x779 at (604,514)
+2026-10-03 05:35:15,562 INFO UPSIZED: https://kotaku.com/app/uploads/2026/07/hankgreeen.jpg
+2026-10-03 05:35:15,582 INFO CONTAIN MODE: 1920x1080 needs 1.8x upscale to cover; rendering whole on a blurred fill instead
+2026-10-03 05:35:15,597 INFO face detected in vis-574-1: 344x477 at (903,107)
+2026-10-03 05:35:16,809 INFO vision rotation: still-relevance served by gemini-3.5-flash-lite
+2026-10-03 05:35:16,854 INFO text-heavy visual (heuristic) -> contain mode (no crop/zoom): https://genzhype.com/assets/covers/hank-green-admits-to-overreliance-on-ai-tools-hero.webp
+2026-10-03 05:35:17,012 INFO face detected in vis-574-2: 133x133 at (116,58)
+2026-10-03 05:35:17,322 INFO visual pool: 3 distinct of 3 candidates (1 from people, 1 name(s) mapped: {'hank green': 1})
+2026-10-03 05:35:17,323 INFO SUBJECT ON SCREEN: headline names ['Hank Green']; verified picture(s) for ['Hank Green']
+2026-10-03 05:35:17,323 INFO STAGE: receipts
+2026-10-03 05:35:17,462 INFO receipts: 4 card(s) downloaded of 9 entries (event entries carry no card by design)
+2026-10-03 05:35:17,462 INFO STAGE: screenshots
+2026-10-03 05:35:17,855 INFO Readability injected from vendor/Readability.js
+2026-10-03 05:35:27,954 INFO screenshot: no headline block found; skipping (no raw-page fallback): https://kotaku.com/famous-science-youtuber-admits-he-has-unhealthy-relationship-with-ai-af
+2026-10-03 05:35:28,337 INFO screenshot: 5 page(s) showed no headline at 760px; re-shooting at desktop 1440px
+2026-10-03 05:35:28,730 INFO Readability injected from vendor/Readability.js
+2026-10-03 05:35:39,639 INFO Readability column 160..800 (9 nodes) on https://kotaku.com/famous-science-youtuber-admits-he-ha
+2026-10-03 05:35:39,671 INFO crop r30c: 1166x1458 at 56,382 (col 1118, lead-img True) https://kotaku.com/famous-science-youtuber-admits-he-has-unh
+2026-10-03 05:35:41,551 INFO SHOT DEAD-ZONE: removed 203px dead band at y=1110 (shot-574-0.png)
+2026-10-03 05:35:42,554 INFO vision rotation: screenshot-clean served by gemini-3.5-flash-lite
+2026-10-03 05:35:42,555 INFO REAL source screenshot: https://kotaku.com/famous-science-youtuber-admits-he-has-unhealthy-relationship-with-ai-after-facing
+2026-10-03 05:35:42,669 INFO UPSIZED: https://kotaku.com/app/uploads/2026/07/hankgreeen.jpg
+2026-10-03 05:35:42,698 INFO UPSIZED: https://kotaku.com/app/uploads/2026/07/hankgreeen.jpg
+2026-10-03 05:35:42,708 INFO event receipts: 1 clean screenshot(s), 2 og report photo(s); the rest fall back to subject photos
+2026-10-03 05:35:42,708 INFO STAGE: tts
+2026-10-03 05:35:43,582 INFO expressive TTS: segment 1/2 rate=+18% pitch=+2Hz 3.05s 7 cue(s)
+2026-10-03 05:35:48,253 INFO expressive TTS: segment 2/2 rate=+5% pitch=- 20.74s 57 cue(s)
+2026-10-03 05:35:48,518 INFO expressive TTS ok: 2 segment(s), 23.83s audio, 64 word timings
+2026-10-03 05:35:48,518 INFO STAGE: compose
+2026-10-03 05:35:48,518 INFO bgm: SIGNATURE bed bgm_2.mp3 (same on every video, by design)
+2026-10-03 05:35:48,519 INFO EDL: 10 shot(s) from 10 directed (words=64)
+2026-10-03 05:35:49,183 INFO CLIP staged by the server: 766d4d0204914d45ef2a8c06a6f0b646d134777f.mp4 (https://www.tiktok.com/@hankgreen1/video/7461372553274182943)
+2026-10-03 05:35:54,018 INFO FOOTAGE GATE: off-topic clip rejected (766d4d0204914d45ef2a8c06a6f0b646d134777f.mp4)
+2026-10-03 05:35:54,018 INFO HOOK: candidate unavailable (off-topic); trying next
+2026-10-03 05:35:54,018 INFO CLIP staged by the server: d5f261235f7079785733b9072eef7be1cfc4b919.mp4 (https://www.tiktok.com/@hankgreen1/video/7211527414260698374)
+2026-10-03 05:36:13,539 INFO face detected in clipfr-6.jpg: 427x643 at (213,618)
+2026-10-03 05:36:13,636 INFO clip frame too similar to one already kept; skipped
+2026-10-03 05:36:13,660 INFO face detected in clipfr-8.jpg: 495x709 at (242,622)
+2026-10-03 05:36:13,768 INFO face detected in clipfr-9.jpg: 514x783 at (147,483)
+2026-10-03 05:36:13,876 INFO face detected in clipfr-10.jpg: 497x665 at (138,604)
+2026-10-03 05:36:13,971 INFO clip frame too similar to one already kept; skipped
+2026-10-03 05:36:13,971 INFO CLIP FRAMES: +8 stills harvested from the money-moment clip (pool 3 -> 11)
+2026-10-03 05:36:13,971 INFO HOOK = OPENING CLIP: d5f261235f7079785733b9072eef7be1cfc4b919.mp4 (t=0s)
+2026-10-03 05:36:14,061 INFO CLIP FIT: no clip's title matches scene 3's words ('AI‑generated language in a new Ask Hank Anything'); the planned still stands
+2026-10-03 05:36:14,061 INFO CLIP FIT: no clip's title matches scene 4's words ('episode on the Complexly channel.'); the planned still stands
+2026-10-03 05:36:14,074 INFO receipt 2 -> og report photo (photo scene)
+2026-10-03 05:36:14,074 INFO CLIP FIT: no clip's title matches scene 5's words ('On August 3, Green admitted'); the planned still stands
+2026-10-03 05:36:14,074 INFO CLIP FIT: no clip's title matches scene 6's words ('he relied too heavily on ChatGPT,'); the planned still stands
+2026-10-03 05:36:14,074 INFO person shot -> Hank Green's photo 1/1 (vis-574-0)
+2026-10-03 05:36:14,074 INFO CLIP FIT: no clip's title matches scene 7's words ('said his main channel will likely pause,'); the planned still stands
+2026-10-03 05:36:14,092 INFO IMAGE CAP: receipt 3 shows a picture already in 2 shot(s); subject photo instead
+2026-10-03 05:36:14,092 INFO receipt 3 missing/unresolved; subject photo fallback
+2026-10-03 05:36:14,092 INFO CLIP FIT: no clip's title matches scene 8's words ('and deleted his original tweet'); the planned still stands
+2026-10-03 05:36:14,092 INFO receipt 4 missing/unresolved; subject photo fallback
+2026-10-03 05:36:14,092 INFO IMAGE CAP: every real image fills 2 shot(s); a repeat is the last resort
+2026-10-03 05:36:14,092 INFO CLIP FIT: no clip's title matches scene 9's words ('to share a Reddit apology.'); the planned still stands
+2026-10-03 05:36:14,092 INFO person 'Hank Green': all 1 photo(s) inside the no-repeat window; LRU pool pick instead
+2026-10-03 05:36:14,092 INFO IMAGE CAP: every real image fills 2 shot(s); a repeat is the last resort
+2026-10-03 05:36:14,092 INFO CLIP FIT: no clip's title matches scene 10's words ('Do you think his channel should stay paused?'); the planned still stands
+2026-10-03 05:36:14,103 INFO SPEND THE POOL: 1 repeat(s) swapped for unused images (4 distinct stills now on screen)
+2026-10-03 05:36:14,103 INFO REPEAT HOLD: 1 beat(s) moved to a picture with a use left, 1 held on the previous picture (cap 2 shots)
+2026-10-03 05:36:14,104 INFO RENDER REPORT: {"style": "rapid", "ck_mode": true, "cookie_bytes": 1668, "story_vids": 0, "scenes": 9, "runtime_s": 24.3, "footage_scenes": 1, "gap_fill_scenes": 0, "opportunistic_footage": 1, "still_photo_scenes": 7, "card_scenes": 1, "frozen_stills": 0, "footage_fetches": 2, "seq": "fcsssssss"}
+2026-10-03 05:36:14,104 INFO CLIP verify disabled (VIDEO_CLIP_VERIFY=0)
+2026-10-03 05:36:14,104 INFO scene plan (v4 EDL): 9 scene(s) (1 receipt, 1 b-roll), pool=11
+2026-10-03 05:36:14,104 INFO   scene 1: 0.00-2.83s type=broll(FOOTAGE) motion=punch_build sfx=pop music=bed visual=d5f261235f7079785733b9072eef7be1cfc4b919.mp4
+2026-10-03 05:36:14,104 INFO   scene 2: 2.83-6.02s type=receipt motion=contain sfx=none music=bed visual=shot-574-0.png
+2026-10-03 05:36:14,104 INFO   scene 3: 6.02-8.72s type=photo motion=zoom_out sfx=none music=bed visual=vis-574-0
+2026-10-03 05:36:14,104 INFO   scene 4: 8.72-10.78s type=photo motion=punch_build sfx=riser music=silence visual=vis-574-1
+2026-10-03 05:36:14,104 INFO   scene 5: 10.78-12.83s type=photo motion=punch_hit sfx=impact music=duck visual=clipfr-0.jpg
+2026-10-03 05:36:14,104 INFO   scene 6: 12.83-15.69s type=photo motion=pan_right sfx=pop music=bed visual=clipfr-0.jpg
+2026-10-03 05:36:14,104 INFO   scene 7: 15.69-17.95s type=photo motion=zoom_out sfx=whoosh music=bed visual=vis-574-0
+2026-10-03 05:36:14,104 INFO   scene 8: 17.95-21.16s type=photo motion=punch_build sfx=none music=bed visual=vis-574-1
+2026-10-03 05:36:14,104 INFO   scene 9: 21.16-24.28s type=photo motion=punch_build sfx=none music=bed visual=clipfr-5.jpg
+2026-10-03 05:36:14,104 INFO VARIETY: 5 distinct stills, top visual carries 2/8 (25%)
+2026-10-03 05:36:14,104 INFO SELFCHECK: repeats=0 short_scenes=none caption_cov=100% (window=3, assets=19)
+2026-10-03 05:36:14,104 WARNING SELFCHECK: 1 near-repeat(s) within the 3-scene window (small pool; each reappears with different motion) — non-fatal
+2026-10-03 05:36:15,939 INFO depth: vis-574-0 in 0.75s
+2026-10-03 05:36:15,977 INFO DEPTH SCENE vis-574-0 motion=zoom_out dur=2.7s
+2026-10-03 05:36:16,404 INFO DEPTH SCENE clipfr-0.jpg motion=punch_hit dur=2.0s
+2026-10-03 05:36:16,732 INFO DEPTH SCENE vis-574-0 motion=zoom_out dur=2.3s
+2026-10-03 05:36:17,166 INFO DEPTH SCENE clipfr-5.jpg motion=punch_build dur=3.1s
+2026-10-03 05:36:17,441 INFO transition 1/3: whip at 15.69s (beat change)
+2026-10-03 05:36:21,348 INFO TEXT AVOID: burned-in text on 4 of 9 scene(s) (3.9s)
+2026-10-03 05:36:22,406 INFO CAPTION PLACEMENT: 19 caption event(s) by position: {"card": 4, "home": 15}
+2026-10-03 05:36:23,412 INFO bgm: SIGNATURE bed bgm_2.mp3 (same on every video, by design)
+2026-10-03 05:36:23,897 INFO sound: SWELL +5dB over 2.1s into the reveal at 10.8s, decaying 1.8s
+2026-10-03 05:36:23,918 INFO sound: bed bgm_2.mp3 over 3 interval(s), 1 swell(s)
+2026-10-03 05:36:24,475 INFO sound: 5 SFX placed
+2026-10-03 05:36:24,504 INFO sound: final -17.5 dBFS avg / -1.5 dBFS peak
+2026-10-03 05:39:20,376 INFO COMPOSE TIMING: {'prepare_s': 10.5, 'draw_encode_s': 175.7, 'remux_s': 0.1, 'scenes': 9, 'seconds': 24.3}
+2026-10-03 05:39:20,418 INFO STAGE: judge
+2026-10-03 05:39:25,612 INFO vision rotation: JUDGE served by gemini-3.5-flash-lite
+2026-10-03 05:39:25,613 INFO vision judge: pass=True weird=[] mismatches=[] artifact_misses=[] scores={'readability': 10, 'framing': 10, 'variety': 9, 'edit_variety': 9, 'completeness': 10} issues=[]
+2026-10-03 05:39:25,613 INFO STAGE: filmstrip
+2026-10-03 05:39:32,666 INFO caption font: /usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf
+2026-10-03 05:39:32,838 INFO filmstrip built: build/sheet-574.jpg
+2026-10-03 05:39:32,838 INFO STAGE: post
+2026-10-03 05:39:32,879 INFO delivering video-574.mp4 (45.5 MB as base64)
+2026-10-03 05:41:48,142 WARNING post attempt 1/2 failed (requests: HTTPSConnectionPool(host='genzhype.com', port=443): Max retries exceeded with url: /api/video_receive.php (Caused by ConnectTimeoutError(<HTTPSConnection(host='genzhype.com', port=443) at 0x7fcdbb329250>, 'Connection to genzhype.com timed out. (connect timeout=45)'))); the drop branch is the backstop, so this does not linger
+2026-10-03 05:44:08,431 WARNING post attempt 2/2 failed (requests: HTTPSConnectionPool(host='genzhype.com', port=443): Max retries exceeded with url: /api/video_receive.php (Caused by ConnectTimeoutError(<HTTPSConnection(host='genzhype.com', port=443) at 0x7fcdbb328b30>, 'Connection to genzhype.com timed out. (connect timeout=45)'))); the drop branch is the backstop, so this does not linger
+2026-10-03 05:44:13,432 WARNING HTTP delivery failed; artifact staged for the video-drop branch (drop-meta-574.json)
+2026-10-03 05:44:13,432 INFO STAGE: done
+2026-10-03 05:44:13,432 INFO job feed from repo branch (generated 2026-10-03T05:10:21+00:00)
+2026-10-03 05:44:13,432 INFO job from static feed (generated 2026-10-03T05:10:21+00:00)
+2026-10-03 05:44:13,433 INFO processing page_id=569 slug=youtube-animator-max-gilardi-reconsiders-assisted-death-plans
+2026-10-03 05:44:13,433 INFO page 569 is a GRAVE story: ambient bed, no whoosh/transitions, halved hook-rate boost
+2026-10-03 05:44:13,433 INFO STYLE slowburn: lead=footage cuts~2.2s xfade=0.25 zoom=0.10 punch=1.10 bgm_1 evidence_cap=2 footage_consec=6
+2026-10-03 05:44:13,433 INFO voice: en-US-AndrewMultilingualNeural (grave register)
+2026-10-03 05:44:13,433 INFO STAGE: visuals
+2026-10-03 05:44:13,433 INFO PROVENANCE: 1 clip(s) were embedded by reporters in this story's own articles; the footage gate cannot veto those
+2026-10-03 05:44:13,433 INFO story clips available: 7 (kick, tiktok, twitch, youtube)
+2026-10-03 05:44:13,433 INFO person photos from feed (site-resolved): Max Gilardi x1
+2026-10-03 05:44:13,632 INFO UPSIZED: https://commons.wikimedia.org/wiki/Special:FilePath/HotDiggetyDemon_2014.jpg?width=1600
+2026-10-03 05:44:13,654 INFO CONTAIN MODE: 913x1363 needs 1.4x upscale to cover; rendering whole on a blurred fill instead
+2026-10-03 05:44:13,673 INFO face detected in vis-569-0: 415x513 at (257,239)
+2026-10-03 05:44:13,705 INFO CONTAIN MODE: 1600x900 needs 2.1x upscale to cover; rendering whole on a blurred fill instead
+2026-10-03 05:44:14,980 INFO vision rotation: still-relevance served by gemini-3.5-flash-lite
+2026-10-03 05:44:15,002 INFO text-heavy visual (heuristic) -> contain mode (no crop/zoom): https://genzhype.com/assets/covers/youtube-animator-max-gilardi-reconsiders-assisted-death-plans-hero.webp
+2026-10-03 05:44:15,025 INFO face detected in vis-569-2: 546x656 at (320,1)
+2026-10-03 05:44:16,786 INFO visual pool: 3 distinct of 3 candidates (1 from people, 1 name(s) mapped: {'max gilardi': 1})
+2026-10-03 05:44:16,786 INFO SUBJECT ON SCREEN: headline names ['Max Gilardi']; verified picture(s) for ['Max Gilardi']
+2026-10-03 05:44:16,786 INFO STAGE: receipts
+2026-10-03 05:44:16,917 INFO receipts: 5 card(s) downloaded of 10 entries (event entries carry no card by design)
+2026-10-03 05:44:16,917 INFO STAGE: screenshots
+2026-10-03 05:44:17,324 INFO Readability injected from vendor/Readability.js
+2026-10-03 05:44:23,620 INFO Readability column 16..744 (19 nodes) on https://www.dexerto.com/youtube/youtube-animator-hotdig
+2026-10-03 05:44:23,632 INFO crop r30c: 760x950 at 0,158 (col 728, lead-img True) https://www.dexerto.com/youtube/youtube-animator-hotdiggedyd
+2026-10-03 05:44:25,227 INFO vision rotation: screenshot-clean served by gemini-3.5-flash-lite
+2026-10-03 05:44:25,229 INFO REAL source screenshot: https://www.dexerto.com/youtube/youtube-animator-hotdiggedydemon-says-he-plans-to-seek-assisted-deat
+2026-10-03 05:44:25,293 INFO event receipts: 1 clean screenshot(s), 2 og report photo(s); the rest fall back to subject photos
+2026-10-03 05:44:25,293 INFO STAGE: tts
+2026-10-03 05:44:26,647 INFO expressive TTS: segment 1/2 rate=+11% pitch=- 5.26s 8 cue(s)
+2026-10-03 05:44:32,084 INFO expressive TTS: segment 2/2 rate=+5% pitch=- 24.26s 62 cue(s)
+2026-10-03 05:44:32,387 INFO expressive TTS ok: 2 segment(s), 29.57s audio, 70 word timings
+2026-10-03 05:44:32,387 INFO STAGE: compose
+2026-10-03 05:44:32,388 INFO bgm (GRAVE story -> ambient bed): .social/bgm/bgm_1.mp3
+2026-10-03 05:44:32,388 INFO EDL: 9 shot(s) from 9 directed (words=70)
+2026-10-03 05:44:32,804 INFO CLIP staged by the server: 0cee6ce22414e71bf911017c0711069764a3fdd6.mp4 (https://www.tiktok.com/@hotdiggedydaddy/video/75534142341016)
+2026-10-03 05:44:49,934 INFO vision footage-relevance: gemini-flash-latest HTTP 503
+2026-10-03 05:45:16,416 INFO vision footage-relevance: gemma-4-31b-it HTTP 500
+2026-10-03 05:45:17,263 INFO vision rotation: footage-relevance served by gemini-3.5-flash-lite
+2026-10-03 05:45:19,300 INFO clip frame skipped: a face is cut by the frame's own edge (clipfr-10.jpg)
+2026-10-03 05:45:19,394 INFO CLIP FRAMES: +3 stills harvested from the money-moment clip (pool 3 -> 6)
+2026-10-03 05:45:19,394 INFO HOOK = OPENING CLIP: 0cee6ce22414e71bf911017c0711069764a3fdd6.mp4 (t=0s)
+2026-10-03 05:45:19,430 INFO person shot -> Max Gilardi's photo 1/1 (vis-569-0)
+2026-10-03 05:45:19,430 INFO CLIP FIT: no clip's title matches scene 3's words ('he said he would seek assisted death in'); the planned still stands
+2026-10-03 05:45:19,431 INFO person 'Max Gilardi': all 1 photo(s) inside the no-repeat window; LRU pool pick instead
+2026-10-03 05:45:19,442 INFO CLIP FIT: no clip's title matches scene 4's words ('Switzerland due to chronic illness and money tro'); the planned still stands
+2026-10-03 05:45:19,453 INFO receipt 2 -> og report photo (photo scene)
+2026-10-03 05:45:19,454 INFO CLIP FIT: no clip's title matches scene 5's words ('On August 2 he posted on X,'); the planned still stands
+2026-10-03 05:45:19,482 INFO IMAGE CAP: receipt 3 shows a picture already in 2 shot(s); subject photo instead
+2026-10-03 05:45:19,482 INFO receipt 3 missing/unresolved; subject photo fallback
+2026-10-03 05:45:19,482 INFO CLIP FIT: no clip's title matches scene 8's words ('indicating he was reconsidering after fan concer'); the planned still stands
+2026-10-03 05:45:19,482 INFO person shot -> Max Gilardi's photo 1/1 (vis-569-0)
+2026-10-03 05:45:19,483 INFO CLIP FIT: no clip's title matches scene 9's words ('Does this mean he will drop the assisted‑death p'); the planned still stands
+2026-10-03 05:45:19,492 INFO SPEND THE POOL: 1 repeat(s) swapped for unused images (5 distinct stills now on screen)
+2026-10-03 05:45:19,492 INFO REPEAT HOLD: 1 beat(s) moved to a picture with a use left, 0 held on the previous picture (cap 2 shots)
+2026-10-03 05:45:19,492 INFO RENDER REPORT: {"style": "slowburn", "ck_mode": true, "cookie_bytes": 1668, "story_vids": 0, "scenes": 9, "runtime_s": 30.0, "footage_scenes": 1, "gap_fill_scenes": 0, "opportunistic_footage": 1, "still_photo_scenes": 6, "card_scenes": 2, "frozen_stills": 0, "footage_fetches": 2, "seq": "fcssscsss"}
+2026-10-03 05:45:19,492 INFO CLIP verify disabled (VIDEO_CLIP_VERIFY=0)
+2026-10-03 05:45:19,492 INFO scene plan (v4 EDL): 9 scene(s) (2 receipt, 1 b-roll), pool=6
+2026-10-03 05:45:19,492 INFO   scene 1: 0.00-5.04s type=broll(FOOTAGE) motion=punch_build sfx=none music=bed visual=0cee6ce22414e71bf911017c0711069764a3fdd6.mp4
+2026-10-03 05:45:19,492 INFO   scene 2: 5.04-8.83s type=receipt motion=contain sfx=pop music=bed visual=shot-569-0.png
+2026-10-03 05:45:19,492 INFO   scene 3: 8.83-10.66s type=photo motion=pan_right sfx=none music=bed visual=vis-569-0
+2026-10-03 05:45:19,492 INFO   scene 4: 10.66-13.74s type=photo motion=zoom_out sfx=none music=bed visual=vis-569-1
+2026-10-03 05:45:19,492 INFO   scene 5: 13.74-16.09s type=photo motion=punch_build sfx=none music=bed visual=clipfr-0.jpg
+2026-10-03 05:45:19,492 INFO   scene 6: 16.09-18.74s type=receipt motion=contain sfx=pop music=bed visual=receipt-569-5.png
+2026-10-03 05:45:19,492 INFO   scene 7: 18.74-23.88s type=photo motion=pan_left sfx=none music=bed visual=clipfr-0.jpg
+2026-10-03 05:45:19,492 INFO   scene 8: 23.88-26.92s type=photo motion=pan_right sfx=none music=bed visual=vis-569-1
+2026-10-03 05:45:19,492 INFO   scene 9: 26.92-30.02s type=photo motion=zoom_out sfx=none music=bed visual=vis-569-0
+2026-10-03 05:45:19,493 INFO VARIETY: 1 scene(s) re-pointed (cap 2 of 8 still scenes)
+2026-10-03 05:45:19,493 INFO VARIETY: 6 distinct stills, top visual carries 2/8 (25%)
+2026-10-03 05:45:19,493 INFO SELFCHECK: repeats=0 short_scenes=none caption_cov=98% (window=3, assets=15)
+2026-10-03 05:45:19,493 WARNING SELFCHECK: 1 near-repeat(s) within the 3-scene window (small pool; each reappears with different motion) — non-fatal
+2026-10-03 05:45:21,140 INFO DEPTH SCENE clipfr-0.jpg motion=punch_build dur=2.3s
+2026-10-03 05:45:22,251 INFO GRAVE story: transitions + pattern interrupt disabled
+2026-10-03 05:45:26,746 INFO TEXT AVOID: burned-in text on 6 of 9 scene(s) (4.5s)
+2026-10-03 05:45:26,751 INFO TEXT AVOID: hook moved off burned-in text, top y 652 -> 580
+2026-10-03 05:45:27,933 INFO CAPTION PLACEMENT: 21 caption event(s) by position: {"card": 8, "home": 5, "top": 8}
+2026-10-03 05:45:28,908 INFO bgm: SIGNATURE bed bgm_2.mp3 (same on every video, by design)
+2026-10-03 05:45:29,393 INFO sound: bed bgm_2.mp3 over 1 interval(s), 0 swell(s)
+2026-10-03 05:45:29,593 INFO sound: 2 SFX placed
+2026-10-03 05:45:29,629 INFO sound: final -17.6 dBFS avg / -1.5 dBFS peak
+2026-10-03 05:49:47,425 INFO COMPOSE TIMING: {'prepare_s': 10.3, 'draw_encode_s': 257.6, 'remux_s': 0.1, 'scenes': 9, 'seconds': 30.0}
+2026-10-03 05:49:47,472 INFO STAGE: judge
+2026-10-03 05:49:51,441 INFO vision rotation: JUDGE served by gemini-3.5-flash-lite
+2026-10-03 05:49:51,442 INFO vision judge: pass=True weird=[] mismatches=[] artifact_misses=[] scores={'readability': 10, 'framing': 10, 'variety': 9, 'edit_variety': 9, 'completeness': 10} issues=[]
+2026-10-03 05:49:51,443 INFO STAGE: filmstrip
+2026-10-03 05:49:59,086 INFO caption font: /usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf
+2026-10-03 05:49:59,307 INFO filmstrip built: build/sheet-569.jpg
+2026-10-03 05:49:59,308 INFO STAGE: post
+2026-10-03 05:49:59,331 INFO delivering video-569.mp4 (26.2 MB as base64)
+2026-10-03 05:52:14,649 WARNING post attempt 1/2 failed (requests: HTTPSConnectionPool(host='genzhype.com', port=443): Max retries exceeded with url: /api/video_receive.php (Caused by ConnectTimeoutError(<HTTPSConnection(host='genzhype.com', port=443) at 0x7fcdb8063fe0>, 'Connection to genzhype.com timed out. (connect timeout=45)'))); the drop branch is the backstop, so this does not linger
+2026-10-03 05:54:34,853 WARNING post attempt 2/2 failed (requests: HTTPSConnectionPool(host='genzhype.com', port=443): Max retries exceeded with url: /api/video_receive.php (Caused by ConnectTimeoutError(<HTTPSConnection(host='genzhype.com', port=443) at 0x7fcdf829ed80>, 'Connection to genzhype.com timed out. (connect timeout=45)'))); the drop branch is the backstop, so this does not linger
+2026-10-03 05:54:39,854 WARNING HTTP delivery failed; artifact staged for the video-drop branch (drop-meta-569.json)
+2026-10-03 05:54:39,854 INFO STAGE: done
+2026-10-03 05:54:39,855 INFO done. made 3 video(s), 0 failed
