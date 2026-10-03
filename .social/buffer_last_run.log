@@ -1,4 +1,7 @@
-vault unreachable from this runner (attempt 1): curl 28 for https://genzhype.com/api/creds.php
-vault unreachable from this runner (attempt 2): curl 28 for https://genzhype.com/api/creds.php
-vault unreachable from this runner (attempt 3): curl 28 for https://genzhype.com/api/creds.php
-Buffer: no token this run; the next scheduled run will retry
+channels: tiktok:genzhype0, instagram:therealgenzhype_, facebook:Genzhypee
+tt: queueing page 574 (hank-green-admits-to-overreliance-on-ai-tools)
+  SCHEDULED on tiktok as reel for 2026-10-03T19:10:00.000Z (buffer post 6ac0a86ee22a2e5172b6a456)
+ig: queueing page 574 (hank-green-admits-to-overreliance-on-ai-tools)
+  SCHEDULED on instagram as reel for 2026-10-03T19:42:00.000Z (buffer post 6ac0a870713b7277a0af1c2a)
+fb: queueing page 574 (hank-green-admits-to-overreliance-on-ai-tools)
+  SCHEDULED on facebook as reel for 2026-10-03T20:04:00.000Z (buffer post 6ac0a871713b7277a0af1cb8)
