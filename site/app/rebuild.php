@@ -146,7 +146,23 @@ function term_rebuild(PDO $pdo, int $pageId, string $step = 'all'): array {
     if (!($p = $st->fetch(PDO::FETCH_ASSOC))) return ['error' => 'not a term page'];
     if ($step !== 'check') {
         $backup = rebuild_backup($pdo, $pageId);
-        $d = draft_term(['term' => (string)$p['term'], 'lane' => (string)$p['lane'], 'rebuild_page_id' => $pageId]);
+        // with the trend detector on (trend.php, owner 2026-10-04): a meme a source named is written again from that
+        // source and its own posts, like a new one (the stuck memes were written from the name alone)
+        $seed = [];
+        require_once __DIR__ . '/trend.php';
+        if (tr_on()) {
+            $cq = $pdo->prepare("SELECT * FROM candidates WHERE LOWER(name)=LOWER(?) ORDER BY id DESC LIMIT 1");
+            $cq->execute([(string)$p['term']]);
+            if ($cand = $cq->fetch(PDO::FETCH_ASSOC)) {
+                $cand['created_at'] = gmdate('Y-m-d');   // a rebuild is judged as of today, the wait limit is not its concern
+                $tg = tr_gate($pdo, $cand, false);
+                echo "  trend: {$tg['action']}" . ($tg['trend'] ? ' (trend)' : '') . ", {$tg['why']}\n";
+                $seed = ['seed_sources' => $tg['sources'], 'seed_posts' => tr_posts_as_citations($tg['posts'])];
+                tr_install2($pdo);
+                $pdo->prepare("UPDATE terms SET trend=?, trend_note=? WHERE page_id=?")->execute([(int)$tg['trend'], mb_substr($tg['why'], 0, 255), $pageId]);
+            }
+        }
+        $d = draft_term(['term' => (string)$p['term'], 'lane' => (string)$p['lane'], 'rebuild_page_id' => $pageId] + $seed);
         $pdo = db_alive();
         if (isset($d['error'])) return ['error' => 'writer: ' . $d['error'], 'backup' => $backup];
         echo "  written by {$d['provider']}\n";

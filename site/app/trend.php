@@ -360,9 +360,12 @@ function tr_decide_named(array $f): array {
     if (!(array)$f['posts']) return $res + ['trend' => false, 'why' => "named by {$by}, but its page links no dated post of the meme"];
     if (count($recent) < TR_NAMED_MIN_POSTS)
         return $res + ['trend' => false, 'why' => "named by {$by}: " . count($recent) . ' post(s) of it dated in the last ' . TR_NAMED_DAYS . ' days (needs ' . TR_NAMED_MIN_POSTS . '); the rest are older'];
-    if (count($pl) < TR_MIN_PLATFORMS)
-        return $res + ['trend' => false, 'why' => "named by {$by}: " . count($recent) . ' recent posts, all on ' . ($pl[0] ?? '?') . ' (needs ' . TR_MIN_PLATFORMS . ' platforms)'];
-    return $res + ['trend' => true, 'why' => "named by {$by}: " . count($recent) . ' posts of it in the last ' . TR_NAMED_DAYS . ' days on ' . implode(' and ', $pl)];
+    // owner 2026-10-04: with posts on one platform only, the outlet that wrote about the meme counts as the second place
+    // it was seen (KnowYourMeme, a news site: a page we could read). A Reddit thread or a bare post is never that outlet.
+    if (count($pl) < TR_MIN_PLATFORMS && empty($f['outlet']))
+        return $res + ['trend' => false, 'why' => "named by {$by}: " . count($recent) . ' recent posts, all on ' . ($pl[0] ?? '?') . ' (needs ' . TR_MIN_PLATFORMS . ' platforms, or an outlet writing about it)'];
+    return $res + ['trend' => true, 'why' => "named by {$by}: " . count($recent) . ' posts of it in the last ' . TR_NAMED_DAYS . ' days on ' . implode(' and ', $pl)
+                                              . (count($pl) < TR_MIN_PLATFORMS ? ", and {$by} wrote about it" : '')];
 }
 
 function tr_install2(PDO $pdo): void {
@@ -417,7 +420,7 @@ function tr_gate(PDO $pdo, array $cand, bool $apply = false, string $now = ''): 
     } else {
         $src = tr_source_posts($urls);
         $by = $src['sources'] ? (string)$src['sources'][0]['publisher'] : (string)preg_replace('/^(desk:)?(rss:|scout:)?/', '', (string)($sg['source'] ?? 'a source'));
-        $d = tr_decide_named(['now' => $today, 'posts' => $src['posts'], 'named_by' => $by]);
+        $d = tr_decide_named(['now' => $today, 'posts' => $src['posts'], 'named_by' => $by, 'outlet' => !empty($src['sources'])]);
         $out = ['action' => $d['trend'] ? 'write' : 'wait', 'trend' => $d['trend'], 'why' => $d['why'], 'sources' => $src['sources'], 'posts' => $src['posts']] + $out;
     }
     // a term that has waited a week is dropped
@@ -453,4 +456,40 @@ function tr_in_signals(PDO $pdo, string $term): bool {
     $q = $pdo->prepare("SELECT COUNT(*) FROM desk_signals WHERE seen_at >= NOW() - INTERVAL " . TR_RECENT_DAYS . " DAY AND origin NOT LIKE 'google%' AND (origin LIKE 'scout:reddit%' OR origin LIKE 'scout:x%' OR origin LIKE 'scout:youtube%') AND text LIKE ?");
     $q->execute(['%' . $t . '%']);
     return (int)$q->fetchColumn() > 0;
+}
+
+/**
+ * STUCK TRENDS get written again (owner 2026-10-01: "the stuck real trends get built"; his rule for a strong idea that is
+ * missing something: work harder, do not drop it). A term draft from the last 30 days whose gate verdict is "trend" is
+ * rebuilt from the page that named it and its own posts (rebuild.php term_rebuild), at most once every 3 days and
+ * $limit per call. The page keeps its address; nothing goes live unless the unchanged checks pass.
+ * ['line' => what it did]
+ */
+function tr_rebuild_stuck(PDO $pdo, int $limit = 1): array {
+    tr_install2($pdo);
+    $cols = array_column($pdo->query("SHOW COLUMNS FROM terms")->fetchAll(PDO::FETCH_ASSOC), 'Field');
+    if (!in_array('trend_rebuilt_at', $cols, true)) $pdo->exec("ALTER TABLE terms ADD COLUMN trend_rebuilt_at DATETIME NULL");
+    $rows = $pdo->query("SELECT p.id, t.term FROM pages p JOIN terms t ON t.page_id=p.id
+                         WHERE p.type='term' AND p.status='draft' AND p.created_at >= UTC_TIMESTAMP() - INTERVAL 30 DAY
+                           AND (t.trend_rebuilt_at IS NULL OR t.trend_rebuilt_at < UTC_TIMESTAMP() - INTERVAL 3 DAY)
+                         ORDER BY (t.trend = 1) DESC, p.id DESC LIMIT 25")->fetchAll(PDO::FETCH_ASSOC);
+    $cq = $pdo->prepare("SELECT * FROM candidates WHERE LOWER(name)=LOWER(?) ORDER BY id DESC LIMIT 1");
+    $done = [];
+    foreach ($rows as $r) {
+        if (count($done) >= $limit) break;
+        $cq->execute([(string)$r['term']]);
+        $cand = $cq->fetch(PDO::FETCH_ASSOC);
+        if (!$cand) continue;
+        $cand['created_at'] = gmdate('Y-m-d');
+        try { $g = tr_gate($pdo, $cand, false); } catch (Throwable $e) { continue; }
+        if ($g['action'] !== 'write' || !$g['trend']) {   // not a trend (today): leave the draft, look again in 3 days
+            $pdo->prepare("UPDATE terms SET trend_rebuilt_at=UTC_TIMESTAMP(), trend=0, trend_note=? WHERE page_id=?")->execute([mb_substr($g['why'], 0, 255), (int)$r['id']]);
+            continue;
+        }
+        $pdo->prepare("UPDATE terms SET trend_rebuilt_at=UTC_TIMESTAMP() WHERE page_id=?")->execute([(int)$r['id']]);
+        require_once __DIR__ . '/rebuild.php';
+        try { $rr = term_rebuild($pdo, (int)$r['id'], 'all'); } catch (Throwable $e) { $rr = ['error' => get_class($e) . ': ' . $e->getMessage()]; }
+        $done[] = '"' . $r['term'] . '" ' . (isset($rr['error']) ? 'not rebuilt (' . mb_substr((string)$rr['error'], 0, 90) . ')' : 'rebuilt, checks ' . (!empty($rr['ok']) ? 'PASS' : 'FAIL: ' . mb_substr(implode('; ', (array)($rr['fails'] ?? [])), 0, 140)));
+    }
+    return ['line' => $done ? 'stuck trends: ' . implode(' | ', $done) : ''];
 }

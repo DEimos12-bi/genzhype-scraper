@@ -592,6 +592,18 @@ function rt_cases(): array {
                 ['platform' => 'TikTok', 'date' => '2026-09-25'], ['platform' => 'TikTok', 'date' => '2026-09-26'], ['platform' => 'X', 'date' => '2026-09-27']]]);
             return [$r['trend'] === true, $r['why']];
         }],
+        [13, 'named-one-platform-outlet', 'guard', 'Recent posts on TikTok only, and KnowYourMeme wrote about it: the outlet is the second place (owner 2026-10-04)', function () {
+            rt_need_tr(); rt_need('tr_decide_named');
+            $p = [['platform' => 'TikTok', 'date' => '2026-09-25'], ['platform' => 'TikTok', 'date' => '2026-09-26'], ['platform' => 'TikTok', 'date' => '2026-09-27']];
+            $r = tr_decide_named(['now' => '2026-10-01', 'named_by' => 'knowyourmeme.com', 'posts' => $p, 'outlet' => true]);
+            return [$r['trend'] === true, $r['why']];
+        }],
+        [13, 'named-one-platform-thread', 'fix', 'Recent posts on one platform and only a Reddit thread naming it: not a trend yet', function () {
+            rt_need_tr(); rt_need('tr_decide_named');
+            $p = [['platform' => 'TikTok', 'date' => '2026-09-25'], ['platform' => 'TikTok', 'date' => '2026-09-26'], ['platform' => 'TikTok', 'date' => '2026-09-27']];
+            $r = tr_decide_named(['now' => '2026-10-01', 'named_by' => 'reddit', 'posts' => $p, 'outlet' => false]);
+            return [$r['trend'] === false, $r['why']];
+        }],
         [13, 'named-old-posts', 'fix', 'A meme a source named whose posts are months old is not a trend now', function () {
             rt_need_tr(); rt_need('tr_decide_named');
             $r = tr_decide_named(['now' => '2026-10-01', 'named_by' => 'knowyourmeme.com', 'posts' => [

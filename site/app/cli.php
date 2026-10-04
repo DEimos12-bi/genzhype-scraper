@@ -1894,6 +1894,12 @@ switch ($cmd) {
         // Together they kept a month of July junk (a French beach, a cricket
         // scorecard) permanently at the head of the queue.
         require_once __DIR__ . '/trend.php';   // THE TREND DETECTOR (owner 2026-10-01, on only with app/TREND_ON)
+        // one stuck trend is written again per build-worker run (trend.php tr_rebuild_stuck): a real meme that was written
+        // from its name alone gets its naming page and its own posts, and goes live only if the unchanged checks pass
+        if (tr_on() && !empty($BUILD_ONLY)) {
+            try { $ts = tr_rebuild_stuck($pdo, 1); if ($ts['line'] !== '') echo "  {$ts['line']}\n"; } catch (Throwable $e) { echo '  stuck trends skipped: ' . $e->getMessage() . "\n"; }
+            $pdo = db_alive();
+        }
         $terms = $pdo->query("SELECT id, name, type, signals, created_at, COALESCE(draft_attempts,0) tries FROM candidates
                               WHERE status='selected' AND type IN ('term','meme','gaming','music')
                                 AND heat_score >= 50 AND COALESCE(draft_attempts,0) < 5
