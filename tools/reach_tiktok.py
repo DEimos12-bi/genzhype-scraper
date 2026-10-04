@@ -72,11 +72,13 @@ def browser_try():
         page = ctx.new_page()
 
         def on_resp(r):
-            if "creative_radar_api" in r.url and len(api_seen) < 12:
+            # every data answer the page gets (TikTok moved the page in 2026; the list no longer comes from the old API path)
+            if "json" in (r.headers.get("content-type") or "") and "tiktok" in r.url and "/user/info" not in r.url and len(api_seen) < 14:
                 try:
-                    api_seen.append(f"{r.status} {r.url.split('creative_radar_api')[1][:60]} {(r.text() or '')[:70]}")
+                    t = r.text() or ""
+                    api_seen.append(f"{r.status} {r.url.split('tiktok.com')[1][:150]} | {len(t)} bytes | {t[:90]}")
                 except Exception:
-                    api_seen.append(f"{r.status} {r.url.split('creative_radar_api')[1][:60]}")
+                    api_seen.append(f"{r.status} {r.url.split('tiktok.com')[1][:150]}")
             if "popular_trend/hashtag/list" not in r.url:
                 return
             hits[0] += 1
@@ -112,7 +114,7 @@ def browser_try():
                 note["title"] = (page.title() or "")[:80]
                 note["text_len"] = len(text)
                 note["login_wall"] = bool(re.search(r"log ?in to|sign up to|please log in", text, re.I))
-                note["text_head"] = re.sub(r"\s+", " ", text)[:300]
+                note["text_head"] = re.sub(r"\s+", " ", text)[:1000]
         finally:
             b.close()
     note["api"] = api_seen
@@ -156,7 +158,7 @@ def main():
             status, hits, tags, note = browser_try()
             out["status"]["browser"] = f"page HTTP {status}, {hits} list response(s), {len(tags)} tags"
             out["status"]["browser_note"] = note
-            print(f"D browser note: {json.dumps(note)[:900]}", flush=True)
+            print(f"D browser note: {json.dumps(note)[:3000]}", flush=True)
             print(f"D browser: page {status}, list responses={hits}, tags={len(tags)}", flush=True)
             if tags:
                 out["method"], out["hashtags"] = "browser", tags
