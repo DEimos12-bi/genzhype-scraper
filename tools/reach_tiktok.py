@@ -63,7 +63,7 @@ def browser_try():
     page, so plain HTTP gets "no permission". Chromium opens the public trend page like a visitor, logged out, and we
     read the list the page itself loads. No login, no cookies; it can break when TikTok changes the page."""
     from playwright.sync_api import sync_playwright
-    tags, seen, hits = [], set(), [0]
+    tags, seen, hits, api_seen, note = [], set(), [0], [], {}
     url = CC_PAGE + "?countryCode=US&period=7"
     with sync_playwright() as p:
         b = p.chromium.launch(headless=True, args=["--no-sandbox"])
@@ -72,6 +72,11 @@ def browser_try():
         page = ctx.new_page()
 
         def on_resp(r):
+            if "creative_radar_api" in r.url and len(api_seen) < 12:
+                try:
+                    api_seen.append(f"{r.status} {r.url.split('creative_radar_api')[1][:60]} {(r.text() or '')[:70]}")
+                except Exception:
+                    api_seen.append(f"{r.status} {r.url.split('creative_radar_api')[1][:60]}")
             if "popular_trend/hashtag/list" not in r.url:
                 return
             hits[0] += 1
@@ -99,9 +104,19 @@ def browser_try():
                 body = page.content()
                 for name in dict.fromkeys(re.findall(r'"hashtag_name"\s*:\s*"([^"]{2,40})"', body)):
                     tags.append({"name": name, "rank": len(tags) + 1})
+                text = page.inner_text("body") or ""
+                if not tags:                        # the rows as a visitor reads them: "# name"
+                    for name in dict.fromkeys(re.findall(r"(?m)^\s*#\s?([A-Za-z0-9_]{2,40})\s*$", text)):
+                        tags.append({"name": name, "rank": len(tags) + 1})
+                note["url"] = page.url[:120]
+                note["title"] = (page.title() or "")[:80]
+                note["text_len"] = len(text)
+                note["login_wall"] = bool(re.search(r"log ?in to|sign up to|please log in", text, re.I))
+                note["text_head"] = re.sub(r"\s+", " ", text)[:300]
         finally:
             b.close()
-    return status, hits[0], tags
+    note["api"] = api_seen
+    return status, hits[0], tags, note
 
 def main():
     out_path = sys.argv[1]
@@ -138,8 +153,10 @@ def main():
 
     if not out["hashtags"]:
         try:
-            status, hits, tags = browser_try()
+            status, hits, tags, note = browser_try()
             out["status"]["browser"] = f"page HTTP {status}, {hits} list response(s), {len(tags)} tags"
+            out["status"]["browser_note"] = note
+            print(f"D browser note: {json.dumps(note)[:900]}", flush=True)
             print(f"D browser: page {status}, list responses={hits}, tags={len(tags)}", flush=True)
             if tags:
                 out["method"], out["hashtags"] = "browser", tags
