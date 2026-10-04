@@ -173,7 +173,10 @@ jobs:
         run: |
           set +e
           pip install --quiet "curl_cffi==0.16.3" 2>drop/install-cffi.err
-          timeout 180 python tools/reach_tiktok.py drop/tiktok-trends.json >> drop/reach.log 2>&1
+          # owner 2026-10-04: the real-browser route (TikTok signs its trend API inside the page; no login used)
+          pip install --quiet playwright 2>drop/install-playwright.err
+          python -m playwright install --with-deps chromium >drop/install-chromium.log 2>&1
+          timeout 300 python tools/reach_tiktok.py drop/tiktok-trends.json >> drop/reach.log 2>&1
           echo "tiktok exit=$? bytes=$(wc -c < drop/tiktok-trends.json 2>/dev/null || echo 0)" | tee -a drop/reach.log
           tail -8 drop/reach.log
 

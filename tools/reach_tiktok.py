@@ -58,6 +58,51 @@ def page_try():
     return r.status_code, len(body), tags
 
 
+def browser_try():
+    """D. A real browser (owner 2026-10-04: "try the real-browser route"). TikTok signs the trend API inside its own
+    page, so plain HTTP gets "no permission". Chromium opens the public trend page like a visitor, logged out, and we
+    read the list the page itself loads. No login, no cookies; it can break when TikTok changes the page."""
+    from playwright.sync_api import sync_playwright
+    tags, seen, hits = [], set(), [0]
+    url = CC_PAGE + "?countryCode=US&period=7"
+    with sync_playwright() as p:
+        b = p.chromium.launch(headless=True, args=["--no-sandbox"])
+        ctx = b.new_context(locale="en-US", viewport={"width": 1366, "height": 900},
+                            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36")
+        page = ctx.new_page()
+
+        def on_resp(r):
+            if "popular_trend/hashtag/list" not in r.url:
+                return
+            hits[0] += 1
+            try:
+                j = r.json()
+            except Exception:
+                return
+            for h in ((j.get("data") or {}).get("list") or []):
+                name = (h.get("hashtag_name") or "").strip()
+                if name and name not in seen:
+                    seen.add(name)
+                    tags.append({"name": name, "rank": len(tags) + 1,
+                                 "publish_cnt": h.get("publish_cnt"), "views": h.get("video_views")})
+
+        page.on("response", on_resp)
+        status = "?"
+        try:
+            resp = page.goto(url, wait_until="domcontentloaded", timeout=60000)
+            status = str(resp.status if resp else "no response")
+            page.wait_for_timeout(9000)
+            for _ in range(3):                      # the list loads more as the page scrolls
+                page.mouse.wheel(0, 2500)
+                page.wait_for_timeout(2500)
+            if not tags:                            # nothing from the page's own API call: read what it rendered
+                body = page.content()
+                for name in dict.fromkeys(re.findall(r'"hashtag_name"\s*:\s*"([^"]{2,40})"', body)):
+                    tags.append({"name": name, "rank": len(tags) + 1})
+        finally:
+            b.close()
+    return status, hits[0], tags
+
 def main():
     out_path = sys.argv[1]
     out = {"at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
@@ -90,6 +135,17 @@ def main():
             print(f"C api cookies: {code}, tags={len(tags)}", flush=True)
             if tags:
                 out["method"], out["hashtags"] = "api_cookies", tags
+
+    if not out["hashtags"]:
+        try:
+            status, hits, tags = browser_try()
+            out["status"]["browser"] = f"page HTTP {status}, {hits} list response(s), {len(tags)} tags"
+            print(f"D browser: page {status}, list responses={hits}, tags={len(tags)}", flush=True)
+            if tags:
+                out["method"], out["hashtags"] = "browser", tags
+        except Exception as e:
+            out["status"]["browser"] = f"error: {type(e).__name__}: {str(e)[:120]}"
+            print(f"D browser: {out['status']['browser']}", flush=True)
 
     pathlib.Path(out_path).write_text(json.dumps(out, ensure_ascii=False))
     print(f"tiktok ear: method={out['method']} hashtags={len(out['hashtags'])}", flush=True)
