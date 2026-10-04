@@ -11,7 +11,7 @@
 //   ss_ids()          the sources a story's checks read: the ones its events cite; with the switch on, every source
 //                     the story was written from as well. The page lists the same ones.
 //   ss_date_backed()  is an event's day one its sources state, or the day one of them was published?
-//   ss_fix_event_dates()  an event dated by no source takes the date of the report that carries it.
+//   ss_date_plan()    a timeline day no source gives: the report's date when a day or two off, month-only when the 1st was invented.
 //   ss_round_plan()   what a failed fact check sends to the next removal round (pure).
 //
 // Everything that changes a result is ON only with the file app/FACTFIX_ON (or FACTFIX=1 for a test run).
@@ -73,6 +73,23 @@ function ss_in(PDO $pdo, int $did): string {
     return implode(',', ss_ids($pdo, $did)) ?: '0';
 }
 
+/**
+ * The day an X or TikTok post was made, read from the post's own id (UTC); '' for anything else. The fact check said
+ * "the tweet does not include a date" and held pages whose events were the posts themselves (2026-10-04 sample).
+ */
+function ss_post_date(string $url): string {
+    $ts = 0;
+    if (preg_match('#(?:x|twitter)\.com/[^/]+/status/(\d{15,20})#i', $url, $m)) $ts = intdiv(((int)$m[1] >> 22) + 1288834974657, 1000);
+    elseif (preg_match('#tiktok\.com/.*/video/(\d{15,20})#i', $url, $m)) $ts = (int)$m[1] >> 32;
+    return ($ts > 1262304000 && $ts < time() + 86400) ? gmdate('Y-m-d', $ts) : '';
+}
+
+/** A source's publish date: its own, else the date of the post it is. */
+function ss_source_date(array $s): string {
+    $d = substr((string)($s['published_on'] ?? ''), 0, 10);
+    return $d !== '' && $d !== '0000-00-00' ? $d : ss_post_date((string)($s['url'] ?? ''));
+}
+
 /** A plan's date as the page shows it: a month-only or year-only date is a label, never "2026-12-00". */
 function ss_plan_label(string $date): string {
     if (!preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $date, $m)) return $date;
@@ -99,26 +116,51 @@ function ss_date_backed(string $date, array $sources): bool {
 }
 
 /**
- * An event dated by no source takes the date of the report that carries it (the fact check's own rule: "an event that is
- * the report itself may carry the source's published date"). The writer dated events a day off their article (Kotaku
- * dated Oct 3, event Oct 2) and the whole page was held. Only an event whose own source has a publish date, on or before
- * today; anything else is left for the fact check. [moved => n, 'list' => ["event id: old -> new", ...]]
+ * Pure: what to do with a timeline event's day. $pub: the day its own source was published ('' = unknown).
+ *   keep    a source names the day, or was published that day
+ *   report  no source gives the day and it is within 2 days of the report: the event takes the report's date (the fact
+ *           check's own rule: "an event that is the report itself may carry the source's published date"). The writer
+ *           dated events a day off their article (Kotaku dated Oct 3, event Oct 2) and the whole page was held.
+ *   month   the day is the 1st and the sources name only the month ("diagnosed in March 2022"): the 1st was invented,
+ *           the date becomes month-only, and the accuracy step moves it to the background as "In March 2022, ..."
+ *   leave   anything else: the fact check decides, and a faulted event date holds the page
+ * 2026-10-04 sample: a rule that moved every unbacked date to the report's day put "diagnosed with ALS in March 2022"
+ * on Oct 2, 2026; hence the 2-day limit and the month case.
  */
+function ss_date_plan(string $date, string $pub, array $sources, string $today): array {
+    if (!preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $date, $m) || $m[2] === '00' || $m[3] === '00') return ['action' => 'keep', 'date' => $date];
+    if (ss_date_backed($date, $sources)) return ['action' => 'keep', 'date' => $date];
+    $pub = substr($pub, 0, 10);
+    if ($pub !== '' && $pub <= $today && abs(strtotime($date . ' UTC') - strtotime($pub . ' UTC')) <= 2 * 86400) return ['action' => 'report', 'date' => $pub];
+    if ($m[3] === '01') {
+        $ts = strtotime($date . ' 12:00:00 UTC'); $full = date('F', $ts); $short = date('M', $ts);
+        $names = $full === $short ? preg_quote($full, '/') : preg_quote($full, '/') . '|' . preg_quote($short, '/') . '\.' . ($full === 'September' ? '|Sept\.?' : '');
+        foreach ($sources as $s) {
+            if (!preg_match_all('/\b(?:' . $names . ')(?:,?\s+(\d{4}))?(?![\w.]*\s+\d{1,2}\b)/i', (string)($s['excerpt'] ?? ''), $mm, PREG_SET_ORDER)) continue;
+            $srcYear = substr((string)($s['published_on'] ?? ''), 0, 4);
+            foreach ($mm as $x) if ((($x[1] ?? '') !== '' && $x[1] === $m[1]) || (($x[1] ?? '') === '' && $srcYear === $m[1])) return ['action' => 'month', 'date' => "{$m[1]}-{$m[2]}-00"];
+        }
+    }
+    return ['action' => 'leave', 'date' => $date];
+}
+
+/** ss_date_plan() applied to a story's timeline. Runs before acc_fix_dates(), which moves month-only dates to the background. */
 function ss_fix_event_dates(PDO $pdo, int $pageId): array {
     $out = ['moved' => 0, 'list' => []];
     $did = (int)$pdo->query("SELECT id FROM dramas WHERE page_id=" . $pageId)->fetchColumn();
     if (!$did) return $out;
-    $all = $pdo->query("SELECT id, excerpt, published_on FROM sources WHERE id IN (" . ss_in($pdo, $did) . ")")->fetchAll(PDO::FETCH_ASSOC);
+    $all = $pdo->query("SELECT id, url, excerpt, published_on FROM sources WHERE id IN (" . ss_in($pdo, $did) . ")")->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($all as $k => $src) $all[$k]['published_on'] = ss_source_date($src);   // a post is dated by its own id
     $byId = array_column($all, null, 'id');
     $today = gmdate('Y-m-d');
     $evs = $pdo->query("SELECT id, event_date, source_id FROM events WHERE drama_id={$did} AND video_only=0")->fetchAll(PDO::FETCH_ASSOC);
     $up = $pdo->prepare("UPDATE events SET event_date=? WHERE id=?");
     foreach ($evs as $e) {
         $d = (string)$e['event_date'];
-        $pub = substr((string)($byId[(int)$e['source_id']]['published_on'] ?? ''), 0, 10);
-        if ($pub === '' || $pub > $today || $d === $pub || ss_date_backed($d, $all)) continue;
-        $up->execute([$pub, (int)$e['id']]);
-        $out['moved']++; $out['list'][] = "event {$e['id']}: {$d} -> {$pub}";
+        $p = ss_date_plan($d, (string)($byId[(int)$e['source_id']]['published_on'] ?? ''), $all, $today);
+        if ($p['action'] !== 'report' && $p['action'] !== 'month') continue;
+        $up->execute([$p['date'], (int)$e['id']]);
+        $out['moved']++; $out['list'][] = "event {$e['id']}: {$d} -> {$p['date']} ({$p['action']})";
     }
     if ($out['moved']) $pdo->prepare("UPDATE pages SET updated_at=NOW() WHERE id=?")->execute([$pageId]);
     return $out;

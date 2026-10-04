@@ -24,9 +24,10 @@ function verify_drama(int $page_id): array {
     // Full source excerpts so the verifier judges against the ACTUAL material.
     sources_install($pdo);   // sources.published_on (db.php)
     // 2026-10-04 the check read only the sources a timeline event cites; the writer is given more (story_sources.php)
-    $sq = $pdo->query("SELECT s.id, s.publisher, s.excerpt, s.published_on FROM sources s WHERE s.id IN (" . ss_in($pdo, $did) . ") ORDER BY s.id");
+    $sq = $pdo->query("SELECT s.id, s.url, s.publisher, s.excerpt, s.published_on FROM sources s WHERE s.id IN (" . ss_in($pdo, $did) . ") ORDER BY s.id");
     $srcBlock = "SOURCE MATERIAL (full excerpts):\n";
     foreach ($sq->fetchAll() as $s) {
+        if (ss_on() && !$s['published_on']) $s['published_on'] = ss_post_date((string)$s['url']) ?: null;   // an X or TikTok post is dated by its own id
         $srcBlock .= "[S{$s['id']}] {$s['publisher']}" . ($s['published_on'] ? " (published {$s['published_on']})" : '') . ': '
                    . ($s['excerpt'] ?: '(no excerpt stored)') . "\n\n";
     }

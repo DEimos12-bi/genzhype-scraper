@@ -402,9 +402,10 @@ function acc_fresh_verify(PDO $pdo, int $pageId): ?array {
 function acc_run(PDO $pdo, int $pageId): array {
     require_once __DIR__ . '/verify.php';
     require_once __DIR__ . '/page_rules.php';
+    // a timeline day no source gives (story_sources.php ss_date_plan, on with app/FACTFIX_ON): before the date rules below
+    $backed = ss_on() ? ss_fix_event_dates($pdo, $pageId) : null;
     $rep = ['dates' => acc_fix_dates($pdo, $pageId)];
-    // an event dated by no source takes the date of the report that carries it (story_sources.php, on with app/FACTFIX_ON)
-    if (ss_on()) $rep['dates_backed'] = ss_fix_event_dates($pdo, $pageId);
+    if ($backed !== null) $rep['dates_backed'] = $backed;
     $rep['rules'] = rules_fix_page($pdo, $pageId)['changed'] ?? [];   // what the owner's rules fix by code alone, before the fact check reads the page
     $v = acc_fresh_verify($pdo, $pageId) ?? verify_drama($pageId);   // a run cut short resumes here
     // 2026-09-27 nothing is removed on the fact check's word alone: on Rayman it quoted a whole event for one
@@ -464,6 +465,19 @@ function acc_run(PDO $pdo, int $pageId): array {
             if (is_array($i) && (($i['type'] ?? '') === 'title' || str_starts_with(strtolower((string)($i['section'] ?? '')), 'description')))
                 $late[] = (str_starts_with(strtolower((string)($i['section'] ?? '')), 'description') ? 'the description: ' : '') . (string)($i['detail'] ?? $i['sentence'] ?? '');
         if ($late && ($rep['retitled'] = acc_retitle($pdo, $pageId, implode('; ', $late)))) $v = verify_drama($pageId);
+    }
+    // 2026-10-04 sample: two pages were held only because the check faulted the REWRITTEN description on a detail ("sex scenes"
+    // for "strong sexual content"). When the title or description is all that is left, it gets one more rewrite, told why.
+    if (ss_on() && $rep['retitled'] && ($v['pass'] ?? true) === false) {
+        $late = []; $other = 0;
+        foreach ((array)($v['issues'] ?? []) as $i) {
+            if (!is_array($i)) continue;
+            $sec = strtolower((string)($i['section'] ?? ''));
+            if (($i['type'] ?? '') === 'title' || str_starts_with($sec, 'description') || str_starts_with($sec, 'title'))
+                $late[] = (str_starts_with($sec, 'description') ? 'the description: ' : '') . (string)($i['detail'] ?? $i['sentence'] ?? '');
+            else $other++;
+        }
+        if ($late && !$other && acc_retitle($pdo, $pageId, implode('; ', $late))) $v = verify_drama($pageId);
     }
     $rep['verify'] = $v;
     acc_log($pdo, $pageId, (int)$rep['removal']['removed']);

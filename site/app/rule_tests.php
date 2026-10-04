@@ -573,6 +573,31 @@ function rt_cases(): array {
             rt_need_ss();
             return [ss_date_backed('2026-10-02', [['excerpt' => 'The update arrives on October 21 and Oct. 29.', 'published_on' => '2026-09-30']]) === false, 'October 21 is another day'];
         }],
+        [14, 'date-day-off', 'fix', 'An event dated a day before its article, with no day in any source, takes the article\'s date', function () {
+            rt_need_ss();
+            $p = ss_date_plan('2026-10-02', '2026-10-03', [['excerpt' => 'The director said the trilogy keeps its story.', 'published_on' => '2026-10-03']], '2026-10-04');
+            return [$p['action'] === 'report' && $p['date'] === '2026-10-03', "{$p['action']}: {$p['date']}"];
+        }],
+        [14, 'date-month-only', 'fix', '"Diagnosed in March 2022" written as March 1: the day was invented, the date becomes month-only (never the report\'s day)', function () {
+            rt_need_ss();
+            $p = ss_date_plan('2022-03-01', '2026-10-02', [['excerpt' => 'She was diagnosed with ALS in March 2022 and documented it on TikTok.', 'published_on' => '2026-10-02']], '2026-10-04');
+            return [$p['action'] === 'month' && $p['date'] === '2022-03-00', "{$p['action']}: {$p['date']}"];
+        }],
+        [14, 'date-far', 'guard', 'A day no source gives, weeks from the report, is left alone: the fact check decides and the page holds', function () {
+            rt_need_ss();
+            $p = ss_date_plan('2026-08-14', '2026-10-02', [['excerpt' => 'The studio confirmed the delay this week.', 'published_on' => '2026-10-02']], '2026-10-04');
+            return [$p['action'] === 'leave' && $p['date'] === '2026-08-14', "{$p['action']}: {$p['date']}"];
+        }],
+        [14, 'date-first-real', 'guard', 'A real first of the month the source names ("on October 1") stays a full date', function () {
+            rt_need_ss();
+            $p = ss_date_plan('2026-10-01', '2026-10-03', [['excerpt' => 'Sony announced the feature on October 1 in a blog post.', 'published_on' => '2026-10-03']], '2026-10-04');
+            return [$p['action'] === 'keep', "{$p['action']}: {$p['date']}"];
+        }],
+        [14, 'post-date', 'fix', 'An X post is dated by its own id, so an event that is the post has a date the check can see', function () {
+            rt_need_ss();
+            $d = ss_post_date('https://twitter.com/IRANinTJ/status/2041215767379878049');
+            return [$d === '2026-04-06' && ss_post_date('https://kotaku.com/some-article-2000123456789012345') === '', "the post's day: {$d}"];
+        }],
         [14, 'plan-label', 'fix', 'A plan dated only by month or year is shown to the fact check as "December 2026", not "2026-12-00"', function () {
             rt_need_ss();
             $a = ss_plan_label('2026-12-00'); $b = ss_plan_label('2027-00-00'); $c = ss_plan_label('2026-11-19');
