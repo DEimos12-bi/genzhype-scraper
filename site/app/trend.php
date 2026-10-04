@@ -167,15 +167,21 @@ function tr_is_ordinary(PDO $pdo, string $term): array {
     $c->execute([$key]);
     if ($row = $c->fetch(PDO::FETCH_ASSOC)) return ['ordinary' => $row['ordinary'] === null ? null : (bool)$row['ordinary'], 'label' => (string)$row['label']];
     // the entry's categories say what kind of word it is ("English slang", "en:Video games", "English lemmas")
-    $ch = curl_init('https://en.wiktionary.org/w/api.php?action=query&prop=categories&cllimit=300&format=json&titles=' . rawurlencode($key));
+    // a short single word is also read under its capital spelling: an acronym lives there ("oomf" is a plain noun, "OOMF"
+    // is internet slang; 2026-10-04 the detector turned "oomf" down as an ordinary word)
+    $caps = preg_match('/^[a-z]{2,6}$/', $key) ? strtoupper($key) : '';
+    $ch = curl_init('https://en.wiktionary.org/w/api.php?action=query&prop=categories&cllimit=500&format=json&titles=' . rawurlencode($key) . ($caps !== '' ? '%7C' . $caps : ''));
     curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 12, CURLOPT_FOLLOWLOCATION => true,
                             CURLOPT_USERAGENT => 'GenZHypeBot/1.0 (https://genzhype.com; contact@genzhype.com)']);
     $raw = curl_exec($ch); $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
     $j = $code === 200 ? json_decode((string)$raw, true) : null;
     if (!is_array($j) || !isset($j['query']['pages'])) return ['ordinary' => null, 'label' => "dictionary not reached (HTTP {$code})"];
-    $cats = [];
-    foreach ((array)$j['query']['pages'] as $pg) foreach ((array)($pg['categories'] ?? []) as $c) $cats[] = preg_replace('/^Category:/', '', (string)$c['title']);
-    $res = tr_dict_read($cats);
+    $cats = []; $capsCats = [];
+    foreach ((array)$j['query']['pages'] as $pg) foreach ((array)($pg['categories'] ?? []) as $c) {
+        if ($caps !== '' && (string)($pg['title'] ?? '') === $caps) $capsCats[] = preg_replace('/^Category:/', '', (string)$c['title']);
+        else $cats[] = preg_replace('/^Category:/', '', (string)$c['title']);
+    }
+    $res = tr_dict_read($cats, $capsCats);
     $pdo->prepare("REPLACE INTO term_dict (term, ordinary, label, checked_at) VALUES (?,?,?,NOW())")->execute([$key, (int)$res['ordinary'], $res['label']]);
     return $res;
 }
@@ -213,7 +219,13 @@ function tr_common_words(): array {
  *   an English entry in "Video games"         -> an ordinary gaming word ("nerf", "loadout")
  *   any other English entry                   -> an ordinary dictionary word ("gamepad", "stamina", "rockets")
  */
-function tr_dict_read(array $cats): array {
+function tr_dict_read(array $cats, array $capsCats = []): array {
+    // $capsCats: the categories of the word's capital spelling, when it has an entry of its own
+    if ($capsCats) {
+        $low = tr_dict_read($cats);
+        if ($low['ordinary'] && tr_dict_read($capsCats)['label'] === 'in the dictionary as slang') return ['ordinary' => false, 'label' => 'in the dictionary as slang (under its capital spelling)'];
+        return $low;
+    }
     $english = false; $slang = false; $gaming = false; $properOnly = true;
     foreach ($cats as $c) {
         if (preg_match('/^English (lemmas|non-lemma forms|nouns|verbs|adjectives|adverbs|phrases|multiword terms|interjections|noun forms|verb forms)$/', $c)) $english = true;

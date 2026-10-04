@@ -563,6 +563,16 @@ function rt_cases(): array {
             $r = tr_dict_read(['English lemmas', 'English nouns', 'English slang', 'English neologisms']);
             return [$r['ordinary'] === false, $r['label']];
         }],
+        [13, 'dict-caps', 'fix', '"oomf" is a plain noun in small letters but internet slang as "OOMF": not an ordinary word', function () {
+            rt_need_tr();
+            $r = tr_dict_read(['English lemmas', 'English nouns', 'English countable nouns'], ['English acronyms', 'English internet slang', 'English lemmas', 'English nouns', 'en:Twitter']);
+            return [$r['ordinary'] === false, $r['label']];
+        }],
+        [13, 'dict-caps-plain', 'guard', 'A plain word whose capital spelling is not slang stays ordinary ("cap" / "CAP")', function () {
+            rt_need_tr();
+            $r = tr_dict_read(['English lemmas', 'English nouns', 'English verbs'], ['English lemmas', 'English proper nouns', 'English initialisms']);
+            return [$r['ordinary'] === true, $r['label']];
+        }],
         [13, 'dict-none', 'guard', 'A new meme name is not in the dictionary: not an ordinary word', function () {
             rt_need_tr();
             $r = tr_dict_read([]);
