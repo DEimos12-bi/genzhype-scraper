@@ -627,6 +627,11 @@ function rt_cases(): array {
             $r = ts_suspect("LosPollosTV Chatter's 'NGL I'ma Take A Nap' Message Becomes A Meme", "NGL I'ma Take A Nap");
             return [$r === 'suspect', 'verdict: ' . ($r ?: 'different names')];
         }],
+        [16, 'word-form', 'fix', 'A form of a word we already have is the same term ("ragebaiting" / "ragebait"), another word is not ("baked" / "bake off")', function () {
+            require_once __DIR__ . '/term_same.php';
+            $a = ts_suspect('ragebaiting', 'ragebait'); $b = ts_suspect('capped', 'cap'); $c = ts_suspect('slay', 'slayer');
+            return [$a === 'same' && $b === 'same' && $c === '', "ragebaiting/ragebait: " . ($a ?: 'different') . "; capped/cap: " . ($b ?: 'different') . "; slay/slayer: " . ($c ?: 'different')];
+        }],
         [16, 'one-word', 'guard', 'One shared word is never enough: "slay queen" is not "slay"', function () {
             require_once __DIR__ . '/term_same.php';
             $r = ts_suspect('slay queen', 'slay');
@@ -800,6 +805,11 @@ function rt_cases(): array {
             rt_need_tr();
             $r = tr_dict_read(['English lemmas', 'English nouns', 'English verbs'], ['English lemmas', 'English proper nouns', 'English initialisms']);
             return [$r['ordinary'] === true, $r['label']];
+        }],
+        [13, 'dict-form', 'fix', 'A form of a slang word is looked up under its base word ("ragebaiting" -> "ragebait", "capped" -> "cap")', function () {
+            rt_need_tr();
+            $a = tr_lemma_guesses('ragebaiting'); $b = tr_lemma_guesses('capped'); $c = tr_lemma_guesses('wiping');
+            return [($a[0] ?? '') === 'ragebait' && ($b[0] ?? '') === 'cap' && in_array('wipe', $c, true), 'ragebaiting -> ' . implode('/', $a) . '; capped -> ' . implode('/', $b) . '; wiping -> ' . implode('/', $c)];
         }],
         [13, 'dict-none', 'guard', 'A new meme name is not in the dictionary: not an ordinary word', function () {
             rt_need_tr();

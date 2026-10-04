@@ -35,6 +35,12 @@ function ts_words(string $name): array {
 function ts_suspect(string $a, string $b): string {
     $wa = ts_words($a); $wb = ts_words($b);
     if (!$wa || !$wb) return '';
+    // one word against one word: a form of the same word is the same term ("ragebaiting" / "ragebait")
+    if (count($wa) === 1 && count($wb) === 1 && $wa[0] !== $wb[0]) {
+        require_once __DIR__ . '/trend.php';
+        $fa = array_merge([$wa[0]], tr_lemma_guesses($wa[0])); $fb = array_merge([$wb[0]], tr_lemma_guesses($wb[0]));
+        return (in_array($wb[0], $fa, true) || in_array($wa[0], $fb, true)) ? 'same' : '';
+    }
     $small = count($wa) <= count($wb) ? $wa : $wb; $large = count($wa) <= count($wb) ? $wb : $wa;
     if (array_diff($small, $large)) return '';
     if (count($small) === count($large)) return 'same';
@@ -61,7 +67,8 @@ function ts_confirm(string $newName, string $newNote, string $oldName, string $o
 function ts_find(PDO $pdo, string $name, string $note = '', int $skipPageId = 0): array {
     $none = ['page' => 0, 'term' => '', 'path' => '', 'status' => '', 'why' => '', 'pending' => false];
     $rows = $pdo->query("SELECT p.id, p.path, p.status, p.summary, t.term, t.short_def FROM pages p JOIN terms t ON t.page_id=p.id
-                         WHERE p.type='term' AND p.status IN ('published','review','draft') ORDER BY (p.status='published') DESC, p.id")->fetchAll(PDO::FETCH_ASSOC);
+                         WHERE p.type='term' AND (p.status IN ('published','review','draft') OR (p.status='archived' AND p.redirect_to LIKE '%/glossary/%'))   -- a glossary entry is a page we have
+                         ORDER BY (p.status='published') DESC, p.id")->fetchAll(PDO::FETCH_ASSOC);
     foreach ($rows as $r) {
         if ((int)$r['id'] === $skipPageId) continue;
         $s = ts_suspect($name, (string)$r['term']);

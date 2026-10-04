@@ -182,8 +182,33 @@ function tr_is_ordinary(PDO $pdo, string $term): array {
         else $cats[] = preg_replace('/^Category:/', '', (string)$c['title']);
     }
     $res = tr_dict_read($cats, $capsCats);
+    // a form of a slang word is slang too: "ragebaiting" is listed only as a verb form, the slang label sits on "ragebait"
+    // (2026-10-04: the gate skipped "ragebaiting" as an ordinary dictionary word)
+    // only an -ing or -ed form: a plural ("noobs", "downs") has nothing to say that its base word's entry does not
+    if ($res['ordinary'] && preg_match('/(ing|ed)$/', $key) && in_array('English non-lemma forms', $cats, true) && !in_array('English lemmas', $cats, true)) {
+        foreach (tr_lemma_guesses($key) as $base) {
+            $bj = json_decode((string)@file_get_contents('https://en.wiktionary.org/w/api.php?action=query&prop=categories&cllimit=500&format=json&titles=' . rawurlencode($base), false,
+                    stream_context_create(['http' => ['timeout' => 10, 'user_agent' => 'GenZHypeBot/1.0 (https://genzhype.com; contact@genzhype.com)']])), true);
+            $bc = [];
+            foreach ((array)($bj['query']['pages'] ?? []) as $pg) foreach ((array)($pg['categories'] ?? []) as $c) $bc[] = preg_replace('/^Category:/', '', (string)$c['title']);
+            if (!$bc) continue;
+            $br = tr_dict_read($bc);
+            if ($br['label'] === 'in the dictionary as slang') $res = ['ordinary' => false, 'label' => "in the dictionary as slang (a form of \"{$base}\")"];
+            break;   // the first base word the dictionary knows decides
+        }
+    }
     $pdo->prepare("REPLACE INTO term_dict (term, ordinary, label, checked_at) VALUES (?,?,?,NOW())")->execute([$key, (int)$res['ordinary'], $res['label']]);
     return $res;
+}
+
+/** Pure: the base words a verb or noun form may come from, likeliest first ("ragebaiting" -> ragebait; "capped" -> cap; "wiping" -> wipe). */
+function tr_lemma_guesses(string $w): array {
+    $w = mb_strtolower($w); $out = [];
+    if (preg_match('/^(.{3,})ing$/', $w, $m)) { $out[] = $m[1]; $out[] = $m[1] . 'e'; if (preg_match('/^(.*)([b-df-hj-np-tv-z])\2$/', $m[1], $d)) array_unshift($out, $d[1] . $d[2]); }
+    if (preg_match('/^(.{3,})ed$/', $w, $m))  { $out[] = $m[1]; $out[] = $m[1] . 'e'; if (preg_match('/^(.*)([b-df-hj-np-tv-z])\2$/', $m[1], $d)) array_unshift($out, $d[1] . $d[2]); }
+    if (preg_match('/^(.{3,})es$/', $w, $m))  { $out[] = $m[1]; $out[] = $m[1] . 'e'; }
+    elseif (preg_match('/^(.{3,})s$/', $w, $m)) $out[] = $m[1];
+    return array_values(array_unique($out));
 }
 
 /**
