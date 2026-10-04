@@ -219,6 +219,7 @@ function draft_drama(array $input): array {
     require_once __DIR__ . '/story_context.php';
     story_context_install($pdo);
     sources_install($pdo);   // sources.published_on (db.php), before the transaction below
+    require_once __DIR__ . '/story_sources.php'; ss_install($pdo);   // drama_sources, before the transaction too (DDL commits one)
     $ctx = story_context_from_draft($j, $input['sources'], (string)$input['topic']);
     $slug = $old ? (string)$old['slug'] : draft_slugify($j['title']);
     if (!$old) {   // the copy checks are for new pages (a rebuild is the page they would find)
@@ -372,6 +373,10 @@ function draft_drama(array $input): array {
             // without reaching "tick done" (15 of 103 runs finished).
             $toArchive[] = [$map[$i + 1], (string)$s['url']];
         }
+
+        // every source this story was written from (story_sources.php): the checks read all of them, not only the ones an event cites
+        $pdo->prepare("DELETE FROM drama_sources WHERE drama_id=?")->execute([$dramaId]);   // a rebuild: the old version's list makes way
+        ss_link($pdo, $dramaId, array_values($map));
 
         $order = 1;
         foreach ($j['events'] as $ev) {

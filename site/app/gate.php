@@ -496,7 +496,8 @@ function gate_check_drama(int $page_id): array {
     $add('citations', "Every event sourced ({$unsourced} unsourced)", $unsourced === 0);
 
     // 9. Source-domain diversity
-    $dom = (int)$pdo->query("SELECT COUNT(DISTINCT s.domain) FROM events e JOIN sources s ON s.id=e.source_id WHERE e.drama_id={$did}")->fetchColumn();
+    require_once __DIR__ . '/story_sources.php';   // with app/FACTFIX_ON: every source the story was written from, as the page lists them
+    $dom = (int)$pdo->query("SELECT COUNT(DISTINCT s.domain) FROM sources s WHERE s.id IN (" . ss_in($pdo, $did) . ")")->fetchColumn();
     $add('domains', "{$dom} distinct source domains (need >= " . GATE_MIN_SOURCE_DOMAINS . ")", $dom >= GATE_MIN_SOURCE_DOMAINS);
 
     // 10. Unconfirmed claims use alleged-framing (defamation shield)

@@ -17,6 +17,7 @@ require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/ai.php';
 require_once __DIR__ . '/backing.php';
 require_once __DIR__ . '/story_context.php';
+require_once __DIR__ . '/story_sources.php';
 
 const ACC_SUMMARY_MIN = 120;   // a summary shorter than this after removals holds the page (the writer's own floor)
 
@@ -98,7 +99,7 @@ function acc_norm(string $t): string {
 function acc_tie(PDO $pdo, int $pageId, array $suspects): array {
     if (!$suspects) return ['unsupported' => [], 'tied' => 0];
     $p = acc_page($pdo, $pageId);
-    $src = $pdo->query("SELECT DISTINCT s.id, s.publisher, s.excerpt FROM events e JOIN sources s ON s.id=e.source_id WHERE e.drama_id=" . (int)$p['did'])->fetchAll(PDO::FETCH_ASSOC);
+    $src = $pdo->query("SELECT s.id, s.publisher, s.excerpt FROM sources s WHERE s.id IN (" . ss_in($pdo, (int)$p['did']) . ") ORDER BY s.id")->fetchAll(PDO::FETCH_ASSOC);
     $block = ''; $corpus = '';
     foreach ($src as $s) { $block .= "[S{$s['id']}] {$s['publisher']}: {$s['excerpt']}\n\n"; $corpus .= ' ' . $s['excerpt']; }
     $corpus = acc_norm($corpus);
@@ -206,9 +207,11 @@ function acc_remove(PDO $pdo, int $pageId, array $items): array {
         elseif (str_starts_with($sec, 'faq')) {
             $id = isset($it['key']) && isset($faqText[$it['key']]) ? $it['key'] : ($faqs[$n - 1]['id'] ?? null);
             if ($id !== null) $faqText[$id] = acc_cut($faqText[$id], [$s]);
+            elseif (ss_on()) foreach ($faqText as $fid => $ft) $faqText[$fid] = acc_cut((string)$ft, [$s]);
         } elseif (str_starts_with($sec, 'event')) {
             $id = isset($it['key']) && isset($evText[$it['key']]) ? $it['key'] : ($evs[$n - 1]['id'] ?? null);
             if ($id !== null) $evText[$id] = acc_cut($evText[$id], [$s]);
+            elseif (ss_on()) foreach ($evText as $eid => $et) $evText[$eid] = acc_cut((string)$et, [$s]);
         }
         $after = [$summary, $why, json_encode($bg), json_encode($next), json_encode($evText), json_encode($faqText)];
         $before === $after ? $out['not_found']++ : $out['removed']++;
@@ -280,7 +283,7 @@ function acc_unlisted_outlets(PDO $pdo, int $pageId): array {
     $p = acc_page($pdo, $pageId);
     if (!$p) return [];
     $mine = [];
-    foreach ($pdo->query("SELECT DISTINCT s.domain, s.publisher FROM events e JOIN sources s ON s.id=e.source_id WHERE e.drama_id=" . (int)$p['did']) as $r)
+    foreach ($pdo->query("SELECT DISTINCT s.domain, s.publisher FROM sources s WHERE s.id IN (" . ss_in($pdo, (int)$p['did']) . ")") as $r)
         foreach ([preg_replace('/^www\./', '', (string)$r['domain']), (string)$r['publisher']] as $x) if (($k = $norm($x)) !== '') $mine[$k] = 1;
     $parts = [['summary', 0, (string)$p['summary']], ['why', 0, (string)$p['why_matters']]];
     foreach ((array)json_decode((string)$p['background'], true) as $i => $bg) if (is_string($bg)) $parts[] = ['background', $i, $bg];
@@ -315,7 +318,7 @@ function acc_retitle(PDO $pdo, int $pageId, string $problem): bool {
     $meta = (string)$pdo->query("SELECT meta_desc FROM pages WHERE id={$pageId}")->fetchColumn();
     $lane = (string)$pdo->query("SELECT lane FROM dramas WHERE id=" . (int)$p['did'])->fetchColumn();
     $ev = implode("\n", $pdo->query("SELECT CONCAT(event_date, ': ', title) FROM events WHERE drama_id=" . (int)$p['did'] . " AND video_only=0 ORDER BY sort_order")->fetchAll(PDO::FETCH_COLUMN));
-    $src = implode("\n", $pdo->query("SELECT DISTINCT s.excerpt FROM events e JOIN sources s ON s.id=e.source_id WHERE e.drama_id=" . (int)$p['did'])->fetchAll(PDO::FETCH_COLUMN));
+    $src = implode("\n", $pdo->query("SELECT s.excerpt FROM sources s WHERE s.id IN (" . ss_in($pdo, (int)$p['did']) . ")")->fetchAll(PDO::FETCH_COLUMN));
     $st = pr_story_state($pdo, $pageId);
     $over = $st && pr_story_over($st['lifecycle'], $st['last'], $st['next']);
     [$srcDates] = pr_page_status_facts($pdo, (int)$p['did']);
@@ -400,6 +403,8 @@ function acc_run(PDO $pdo, int $pageId): array {
     require_once __DIR__ . '/verify.php';
     require_once __DIR__ . '/page_rules.php';
     $rep = ['dates' => acc_fix_dates($pdo, $pageId)];
+    // an event dated by no source takes the date of the report that carries it (story_sources.php, on with app/FACTFIX_ON)
+    if (ss_on()) $rep['dates_backed'] = ss_fix_event_dates($pdo, $pageId);
     $rep['rules'] = rules_fix_page($pdo, $pageId)['changed'] ?? [];   // what the owner's rules fix by code alone, before the fact check reads the page
     $v = acc_fresh_verify($pdo, $pageId) ?? verify_drama($pageId);   // a run cut short resumes here
     // 2026-09-27 nothing is removed on the fact check's word alone: on Rayman it quoted a whole event for one
@@ -445,6 +450,12 @@ function acc_run(PDO $pdo, int $pageId): array {
     foreach (pr_hard_fails($pdo, $pageId) as $r) if (preg_match('/^rule [15]: the (title|title tag|description|title or description)\b/', $r)) $titleWhy[] = $r;
     if ($titleWhy) $rep['retitled'] = acc_retitle($pdo, $pageId, implode('; ', $titleWhy));
     if ($rep['removal']['removed'] > 0 || array_sum($rep['dates']) > 0 || $rep['retitled']) $v = verify_drama($pageId);   // the page as it now stands
+    // owner 2026-10-04: "remove the unsupported sentence, fact-check once more, hold only if still failing"
+    if (ss_on()) {
+        $tiedBefore = [];
+        foreach ((array)($tie['backed'] ?? []) as $b) $tiedBefore[acc_norm((string)$b['sentence'])] = 1;
+        $v = acc_more_rounds($pdo, $pageId, $v, $tiedBefore, $rep);
+    }
     // the final check can fault the title or the description when the first did not (2026-09-28: page 1760's "the court says
     // he remains incarcerated" was caught only here, after the one rewrite had passed): it gets that rewrite, then one check
     if (!$rep['retitled'] && ($v['pass'] ?? true) === false) {
@@ -457,6 +468,33 @@ function acc_run(PDO $pdo, int $pageId): array {
     $rep['verify'] = $v;
     acc_log($pdo, $pageId, (int)$rep['removal']['removed']);
     return $rep;
+}
+
+/**
+ * Rounds 2 and 3 of remove-and-check-again (on with app/FACTFIX_ON). Each failed fact check nominates sentences
+ * (ss_round_plan): one the sources cannot be shown to back comes out; one they back but the check faults a second time
+ * comes out too (when in doubt it goes); a wrong date in a plan, the background, the summary or an answer comes out.
+ * Never removed, so the page HOLDS for a person: a wrong date on a timeline event, missing framing, an accusation, a
+ * detail from another case, tone. Stops when a check passes, when nothing more can come out, or after SS_ROUNDS checks.
+ */
+function acc_more_rounds(PDO $pdo, int $pageId, array $v, array $tiedBefore, array &$rep): array {
+    $rep['rounds'] = 1;
+    for ($round = 2; $round <= SS_ROUNDS; $round++) {
+        if (isset($v['error']) || ($v['pass'] ?? false)) break;
+        $plan = ss_round_plan((array)($v['issues'] ?? []), $tiedBefore, 'acc_norm', fn(string $q) => back_sentences($q) ?: ($q !== '' ? [$q] : []), 'acc_strip_line');
+        $cut = $plan['cut'];
+        $tie = acc_tie($pdo, $pageId, $plan['tie']);
+        if (isset($tie['error'])) break;   // no answer: nothing comes out on the fact check's word alone
+        foreach ($tie['unsupported'] as $u) $cut[] = $u;
+        foreach ((array)($tie['backed'] ?? []) as $b) $tiedBefore[acc_norm((string)$b['sentence'])] = 1;
+        $rm = acc_remove($pdo, $pageId, $cut);
+        foreach (['removed', 'events_dropped', 'faqs_dropped', 'not_found'] as $k) $rep['removal'][$k] += $rm[$k];
+        $rep['removal']['why_dropped'] = $rep['removal']['why_dropped'] || $rm['why_dropped'];
+        if ($rm['removed'] === 0 && empty($tie['tied'])) break;   // nothing came out, nothing new shown to be backed: held
+        $v = verify_drama($pageId);
+        $rep['rounds'] = $round;
+    }
+    return $v;
 }
 
 /** One accuracy run: how many unsupported sentences came out (owner 2026-09-27: the weekly average per page should fall

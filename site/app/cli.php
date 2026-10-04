@@ -1242,6 +1242,25 @@ switch ($cmd) {
         echo $hd ? "SUBJECT: {$hd[0]}\n\n{$hd[1]}" : "nothing waits for the owner\n";
         break;
 
+    case 'factfix':
+        // THE FACT-CHECK FIX (owner 2026-10-04, story_sources.php): the checks read every source a story was written from,
+        // remove -> check again up to 3 times, hold if still failing. On only with the file app/FACTFIX_ON.
+        //   factfix status | on | off | backfill [apply]
+        require_once __DIR__ . '/story_sources.php';
+        $pdo = db(); ss_install($pdo);
+        $flag = __DIR__ . '/FACTFIX_ON';
+        if ($arg === 'on')  { touch($flag); echo "fact-check fix: ON\n"; break; }
+        if ($arg === 'off') { if (is_file($flag)) unlink($flag); echo "fact-check fix: OFF\n"; break; }
+        if ($arg === 'backfill') {
+            $apply = (($argv[3] ?? '') === 'apply');
+            $map = ss_backfill($pdo, '2026-10-01 18:32:00', $apply);
+            echo count($map) . ' stories, ' . array_sum(array_map('count', $map)) . ' sources no timeline event cites' . ($apply ? ' linked' : ' would be linked (add: apply)') . "\n";
+            break;
+        }
+        $n = (int)$pdo->query("SELECT COUNT(DISTINCT drama_id) FROM drama_sources")->fetchColumn();
+        echo 'fact-check fix: ' . (ss_on() ? 'ON' : 'OFF') . " | stories with their writer's source list: {$n}\n";
+        break;
+
     case 'trend':
         // THE TREND DETECTOR (owner 2026-10-01, trend.php): "trend status", "trend on|off" (the switch is the file app/TREND_ON),
         // "trend check <term>" (its numbers, the dictionary's answer and the decision; writes nothing but the dictionary cache).

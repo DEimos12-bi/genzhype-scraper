@@ -5,6 +5,7 @@ require_once __DIR__ . '/lanes.php';   // timeline_url() is used from line ~116 
 
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/story_context.php';
+require_once __DIR__ . '/story_sources.php';
 require_once __DIR__ . '/creator_stats.php';
 require_once __DIR__ . '/gate.php';   // gate_proof_label()
 require_once __DIR__ . '/verdict.php';   // VD_METHOD on the page
@@ -147,10 +148,8 @@ function repo_load_all(): array {
         foreach ($fq->fetchAll() as $f) $faqs[] = ['q' => $f['question'], 'a' => $f['answer']];
 
         $sources = []; $srcExcerpts = [];
-        $sq = $pdo->prepare("SELECT DISTINCT s.id, s.url, s.publisher, s.title, s.retrieved_on, s.excerpt, s.published_on
-                             FROM events e JOIN sources s ON s.id = e.source_id
-                             WHERE e.drama_id=? ORDER BY s.id");
-        $sq->execute([$did]);
+        $sq = $pdo->query("SELECT s.id, s.url, s.publisher, s.title, s.retrieved_on, s.excerpt, s.published_on
+                           FROM sources s WHERE s.id IN (" . ss_in($pdo, (int)$did) . ") ORDER BY s.id");
         foreach ($sq->fetchAll() as $s) {
             $sources[] = ['id' => (int)$s['id'], 'url' => $s['url'] ?? null, 'text' => repo_source_text($s), 'publisher' => (string)($s['publisher'] ?? ''), 'published_on' => source_date($s['published_on'] ?? '')];
             if (!empty($s['excerpt'])) $srcExcerpts[] = ['excerpt' => $s['excerpt'], 'publisher' => $s['publisher'] ?? ''];
@@ -428,8 +427,7 @@ function repo_load_drama_any(string $slug): ?array {
     foreach ($fq->fetchAll() as $f) $faqs[] = ['q'=>$f['question'],'a'=>$f['answer']];
 
     $sources = [];
-    $sq = $pdo->prepare("SELECT DISTINCT s.id, s.url, s.publisher, s.title, s.retrieved_on, s.excerpt, s.published_on FROM events e JOIN sources s ON s.id=e.source_id WHERE e.drama_id=? ORDER BY s.id");
-    $sq->execute([$did]);
+    $sq = $pdo->query("SELECT s.id, s.url, s.publisher, s.title, s.retrieved_on, s.excerpt, s.published_on FROM sources s WHERE s.id IN (" . ss_in($pdo, (int)$did) . ") ORDER BY s.id");
     foreach ($sq->fetchAll() as $s) $sources[] = ['id'=>(int)$s['id'],'url'=>$s['url'] ?? null,'text'=>repo_source_text($s),'publisher'=>(string)($s['publisher'] ?? ''),'published_on'=>source_date($s['published_on'] ?? '')];
 
     $status = story_status($r['lifecycle'], $r['last_event'], (array)json_decode((string)($r['whats_next'] ?? ''), true));

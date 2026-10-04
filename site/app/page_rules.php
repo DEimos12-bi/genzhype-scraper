@@ -15,6 +15,7 @@
 
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/backing.php';
+require_once __DIR__ . '/story_sources.php';
 require_once __DIR__ . '/human_review.php';
 
 const PR_QUIET_DAYS = 14;   // [ours] nothing new for 14 days and nothing dated ahead = the story is over for its label
@@ -103,6 +104,10 @@ function pr_latest_sentence(array $latest): string {
     $raw = (string)($latest['by'] ?? '');
     $by = trim((string)preg_replace('/\s*\(original post\)\s*$/i', '', $raw));
     $when = ($latest['date'] ?? '') !== '' ? pr_date_label((string)$latest['date']) : '';
+    // 2026-10-04 "reported by dexerto.com on Sep 25" gave the EVENT's day as the day of the report (published Oct 2) and the
+    // fact check held the page for our own sentence: the day now stands on its own (on with app/FACTFIX_ON)
+    if (ss_on()) return 'The latest development' . ($when !== '' ? " ({$when})" : '')
+         . ($by !== '' ? (stripos($raw, 'original post') !== false ? ", posted on {$by}" : ", reported by {$by}") : '') . ': ' . $title . '.';
     return 'The latest development' . ($by !== '' ? (stripos($raw, 'original post') !== false ? ", posted on {$by}" : ", reported by {$by}") : '')
          . ($when !== '' ? " on {$when}" : '') . ': ' . $title . '.';
 }
@@ -132,7 +137,7 @@ function pr_fix_asof(string $text, array $srcDates, string $latestSentence): str
 
 /** A page's source dates and its latest reported development, from the stored page. */
 function pr_page_status_facts(PDO $pdo, int $did): array {
-    $dates = $pdo->query("SELECT DISTINCT s.published_on FROM events e JOIN sources s ON s.id=e.source_id WHERE e.drama_id={$did} AND s.published_on IS NOT NULL")->fetchAll(PDO::FETCH_COLUMN);
+    $dates = $pdo->query("SELECT DISTINCT s.published_on FROM sources s WHERE s.id IN (" . ss_in($pdo, $did) . ") AND s.published_on IS NOT NULL")->fetchAll(PDO::FETCH_COLUMN);
     $l = $pdo->query("SELECT e.event_date date, e.title, COALESCE(s.publisher, '') `by` FROM events e LEFT JOIN sources s ON s.id=e.source_id
                       WHERE e.drama_id={$did} AND e.video_only=0 AND e.event_date <= UTC_DATE() AND e.event_date NOT LIKE '%-00' ORDER BY e.event_date DESC, e.sort_order DESC LIMIT 1")->fetch(PDO::FETCH_ASSOC) ?: [];
     return [array_values(array_filter($dates)), pr_latest_sentence($l)];
@@ -292,7 +297,7 @@ function pr_hard_fails(PDO $pdo, int $pageId): array {
     $p = $pdo->query("SELECT p.h1, p.title_tag, p.meta_desc, d.id did, d.lane FROM pages p JOIN dramas d ON d.page_id=p.id WHERE p.id=" . $pageId)->fetch(PDO::FETCH_ASSOC);
     if (!$p) return [];
     $why = pr_status_problems($pdo, $pageId);
-    $src = implode("\n", $pdo->query("SELECT DISTINCT s.excerpt FROM events e JOIN sources s ON s.id=e.source_id WHERE e.drama_id=" . (int)$p['did'])->fetchAll(PDO::FETCH_COLUMN));
+    $src = implode("\n", $pdo->query("SELECT s.excerpt FROM sources s WHERE s.id IN (" . ss_in($pdo, (int)$p['did']) . ")")->fetchAll(PDO::FETCH_COLUMN));
     foreach (['title' => $p['h1'], 'title tag' => $p['title_tag'], 'description' => $p['meta_desc']] as $where => $t)
         foreach (pr_headline_problems((string)$t, $src, $where, (string)$p['lane']) as $w) $why[] = $w;
     foreach (pr_anonymous_accusations($pdo, $pageId) as $a) $why[] = $a['why'];

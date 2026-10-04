@@ -5,6 +5,7 @@
 
 require_once __DIR__ . '/ai.php';
 require_once __DIR__ . '/framing_repair.php';   // FR_FRAMING_RX: the framing rule, owned by code
+require_once __DIR__ . '/story_sources.php';   // ss_ids(): the sources the checks read (2026-10-04)
 
 function verify_drama(int $page_id): array {
     $pdo = db();
@@ -22,9 +23,8 @@ function verify_drama(int $page_id): array {
 
     // Full source excerpts so the verifier judges against the ACTUAL material.
     sources_install($pdo);   // sources.published_on (db.php)
-    $sq = $pdo->prepare("SELECT DISTINCT s.id, s.publisher, s.excerpt, s.published_on
-                         FROM events e JOIN sources s ON s.id=e.source_id WHERE e.drama_id=?");
-    $sq->execute([$did]);
+    // 2026-10-04 the check read only the sources a timeline event cites; the writer is given more (story_sources.php)
+    $sq = $pdo->query("SELECT s.id, s.publisher, s.excerpt, s.published_on FROM sources s WHERE s.id IN (" . ss_in($pdo, $did) . ") ORDER BY s.id");
     $srcBlock = "SOURCE MATERIAL (full excerpts):\n";
     foreach ($sq->fetchAll() as $s) {
         $srcBlock .= "[S{$s['id']}] {$s['publisher']}" . ($s['published_on'] ? " (published {$s['published_on']})" : '') . ': '
@@ -41,7 +41,8 @@ function verify_drama(int $page_id): array {
     // 2026-09-27 owner: facts are sourced, our analysis is labelled ours and adds no new facts
     if (trim((string)$page['why_matters']) !== '') $body .= "OUR TAKE (our own analysis of the facts: judge ONLY the facts it states; interpretation, opinion and implications are allowed): {$page['why_matters']}\n\n";
     $next = (array)json_decode((string)$page['whats_next'], true);
-    if ($next) { $body .= "WHAT HAPPENS NEXT:\n"; foreach ($next as $i => $nx) $body .= ($i + 1) . '. ' . (($nx['date'] ?? '') !== '' ? "[{$nx['date']}] " : '') . ($nx['text'] ?? '') . "\n"; $body .= "\n"; }
+    if ($next) { $body .= "WHAT HAPPENS NEXT:\n"; foreach ($next as $i => $nx) { $nd = (string)($nx['date'] ?? ''); if (ss_on()) $nd = ss_plan_label($nd);   // "December 2026", not "2026-12-00" (the checker called it an invalid date)
+        $body .= ($i + 1) . '. ' . ($nd !== '' ? "[{$nd}] " : '') . ($nx['text'] ?? '') . "\n"; } $body .= "\n"; }
     $bg = array_filter((array)json_decode((string)$page['background'], true), 'is_string');
     if ($bg) $body .= "BACKGROUND:\n" . implode("\n", $bg) . "\n\n";
     $fq = $pdo->prepare("SELECT question, answer FROM faqs WHERE drama_id=? ORDER BY sort_order");
@@ -56,6 +57,8 @@ function verify_drama(int $page_id): array {
     }
 
     $sys = "You are an adversarial fact-check editor for a drama publication. You are given the FULL SOURCE MATERIAL and a DRAFT. Audit EVERY section (title, description, summary, our take, what happens next, background, FAQ answers, events) STRICTLY but fairly: a claim is properly sourced if it appears anywhere in the full source material, even if it cites a different source number. Flag ONLY real violations: 1) a claim that appears NOWHERE in the source material, including a detail, number, reason, channel or outcome the sources do not state, 2) an UNCONFIRMED event whose description neither names who says it ('according to <outlet or person>') nor uses alleged/reportedly/claims framing, 3) an event with no source attached, 4) clickbait/accusatory tone, 5) crime accusations stated as fact without an official action in the sources, 6) a detail, person or event from a DIFFERENT case or story than the draft's subject (type unrelated), 7) dates that contradict each other or the sources (type dates), 8) a TITLE or TITLE TAG that promises what the page does not give, for example 'Release Date' when the page gives no date, 'Explained' with no explanation, a number the page does not have (type title, section title). A status sentence 'As of <date>, per <outlet>, ...' must carry the date of that outlet's report and state only what that report says: flag it (type unsourced) when no source states that status, or credits it to someone (a court, the police, a person) the sources do not quote saying it. The DESCRIPTION is checked exactly like the summary. A source's '(published YYYY-MM-DD)' date is stated by that source: an event that is the report itself (for example '<outlet> reports ...') may carry it, and a relative day in its text ('on Monday', 'yesterday') is counted from it. For every issue copy the offending sentence from the draft WORD FOR WORD into \"sentence\" and name its section. Output STRICT JSON only: {\"ok\": true|false, \"issues\": [{\"section\": \"title|description|summary|why|next N|background|faq N|event N\", \"event\": n|null, \"type\": \"unsourced|framing|overreach|tone|legal|unrelated|dates\", \"sentence\": \"...\", \"detail\": \"...\"}]}. ok=true ONLY if zero issues.";
+    // 2026-10-04 the checker faulted our own labels ("labeling it UNCONFIRMED is not in source", "added 'reportedly'") and month-only plans
+    if (ss_on()) $sys .= " The bracketed labels in the lists ([date], [confirmed], [UNCONFIRMED]) and the hedging words reportedly, allegedly and 'according to' are our own framing, not claims: never flag them. A plan dated only by month or year ('December 2026', '2027') is as exact as its source: never flag it for lacking a day.";
 
     $res = ai_chat([
         ['role' => 'system', 'content' => $sys],

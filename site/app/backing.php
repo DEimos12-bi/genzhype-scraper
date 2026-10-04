@@ -7,6 +7,7 @@
 // are the outlets the page cites. Deterministic: the same page gives the same answer every time.
 
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/story_sources.php';
 
 const BACK_MIN_SUPPORT = 0.5;
 const BACK_STOP = ['the','and','for','that','with','this','from','was','were','are','has','have','had','his','her','their','they',
@@ -64,8 +65,7 @@ function back_sentences(string $t): array {
 
 /** The words a page's sources hold: their text, titles, outlets and hosts (with and without the dot-com). */
 function back_corpus(PDO $pdo, int $did): array {
-    $st = $pdo->prepare("SELECT DISTINCT s.excerpt, s.title, s.publisher, s.domain, s.url FROM events e JOIN sources s ON s.id=e.source_id WHERE e.drama_id=?");
-    $st->execute([$did]);
+    $st = $pdo->query("SELECT s.excerpt, s.title, s.publisher, s.domain, s.url FROM sources s WHERE s.id IN (" . ss_in($pdo, $did) . ")");
     $words = []; $raw = '';
     foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $s) {
         $host = preg_replace('/^www\./', '', (string)($s['domain'] ?: parse_url((string)$s['url'], PHP_URL_HOST)));

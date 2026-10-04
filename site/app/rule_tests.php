@@ -545,6 +545,77 @@ function rt_cases(): array {
             return [substr($d, 0, 10) === '2022-12-06', 'dated ' . ($d ?: 'nothing')];
         }],
 
+        // RULE 14: the fact check reads every source the story was written from; remove, check again, hold if still failing
+        // (owner 2026-10-04, story_sources.php; on with app/FACTFIX_ON)
+        [14, 'all-sources', 'fix', 'A story written from 3 articles is checked against all 3, not only the one its timeline cites', function () {
+            rt_need_ss();
+            $ids = ss_union([5], [5, 6, 7], true);
+            return [$ids === [5, 6, 7], 'the check reads sources ' . implode(', ', $ids)];
+        }],
+        [14, 'switch-off', 'guard', 'With the switch off nothing changes: only the sources the timeline cites', function () {
+            rt_need_ss();
+            $ids = ss_union([5], [5, 6, 7], false);
+            return [$ids === [5], 'the check reads sources ' . implode(', ', $ids)];
+        }],
+        [14, 'date-stated', 'guard', 'An event dated a day its source names ("on October 2") keeps its date', function () {
+            rt_need_ss();
+            return [ss_date_backed('2026-10-02', [['excerpt' => 'Speaking on October 2, the director said the trilogy keeps its story.', 'published_on' => '2026-10-03']]) === true, 'the source names the day'];
+        }],
+        [14, 'date-published', 'guard', 'An event dated the day its source was published keeps its date', function () {
+            rt_need_ss();
+            return [ss_date_backed('2026-10-03', [['excerpt' => 'The director said the trilogy keeps its story.', 'published_on' => '2026-10-03']]) === true, 'the day of the report'];
+        }],
+        [14, 'date-invented', 'fix', 'An event dated Oct 2 from an article published Oct 3 that names no day: the date is not backed', function () {
+            rt_need_ss();
+            return [ss_date_backed('2026-10-02', [['excerpt' => 'The director said the trilogy keeps its story.', 'published_on' => '2026-10-03']]) === false, 'no source gives October 2'];
+        }],
+        [14, 'date-not-part', 'guard', '"October 21" in a source does not back October 2', function () {
+            rt_need_ss();
+            return [ss_date_backed('2026-10-02', [['excerpt' => 'The update arrives on October 21 and Oct. 29.', 'published_on' => '2026-09-30']]) === false, 'October 21 is another day'];
+        }],
+        [14, 'plan-label', 'fix', 'A plan dated only by month or year is shown to the fact check as "December 2026", not "2026-12-00"', function () {
+            rt_need_ss();
+            $a = ss_plan_label('2026-12-00'); $b = ss_plan_label('2027-00-00'); $c = ss_plan_label('2026-11-19');
+            return [$a === 'December 2026' && $b === '2027' && $c === '2026-11-19', "{$a} / {$b} / {$c}"];
+        }],
+        [14, 'latest-wording', 'fix', 'Our "latest development" sentence no longer gives the event\'s day as the day of the report', function () {
+            rt_need_ss();
+            $t = rt_ss_env('1', fn() => pr_latest_sentence(['date' => '2026-09-25', 'by' => 'dexerto.com', 'title' => 'Rockstar unveiled $400 GTA 6 collector\'s edition']));
+            return [!str_contains($t, 'dexerto.com on') && str_contains($t, '(Sep 25)') && str_contains($t, 'reported by dexerto.com'), $t];
+        }],
+        [14, 'latest-wording-off', 'guard', 'With the switch off the sentence is unchanged', function () {
+            rt_need_ss();
+            $t = rt_ss_env('0', fn() => pr_latest_sentence(['date' => '2026-09-25', 'by' => 'dexerto.com', 'title' => 'Rockstar unveiled $400 GTA 6 collector\'s edition']));
+            return [str_contains($t, 'reported by dexerto.com on Sep 25'), $t];
+        }],
+        [14, 'round-tie', 'fix', 'A sentence the fact check calls unsupported must be shown in the sources, or it comes out', function () {
+            $p = rt_ss_plan([['section' => 'background', 'type' => 'unsourced', 'sentence' => 'The studio lost half of its players after the last update shipped.']], []);
+            return [count($p['tie']) === 1 && !$p['cut'], 'to the source tie: ' . count($p['tie']) . ', removed at once: ' . count($p['cut'])];
+        }],
+        [14, 'round-again', 'fix', 'A sentence the sources backed last round and the check faults again comes out (when in doubt, cut)', function () {
+            $s = 'The studio lost half of its players after the last update shipped.';
+            $p = rt_ss_plan([['section' => 'faq 2', 'type' => 'unsourced', 'sentence' => $s]], [acc_norm($s) => 1]);
+            return [count($p['cut']) === 1 && !$p['tie'], 'removed at once: ' . count($p['cut'])];
+        }],
+        [14, 'round-plan-date', 'fix', 'A plan with a date no source gives comes out of What happens next', function () {
+            $p = rt_ss_plan([['section' => 'what happens next', 'type' => 'dates', 'sentence' => '[2027-01-00] Start of the Blood Crystal Saga with the Song of Rebellion update, according to ign.com.']], []);
+            return [count($p['cut']) === 1 && $p['cut'][0]['section'] === 'next' && !str_starts_with($p['cut'][0]['sentence'], '['), 'removed: ' . ($p['cut'][0]['sentence'] ?? 'nothing')];
+        }],
+        [14, 'round-event-date', 'guard', 'A wrong date on a timeline event is never "removed": the page holds', function () {
+            $p = rt_ss_plan([['section' => 'event 1', 'type' => 'dates', 'sentence' => 'Sega Amusements reportedly posted a Short on its official YouTube channel.']], []);
+            return [!$p['cut'] && !$p['tie'], 'nothing removed, the failed fact check holds the page'];
+        }],
+        [14, 'round-never-relax', 'guard', 'Missing framing, an accusation, a detail from another case or tone are never removed past: the page holds for a person', function () {
+            $s = 'He assaulted a fan outside the venue in March of this year.';
+            $p = rt_ss_plan([['section' => 'event 2', 'type' => 'framing', 'sentence' => $s], ['section' => 'summary', 'type' => 'legal', 'sentence' => $s],
+                             ['section' => 'background', 'type' => 'unrelated', 'sentence' => $s], ['section' => 'summary', 'type' => 'tone', 'sentence' => $s]], []);
+            return [!$p['cut'] && !$p['tie'], 'nothing removed, the failed fact check holds the page'];
+        }],
+        [14, 'round-title', 'guard', 'A faulted title or description is rewritten and checked again, never cut', function () {
+            $p = rt_ss_plan([['section' => 'description', 'type' => 'unsourced', 'sentence' => 'Sega says it teased a new House of the Dead VR arcade game on Oct 1, 2026.'],
+                             ['section' => 'title', 'type' => 'overreach', 'sentence' => 'Warhorse Co-Founder Hopes GTA 6 Will Normalize $80 Game Prices']], []);
+            return [!$p['cut'] && !$p['tie'], 'left to the rewrite (acc_retitle)'];
+        }],
         // RULE 13: the trend detector (owner 2026-10-01, trend.php): rising, new, 2+ platforms, not an ordinary word
         [13, 'ordinary-word', 'fix', '"gamepad" is an ordinary gaming word: never a trend, however often it is used', fn() => rt_tr_case(
             ['recent_posts' => 40, 'recent_authors' => 30, 'platforms' => ['reddit', 'youtube'], 'baseline_3d' => 2, 'ordinary' => true, 'label' => 'an ordinary gaming word'], false)],
@@ -640,6 +711,22 @@ function rt_cases(): array {
 }
 
 /** Rule 13: the trend detector's functions, loaded when the file exists. */
+function rt_need_ss(): void {
+    if (is_file(__DIR__ . '/story_sources.php')) require_once __DIR__ . '/story_sources.php';
+    rt_need('ss_union');
+    require_once __DIR__ . '/page_rules.php';
+    require_once __DIR__ . '/accuracy.php';
+}
+/** Run $fn with the fact-check switch forced on ('1') or off ('0'), then put it back as it was. */
+function rt_ss_env(string $v, callable $fn) {
+    $was = getenv('FACTFIX');
+    putenv('FACTFIX=' . $v);
+    try { return $fn(); } finally { $was === false ? putenv('FACTFIX') : putenv('FACTFIX=' . $was); }
+}
+function rt_ss_plan(array $issues, array $tiedBefore): array {
+    rt_need_ss();
+    return ss_round_plan($issues, $tiedBefore, 'acc_norm', fn(string $q) => back_sentences($q) ?: ($q !== '' ? [$q] : []), 'acc_strip_line');
+}
 function rt_need_tr(): void {
     if (is_file(__DIR__ . '/trend.php')) require_once __DIR__ . '/trend.php';
     rt_need('tr_decide');
