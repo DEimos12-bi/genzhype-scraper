@@ -545,6 +545,72 @@ function rt_cases(): array {
             return [substr($d, 0, 10) === '2022-12-06', 'dated ' . ($d ?: 'nothing')];
         }],
 
+        // RULE 17: one trend score for every idea (owner 2026-10-01 step 1, idea_score.php): it measures and shows, it decides nothing
+        [17, 'rising-burst', 'fix', 'Use far above its own normal level scores high on "rising"', function () {
+            require_once __DIR__ . '/idea_score.php';
+            $s = is_score(['recent' => 9, 'base' => 2, 'creators' => 5, 'platforms' => 2, 'views' => 250000, 'likes' => null, 'age_hours' => 20, 'big_outlets' => 0]);
+            return [$s['parts']['rising'] === 100 && $s['score'] >= 80, is_line($s['score'], $s['parts'])];
+        }],
+        [17, 'common-word', 'guard', 'A word used a lot every day ("stamina") is not rising: heavy use at its normal level scores low', function () {
+            require_once __DIR__ . '/idea_score.php';
+            $s = is_score(['recent' => 40, 'base' => 38, 'creators' => 30, 'platforms' => 2, 'views' => null, 'likes' => null, 'age_hours' => 24 * 40, 'big_outlets' => 0]);
+            return [$s['parts']['rising'] <= 35 && $s['parts']['new'] === 0 && $s['score'] < 50, is_line($s['score'], $s['parts'])];
+        }],
+        [17, 'one-post', 'guard', 'One post by one account is not spread', function () {
+            require_once __DIR__ . '/idea_score.php';
+            $a = is_score(['recent' => 1, 'base' => 0, 'creators' => 1, 'platforms' => 1, 'views' => null, 'likes' => null, 'age_hours' => 5, 'big_outlets' => 0]);
+            $b = is_score(['recent' => 1, 'base' => 0, 'creators' => 6, 'platforms' => 3, 'views' => null, 'likes' => null, 'age_hours' => 5, 'big_outlets' => 0]);
+            return [$a['parts']['spread'] === 15 && $b['parts']['spread'] === 90, "1 account: {$a['parts']['spread']}; 6 on 3 platforms: {$b['parts']['spread']}"];
+        }],
+        [17, 'lone-post', 'fix', 'One fresh post nobody else picked up scores low: it is new, but nothing is rising and the field is empty, not open', function () {
+            require_once __DIR__ . '/idea_score.php';
+            $s = is_score(['recent' => 1, 'base' => 0, 'creators' => 1, 'platforms' => 1, 'views' => null, 'likes' => null, 'age_hours' => 6, 'big_outlets' => 0]);
+            return [$s['score'] <= 30 && $s['parts']['rising'] === 10 && $s['parts']['open'] === 33, is_line($s['score'], $s['parts'])];
+        }],
+        [17, 'not-measured', 'guard', 'A part that could not be measured is shown as "not measured" and counts as 0, never as a guess', function () {
+            require_once __DIR__ . '/idea_score.php';
+            $s = is_score(['recent' => null, 'base' => null, 'creators' => 2, 'platforms' => 1, 'views' => null, 'likes' => null, 'age_hours' => null, 'big_outlets' => null]);
+            return [$s['parts']['rising'] === null && $s['parts']['reach'] === null && $s['score'] === (int)round(25 * 35 / 100) && str_contains(is_line($s['score'], $s['parts']), 'reach not measured'), is_line($s['score'], $s['parts'])];
+        }],
+        [17, 'old-and-covered', 'guard', 'A two-week-old story the big outlets all covered scores low', function () {
+            require_once __DIR__ . '/idea_score.php';
+            $s = is_score(['recent' => 0, 'base' => 2, 'creators' => 8, 'platforms' => 1, 'views' => null, 'likes' => null, 'age_hours' => 24 * 15, 'big_outlets' => 4]);
+            return [$s['parts']['open'] === 0 && $s['parts']['new'] === 0 && $s['score'] <= 25, is_line($s['score'], $s['parts'])];
+        }],
+        [17, 'likes-only', 'fix', 'A platform that gives likes only still counts for reach', function () {
+            require_once __DIR__ . '/idea_score.php';
+            $s = is_score(['recent' => 2, 'base' => 0, 'creators' => 2, 'platforms' => 1, 'views' => null, 'likes' => 12000, 'age_hours' => 10, 'big_outlets' => 0]);
+            return [$s['parts']['reach'] === 75 && str_contains($s['why']['reach'], '12,000 likes'), $s['why']['reach'] . ' -> reach ' . $s['parts']['reach']];
+        }],
+        [17, 'headline-about', 'guard', 'A found headline counts only when it is about the idea', function () {
+            require_once __DIR__ . '/idea_score.php';
+            $yes = is_about('Krafton cancels PUBG Black Budget extraction shooter', 'PUBG: Black Budget is cancelled as Krafton ends its extraction shooter - Polygon');
+            $no  = is_about('Krafton cancels PUBG Black Budget extraction shooter', 'PUBG Mobile reveals its October update and new collab');
+            return [$yes && !$no, 'about it: ' . ($yes ? 'yes' : 'no') . '; another PUBG headline: ' . ($no ? 'yes' : 'no')];
+        }],
+        [17, 'headline-rare-name', 'fix', 'An article that carries the story\'s rare name is about it, however the seed worded its headline (Ken Urker)', function () {
+            require_once __DIR__ . '/idea_score.php';
+            $idea = 'Prayers Up! Gypsy Rose Blanchard\'s Fiancé Ken Urker Reportedly Passes Away On His 33rd Birthday';
+            $yes = is_about($idea, 'Ken Urker\'s Sister Says He Was Terrified Of Gypsy Rose Blanchard Before His Death', 'Ken Urker death Gypsy Rose Blanchard', ['urker']);
+            $no  = is_about('Zelda: Soccerina of Time mod turns Hyrule into a football league', 'Zelda: Ocarina of Time mod completely remakes the N64 classic\'s fake 3D', 'Soccerina of Time mod Zelda Ocarina of Time football league Kokiri FC', ['soccerina', 'kokiri']);
+            return [$yes && !$no, 'the Urker article: ' . ($yes ? 'about it' : 'not') . '; another Zelda mod: ' . ($no ? 'about it' : 'not')];
+        }],
+        [17, 'windows', 'fix', 'Items are counted in the newest day against the three days before it', function () {
+            require_once __DIR__ . '/idea_score.php';
+            $now = '2026-10-04 12:00:00';
+            $f = is_facts_from_items([
+                ['url' => 'https://kotaku.com/a', 'date' => '2026-10-04 06:00:00', 'kind' => 'outlet'], ['url' => 'https://www.pcgamer.com/b', 'date' => '2026-10-04 02:00:00', 'kind' => 'outlet'],
+                ['url' => 'https://x.com/u/status/1', 'date' => '2026-10-03 20:00:00', 'kind' => 'post', 'author' => 'u'], ['url' => 'https://smallsite.example/c', 'date' => '2026-10-02 08:00:00', 'kind' => 'outlet'],
+            ], $now);
+            return [$f['recent'] === 3 && abs($f['base'] - 1 / 3) < 0.01 && $f['creators'] === 4 && $f['platforms'] === 2 && $f['big_outlets'] === 2 && $f['age_hours'] == 52.0,
+                    "recent {$f['recent']}, before " . round($f['base'], 2) . " a day, {$f['creators']} creators on {$f['platforms']} platforms, {$f['big_outlets']} big outlets, started {$f['age_hours']}h ago"];
+        }],
+        [17, 'decides-nothing', 'guard', 'Step 1 only measures and shows: the picker and the build do not read the score', function () {
+            $hits = [];
+            foreach (['story_picker.php', 'trend.php', 'gate.php', 'draft.php', 'draft_term.php', 'accuracy.php', 'verify.php'] as $f)
+                if (preg_match('/idea_scores|is_score\(|is_run\(/', (string)file_get_contents(__DIR__ . '/' . $f))) $hits[] = $f;
+            return [!$hits, $hits ? 'read by: ' . implode(', ', $hits) : 'no deciding code reads it'];
+        }],
         // RULE 16: same meme or term = update, not a new page (owner 2026-10-04, term_same.php)
         [16, 'headline-of-it', 'fix', '"Haminations Cringe Spreads On TikTok" is a headline about "Haminations Cringe": a suspect, not a new name', function () {
             require_once __DIR__ . '/term_same.php';

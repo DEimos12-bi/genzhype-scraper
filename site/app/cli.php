@@ -1242,6 +1242,27 @@ switch ($cmd) {
         echo $hd ? "SUBJECT: {$hd[0]}\n\n{$hd[1]}" : "nothing waits for the owner\n";
         break;
 
+    case 'score':
+        // ONE TREND SCORE FOR EVERY IDEA (owner 2026-10-01 step 1, idea_score.php). It measures and shows; nothing decides on it.
+        //   score status | on | off | check <candidate id> | run
+        require_once __DIR__ . '/idea_score.php';
+        $pdo = db(); is_install($pdo);
+        $flag = __DIR__ . '/SCORE_ON';
+        if ($arg === 'on')  { touch($flag); echo "trend score: ON\n"; break; }
+        if ($arg === 'off') { if (is_file($flag)) unlink($flag); echo "trend score: OFF\n"; break; }
+        if ($arg === 'check') {
+            $cq = $pdo->prepare("SELECT * FROM candidates WHERE id=?"); $cq->execute([(int)($argv[3] ?? 0)]);
+            if (!($c = $cq->fetch(PDO::FETCH_ASSOC))) { echo "no such idea\n"; break; }
+            $s = is_score_candidate($pdo, $c, false);
+            echo "#{$c['id']} \"{$c['name']}\" ({$c['type']})\n  " . is_line($s['score'], $s['parts']) . "\n";
+            foreach ($s['why'] as $k => $w) echo "  {$k}: {$w}\n";
+            break;
+        }
+        if ($arg === 'run') { $r = is_run($pdo, 240); echo ($r['line'] ?: 'trend score: nothing to score (or the switch is off)') . "\n"; break; }
+        $n = (int)$pdo->query("SELECT COUNT(*) FROM idea_scores")->fetchColumn();
+        echo 'trend score: ' . (is_on() ? 'ON' : 'OFF') . " | ideas scored: {$n}\n";
+        break;
+
     case 'factfix':
         // THE FACT-CHECK FIX (owner 2026-10-04, story_sources.php): the checks read every source a story was written from,
         // remove -> check again up to 3 times, hold if still failing. On only with the file app/FACTFIX_ON.
@@ -2160,6 +2181,9 @@ switch ($cmd) {
         } catch (Throwable $e) { echo "drama discovery skipped: " . $e->getMessage() . "\n"; }
         $sel = select_run(15);
         echo "select: +{$sel['selected']} / -{$sel['rejected']} (errors {$sel['errors']})\n";
+        // THE FRONT DOOR'S TREND SCORE (idea_score.php, owner 2026-10-01 step 1; on only with app/SCORE_ON): every new idea gets a
+        // score 0-100 and its five parts, shown in admin. It decides nothing.
+        try { require_once __DIR__ . '/idea_score.php'; $isr = is_run($pdo, 120); if ($isr['line'] !== '') echo "{$isr['line']}\n"; $pdo = db_alive(); } catch (Throwable $e) { echo '  trend score skipped: ' . $e->getMessage() . "\n"; }
         build_dramas:
         if (!$buildLocked) goto build_after_dramas;
         // 2026-08-23 RETRY BUDGET (Phase 0 of the learning-machine build): a
