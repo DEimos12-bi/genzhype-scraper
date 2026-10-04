@@ -375,6 +375,7 @@ function tr_install2(PDO $pdo): void {
     $cols = array_column($pdo->query("SHOW COLUMNS FROM terms")->fetchAll(PDO::FETCH_ASSOC), 'Field');
     if (!in_array('trend', $cols, true))      $pdo->exec("ALTER TABLE terms ADD COLUMN trend TINYINT NULL COMMENT 'the trend detector verdict when it was written (trend.php)'");
     if (!in_array('trend_note', $cols, true)) $pdo->exec("ALTER TABLE terms ADD COLUMN trend_note VARCHAR(255) NULL");
+    if (!in_array('trend_rebuilt_at', $cols, true)) $pdo->exec("ALTER TABLE terms ADD COLUMN trend_rebuilt_at DATETIME NULL");   // tr_rebuild_stuck, rebuild.php
     $pdo->exec("CREATE TABLE IF NOT EXISTS trend_decisions (
         id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
         cand_id INT UNSIGNED NOT NULL,
@@ -474,7 +475,7 @@ function tr_rebuild_stuck(PDO $pdo, int $limit = 1): array {
                            AND (t.trend_rebuilt_at IS NULL OR t.trend_rebuilt_at < UTC_TIMESTAMP() - INTERVAL 3 DAY)
                          ORDER BY (t.trend = 1) DESC, p.id DESC LIMIT 25")->fetchAll(PDO::FETCH_ASSOC);
     $cq = $pdo->prepare("SELECT * FROM candidates WHERE LOWER(name)=LOWER(?) ORDER BY id DESC LIMIT 1");
-    $done = [];
+    $done = []; $ready = [];
     foreach ($rows as $r) {
         if (count($done) >= $limit) break;
         $cq->execute([(string)$r['term']]);
@@ -490,6 +491,7 @@ function tr_rebuild_stuck(PDO $pdo, int $limit = 1): array {
         require_once __DIR__ . '/rebuild.php';
         try { $rr = term_rebuild($pdo, (int)$r['id'], 'all'); } catch (Throwable $e) { $rr = ['error' => get_class($e) . ': ' . $e->getMessage()]; }
         $done[] = '"' . $r['term'] . '" ' . (isset($rr['error']) ? 'not rebuilt (' . mb_substr((string)$rr['error'], 0, 90) . ')' : 'rebuilt, checks ' . (!empty($rr['ok']) ? 'PASS' : 'FAIL: ' . mb_substr(implode('; ', (array)($rr['fails'] ?? [])), 0, 140)));
+        if (!isset($rr['error']) && !empty($rr['ok'])) $ready[] = (int)$r['id'];
     }
-    return ['line' => $done ? 'stuck trends: ' . implode(' | ', $done) : ''];
+    return ['line' => $done ? 'stuck trends: ' . implode(' | ', $done) : '', 'ready' => $ready];
 }

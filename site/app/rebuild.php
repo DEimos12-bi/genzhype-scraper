@@ -148,7 +148,7 @@ function term_rebuild(PDO $pdo, int $pageId, string $step = 'all'): array {
         $backup = rebuild_backup($pdo, $pageId);
         // with the trend detector on (trend.php, owner 2026-10-04): a meme a source named is written again from that
         // source and its own posts, like a new one (the stuck memes were written from the name alone)
-        $seed = [];
+        $seed = []; $tg = null;
         require_once __DIR__ . '/trend.php';
         if (tr_on()) {
             $cq = $pdo->prepare("SELECT * FROM candidates WHERE LOWER(name)=LOWER(?) ORDER BY id DESC LIMIT 1");
@@ -164,6 +164,10 @@ function term_rebuild(PDO $pdo, int $pageId, string $step = 'all'): array {
         }
         $d = draft_term(['term' => (string)$p['term'], 'lane' => (string)$p['lane'], 'rebuild_page_id' => $pageId] + $seed);
         $pdo = db_alive();
+        // the writer replaces the term's row, so the detector's verdict and the time of this rebuild go back on the new one
+        // (2026-10-04: without them the same stuck meme was written again every half hour and the others never got a turn,
+        // and the page lost the 'trend' mark its routing reads)
+        if ($tg) $pdo->prepare("UPDATE terms SET trend=?, trend_note=?, trend_rebuilt_at=UTC_TIMESTAMP() WHERE page_id=?")->execute([(int)$tg['trend'], mb_substr($tg['why'], 0, 255), $pageId]);
         if (isset($d['error'])) return ['error' => 'writer: ' . $d['error'], 'backup' => $backup];
         echo "  written by {$d['provider']}\n";
         try {

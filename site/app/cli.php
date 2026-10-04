@@ -1897,7 +1897,23 @@ switch ($cmd) {
         // one stuck trend is written again per build-worker run (trend.php tr_rebuild_stuck): a real meme that was written
         // from its name alone gets its naming page and its own posts, and goes live only if the unchanged checks pass
         if (tr_on() && !empty($BUILD_ONLY)) {
-            try { $ts = tr_rebuild_stuck($pdo, 1); if ($ts['line'] !== '') echo "  {$ts['line']}\n"; } catch (Throwable $e) { echo '  stuck trends skipped: ' . $e->getMessage() . "\n"; }
+            try {
+                $ts = tr_rebuild_stuck($pdo, 1);
+                if ($ts['line'] !== '') echo "  {$ts['line']}\n";
+                // a rebuilt trend that now passes every check goes through the same door as a newly built term (2026-10-04:
+                // it passed and then stayed a draft for good, the hourly re-check only reads the 8 newest drafts)
+                foreach ((array)($ts['ready'] ?? []) as $rid) {
+                    $pdo = db_alive();
+                    if (!empty($CONFIG['auto_publish']) && ($slots ?? 0) > 0) {
+                        page_publish_live($pdo, (int)$rid);   // SEO-BATCH-1 choke point
+                        $rp = $pdo->query("SELECT path, status FROM pages WHERE id=" . (int)$rid)->fetch(PDO::FETCH_ASSOC);
+                        if (($rp['status'] ?? '') === 'published') { echo "  AUTO-PUBLISHED rebuilt trend {$rp['path']}\n"; indexnow_ping([rtrim($CONFIG['base_url'], '/') . $rp['path']]); $slots--; }
+                    } else {
+                        $pdo->prepare("UPDATE pages SET status='review', robots='noindex' WHERE id=?")->execute([(int)$rid]);
+                        echo "  HELD rebuilt trend #{$rid} (daily cap reached)\n";
+                    }
+                }
+            } catch (Throwable $e) { echo '  stuck trends skipped: ' . $e->getMessage() . "\n"; }
             $pdo = db_alive();
         }
         $terms = $pdo->query("SELECT id, name, type, signals, created_at, COALESCE(draft_attempts,0) tries FROM candidates
