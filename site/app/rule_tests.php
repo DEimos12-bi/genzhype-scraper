@@ -586,6 +586,28 @@ function rt_cases(): array {
             ['recent_posts' => 8, 'recent_authors' => 6, 'platforms' => ['reddit', 'x'], 'baseline_3d' => 0, 'history_days' => 2, 'label' => 'in the dictionary as slang'], false)],
         [13, 'too-few', 'fix', 'Two posts are not a trend', fn() => rt_tr_case(
             ['recent_posts' => 2, 'recent_authors' => 2, 'platforms' => ['reddit', 'x'], 'baseline_3d' => 0, 'history_days' => 2], false)],
+        [13, 'named-two-platforms', 'guard', 'A meme a source named, with recent posts of it on TikTok and X: a trend', function () {
+            rt_need_tr(); rt_need('tr_decide_named');
+            $r = tr_decide_named(['now' => '2026-10-01', 'named_by' => 'knowyourmeme.com', 'posts' => [
+                ['platform' => 'TikTok', 'date' => '2026-09-25'], ['platform' => 'TikTok', 'date' => '2026-09-26'], ['platform' => 'X', 'date' => '2026-09-27']]]);
+            return [$r['trend'] === true, $r['why']];
+        }],
+        [13, 'named-old-posts', 'fix', 'A meme a source named whose posts are months old is not a trend now', function () {
+            rt_need_tr(); rt_need('tr_decide_named');
+            $r = tr_decide_named(['now' => '2026-10-01', 'named_by' => 'knowyourmeme.com', 'posts' => [
+                ['platform' => 'TikTok', 'date' => '2024-12-18'], ['platform' => 'X', 'date' => '2026-04-10'], ['platform' => 'TikTok', 'date' => '2026-09-26']]]);
+            return [$r['trend'] === false, $r['why']];
+        }],
+        [13, 'named-no-posts', 'fix', 'A name with no dated post of the meme behind it waits (a single Reddit headline)', function () {
+            rt_need_tr(); rt_need('tr_decide_named');
+            $r = tr_decide_named(['now' => '2026-10-01', 'named_by' => 'reddit', 'posts' => []]);
+            return [$r['trend'] === false, $r['why']];
+        }],
+        [13, 'posts-as-citations', 'fix', 'The meme\'s own posts become citations the truth gate can check: platform, who, date, address', function () {
+            rt_need_tr(); rt_need('tr_posts_as_citations');
+            $c = tr_posts_as_citations([['platform' => 'TikTok', 'handle' => '@someone', 'date' => '2026-09-25', 'url' => 'https://www.tiktok.com/@someone/video/7687760919706799390']])[0];
+            return [$c['platform'] === 'TikTok' && $c['handle'] === '@someone' && $c['date'] === 'September 25, 2026' && str_contains($c['url'], 'tiktok.com'), json_encode($c, JSON_UNESCAPED_SLASHES)];
+        }],
         [13, 'post-once', 'fix', 'The same post read on two hourly runs is one post', function () {
             rt_need_tr();
             $p = ['platform' => 'reddit', 'sub' => 'gaming', 'author' => 'Someone', 'text' => "This  new gamepad is great"];

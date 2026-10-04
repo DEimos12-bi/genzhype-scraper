@@ -331,6 +331,17 @@ function scout_run(PDO $pdo, int $screenCap = 6): array {
     require_once __DIR__ . '/desk.php';
     foreach ($due as $row) {
         $term = (string)$row['term'];
+        // THE TREND DETECTOR on (trend.php): an ordinary dictionary or gaming word, or a phrase made of them, is turned
+        // down here, before any AI reading ("gamepad", "stamina", "the fps")
+        if (tr_on()) {
+            $od = tr_is_ordinary($pdo, $term);
+            if ($od['ordinary'] === false && $od['label'] === 'not in the dictionary') { $ph = tr_ordinary_phrase($pdo, $term); if ($ph['ordinary']) $od = $ph; }
+            if ($od['ordinary']) {
+                $pdo->prepare("UPDATE scout_vocab SET status='dismissed', verdict=? WHERE id=?")->execute([mb_substr('ordinary word: ' . $od['label'], 0, 255), (int)$row['id']]);
+                echo "  scout: turned down \"$term\" — {$od['label']}\n";
+                continue;
+            }
+        }
         $samples = (array)json_decode((string)$row['posts_json'], true);
         // THE DESK (2026-09-05): a burst is a signal for the whole site, not
         // only for the vocabulary screen below. One signal per sample post.

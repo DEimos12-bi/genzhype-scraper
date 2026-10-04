@@ -1893,9 +1893,11 @@ switch ($cmd) {
         //      the comment promised could never fire for ANY term.
         // Together they kept a month of July junk (a French beach, a cricket
         // scorecard) permanently at the head of the queue.
-        $terms = $pdo->query("SELECT id, name, type, COALESCE(draft_attempts,0) tries FROM candidates
+        require_once __DIR__ . '/trend.php';   // THE TREND DETECTOR (owner 2026-10-01, on only with app/TREND_ON)
+        $terms = $pdo->query("SELECT id, name, type, signals, created_at, COALESCE(draft_attempts,0) tries FROM candidates
                               WHERE status='selected' AND type IN ('term','meme','gaming','music')
                                 AND heat_score >= 50 AND COALESCE(draft_attempts,0) < 5
+                                AND (picker_checked_at IS NULL OR picker_checked_at < UTC_TIMESTAMP() - INTERVAL 20 HOUR)
                               ORDER BY heat_score DESC, id ASC LIMIT 40")->fetchAll();
         // r153 PER-LANE QUOTA (2026-09-11): the desk routes words in bulk (queue at the
         // switch-on: 14 gaming, 9 meme, 3 slang) and heat alone gave gaming words 8 of
@@ -1936,8 +1938,20 @@ switch ($cmd) {
             // start after +20m) was cut before its first attempt in 5 of the 7 runs from 11:00
             // to 17:00. On even hours, while stories wait, no term may start after +6m.
             if (time() - $tickT0 > $termCutoff) { echo '  term build: stopping at +' . (int)round((time() - $tickT0) / 60) . "m to keep time for drama, video and intelligence" . ($termCutoff < 840 ? ' (even hour: stories first)' : '') . "\n"; break; }
+            // THE TREND GATE (trend.php, owner 2026-10-01/03; on only with app/TREND_ON): an ordinary word is not written at
+            // all, a term short of 2 platforms waits, a trend gets its own page, real slang that is not trending becomes a
+            // glossary entry. A meme a source named is written from that source and its own posts.
+            $tg = null;
+            if (tr_on()) {
+                if (($tgChecks = ($tgChecks ?? 0) + 1) > 15) { echo "  trend gate: 15 terms read this run, the rest wait\n"; break; }
+                try { $tg = tr_gate($pdo, $tc, true); } catch (Throwable $e) { echo '  trend gate error on "' . $tc['name'] . '": ' . $e->getMessage() . "\n"; continue; }
+                $pdo = db_alive();
+                echo "  trend #{$tc['id']} \"{$tc['name']}\": {$tg['action']}" . ($tg['trend'] ? ' (trend)' : '') . ", {$tg['why']}\n";
+                if ($tg['action'] !== 'write') continue;
+            }
             $ttried++;
-            $d = draft_term(['term' => $tc['name'], 'lane' => lane_for_cand_type($tc['type']) ?? 'slang']);
+            $d = draft_term(['term' => $tc['name'], 'lane' => lane_for_cand_type($tc['type']) ?? 'slang']
+                + ($tg ? ['seed_sources' => $tg['sources'], 'seed_posts' => tr_posts_as_citations($tg['posts'])] : []));
             $pdo = db_alive();   // draft_term = minutes of HTTP+AI; the handle may be dead
             if (isset($d['error'])) {
                 echo "  term skip '{$tc['name']}': {$d['error']}\n";
@@ -1972,6 +1986,7 @@ switch ($cmd) {
                 }
                 continue;
             }
+            if ($tg) $pdo->prepare("UPDATE terms SET trend=?, trend_note=? WHERE page_id=?")->execute([(int)$tg['trend'], mb_substr($tg['why'], 0, 255), (int)$d['page_id']]);
             $g = gate_check_term((int)$d['page_id']);
             require_once __DIR__ . '/gate_quality.php';
             $q = gate_quality((int)$d['page_id'], true);          // THE QUALITY DEPARTMENT — final gate before live

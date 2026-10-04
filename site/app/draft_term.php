@@ -1224,9 +1224,15 @@ function draft_term(array $input): array {
         if ($hit = $e->fetchColumn()) return ['error' => 'a page for slug "' . $hit . '" already exists'];
     }
     $sources = $input['sources'] ?? [];
+    // THE PAGE THAT NAMED IT comes first (trend.php tr_gate, owner 2026-10-03): for "No Signal Backrooms trend" the writer
+    // was given the name only, searched the web and wrote from Backrooms film articles; KnowYourMeme's own entry, where the
+    // name came from, was never read. Our own search only tops it up, and is kept to pages about this term.
+    $seedSources = array_values(array_filter((array)($input['seed_sources'] ?? []), fn($s) => is_array($s) && !empty($s['url'])));
     if (count($sources) < 2) {
         // try to fetch our own
-        $sources = fetch_term_sources($term, 3, $lane);
+        $own = fetch_term_sources($term, 3, $lane);
+        $have = array_flip(array_column($seedSources, 'url'));
+        $sources = array_merge($seedSources, array_values(array_filter($own, fn($s) => !isset($have[$s['url'] ?? '']))));
     }
     // OWNER RULE 2026-08-22, same as the drama lane: what we build the page
     // FROM is a source, and the source COUNT is a Google question, not a
@@ -1377,7 +1383,21 @@ function draft_term(array $input): array {
         if (!isset($again['error']) && ($j = ai_json($again['content']))) $res = $again;
     }
     if (!$j) return ['error' => 'model did not return valid JSON', 'raw' => substr($res['content'], 0, 400)];
-    foreach (['title','title_tag','meta_desc','short_def','summary','meaning'] as $k) {
+    // a missing field means retry, not fail (owner 2026-10-03: "No Signal Backrooms trend" died twice on "draft missing
+    // field: title"): the next model writes it; if only the title lines are still missing they are made from the term
+    $need = ['title','title_tag','meta_desc','short_def','summary','meaning'];
+    $missing = fn(array $d) => array_values(array_filter($need, fn($k) => empty($d[$k])));
+    if ($missing($j)) {
+        $again = ai_chat($msgs, ['nvidia_director', 'gemini', 'openrouter', 'nvidia'], 0.4, 300, [$res['provider'] . '/' . $res['model']]);
+        $j2 = isset($again['error']) ? null : ai_json($again['content']);
+        if (is_array($j2) && count($missing($j2)) < count($missing($j))) { $j = $j2; $res = $again; }
+    }
+    if (array_diff($missing($j), ['title', 'title_tag']) === []) {
+        $made = $lane === 'meme' ? "The '{$term}' Meme, Explained" : ($lane === 'gaming' ? "What Does '{$term}' Mean in Gaming?" : "What Does '{$term}' Mean?");
+        if (empty($j['title'])) $j['title'] = $made;
+        if (empty($j['title_tag'])) $j['title_tag'] = mb_substr($made, 0, 60);
+    }
+    foreach ($need as $k) {
         if (empty($j[$k])) return ['error' => "draft missing field: $k"];
     }
     $j = term_clean($j); // remove AI tells (em dashes, odd hyphens) across all fields
@@ -1576,6 +1596,12 @@ function draft_term(array $input): array {
         // SEO-BATCH-1: top up with machine-harvested citations when the model's
         // own picks fall short of the gate's 3. Only rows that INDEPENDENTLY
         // clear gate_term_valid_citations() are added — the gate is untouched.
+        // the meme's own posts, taken from the page that named it (trend.php tr_source_posts): each has its platform, who
+        // posted it and its own date. Only posts that clear the unchanged gate on their own are added.
+        foreach ((array)($input['seed_posts'] ?? []) as $hc) {
+            if (count(gate_term_valid_citations($citeStore, $term)) >= 5) break;
+            if (is_array($hc) && !in_array($hc['url'] ?? '', array_column($citeStore, 'url'), true) && count(gate_term_valid_citations([$hc], $term)) === 1) $citeStore[] = $hc;
+        }
         $validNow = gate_term_valid_citations($citeStore, $term);
         if (count($validNow) < 3) {
             foreach (term_harvest_citations($sources, $term, $citeStore) as $hc) {

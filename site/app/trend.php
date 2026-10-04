@@ -274,3 +274,183 @@ function tr_check(PDO $pdo, string $term, string $now = ''): array {
     $m['listener_start'] = substr((string)$pdo->query("SELECT MIN(first_seen) FROM scout_vocab")->fetchColumn(), 0, 10);
     return tr_decide($m) + ['numbers' => $m];
 }
+
+/* ---------------------------------------------------------------------------------------------------------------
+ * PART 2 (owner 2026-10-03): the gate in front of the term writer, and the memes a source names
+ *
+ * Two kinds of term reach the writer:
+ *   - a word or phrase OUR LISTENER heard in posts: judged by tr_check() above (rising, new, 2+ platforms, not ordinary);
+ *   - a meme A SOURCE NAMED (KnowYourMeme, an outlet, a Reddit headline): our listener never hears its name, so it is
+ *     judged on its own posts, the ones the naming page links (TikTok, X, YouTube). Those same posts are the dated,
+ *     attributed posts the truth gate asks for, and the naming page is the first source the writer reads
+ *     (2026-10-01: the writer was given only the name, searched the web, and wrote from Backrooms film articles).
+ * ------------------------------------------------------------------------------------------------------------- */
+
+const TR_NAMED_DAYS      = 30;   // [ours] a named meme's posts count when dated in the last 30 days
+const TR_NAMED_MIN_POSTS = 3;    // [ours] at least 3 such posts
+const TR_WAIT_DAYS       = 7;    // [ours] a term waiting for a second platform is dropped after 7 days
+
+/** YouTube videos by id: channel, publish date, views (one request for up to 25 ids, our own API key). */
+function tr_youtube_facts(array $ids): array {
+    global $CONFIG;
+    $key = (string)($CONFIG['youtube_key'] ?? '');
+    $ids = array_values(array_unique(array_filter($ids)));
+    if ($key === '' || !$ids) return [];
+    $ch = curl_init('https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics&id=' . rawurlencode(implode(',', array_slice($ids, 0, 25))) . '&key=' . rawurlencode($key));
+    curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 15]);
+    $j = json_decode((string)curl_exec($ch), true); curl_close($ch);
+    $out = [];
+    foreach ((array)($j['items'] ?? []) as $it)
+        $out[(string)$it['id']] = ['channel' => (string)($it['snippet']['channelTitle'] ?? ''), 'date' => substr((string)($it['snippet']['publishedAt'] ?? ''), 0, 10),
+                                   'title' => (string)($it['snippet']['title'] ?? ''), 'views' => (int)($it['statistics']['viewCount'] ?? 0)];
+    return $out;
+}
+
+/**
+ * What a naming page gives us: the page itself as the writer's first source, and the posts it links, each with its
+ * platform, who posted it and its own date (X and TikTok carry the date in the post id; YouTube is asked).
+ * ['sources' => [writer source rows], 'posts' => [['platform','handle','date' => Y-m-d,'url','views']]]
+ */
+function tr_source_posts(array $urls, int $max = 16): array {
+    require_once __DIR__ . '/fetch_sources.php';
+    require_once __DIR__ . '/story_picker.php';   // sp_post_time(), sp_kind()
+    $sources = []; $posts = []; $yt = [];
+    foreach (array_slice(array_values(array_unique($urls)), 0, 3) as $u) {
+        if (str_starts_with($u, '/r/')) $u = 'https://www.reddit.com' . $u;
+        if (!filter_var($u, FILTER_VALIDATE_URL) || sp_kind($u) === 'post') continue;
+        $html = fs_http_get($u, 15);
+        if (!$html) continue;
+        $text = fs_extract_text($html);
+        $title = preg_match('#<title\b[^>]*>(.*?)</title>#is', $html, $t) ? trim(html_entity_decode(strip_tags($t[1]), ENT_QUOTES, 'UTF-8')) : '';
+        if (mb_strlen($text) >= 300)
+            $sources[] = ['url' => $u, 'publisher' => fs_publisher($u), 'date' => fs_published_date($html), 'reliability' => 'reliable_outlet',
+                          'excerpt' => mb_substr($text, 0, 3500), 'title' => mb_substr($title, 0, 200), 'topical_fit' => true];
+        foreach (fs_harvest_social($html, $max) as $s) {
+            $pu = (string)$s['url'];
+            if (isset($posts[$pu])) continue;
+            if ($s['provider'] === 'tiktok' && preg_match('#tiktok\.com/@([A-Za-z0-9_.]+)/video/#', $pu, $m))
+                $posts[$pu] = ['platform' => 'TikTok', 'handle' => '@' . $m[1], 'date' => substr(sp_post_time($pu), 0, 10), 'url' => $pu, 'views' => 0];
+            elseif ($s['provider'] === 'twitter' && preg_match('#(?:twitter|x)\.com/([A-Za-z0-9_]+)/status/#', $pu, $m))
+                $posts[$pu] = ['platform' => 'X', 'handle' => '@' . $m[1], 'date' => substr(sp_post_time($pu), 0, 10), 'url' => $pu, 'views' => 0];
+            elseif ($s['provider'] === 'youtube' && preg_match('#(?:v=|youtu\.be/|shorts/)([A-Za-z0-9_-]{6,})#', $pu, $m)) {
+                $yt[$m[1]] = $pu;
+                $posts[$pu] = ['platform' => 'YouTube', 'handle' => '', 'date' => '', 'url' => $pu, 'views' => 0];
+            }
+        }
+    }
+    foreach (tr_youtube_facts(array_keys($yt)) as $id => $f) {
+        $pu = $yt[$id];
+        $posts[$pu]['handle'] = $f['channel']; $posts[$pu]['date'] = $f['date']; $posts[$pu]['views'] = $f['views'];
+    }
+    // a post without a date or a name proves nothing about when or who
+    return ['sources' => $sources, 'posts' => array_values(array_filter($posts, fn($p) => $p['date'] !== '' && $p['handle'] !== ''))];
+}
+
+/**
+ * A meme a source named (pure): a trend when its own posts, dated in the last 30 days, are at least 3 and sit on 2+
+ * platforms. $f: now (Y-m-d), posts [['platform','date']], named_by.
+ * ['trend' => bool, 'why', 'recent' => n, 'platforms' => [...]]
+ */
+function tr_decide_named(array $f): array {
+    $now = strtotime((string)$f['now'] . ' UTC');
+    $recent = array_values(array_filter((array)$f['posts'], fn($p) => ($p['date'] ?? '') !== '' && $now - strtotime($p['date'] . ' UTC') <= TR_NAMED_DAYS * 86400 && strtotime($p['date'] . ' UTC') <= $now + 86400));
+    $pl = array_values(array_unique(array_map(fn($p) => (string)$p['platform'], $recent)));
+    $by = (string)($f['named_by'] ?? 'a source');
+    $res = ['recent' => count($recent), 'platforms' => $pl];
+    if (!(array)$f['posts']) return $res + ['trend' => false, 'why' => "named by {$by}, but its page links no dated post of the meme"];
+    if (count($recent) < TR_NAMED_MIN_POSTS)
+        return $res + ['trend' => false, 'why' => "named by {$by}: " . count($recent) . ' post(s) of it dated in the last ' . TR_NAMED_DAYS . ' days (needs ' . TR_NAMED_MIN_POSTS . '); the rest are older'];
+    if (count($pl) < TR_MIN_PLATFORMS)
+        return $res + ['trend' => false, 'why' => "named by {$by}: " . count($recent) . ' recent posts, all on ' . ($pl[0] ?? '?') . ' (needs ' . TR_MIN_PLATFORMS . ' platforms)'];
+    return $res + ['trend' => true, 'why' => "named by {$by}: " . count($recent) . ' posts of it in the last ' . TR_NAMED_DAYS . ' days on ' . implode(' and ', $pl)];
+}
+
+function tr_install2(PDO $pdo): void {
+    static $done = false;
+    if ($done) return;
+    tr_install($pdo);
+    $cols = array_column($pdo->query("SHOW COLUMNS FROM terms")->fetchAll(PDO::FETCH_ASSOC), 'Field');
+    if (!in_array('trend', $cols, true))      $pdo->exec("ALTER TABLE terms ADD COLUMN trend TINYINT NULL COMMENT 'the trend detector verdict when it was written (trend.php)'");
+    if (!in_array('trend_note', $cols, true)) $pdo->exec("ALTER TABLE terms ADD COLUMN trend_note VARCHAR(255) NULL");
+    $pdo->exec("CREATE TABLE IF NOT EXISTS trend_decisions (
+        id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        cand_id INT UNSIGNED NOT NULL,
+        term VARCHAR(120) NOT NULL,
+        action ENUM('write','skip','wait','drop') NOT NULL,
+        trend TINYINT NOT NULL DEFAULT 0,
+        why VARCHAR(400) NULL,
+        decided_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        KEY idx_when (decided_at), KEY idx_cand (cand_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    $done = true;
+}
+
+/**
+ * THE GATE in front of the term writer. Reads one queued term and says what to do with it (nothing is written here
+ * unless $apply: then the decision is logged, a wait is stamped and a refused term is retired).
+ *   write + trend     its own page (a trend)
+ *   write, no trend   real slang that is not trending: a glossary entry, as before
+ *   skip              an ordinary word or phrase: not written at all
+ *   wait              not on 2 platforms yet: looked at again tomorrow, dropped after 7 days
+ * ['action', 'trend' => bool, 'why', 'kind' => heard|named, 'sources' => [...], 'posts' => [...]]
+ */
+function tr_gate(PDO $pdo, array $cand, bool $apply = false, string $now = ''): array {
+    if ($apply) tr_install2($pdo);
+    $today = $now !== '' ? substr($now, 0, 10) : gmdate('Y-m-d');
+    $name = trim((string)$cand['name']);
+    $term = mb_strtolower($name);
+    $sg = json_decode((string)($cand['signals'] ?? ''), true) ?: [];
+    $urls = [];
+    if (!empty($sg['url'])) $urls[] = (string)$sg['url'];
+    foreach ((array)($sg['desk']['evidence'] ?? []) as $e) if (!empty($e['url'])) $urls[] = (string)$e['url'];
+    $m = tr_measure($pdo, $term, $today);
+    $heard = $m['first_heard'] !== '' || !empty($sg['scout']);
+    $out = ['action' => 'wait', 'trend' => false, 'why' => '', 'kind' => $heard ? 'heard' : 'named', 'sources' => [], 'posts' => []];
+    if ($heard) {
+        $r = tr_check($pdo, $term, $today);
+        if (!empty($r['numbers']['ordinary'])) $out = ['action' => 'skip', 'why' => (string)$r['numbers']['label']] + $out;
+        elseif ($r['numbers']['ordinary'] === null) $out = ['action' => 'wait', 'why' => 'the dictionary could not be reached: looked at again later'] + $out;
+        elseif ($r['trend']) $out = ['action' => 'write', 'trend' => true, 'why' => $r['why']] + $out;
+        elseif (!$r['parts']['new'] || str_starts_with((string)$r['numbers']['label'], 'in the dictionary'))
+            $out = ['action' => 'write', 'trend' => false, 'why' => 'real slang, not a trend (' . $r['why'] . '): a glossary entry'] + $out;
+        else $out = ['action' => 'wait', 'why' => $r['why']] + $out;
+    } else {
+        $src = tr_source_posts($urls);
+        $by = $src['sources'] ? (string)$src['sources'][0]['publisher'] : (string)preg_replace('/^(desk:)?(rss:|scout:)?/', '', (string)($sg['source'] ?? 'a source'));
+        $d = tr_decide_named(['now' => $today, 'posts' => $src['posts'], 'named_by' => $by]);
+        $out = ['action' => $d['trend'] ? 'write' : 'wait', 'trend' => $d['trend'], 'why' => $d['why'], 'sources' => $src['sources'], 'posts' => $src['posts']] + $out;
+    }
+    // a term that has waited a week is dropped
+    $first = strtotime((string)($cand['created_at'] ?? $today));
+    if ($out['action'] === 'wait' && $first && strtotime($today . ' UTC') - $first > TR_WAIT_DAYS * 86400)
+        $out = ['action' => 'drop', 'why' => 'waited ' . TR_WAIT_DAYS . ' days: ' . $out['why']] + $out;
+    if ($apply) {
+        $pdo->prepare("INSERT INTO trend_decisions (cand_id, term, action, trend, why) VALUES (?,?,?,?,?)")
+            ->execute([(int)$cand['id'], mb_substr($name, 0, 120), $out['action'], (int)$out['trend'], mb_substr($out['why'], 0, 400)]);
+        if ($out['action'] === 'wait') $pdo->prepare("UPDATE candidates SET picker_checked_at=UTC_TIMESTAMP() WHERE id=?")->execute([(int)$cand['id']]);
+        if (in_array($out['action'], ['skip', 'drop'], true))
+            $pdo->prepare("UPDATE candidates SET status='rejected', reject_reason=? WHERE id=?")->execute([mb_substr('trend: ' . $out['why'], 0, 255), (int)$cand['id']]);
+    }
+    return $out;
+}
+
+/** A named meme's posts as citations the truth gate can check (platform + who + date + the post's own address). */
+function tr_posts_as_citations(array $posts): array {
+    $out = [];
+    foreach ($posts as $p)
+        $out[] = ['platform' => (string)$p['platform'], 'handle' => (string)$p['handle'], 'publication' => '', 'title' => '',
+                  'date' => date('F j, Y', strtotime((string)$p['date'] . ' UTC')), 'url' => (string)$p['url'], 'quote' => '', 'views' => (int)($p['views'] ?? 0)];
+    return $out;
+}
+
+/** Does a Google Trends item also show in our own Reddit, X or YouTube signals of the last 3 days? (owner rule 4) */
+function tr_in_signals(PDO $pdo, string $term): bool {
+    tr_install($pdo);
+    $t = mb_strtolower(trim($term));
+    $q = $pdo->prepare("SELECT SUM(p_reddit + p_x + p_youtube) FROM term_daily WHERE term=? AND day >= CURDATE() - INTERVAL " . TR_RECENT_DAYS . " DAY");
+    $q->execute([$t]);
+    if ((int)$q->fetchColumn() > 0) return true;
+    $q = $pdo->prepare("SELECT COUNT(*) FROM desk_signals WHERE seen_at >= NOW() - INTERVAL " . TR_RECENT_DAYS . " DAY AND origin NOT LIKE 'google%' AND (origin LIKE 'scout:reddit%' OR origin LIKE 'scout:x%' OR origin LIKE 'scout:youtube%') AND text LIKE ?");
+    $q->execute(['%' . $t . '%']);
+    return (int)$q->fetchColumn() > 0;
+}

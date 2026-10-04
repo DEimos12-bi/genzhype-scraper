@@ -249,6 +249,12 @@ function discover_terms_run(): array {
     // Google Trends serves what the whole world searches, and that is never
     // where a slang word is born. Re-enable only with a lane-restricted feed.
     // foreach (dt_trends_words() as $w) $harvest[$w] = $harvest[$w] ?? 'google_trends';
+    // BACK ON with the trend detector (owner 2026-10-01 rule 4): only items that our own Reddit, X or YouTube signals of
+    // the last 3 days also carry. On 2026-10-01 that kept 0 of 8 (Prime Day, politics, football): the junk stays out.
+    if (is_file(__DIR__ . '/TREND_ON')) {
+        require_once __DIR__ . '/trend.php';
+        foreach (dt_trends_words() as $w) { try { if (tr_in_signals($pdo, (string)$w)) $harvest[$w] = $harvest[$w] ?? 'google_trends'; } catch (Throwable $e) {} }
+    }
     // TIKTOK EAR (2026-08-30): Creative Center trending hashtags from the
     // runner (reach_cache['tiktok_trends'], TikTok's OWN trend list). Hashtag
     // names enter the same AI filter as every other harvest word — generic

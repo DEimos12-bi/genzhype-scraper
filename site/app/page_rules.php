@@ -604,8 +604,14 @@ function term_route_page(PDO $pdo, int $pageId): string {
     term_demand_install($pdo);
     $t = $pdo->query("SELECT t.term, t.origin_url, t.origin_type, t.origin_date, t.first_seen, t.citations, t.scene_embed_provider, t.demand_views, t.demand_at FROM terms t WHERE t.page_id=" . $pageId)->fetch(PDO::FETCH_ASSOC);
     if (!$t) return 'unknown';
+    // THE TREND DETECTOR's verdict, when it is on and the term was written under it (trend.php, owner 2026-10-01): a trend
+    // gets its page with no Wikipedia-views test; a term it judged not trending keeps a page only by the old rule below
+    // (an original part AND real demand), never because the page's own text calls itself new
+    $tv = null;
+    if (is_file(__DIR__ . '/TREND_ON')) { try { $x = $pdo->query("SELECT trend FROM terms WHERE page_id=" . $pageId)->fetchColumn(); $tv = $x === null || $x === false ? null : (int)$x; } catch (Throwable $e) { $tv = null; } }
+    if ($tv === 1) return 'page';
     $trend = term_trend($t);
-    if ($trend['fresh'] || $trend['rising']) return 'page';   // new beats demand (owner 2026-09-28)
+    if ($tv === null && ($trend['fresh'] || $trend['rising'])) return 'page';   // new beats demand (owner 2026-09-28)
     if (!term_original($t)) return 'glossary';   // a plain definition: no need to ask about demand
     $views = $t['demand_views'] !== null && (string)$t['demand_at'] >= gmdate('Y-m-d', strtotime('-30 days')) ? (float)$t['demand_views'] : null;
     if ($views === null) {
