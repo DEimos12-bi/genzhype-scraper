@@ -244,3 +244,50 @@ function ss_backfill(PDO $pdo, string $since, bool $apply = false): array {
     if ($apply) foreach ($map as $did => $sids) ss_link($pdo, (int)$did, $sids);
     return $map;
 }
+
+/**
+ * THE TIMELINE RULE (owner 2026-10-04: "allow 1-2 dated events when 2+ outlets confirm the story. Never pad the
+ * timeline to reach a number"). Pure. 3 or more dated events pass as before; 1 or 2 pass when 2+ independent outlets
+ * stand behind the story. No events never passes.
+ */
+function ss_events_ok(int $events, int $outlets): bool {
+    return $events >= 3 || ($events >= 1 && $outlets >= 2);
+}
+
+/** The independent outlets among a story's sources (the picker's count: no posts, no reference sites, no copies, one per site, syndicated once). */
+function ss_outlets(PDO $pdo, int $did): int {
+    require_once __DIR__ . '/story_picker.php';
+    $items = $pdo->query("SELECT url, title FROM sources WHERE id IN (" . ss_in($pdo, $did) . ") AND url IS NOT NULL AND url<>''")->fetchAll(PDO::FETCH_ASSOC);
+    return (int)sp_count_outlets($items)['outlets'];
+}
+
+/**
+ * THE STORIES THE OLD CHECK STOPPED get the accuracy step again, a few per build-worker run (the hourly draft re-check
+ * only repeats the fact check, it never removes anything). Only a draft whose latest fact check failed, written since the
+ * picker went on, that still has an event from the last 72 hours (the picker's own rule: an older one is old news and
+ * stays a draft), and that has not had this step since the switch went on. A pass moves it to 'review'; the usual
+ * editor, gate, Human check and index rules then decide in the hourly run, as for any story. ['line' => log line or '']
+ */
+function ss_redo_stuck(PDO $pdo, int $limit = 2): array {
+    if (!is_file(__DIR__ . '/FACTFIX_ON')) return ['line' => ''];
+    require_once __DIR__ . '/accuracy.php';
+    require_once __DIR__ . '/story_picker.php';
+    $since = gmdate('Y-m-d H:i:s', (int)filemtime(__DIR__ . '/FACTFIX_ON'));
+    $rows = $pdo->query("SELECT p.id, p.slug, d.id did FROM pages p JOIN dramas d ON d.page_id=p.id
+                         WHERE p.type='drama' AND p.status='draft' AND p.created_at >= '2026-10-01 18:32:00'
+                           AND (SELECT r.passed FROM ai_reviews r WHERE r.page_id=p.id AND r.stage='verify' ORDER BY r.id DESC LIMIT 1) = 0
+                           AND NOT EXISTS (SELECT 1 FROM accuracy_log a WHERE a.page_id=p.id AND a.run_at >= " . $pdo->quote($since) . ")
+                         ORDER BY p.id DESC LIMIT 40")->fetchAll(PDO::FETCH_ASSOC);
+    $done = []; $now = gmdate('Y-m-d H:i:s');
+    foreach ($rows as $r) {
+        if (count($done) >= $limit) break;
+        $dates = $pdo->query("SELECT event_date FROM events WHERE drama_id=" . (int)$r['did'] . " AND video_only=0")->fetchAll(PDO::FETCH_COLUMN);
+        if (!sp_events_fresh($dates, $now)) continue;
+        try { $rep = acc_run($pdo, (int)$r['id']); } catch (Throwable $e) { $done[] = "{$r['slug']}: failed (" . mb_substr($e->getMessage(), 0, 60) . ')'; continue; }
+        $pdo = db_alive();
+        $v = $rep['verify'] ?? [];
+        $done[] = $r['slug'] . ': ' . (isset($v['error']) ? 'no answer' : (($v['pass'] ?? false) ? 'fact check PASS' : 'still held'))
+                . ", {$rep['removal']['removed']} sentence(s) out, " . (int)($rep['rounds'] ?? 1) . ' check(s)';
+    }
+    return ['line' => $done ? 'fact-check redo: ' . implode(' | ', $done) : ''];
+}

@@ -137,7 +137,7 @@ function story_rebuild(PDO $pdo, int $pageId, string $step = 'all'): array {
 }
 
 /** A term entry made again: the term drafter's own fresh sources and writer, then the term gate + quality department. */
-function term_rebuild(PDO $pdo, int $pageId, string $step = 'all'): array {
+function term_rebuild(PDO $pdo, int $pageId, string $step = 'all', int $seedCand = 0): array {   // $seedCand: write from this candidate's material (term_same.php)
     require_once __DIR__ . '/draft_term.php';
     require_once __DIR__ . '/gate_term.php';
     require_once __DIR__ . '/gate_quality.php';
@@ -151,8 +151,8 @@ function term_rebuild(PDO $pdo, int $pageId, string $step = 'all'): array {
         $seed = []; $tg = null;
         require_once __DIR__ . '/trend.php';
         if (tr_on()) {
-            $cq = $pdo->prepare("SELECT * FROM candidates WHERE LOWER(name)=LOWER(?) ORDER BY id DESC LIMIT 1");
-            $cq->execute([(string)$p['term']]);
+            $cq = $pdo->prepare($seedCand ? "SELECT * FROM candidates WHERE id=?" : "SELECT * FROM candidates WHERE LOWER(name)=LOWER(?) ORDER BY id DESC LIMIT 1");
+            $cq->execute([$seedCand ?: (string)$p['term']]);
             if ($cand = $cq->fetch(PDO::FETCH_ASSOC)) {
                 $cand['created_at'] = gmdate('Y-m-d');   // a rebuild is judged as of today, the wait limit is not its concern
                 $tg = tr_gate($pdo, $cand, false);

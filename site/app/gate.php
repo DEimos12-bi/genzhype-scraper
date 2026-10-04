@@ -67,11 +67,9 @@ function drama_index_block(PDO $pdo, int $pageId): string {
     // the source-count bar lives HERE now: one source is enough to
     // publish, two independent ones are what we ask before inviting
     // Google to rank the claim.
-    $dq = $pdo->prepare("SELECT COUNT(DISTINCT s.domain) FROM sources s
-                           JOIN events e ON e.source_id = s.id
-                           JOIN dramas d ON d.id = e.drama_id
-                          WHERE d.page_id = ?");
-    $dq->execute([$pageId]);
+    // 2026-10-04 every source the story was written from, as the page lists them (story_sources.php, with app/FACTFIX_ON)
+    require_once __DIR__ . '/story_sources.php';
+    $dq = $pdo->query("SELECT COUNT(DISTINCT s.domain) FROM sources s WHERE s.id IN (" . ss_in($pdo, (int)$pdo->query("SELECT id FROM dramas WHERE page_id=" . (int)$pageId)->fetchColumn()) . ")");
     if ((int)$dq->fetchColumn() < GATE_MIN_SOURCE_DOMAINS) {
         return "PUBLISHED (noindex): single-source story — live on the site, not offered to Google";
     }
@@ -158,6 +156,15 @@ function page_publish_live(PDO $pdo, int $pageId): bool {
     $t->execute([$pageId]);
     $type = (string)$t->fetchColumn();
     $isDrama = ($type === 'drama');
+    // a meme or term page about a death, sexual violence, abuse or a crime waits for a person, like a story (owner 2026-10-04)
+    if ($type === 'term') {
+        require_once __DIR__ . '/human_review.php';
+        if (($hold = hr_hold($pdo, $pageId)) !== '') {
+            $pdo->prepare("UPDATE pages SET status='review', robots='noindex', updated_at=NOW() WHERE id=?")->execute([$pageId]);
+            echo "  HELD FOR A HUMAN CHECK ({$hold}): admin > Human check\n";
+            return false;
+        }
+    }
 
     // OWNER DECISION 2026-08-22: the blanket drama noindex hold is LIFTED —
     // but per page, never per lane. The August hold was blunt because there
@@ -475,7 +482,10 @@ function gate_check_drama(int $page_id): array {
 
     // 7. Minimum sourced, dated events
     $n = (int)$pdo->query("SELECT COUNT(*) FROM events WHERE drama_id={$did}")->fetchColumn();
-    $add('events', "{$n} timeline events (need >= " . GATE_MIN_EVENTS . ")", $n >= GATE_MIN_EVENTS);
+    // owner 2026-10-04: 1-2 dated events are enough when 2+ independent outlets confirm the story; the timeline is never padded
+    require_once __DIR__ . '/story_sources.php';
+    $outlets = $n < GATE_MIN_EVENTS ? ss_outlets($pdo, $did) : 0;
+    $add('events', "{$n} timeline events (need >= " . GATE_MIN_EVENTS . ", or 1-2 with 2+ independent outlets" . ($n < GATE_MIN_EVENTS ? ": {$outlets}" : '') . ")", ss_events_ok($n, $outlets));
 
     // accuracy (owner 2026-09-27): blocks whatever the editor says (accuracy.php)
     require_once __DIR__ . '/accuracy.php';

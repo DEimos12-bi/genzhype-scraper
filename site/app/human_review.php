@@ -14,7 +14,7 @@ require_once __DIR__ . '/db.php';
 
 const HR_CATEGORIES = [
     'death'           => '/\b(murder\w*|homicide\w*|manslaughter|killed|killing|shot dead|shot and killed|stabbed to death|found dead|dead body|body was found|died|dies|death of|deaths?\b(?! threat)|passed away|suicide\w*|overdos\w*|fatal\w*|funeral|obituar\w*|autopsy|coroner)\b/iu',
-    'sexual violence' => '/\b(sexual(ly)? (assault\w*|abuse\w*|misconduct|harass\w*|exploit\w*)|rape\w*|raping|molest\w*|grooming|groomed|predator\w*|csam|child (sexual|porn\w*)|indecent|non-?consensual)\b/iu',
+    'sexual violence' => '/\b(sexual(ly)? (assault\w*|abuse\w*|misconduct|harass\w*|exploit\w*)|sex(?:ual)?[ -](?:trafficking|trafficker\w*|crimes?|offen[cs]es?|offenders?)|pa?edophil\w*|rape\w*|raping|molest\w*|grooming|groomed|predator\w*|csam|child (sexual|porn\w*)|indecent|non-?consensual)\b/iu',
     'abuse of minors' => '/\b(child abuse|abus\w* (a |his |her |their )?(child|children|kids?|minors?|son|daughter)|minors?\b.{0,40}\b(abus\w*|exploit\w*|endanger\w*)|child endangerment|endanger\w* (a |the |his |her )?(child|children|kids?))\b/iu',
     // owner rule 7 (2026-09-27): "widen the detector words: assault, punched, attacked, abuse, arrested, police, charged, death, killed"
     'violence or crime' => '/\b(assault\w*|punch(?:ed|es|ing)|attack(?:ed|s|ing)|abus(?:e|ed|es|ing|ive)|arrest(?:ed|s|ing)?|police|charged)\b/iu',
@@ -39,7 +39,7 @@ function hr_reasons(string $title, string $summary, string $eventsText): array {
     // sentence about a game (a boss, a dungeon, respawning) loses those words unless it also names something real.
     // 2026-09-27: the whole-page version read "a 15,000-viewer raid" (a Twitch raid) as game lore and missed
     // "Nitro Camden attacked by mother on stream"
-    $lore = '/\b(boss(?:es| fights?)?|dungeons?|mythic|respawn\w*|instakill|loot|npcs?|enemies|monsters?|zombies?|in-game|gameplay|game master|quests?|patch notes?)\b/iu';
+    $lore = '/\b(boss(?:es| fights?)?|dungeons?|mythic|respawn\w*|instakill|loot|npcs?|enem(?:y|ies)|monsters?|zombies?|in-game|gameplay|game master|quests?|patch notes?)\b/iu';
     $real = '/\b(passed away|found dead|body was found|cause of death|autopsy|funeral|obituar\w*|shot dead|police|arrest\w*|streamer|on stream|irl|mother|mom|father|dad|wife|husband|fans?|convention|hospital)\b/iu';
     $strip = fn(string $t): string => implode(' ', array_map(fn(string $s) => preg_match($lore, $s) && !preg_match($real, $s)
         ? (string)preg_replace('/\b(death\w*|dead|died|dies|killed|killing|attack(?:ed|s|ing)?|punch(?:ed|es|ing)?)\b/iu', ' ', $s) : $s,
@@ -54,12 +54,35 @@ function hr_reasons(string $title, string $summary, string $eventsText): array {
     return $out;
 }
 
-/** hr_reasons() for a story page, from its title, summary and timeline. */
+/**
+ * The text of a meme or term page as a reader sees it, for the same detector (owner 2026-10-04: "extend the sensitive
+ * detector and Human check to meme and term pages, with the same rules as stories"; /meme/epstein/ went live unread).
+ * [title, summary + definition, everything else on the page]
+ */
+function hr_term_texts(array $t): array {
+    $flat = function ($v) use (&$flat): string {
+        if (is_string($v)) { $j = json_decode($v, true); return is_array($j) ? $flat($j) : $v; }
+        if (!is_array($v)) return '';
+        $out = [];
+        foreach ($v as $k => $x) { if (in_array($k, ['url', 'handle', 'platform', 'date'], true)) continue; $s = $flat($x); if ($s !== '') $out[] = $s; }
+        return implode('. ', $out);
+    };
+    $body = [];
+    foreach (['also_known_as', 'origin', 'usage_note', 'examples', 'related', 'faqs', 'meaning', 'why_trending'] as $k) $body[] = $flat($t[$k] ?? '');
+    return [(string)($t['h1'] ?? ''), trim((string)($t['summary'] ?? '') . ' ' . (string)($t['short_def'] ?? '')), implode(' ', array_filter($body))];
+}
+
+/** hr_reasons() for a page: a story from its title, summary and timeline; a meme or term from its title, definition and body. */
 function hr_page_reasons(PDO $pdo, int $pageId): array {
     $st = $pdo->prepare("SELECT p.h1, p.summary, d.id did FROM pages p JOIN dramas d ON d.page_id=p.id WHERE p.id=?");
     $st->execute([$pageId]);
     $p = $st->fetch(PDO::FETCH_ASSOC);
-    if (!$p) return [];
+    if (!$p) {
+        $tq = $pdo->prepare("SELECT p.h1, p.summary, t.* FROM pages p JOIN terms t ON t.page_id=p.id WHERE p.id=? AND p.type='term'");
+        $tq->execute([$pageId]);
+        $t = $tq->fetch(PDO::FETCH_ASSOC);
+        return $t ? hr_reasons(...hr_term_texts($t)) : [];
+    }
     $ev = $pdo->prepare("SELECT GROUP_CONCAT(CONCAT(title, '. ', COALESCE(description, '')) SEPARATOR ' ') FROM events WHERE drama_id=? AND video_only=0");
     $ev->execute([(int)$p['did']]);
     return hr_reasons((string)$p['h1'], (string)$p['summary'], (string)$ev->fetchColumn());
@@ -85,7 +108,7 @@ function hr_mark_live(PDO $pdo): int {
     hr_install($pdo);
     $n = 0;
     $set = $pdo->prepare("UPDATE pages SET human_review='needed', review_reason=? WHERE id=?");
-    foreach ($pdo->query("SELECT id FROM pages WHERE type='drama' AND status='published' AND human_review IS NULL")->fetchAll(PDO::FETCH_COLUMN) as $pid) {
+    foreach ($pdo->query("SELECT id FROM pages WHERE type IN ('drama','term') AND status='published' AND human_review IS NULL")->fetchAll(PDO::FETCH_COLUMN) as $pid) {
         $why = implode('; ', hr_page_reasons($pdo, (int)$pid));
         if ($why === '') continue;
         $set->execute([mb_substr($why, 0, 255), (int)$pid]);
@@ -103,10 +126,10 @@ function hr_decide(PDO $pdo, int $pageId, string $do, string $reviewer, string $
     hr_install($pdo);
     $reviewer = trim(preg_replace('/\s+/', ' ', $reviewer));
     if (mb_strlen($reviewer) < 2 || mb_strlen($reviewer) > 100) return [false, 'Type your name (2 to 100 characters): it is shown on the page as the reviewer.'];
-    $st = $pdo->prepare("SELECT h1, status, human_review FROM pages WHERE id=? AND type='drama'");
+    $st = $pdo->prepare("SELECT h1, status, human_review FROM pages WHERE id=? AND type IN ('drama','term')");
     $st->execute([$pageId]);
     $p = $st->fetch(PDO::FETCH_ASSOC);
-    if (!$p) return [false, 'That story was not found.'];
+    if (!$p) return [false, 'That page was not found.'];
     // what Laya will learn from (owner 2026-09-28): the decision and the reason given for it (laya_log.php)
     if (in_array($do, ['approve', 'reject'], true)) { require_once __DIR__ . '/laya_log.php'; laya_log_decision($pdo, $pageId, $do, $reason, $reviewer); }
     if ($do === 'approve') {
@@ -133,9 +156,9 @@ function hr_decide(PDO $pdo, int $pageId, string $do, string $reviewer, string $
  */
 function hr_digest_text(PDO $pdo): ?array {
     hr_install($pdo);
-    $wait = $pdo->query("SELECT p.id, p.h1, p.path, p.review_reason, (SELECT r.passed FROM ai_reviews r WHERE r.page_id=p.id AND r.stage='verify' ORDER BY r.id DESC LIMIT 1) fact_check FROM pages p WHERE p.type='drama' AND p.human_review='needed' AND p.status='review' ORDER BY p.updated_at DESC")->fetchAll(PDO::FETCH_ASSOC);
+    $wait = $pdo->query("SELECT p.id, p.h1, p.path, p.review_reason, (SELECT r.passed FROM ai_reviews r WHERE r.page_id=p.id AND r.stage='verify' ORDER BY r.id DESC LIMIT 1) fact_check FROM pages p WHERE p.type IN ('drama','term') AND p.human_review='needed' AND p.status='review' ORDER BY p.updated_at DESC")->fetchAll(PDO::FETCH_ASSOC);
     if (!$wait) return null;
-    $live = (int)$pdo->query("SELECT COUNT(*) FROM pages WHERE type='drama' AND human_review='needed' AND status='published'")->fetchColumn();
+    $live = (int)$pdo->query("SELECT COUNT(*) FROM pages WHERE type IN ('drama','term') AND human_review='needed' AND status='published'")->fetchColumn();
     $n = count($wait);
     $body = "{$n} " . ($n === 1 ? 'story waits' : 'stories wait') . " for your approval. They are not on the site until you approve them.\n\n";
     foreach (array_slice($wait, 0, 25) as $i => $w)

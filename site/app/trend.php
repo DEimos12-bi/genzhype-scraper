@@ -505,5 +505,10 @@ function tr_rebuild_stuck(PDO $pdo, int $limit = 1): array {
         $done[] = '"' . $r['term'] . '" ' . (isset($rr['error']) ? 'not rebuilt (' . mb_substr((string)$rr['error'], 0, 90) . ')' : 'rebuilt, checks ' . (!empty($rr['ok']) ? 'PASS' : 'FAIL: ' . mb_substr(implode('; ', (array)($rr['fails'] ?? [])), 0, 140)));
         if (!isset($rr['error']) && !empty($rr['ok'])) $ready[] = (int)$r['id'];
     }
+    if (!$done) {   // no stuck draft took this run's turn: one live page with new material is written again (term_same.php)
+        require_once __DIR__ . '/term_same.php';
+        $u = ts_update_one($pdo);
+        if ($u['line'] !== '') return ['line' => $u['line'], 'ready' => []];
+    }
     return ['line' => $done ? 'stuck trends: ' . implode(' | ', $done) : '', 'ready' => $ready];
 }

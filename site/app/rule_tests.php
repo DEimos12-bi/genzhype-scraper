@@ -545,6 +545,56 @@ function rt_cases(): array {
             return [substr($d, 0, 10) === '2022-12-06', 'dated ' . ($d ?: 'nothing')];
         }],
 
+        // RULE 16: same meme or term = update, not a new page (owner 2026-10-04, term_same.php)
+        [16, 'headline-of-it', 'fix', '"Haminations Cringe Spreads On TikTok" is a headline about "Haminations Cringe": a suspect, not a new name', function () {
+            require_once __DIR__ . '/term_same.php';
+            $r = ts_suspect('Haminations Cringe Spreads On TikTok', 'Haminations Cringe');
+            return [$r !== '', 'verdict: ' . ($r ?: 'different names')];
+        }],
+        [16, 'same-words', 'fix', '"Relax Bro meme" and "Relax Bro" are the same name', function () {
+            require_once __DIR__ . '/term_same.php';
+            $r = ts_suspect('Relax Bro meme', 'relax bro');
+            return [$r === 'same', 'verdict: ' . ($r ?: 'different names')];
+        }],
+        [16, 'longer-headline', 'fix', 'A long headline that carries a meme\'s whole name is a suspect ("NGL I\'ma Take A Nap")', function () {
+            require_once __DIR__ . '/term_same.php';
+            $r = ts_suspect("LosPollosTV Chatter's 'NGL I'ma Take A Nap' Message Becomes A Meme", "NGL I'ma Take A Nap");
+            return [$r === 'suspect', 'verdict: ' . ($r ?: 'different names')];
+        }],
+        [16, 'one-word', 'guard', 'One shared word is never enough: "slay queen" is not "slay"', function () {
+            require_once __DIR__ . '/term_same.php';
+            $r = ts_suspect('slay queen', 'slay');
+            return [$r === '', 'verdict: ' . ($r ?: 'different names')];
+        }],
+        [16, 'different', 'guard', 'Two memes about the same thing with different names stay two pages', function () {
+            require_once __DIR__ . '/term_same.php';
+            $r = ts_suspect("Verity's True Home meme", 'Minecraft ARG character Verity');
+            return [$r === '', 'verdict: ' . ($r ?: 'different names')];
+        }],
+        // RULE 15: a meme or term page about a death, sexual violence, abuse or a crime waits for the owner, like a story (2026-10-04)
+        [15, 'term-held', 'fix', 'A meme page about a convicted sex trafficker is held for the owner (/meme/epstein/ went live unread)', function () {
+            require_once __DIR__ . '/human_review.php';
+            $why = hr_reasons(...hr_term_texts(['h1' => "The 'Epstein' Meme, Explained", 'summary' => 'Epstein memes are internet jokes built around Jeffrey Epstein and the released files.',
+                'short_def' => 'Jokes about Jeffrey Epstein, his island, and the powerful people named in his files.', 'usage_note' => 'Joking about a real sex trafficker reads as cringe or worse in mixed company.',
+                'faqs' => json_encode([['q' => 'What does it mean as a verb?', 'a' => 'To kill someone and frame it as a suicide, a reference to his 2019 jail death.']])]));
+            return [$why !== [], 'flagged for: ' . implode('; ', $why)];
+        }],
+        [15, 'term-def-hit', 'fix', 'One grave word in a term\'s title or definition is enough, as in a story\'s title or summary', function () {
+            require_once __DIR__ . '/human_review.php';
+            $why = hr_reasons(...hr_term_texts(['h1' => 'Unalived, Explained', 'summary' => 'Unalived is TikTok slang for killed or died by suicide, used to get past filters.', 'short_def' => '']));
+            return [$why !== [], 'flagged for: ' . implode('; ', $why)];
+        }],
+        [15, 'term-plain', 'guard', 'An ordinary slang page is not held', function () {
+            require_once __DIR__ . '/human_review.php';
+            $why = hr_reasons(...hr_term_texts(['h1' => 'Rizz, Explained', 'summary' => 'Rizz means charm, the ability to attract someone.', 'short_def' => 'Charisma.',
+                'meaning' => json_encode(['It comes from charisma and was popularized by Kai Cenat on stream.']), 'examples' => json_encode([['text' => 'He has unspoken rizz.', 'context' => 'TikTok comment']])]));
+            return [$why === [], $why ? 'flagged for: ' . implode('; ', $why) : 'not flagged'];
+        }],
+        [15, 'term-game-lore', 'guard', 'A gaming term about killing a boss is game lore, not a death', function () {
+            require_once __DIR__ . '/human_review.php';
+            $why = hr_reasons(...hr_term_texts(['h1' => 'One-shot, Explained', 'summary' => 'A one-shot is when a boss or enemy is killed with a single hit in gameplay.', 'short_def' => 'Killing an enemy in one hit.']));
+            return [$why === [], $why ? 'flagged for: ' . implode('; ', $why) : 'not flagged'];
+        }],
         // RULE 14: the fact check reads every source the story was written from; remove, check again, hold if still failing
         // (owner 2026-10-04, story_sources.php; on with app/FACTFIX_ON)
         [14, 'all-sources', 'fix', 'A story written from 3 articles is checked against all 3, not only the one its timeline cites', function () {
@@ -597,6 +647,22 @@ function rt_cases(): array {
             rt_need_ss();
             $d = ss_post_date('https://twitter.com/IRANinTJ/status/2041215767379878049');
             return [$d === '2026-04-06' && ss_post_date('https://kotaku.com/some-article-2000123456789012345') === '', "the post's day: {$d}"];
+        }],
+        [14, 'events-two-outlets', 'fix', 'A story with 1 dated event that 2 independent outlets confirm passes the timeline rule', function () {
+            rt_need_ss();
+            return [ss_events_ok(1, 2) === true && ss_events_ok(2, 3) === true, '1 event + 2 outlets: passes'];
+        }],
+        [14, 'events-one-outlet', 'guard', '1 or 2 dated events from a single outlet still wait', function () {
+            rt_need_ss();
+            return [ss_events_ok(2, 1) === false && ss_events_ok(1, 0) === false, '2 events + 1 outlet: waits'];
+        }],
+        [14, 'events-none', 'guard', 'A story with no dated event never passes, however many outlets', function () {
+            rt_need_ss();
+            return [ss_events_ok(0, 5) === false && ss_events_ok(3, 0) === true, 'no event: waits; 3 events pass as before'];
+        }],
+        [14, 'never-pad', 'guard', 'The writer is told never to pad the timeline', function () {
+            $src = (string)file_get_contents(__DIR__ . '/draft.php');
+            return [str_contains($src, 'never add an undated or guessed event to make the timeline longer'), 'the rule is in the writer\'s instructions'];
         }],
         [14, 'plan-label', 'fix', 'A plan dated only by month or year is shown to the fact check as "December 2026", not "2026-12-00"', function () {
             rt_need_ss();

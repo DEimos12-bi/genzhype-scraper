@@ -1989,6 +1989,13 @@ switch ($cmd) {
                 $pdo = db_alive();
                 echo "  trend #{$tc['id']} \"{$tc['name']}\": {$tg['action']}" . ($tg['trend'] ? ' (trend)' : '') . ", {$tg['why']}\n";
                 if ($tg['action'] !== 'write') continue;
+                // SAME MEME = UPDATE, NOT A NEW PAGE (owner 2026-10-04, term_same.php): a name that is an existing page under another
+                // name or a headline about it gets no page of its own; the existing page is updated at its next turn
+                require_once __DIR__ . '/term_same.php';
+                try { $same = ts_find($pdo, (string)$tc['name'], (string)($tg['sources'][0]['title'] ?? '')); } catch (Throwable $e) { $same = ['page' => 0, 'pending' => false]; }
+                $pdo = db_alive();
+                if (!empty($same['pending'])) { echo "  same-page check: \"{$tc['name']}\" {$same['why']}; it keeps its turn\n"; continue; }
+                if (!empty($same['page'])) { ts_merge_candidate($pdo, $tc, $same); echo "  same page: \"{$tc['name']}\" is page #{$same['page']} \"{$same['term']}\" ({$same['why']}): update, no new page\n"; continue; }
             }
             $ttried++;
             $d = draft_term(['term' => $tc['name'], 'lane' => lane_for_cand_type($tc['type']) ?? 'slang']
@@ -2171,6 +2178,11 @@ switch ($cmd) {
         // expire and the watch list is re-checked (24h) or dropped (48h) before anything new is picked
         require_once __DIR__ . '/story_picker.php';
         if (sp_on()) { $hk = sp_housekeeping($pdo); if ($hk['line'] !== '') echo "picker: {$hk['line']}\n"; $pdo = db_alive(); }
+        // the fact-check fix (story_sources.php, on with app/FACTFIX_ON): two stories the old check stopped get the accuracy step again
+        if (!empty($BUILD_ONLY)) {
+            try { require_once __DIR__ . '/story_sources.php'; $rs = ss_redo_stuck($pdo, 2); if ($rs['line'] !== '') echo "  {$rs['line']}\n"; } catch (Throwable $e) { echo '  fact-check redo skipped: ' . $e->getMessage() . "\n"; }
+            $pdo = db_alive();
+        }
         $cands = $pdo->query("SELECT id, name, COALESCE(draft_attempts,0) tries, signals FROM candidates
                               WHERE status='selected' AND type='drama' AND COALESCE(draft_attempts,0) < 5
                               ORDER BY (JSON_UNQUOTE(JSON_EXTRACT(signals, '$.urgency')) = 'breaking') DESC,
