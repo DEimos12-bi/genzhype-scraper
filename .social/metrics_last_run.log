@@ -1,9 +1,10 @@
 YT: 50 videos -> {"ok": true, "recorded": 50, "tt_matched": 0}
-  yt/rEzdwwxCAx4: 7 views, 0 likes
+  yt/R8CT4TEDgD0: 3 views, 0 likes
+  yt/rEzdwwxCAx4: 18 views, 0 likes
   yt/4Jvjnpzibx4: 247 views, 1 likes
   yt/cp-IEj5iG0w: 6 views, 0 likes
-  yt/tsPRNUfuDh0: 51 views, 0 likes
-  yt/qfIGi2ACHO0: 78 views, 0 likes
+  yt/tsPRNUfuDh0: 57 views, 0 likes
+  yt/qfIGi2ACHO0: 79 views, 0 likes
   yt/yxaCmRUni3k: 53 views, 0 likes
   yt/Qmlp90D31vE: 5 views, 1 likes
   yt/1FvXJuIjsSI: 14 views, 0 likes
@@ -33,8 +34,8 @@ YT: 50 videos -> {"ok": true, "recorded": 50, "tt_matched": 0}
   yt/n82JmZ8MBSs: 18 views, 0 likes
   yt/wl4XUkbpb3k: 28 views, 0 likes
   yt/g1nB4geGyFw: 8 views, 0 likes
-  yt/h3pPKLq99Y8: 43 views, 0 likes
-  yt/8r5D11BfTJw: 1 views, 0 likes
+  yt/h3pPKLq99Y8: 44 views, 0 likes
+  yt/8r5D11BfTJw: 2 views, 0 likes
   yt/y8DRRGTIpSk: 8 views, 0 likes
   yt/_QT167mn_Q0: 4 views, 0 likes
   yt/Y1gaam4uauc: 4 views, 0 likes
@@ -42,35 +43,34 @@ YT: 50 videos -> {"ok": true, "recorded": 50, "tt_matched": 0}
   yt/3lNuDidpm9A: 19 views, 0 likes
   yt/2bFcAoHiPjg: 24 views, 0 likes
   yt/DNTcJ8N8aes: 28 views, 0 likes
-  yt/FsHyqvJ1Fr0: 6387 views, 23 likes
+  yt/FsHyqvJ1Fr0: 6787 views, 23 likes
   yt/0DPD89gV1-4: 4 views, 0 likes
   yt/7iLyS-1hjeA: 0 views, 0 likes
   yt/tKdx4BX980s: 2 views, 0 likes
-  yt/545c_RalJPY: 25 views, 0 likes
+  yt/545c_RalJPY: 26 views, 0 likes
   yt/wT1E2fWBptQ: 47 views, 0 likes
-  yt/4kWopBvpiK4: 28 views, 0 likes
-TT: 20 videos -> {"ok": true, "recorded": 19, "tt_matched": 2}
-  tt/7692582847953046817: 253 views, 1 likes
-  tt/7692521038759906593: 256 views, 0 likes
-  tt/7692211742318824736: 274 views, 1 likes
+TT: 20 videos -> {"ok": true, "recorded": 20, "tt_matched": 2}
+  tt/7692892110663486753: 287 views, 9 likes
+  tt/7692582847953046817: 261 views, 1 likes
+  tt/7692521038759906593: 258 views, 0 likes
+  tt/7692211742318824736: 275 views, 1 likes
   tt/7691840649498316065: 758 views, 8 likes
-  tt/7691796987645103392: 749 views, 6 likes
-  tt/7691469601435045153: 270 views, 3 likes
-  tt/7691425850633342240: 738 views, 0 likes
-  tt/7691407793219226913: 768 views, 13 likes
+  tt/7691796987645103392: 750 views, 6 likes
+  tt/7691469601435045153: 280 views, 3 likes
+  tt/7691425850633342240: 740 views, 0 likes
+  tt/7691407793219226913: 774 views, 13 likes
   tt/7691098485986315553: 837 views, 2 likes
-  tt/7691054744952933665: 837 views, 0 likes
-  tt/7691036686960102688: 258 views, 3 likes
-  tt/7690683656431586592: 747 views, 0 likes
+  tt/7691054744952933665: 841 views, 0 likes
+  tt/7691036686960102688: 259 views, 3 likes
+  tt/7690683656431586592: 764 views, 0 likes
   tt/7690665718777449761: 250 views, 1 likes
-  tt/7690356322394475808: 257 views, 3 likes
+  tt/7690356322394475808: 258 views, 3 likes
   tt/7689941473810304288: 253 views, 2 likes
   tt/7689923417381948705: 262 views, 1 likes
   tt/7689614176188255521: 749 views, 2 likes
-  tt/7689570442939567393: 818 views, 4 likes
+  tt/7689570442939567393: 826 views, 4 likes
   tt/7689552373504576800: 240 views, 0 likes
-  tt/7689243087125744929: 246 views, 1 likes
-{"ok":true,"seen":60,"matched":42,"stored":30,"best":"tt","retention_rows":49,"spike_alerts":0}<html>
+{"ok":true,"seen":60,"matched":44,"stored":31,"best":"tt","retention_rows":49,"spike_alerts":1}<html>
 <head><title>307 Temporary Redirect</title></head>
 <body>
 <center><h1>307 Temporary Redirect</h1></center>
@@ -78,9 +78,9 @@ TT: 20 videos -> {"ok": true, "recorded": 19, "tt_matched": 2}
 </body>
 </html>
 <html>
-<head><title>307 Temporary Redirect</title></head>
+<head><title>504 Gateway Time-out</title></head>
 <body>
-<center><h1>307 Temporary Redirect</h1></center>
+<center><h1>504 Gateway Time-out</h1></center>
 <hr><center>nginx</center>
 </body>
 </html>
