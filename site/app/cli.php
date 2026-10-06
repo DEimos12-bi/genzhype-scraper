@@ -1276,6 +1276,37 @@ case 'score':
             break;
         }
         if ($arg === 'run') { $r = is_run($pdo, 240); echo ($r['line'] ?: 'trend score: nothing to score (or the switch is off)') . "\n"; break; }
+    // STEP 4 (owner 2026-10-01): learning. 'learn' = the weekly report; 'weights' shows the weights in use; 'weights set k=v ...' applies
+    // the owner's approved weights (the only way a weight changes); 'backfill' scores the ideas behind pages that already have results
+    if ($arg === 'learn') { require_once __DIR__ . '/score_learn.php'; echo sl_report($pdo, (int)($argv[3] ?? 30)); break; }
+    if ($arg === 'weights') {
+        if (($argv[3] ?? '') === 'set') {
+            $w = is_weights();
+            foreach (array_slice($argv, 4) as $kv) if (preg_match('/^(rising|spread|reach|new|open)=(\d{1,3})$/', $kv, $m)) $w[$m[1]] = (int)$m[2];
+            if (array_sum($w) !== 100) { echo 'weights must add up to 100 (got ' . array_sum($w) . ")\n"; break; }
+            file_put_contents(__DIR__ . '/score_weights.json', json_encode($w + ['set_at' => gmdate('c'), 'set_by' => 'owner']));
+            echo "weights set: " . json_encode($w) . " (new ideas are scored with them from now)\n"; break;
+        }
+        echo 'weights in use: ' . json_encode(is_weights()) . (is_file(__DIR__ . '/score_weights.json') ? ' (set by the owner)' : ' (the starting numbers)') . "\n"; break;
+    }
+    if ($arg === 'backfill') {
+        // the ideas behind the pages that already have 2-day/7-day results, scored as at 3 hours after we found them (the search is today's,
+        // dated items later than that moment are left out): a first learning sample before live scores have results of their own
+        $rows = $pdo->query("SELECT DISTINCT w.page_id, w.build FROM laya_log l JOIN work_record w ON w.kind='drama' AND w.page_id=l.page_id WHERE l.kind='story' AND (l.day2 IS NOT NULL OR l.day7 IS NOT NULL)")->fetchAll(PDO::FETCH_ASSOC);
+        $done = 0; $t0 = time();
+        foreach ($rows as $r) {
+            if (time() - $t0 > 400) { echo "time budget reached\n"; break; }
+            $b = json_decode((string)$r['build'], true); if (isset($b[0])) $b = end($b);
+            $cid = (int)($b['candidate_id'] ?? 0); if (!$cid || $pdo->query("SELECT 1 FROM idea_scores WHERE cand_id={$cid}")->fetchColumn()) continue;
+            $c = $pdo->query("SELECT * FROM candidates WHERE id={$cid}")->fetch(PDO::FETCH_ASSOC); if (!$c) continue;
+            $now = gmdate('Y-m-d H:i:s', min(time(), strtotime($c['created_at'] . ' UTC') + 3 * 3600));
+            try { $fct = is_story_facts($pdo, $c, $now); $sc = is_score($fct); } catch (Throwable $e) { continue; }
+            $pdo->prepare("REPLACE INTO idea_scores (cand_id, score, parts, facts, scored_at) VALUES (?,?,?,?,UTC_TIMESTAMP())")
+                ->execute([$cid, $sc['score'], json_encode($sc['parts']), json_encode(['facts' => $fct, 'why' => $sc['why'], 'backfill' => $now], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)]);
+            $done++; $pdo = db_alive();
+        }
+        echo "backfill: {$done} idea(s) scored as at the time we found them\n"; break;
+    }
         $n = (int)$pdo->query("SELECT COUNT(*) FROM idea_scores")->fetchColumn();
         echo 'trend score: ' . (is_on() ? 'ON' : 'OFF') . " | ideas scored: {$n}\n";
         break;

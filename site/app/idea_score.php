@@ -29,6 +29,15 @@ const IS_BIG_OUTLETS = ['ign.com', 'kotaku.com', 'polygon.com', 'pcgamer.com', '
 
 function is_on(): bool { return is_file(__DIR__ . '/SCORE_ON'); }
 
+/** The weights in use: app/score_weights.json when the owner approved a change (step 4, cli.php score weights set), else IS_WEIGHTS. */
+function is_weights(): array {
+    $j = is_file(__DIR__ . '/score_weights.json') ? json_decode((string)file_get_contents(__DIR__ . '/score_weights.json'), true) : null;
+    if (!is_array($j)) return IS_WEIGHTS;
+    $w = [];
+    foreach (IS_WEIGHTS as $k => $d) $w[$k] = max(0, (int)($j[$k] ?? $d));
+    return array_sum($w) > 0 ? $w : IS_WEIGHTS;
+}
+
 // STEP 2 (owner 2026-10-01): THE PICKER USES THE SCORE. On only with app/FASTLANE_ON.
 //   high score: front of the queue, the posts about it count as proof, no waiting (re-read in 6h, kept a week, never dropped
 //               for want of a second outlet), a shorter page may be offered to Google
@@ -118,9 +127,9 @@ function is_score(array $f): array {
         $why['open'] = ($big <= 0 ? 'no big outlet covers it yet' : "{$big} big outlet(s) already cover it" . (!empty($f['big_names']) ? ' (' . implode(', ', array_slice((array)$f['big_names'], 0, 3)) . ')' : ''))
                      . ($c < 3 ? "; only {$c} creator(s) or outlet(s) talk about it" : '');
     }
-    $sum = 0;
-    foreach (IS_WEIGHTS as $k => $w) $sum += $w * (int)($parts[$k] ?? 0);
-    return ['score' => (int)round($sum / array_sum(IS_WEIGHTS)), 'parts' => $parts, 'why' => $why];
+    $sum = 0; $weights = $f['weights'] ?? is_weights();   // a test may pass its own
+    foreach ($weights as $k => $w) $sum += $w * (int)($parts[$k] ?? 0);
+    return ['score' => (int)round($sum / max(1, array_sum($weights))), 'parts' => $parts, 'why' => $why];
 }
 
 /** Likes or views of one post, as far as the platform serves them without an account (X: likes; YouTube: views). */

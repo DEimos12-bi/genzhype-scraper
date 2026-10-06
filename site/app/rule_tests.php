@@ -545,6 +545,31 @@ function rt_cases(): array {
             return [substr($d, 0, 10) === '2022-12-06', 'dated ' . ($d ?: 'nothing')];
         }],
 
+        // RULE 20: learning (owner 2026-10-01 step 4, score_learn.php): which parts predicted, proposed weights; the owner applies them
+        [20, 'predicting-part', 'fix', 'A part that goes with better results earns more proposed weight; a flat one earns less', function () {
+            require_once __DIR__ . '/score_learn.php';
+            $rows = [];
+            for ($i = 0; $i < 40; $i++) $rows[] = ['score' => 50, 'parts' => ['rising' => $i * 2, 'spread' => 50, 'reach' => (40 - $i) * 2, 'new' => ($i * 37) % 100, 'open' => 50], 'day7' => $i * 10.0, 'day2' => null, 'indexed' => false];
+            $st = sl_stats($rows, 'day7', ['rising' => 30, 'spread' => 25, 'reach' => 15, 'new' => 15, 'open' => 15]);
+            $p = $st['proposed'];
+            return [$st['n'] === 40 && $p['rising'] > 30 && $p['reach'] < 15 && array_sum($p) === 100 && $st['enough'],
+                    'proposed: ' . json_encode($p) . '; rising corr ' . $st['parts']['rising']['corr'] . ', reach corr ' . $st['parts']['reach']['corr']];
+        }],
+        [20, 'thin-data', 'guard', 'Under 30 pages the report is a look, never a proposal to apply', function () {
+            require_once __DIR__ . '/score_learn.php';
+            $rows = []; for ($i = 0; $i < 12; $i++) $rows[] = ['score' => 50, 'parts' => ['rising' => $i * 8, 'spread' => 50, 'reach' => null, 'new' => 50, 'open' => 50], 'day7' => null, 'day2' => $i * 3.0, 'indexed' => false];
+            $st = sl_stats($rows);
+            $zeros = []; for ($i = 0; $i < 40; $i++) $zeros[] = ['score' => 50, 'parts' => ['rising' => $i * 2, 'spread' => 50, 'reach' => 50, 'new' => 50, 'open' => 50], 'day7' => 0.0, 'day2' => null, 'indexed' => false];
+            $z = sl_stats($zeros, 'day7', ['rising' => 30, 'spread' => 25, 'reach' => 15, 'new' => 15, 'open' => 15]);
+            return [$st['n'] === 12 && !$st['enough'] && $st['parts']['reach']['measured'] === 0 && !$z['enough'] && $z['proposed'] === $z['current'], "n={$st['n']}, enough=" . ($st['enough'] ? 'yes' : 'no') . ', reach measured on ' . $st['parts']['reach']['measured'] . '%'];
+        }],
+        [20, 'owner-applies', 'guard', 'The weights in use change only through the owner\'s command (score_weights.json); the report writes nothing', function () {
+            $src = (string)file_get_contents(__DIR__ . '/score_learn.php');
+            $writes = preg_match('/file_put_contents|UPDATE |INSERT |REPLACE /', $src);
+            require_once __DIR__ . '/idea_score.php';
+            $w = is_weights();
+            return [!$writes && array_sum($w) === 100 && count($w) === 5, $writes ? 'the learning module writes something' : 'it only reads; weights in use: ' . json_encode($w)];
+        }],
         // RULE 19: Laya report-only (owner 2026-10-01 step 3, laya_shadow.php): logged next to the real decision, decides nothing
         [19, 'agreement', 'fix', 'The weekly report counts agreement overall and when Laya was sure', function () {
             require_once __DIR__ . '/laya_shadow.php';
