@@ -255,10 +255,11 @@ function ss_events_ok(int $events, int $outlets): bool {
 }
 
 /** The independent outlets among a story's sources (the picker's count: no posts, no reference sites, no copies, one per site, syndicated once). */
-function ss_outlets(PDO $pdo, int $did): int {
+function ss_outlets(PDO $pdo, int $did, bool $postsCount = false): int {   // $postsCount: the fast lane (step 2), where the story's posts are proof too
     require_once __DIR__ . '/story_picker.php';
     $items = $pdo->query("SELECT url, title FROM sources WHERE id IN (" . ss_in($pdo, $did) . ") AND url IS NOT NULL AND url<>''")->fetchAll(PDO::FETCH_ASSOC);
-    return (int)sp_count_outlets($items)['outlets'];
+    $c = sp_count_outlets($items);
+    return (int)$c['outlets'] + ($postsCount ? (int)$c['posts'] : 0);
 }
 
 /**

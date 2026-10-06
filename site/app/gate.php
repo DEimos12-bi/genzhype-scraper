@@ -23,6 +23,7 @@ const GATE_META_MAX           = 160;  // unified with the rendered SEO audit (wa
 const GATE_SUMMARY_MIN        = 120;
 const GATE_SUMMARY_MAX        = 420;
 const STORY_MIN_WORDS         = 250;  // [ours] site check 2026-09-26: 13 stories under this were open to Google; slang needs 380 (gate_term)
+const STORY_MIN_WORDS_FAST    = 150;  // [owner, step 2] a fast-lane story (idea_score.php) may be shorter: length is paperwork
 
 /** Words a reader gets on a story page: summary, background, timeline and FAQ, as the page's "min read" counts them. */
 function story_word_count(PDO $pdo, int $pageId): int {
@@ -44,6 +45,13 @@ function story_word_count(PDO $pdo, int $pageId): int {
  * re-indexed on the code gate alone, so 64 stories the editor had failed went
  * to Google in 7 days, around the r168 rule below).
  */
+/** Step 2: was this story built in the fast lane (a high trend score)? Only the length rule and the events rule read it. */
+function gate_fast_lane(PDO $pdo, int $pageId): bool {
+    require_once __DIR__ . '/idea_score.php';
+    if (!is_fast_on()) return false;
+    try { return (bool)$pdo->query("SELECT fast_lane FROM pages WHERE id=" . (int)$pageId)->fetchColumn(); } catch (Throwable $e) { return false; }
+}
+
 function drama_index_block(PDO $pdo, int $pageId): string {
     // accuracy first (owner 2026-09-27): a timeline date that is not a real past day, a failed or missing fact check,
     // a summary cut short or a cited source missing from the list keeps a page from Google (accuracy.php)
@@ -74,8 +82,9 @@ function drama_index_block(PDO $pdo, int $pageId): string {
         return "PUBLISHED (noindex): single-source story — live on the site, not offered to Google";
     }
     // a thin story waits for deepen (new sourced events) before Google sees it
-    if (($words = story_word_count($pdo, $pageId)) < STORY_MIN_WORDS) {
-        return "PUBLISHED (noindex): {$words} words, under " . STORY_MIN_WORDS . " — live on the site, not offered to Google until it is deepened";
+    $minWords = gate_fast_lane($pdo, $pageId) ? STORY_MIN_WORDS_FAST : STORY_MIN_WORDS;
+    if (($words = story_word_count($pdo, $pageId)) < $minWords) {
+        return "PUBLISHED (noindex): {$words} words, under {$minWords} — live on the site, not offered to Google until it is deepened";
     }
     // r168 (2026-09-13): the live quality judge (quality.php) says "publish
     // requires a pass", but nothing here ever asked it. Its 5-score verdict
@@ -484,7 +493,7 @@ function gate_check_drama(int $page_id): array {
     $n = (int)$pdo->query("SELECT COUNT(*) FROM events WHERE drama_id={$did}")->fetchColumn();
     // owner 2026-10-04: 1-2 dated events are enough when 2+ independent outlets confirm the story; the timeline is never padded
     require_once __DIR__ . '/story_sources.php';
-    $outlets = $n < GATE_MIN_EVENTS ? ss_outlets($pdo, $did) : 0;
+    $outlets = $n < GATE_MIN_EVENTS ? ss_outlets($pdo, $did, gate_fast_lane($pdo, $page_id)) : 0;   // fast lane: its posts count as proof too
     $add('events', "{$n} timeline events (need >= " . GATE_MIN_EVENTS . ", or 1-2 with 2+ independent outlets" . ($n < GATE_MIN_EVENTS ? ": {$outlets}" : '') . ")", ss_events_ok($n, $outlets));
 
     // accuracy (owner 2026-09-27): blocks whatever the editor says (accuracy.php)

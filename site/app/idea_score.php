@@ -29,6 +29,23 @@ const IS_BIG_OUTLETS = ['ign.com', 'kotaku.com', 'polygon.com', 'pcgamer.com', '
 
 function is_on(): bool { return is_file(__DIR__ . '/SCORE_ON'); }
 
+// STEP 2 (owner 2026-10-01): THE PICKER USES THE SCORE. On only with app/FASTLANE_ON.
+//   high score: front of the queue, the posts about it count as proof, no waiting (re-read in 6h, kept a week, never dropped
+//               for want of a second outlet), a shorter page may be offered to Google
+//   it relaxes PAPERWORK ONLY (number of sources, length, waiting time). It NEVER relaxes the fact check, the framing of
+//   claims about real people, the Human check or the 72-hour age rule (a rule test holds the line).
+//   low or middle score: today's rules, nothing changes
+const IS_HIGH = 50;   // [OURS] today's top band (1 of 47 stories reaches 65 while reach is seldom measured); step 4 proposes the real line
+function is_fast_on(): bool { return is_file(__DIR__ . '/FASTLANE_ON'); }
+/** Pure: the lane a score puts an idea in. */
+function is_band(?int $score): string { return $score !== null && $score >= IS_HIGH ? 'high' : 'normal'; }
+/** The lane of a queued idea: 'high' only with the switch on and a stored score at or above the line. */
+function is_lane(PDO $pdo, int $candId): string {
+    if (!is_fast_on()) return 'normal';
+    try { $s = $pdo->query("SELECT score FROM idea_scores WHERE cand_id=" . $candId)->fetchColumn(); } catch (Throwable $e) { $s = false; }
+    return is_band($s === false ? null : (int)$s);
+}
+
 /** idea_scores, created once and only when missing (DDL commits an open transaction, r151). */
 function is_install(PDO $pdo): void {
     static $done = false;

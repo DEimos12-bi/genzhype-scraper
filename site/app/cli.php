@@ -1242,7 +1242,17 @@ switch ($cmd) {
         echo $hd ? "SUBJECT: {$hd[0]}\n\n{$hd[1]}" : "nothing waits for the owner\n";
         break;
 
-    case 'score':
+    case 'fastlane':
+    // STEP 2 (owner 2026-10-01, idea_score.php): the picker uses the trend score. fastlane status | on | off
+    require_once __DIR__ . '/idea_score.php';
+    $flag = __DIR__ . '/FASTLANE_ON';
+    if ($arg === 'on')  { touch($flag); echo "fast lane: ON\n"; break; }
+    if ($arg === 'off') { if (is_file($flag)) unlink($flag); echo "fast lane: OFF\n"; break; }
+    $hi = (int)db()->query("SELECT COUNT(*) FROM idea_scores s JOIN candidates c ON c.id=s.cand_id WHERE c.type='drama' AND c.status IN ('selected','watch','new') AND s.score >= " . IS_HIGH)->fetchColumn();
+    echo 'fast lane: ' . (is_fast_on() ? 'ON' : 'OFF') . " | line: " . IS_HIGH . " | queued stories at or above it: {$hi}\n";
+    break;
+
+case 'score':
         // ONE TREND SCORE FOR EVERY IDEA (owner 2026-10-01 step 1, idea_score.php). It measures and shows; nothing decides on it.
         //   score status | on | off | check <candidate id> | run
         require_once __DIR__ . '/idea_score.php';
@@ -2207,9 +2217,12 @@ switch ($cmd) {
             try { require_once __DIR__ . '/story_sources.php'; $rs = ss_redo_stuck($pdo, 2); if ($rs['line'] !== '') echo "  {$rs['line']}\n"; } catch (Throwable $e) { echo '  fact-check redo skipped: ' . $e->getMessage() . "\n"; }
             $pdo = db_alive();
         }
+        // step 2 (idea_score.php, on only with app/FASTLANE_ON): a high-score idea goes to the front of the queue
+        require_once __DIR__ . '/idea_score.php';
+        $fastOrder = is_fast_on() ? "(COALESCE((SELECT s.score FROM idea_scores s WHERE s.cand_id=candidates.id), 0) >= " . IS_HIGH . ") DESC, " : '';
         $cands = $pdo->query("SELECT id, name, COALESCE(draft_attempts,0) tries, signals FROM candidates
                               WHERE status='selected' AND type='drama' AND COALESCE(draft_attempts,0) < 5
-                              ORDER BY (JSON_UNQUOTE(JSON_EXTRACT(signals, '$.urgency')) = 'breaking') DESC,
+                              ORDER BY {$fastOrder}(JSON_UNQUOTE(JSON_EXTRACT(signals, '$.urgency')) = 'breaking') DESC,
                                        COALESCE(draft_attempts,0) ASC, heat_score DESC, id DESC LIMIT 1000")->fetchAll();
         // r153 PER-LANE QUOTA (2026-09-11): gaming publications enter this queue at heat 55
         // and a creator story with one keyword at 50, so all top 40 of the 593 waiting were
@@ -2315,6 +2328,8 @@ switch ($cmd) {
                 }
                 continue;
             }
+            // step 2: a story built in the fast lane is marked, so the gate may offer a shorter page to Google (gate.php); nothing else reads it
+            if (!empty($pk['lane']) && $pk['lane'] === 'high') { try { $pdo->exec("ALTER TABLE pages ADD COLUMN fast_lane TINYINT NOT NULL DEFAULT 0"); } catch (Throwable $e) {} $pdo->prepare("UPDATE pages SET fast_lane=1 WHERE id=?")->execute([(int)$d['page_id']]); }
             // the checks every story gets after it is written (story_checks.php, shared with rebuild.php)
             require_once __DIR__ . '/story_checks.php';
             ['v' => $v, 'q' => $q, 'g' => $g, 'ok' => $ok] = story_checks($pdo, (int)$d['page_id'], 'exa');

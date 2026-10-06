@@ -35,6 +35,8 @@ const SP_WATCH_DROP_H       = 48;   // [owner] and dropped after 48 hours if nob
 const SP_QUEUE_MAX_DAYS     = 14;   // [owner] a queue entry older than this expires
 const SP_MIN_OUTLETS        = 2;    // [owner] 2+ independent outlets, or 1 outlet + the original post
 const SP_OUTLET_DAYS        = 7;    // [ours] an outlet counts when it wrote about it in the last 7 days (a Sep 4 article is not coverage of a Sep 30 story)
+const SP_WATCH_DROP_HIGH_H  = 168;  // [owner, step 2] a high-score story on the watch list is kept a week, never dropped for want of a second outlet in 48h
+const SP_WATCH_RECHECK_HIGH_H = 6; // [owner, step 2] and read again after 6 hours, not 24
 const SP_SYNDICATED_SIMILAR = 0.75; // [ours] two headlines sharing this share of their words are one syndicated story
 /** The picker's AI readings: the reader chain, then Gemma (14,400 a day on our Gemini key) and OpenRouter's free models
     (2026-09-30: the reader chain alone answered nothing while NVIDIA returned 503s). */
@@ -182,6 +184,7 @@ function sp_count_outlets(array $items): array {
  */
 function sp_decide(array $f): array {
     $now = strtotime((string)$f['now']);
+    $lane = (string)($f['lane'] ?? 'normal');   // step 2 (idea_score.php): 'high' relaxes the paperwork below, never the age rule
     $found = strtotime((string)$f['found_at']);
     if (!empty($f['queue_expiry']) && $found && $now - $found > SP_QUEUE_MAX_DAYS * 86400)
         return ['decision' => 'expire', 'rule' => 'queue_age', 'why' => 'over ' . SP_QUEUE_MAX_DAYS . ' days in the queue (found ' . gmdate('M j', $found) . ')', 'outlets' => 0, 'posts' => 0, 'age_h' => null];
@@ -221,25 +224,29 @@ function sp_decide(array $f): array {
     //      never a discussion thread the search turned up.
     //      Owner 2026-10-01: that post must also be dated in the last 72 hours (Xbox passed on Kotaku plus an undated
     //      Reddit thread the article linked); an undated post proves nothing about when the story happened.
-    $c = sp_count_outlets(array_filter($topic, function ($i) use ($now) {
+    $c = sp_count_outlets(array_filter($topic, function ($i) use ($now, $lane) {
         $t = ($i['date'] ?? '') !== '' ? strtotime($i['date']) : 0;
-        if (($i['kind'] ?? sp_kind((string)$i['url'])) === 'post') return ($i['from'] ?? '') !== 'search' && $t && $t >= $now - SP_NEW_HOURS * 3600;
+        // step 2: in the high lane every post about it counts, found or not (owner: "the posts count as proof")
+        if (($i['kind'] ?? sp_kind((string)$i['url'])) === 'post') return ($lane === 'high' || ($i['from'] ?? '') !== 'search') && $t && $t >= $now - SP_NEW_HOURS * 3600;
         return !$t || $t >= $now - SP_OUTLET_DAYS * 86400;
     }));
-    $sourced = $c['outlets'] >= SP_MIN_OUTLETS || ($c['outlets'] >= 1 && $c['posts'] >= 1);
+    $sourced = $c['outlets'] >= SP_MIN_OUTLETS || ($c['outlets'] >= 1 && $c['posts'] >= 1) || ($lane === 'high' && $c['posts'] >= 2);
     if (!$sourced) {
         $since = !empty($f['watch_since']) ? strtotime((string)$f['watch_since']) : $now;
         $offTopic = count($known) - count($topic);
         $what = "{$c['outlets']} outlet(s)" . ($c['posts'] ? " + {$c['posts']} post(s)" : '') . ' about it'
               . ($offTopic > 0 ? " ({$offTopic} other result(s) were about something else)" : '');
-        if ($now - $since >= SP_WATCH_DROP_H * 3600)
-            return ['decision' => 'drop', 'rule' => 'watch_expired', 'why' => "nobody else covered it in " . SP_WATCH_DROP_H . "h: {$what}", 'outlets' => $c['outlets'], 'posts' => $c['posts'], 'age_h' => $ageH];
+        $dropH = $lane === 'high' ? SP_WATCH_DROP_HIGH_H : SP_WATCH_DROP_H;
+        if ($now - $since >= $dropH * 3600)
+            return ['decision' => 'drop', 'rule' => 'watch_expired', 'why' => "nobody else covered it in {$dropH}h: {$what}", 'outlets' => $c['outlets'], 'posts' => $c['posts'], 'age_h' => $ageH];
+        if ($lane === 'high')
+            return ['decision' => 'watch', 'rule' => 'sources_high', 'why' => "fast lane: {$what}; needs 2 outlets, 1 outlet + a post, or 2 posts; read again in " . SP_WATCH_RECHECK_HIGH_H . 'h, kept ' . (int)(SP_WATCH_DROP_HIGH_H / 24) . ' days', 'outlets' => $c['outlets'], 'posts' => $c['posts'], 'age_h' => $ageH];
         return ['decision' => 'watch', 'rule' => 'sources', 'why' => "{$what}; needs 2 outlets, or 1 outlet + the original post", 'outlets' => $c['outlets'], 'posts' => $c['posts'], 'age_h' => $ageH];
     }
     // 4. SAGA: a new chapter goes on the page we already have
     if (!empty($f['saga']))
         return ['decision' => 'merge', 'rule' => 'saga', 'why' => 'new chapter of "' . mb_substr((string)($f['saga_title'] ?? ''), 0, 90) . '": add the event there', 'outlets' => $c['outlets'], 'posts' => $c['posts'], 'age_h' => $ageH, 'page_id' => (int)$f['saga']];
-    return ['decision' => 'build', 'rule' => 'ok', 'why' => "{$c['outlets']} outlet(s) (" . implode(', ', $c['sites']) . ')' . ($c['posts'] ? " + {$c['posts']} post(s)" : ''), 'outlets' => $c['outlets'], 'posts' => $c['posts'], 'age_h' => $ageH];
+    return ['decision' => 'build', 'rule' => $lane === 'high' ? 'ok_high' : 'ok', 'why' => ($lane === 'high' ? 'fast lane: ' : '') . "{$c['outlets']} outlet(s) (" . implode(', ', $c['sites']) . ')' . ($c['posts'] ? " + {$c['posts']} post(s)" : ''), 'outlets' => $c['outlets'], 'posts' => $c['posts'], 'age_h' => $ageH];
 }
 
 /** After writing: an event dated in the last 72 hours (the page tells something new). */
@@ -502,8 +509,9 @@ function sp_saga_confirm(PDO $pdo, array $cand, array $items, array $read): ?arr
 function sp_evaluate(PDO $pdo, array $cand, string $now, ?array $gathered = null, ?array $read = null, string $before = '', string $sourcesBy = ''): array {
     $items = $gathered ?? sp_gather($pdo, $cand);
     $foundAt = (string)$cand['created_at'];
+    $lane = (string)($cand['lane'] ?? 'normal');   // step 2 (sp_pick sets it from the idea's trend score)
     $f = ['now' => $now, 'found_at' => $foundAt, 'watch_since' => $cand['watch_since'] ?? null, 'queue_expiry' => true,
-          'items' => $items, 'saga' => 0];
+          'items' => $items, 'saga' => 0, 'lane' => $lane];
     // before any AI: an entry past the queue limit, or with nothing dated in the last 72 hours at all, is decided on dates
     $pre = sp_decide(array_merge($f, ['items' => []]));
     if ($pre['decision'] === 'expire') return $pre + ['items' => $items, 'read' => null];
@@ -518,13 +526,13 @@ function sp_evaluate(PDO $pdo, array $cand, string $now, ?array $gathered = null
     // whatever the reading says (the topic test can only take sources away)
     $by = strtotime($sourcesBy !== '' ? $sourcesBy : $now);
     $nowT = strtotime($now);
-    $couldRecent = array_filter($items, function ($i) use ($by, $nowT) {
+    $couldRecent = array_filter($items, function ($i) use ($by, $nowT, $lane) {
         $t = ($i['date'] ?? '') !== '' ? strtotime($i['date']) : 0;
-        if (($i['kind'] ?? '') === 'post') return ($i['from'] ?? '') !== 'search' && $t && $t <= $by + 3600 && $t >= $nowT - SP_NEW_HOURS * 3600;
+        if (($i['kind'] ?? '') === 'post') return ($lane === 'high' || ($i['from'] ?? '') !== 'search') && $t && $t <= $by + 3600 && $t >= $nowT - SP_NEW_HOURS * 3600;
         return !$t || ($t <= $by + 3600 && $t >= $by - SP_OUTLET_DAYS * 86400);
     });
     $cc = sp_count_outlets($couldRecent);
-    $could = $cc['outlets'] >= SP_MIN_OUTLETS || ($cc['outlets'] >= 1 && $cc['posts'] >= 1);
+    $could = $cc['outlets'] >= SP_MIN_OUTLETS || ($cc['outlets'] >= 1 && $cc['posts'] >= 1) || ($lane === 'high' && $cc['posts'] >= 2);
     $suspects = ($read === null && $could) ? sp_saga_suspects($pdo, $cand, $before) : [];
     if ($read === null) {
         $read = ($could && ($others || $suspects)) ? sp_ai_read($cand, $items, $suspects)
@@ -578,12 +586,21 @@ function sp_pick(PDO $pdo, array $cd): array {
     if (($sg['picker']['decision'] ?? '') === 'build' && strtotime((string)($sg['picker']['at'] ?? '')) > time() - 10800)
         return ['decision' => 'build', 'why' => (string)$sg['picker']['why'], 'urls' => (array)$sg['picker']['urls']];
     $now = gmdate('Y-m-d H:i:s');
+    require_once __DIR__ . '/idea_score.php';
+    $cand['lane'] = is_lane($pdo, (int)$cand['id']);   // step 2: 'high' from the idea's trend score, else 'normal'
     $r = sp_evaluate($pdo, $cand, $now);
+    // owner (step 2): a high-score idea short of sources gets more work, not a drop: one more search, by the names in it
+    if ($cand['lane'] === 'high' && $r['decision'] === 'watch' && ($r['rule'] ?? '') === 'sources_high') {
+        $more = []; $have = array_flip(array_column($r['items'], 'url'));
+        foreach (sp_news_items(mb_substr(implode(' ', array_slice(sp_names($cand), 0, 3)), 0, 120), 10) as $x)
+            if (!isset($have[$x['url']])) { $more[] = ['url' => $x['url'], 'title' => $x['title'], 'desc' => $x['desc'], 'date' => $x['date'], 'kind' => sp_kind($x['url']), 'on_topic' => false, 'seed' => false, 'from' => 'search', 'source' => $x['source']]; $have[$x['url']] = 1; }
+        if ($more) { $r2 = sp_evaluate($pdo, $cand, $now, array_merge($r['items'], $more)); if ($r2['decision'] !== 'hold') { $r = $r2; $r['why'] .= ' (after a second search)'; } }
+    }
     $seed = array_values(array_filter($r['items'], fn($i) => !empty($i['seed'])))[0] ?? null;
     $urls = [];
     foreach ($r['items'] as $it) if ((!empty($it['on_topic']) || !empty($it['seed'])) && in_array($it['kind'], ['outlet', 'post'], true)) $urls[] = $it['url'];
     $sg['picker'] = ['decision' => $r['decision'], 'why' => $r['why'], 'at' => $now, 'urls' => array_slice($urls, 0, 8),
-                     'topic' => (string)($r['read']['topic'] ?? '')];
+                     'topic' => (string)($r['read']['topic'] ?? ''), 'lane' => $cand['lane']];
     $pdo->prepare("UPDATE candidates SET picker_checked_at=?, signals=?, item_date=COALESCE(item_date, ?) WHERE id=?")
         ->execute([$now, json_encode($sg, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE), ($seed && $seed['date'] !== '') ? $seed['date'] : null, $cand['id']]);
     $id = (int)$cand['id'];
@@ -591,7 +608,7 @@ function sp_pick(PDO $pdo, array $cd): array {
         case 'build':
             if ($cand['status'] === 'watch') $pdo->prepare("UPDATE candidates SET status='selected' WHERE id=?")->execute([$id]);
             sp_log($pdo, $id, 'build', $r['rule'], $r['why']);
-            return ['decision' => 'build', 'why' => $r['why'], 'urls' => $sg['picker']['urls']];
+            return ['decision' => 'build', 'why' => $r['why'], 'urls' => $sg['picker']['urls'], 'lane' => $cand['lane']];
         case 'merge':
             $page = (int)$r['page_id'];
             $added = '';
@@ -602,6 +619,8 @@ function sp_pick(PDO $pdo, array $cd): array {
             return ['decision' => 'merge', 'why' => $r['why'] . " ({$added})", 'urls' => []];
         case 'watch':
             $pdo->prepare("UPDATE candidates SET status='watch', watch_since=COALESCE(watch_since, ?) WHERE id=?")->execute([$now, $id]);
+            // step 2: a high-lane story is read again after 6 hours, not 24 (the watch list re-check counts from picker_checked_at)
+            if ($cand['lane'] === 'high') $pdo->prepare("UPDATE candidates SET picker_checked_at=DATE_SUB(?, INTERVAL ? HOUR) WHERE id=?")->execute([$now, SP_WATCH_RECHECK_H - SP_WATCH_RECHECK_HIGH_H, $id]);
             if ($cand['status'] !== 'watch') sp_log($pdo, $id, 'watch', $r['rule'], $r['why']);
             return ['decision' => 'watch', 'why' => $r['why'], 'urls' => []];
         case 'drop':

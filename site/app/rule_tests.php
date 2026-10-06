@@ -545,6 +545,41 @@ function rt_cases(): array {
             return [substr($d, 0, 10) === '2022-12-06', 'dated ' . ($d ?: 'nothing')];
         }],
 
+        // RULE 18: the picker uses the trend score (owner 2026-10-01 step 2, idea_score.php + story_picker.php; on with app/FASTLANE_ON)
+        [18, 'posts-are-proof', 'fix', 'High lane: two posts about a fresh story are proof enough, no outlet needed', function () {
+            require_once __DIR__ . '/idea_score.php'; rt_need('sp_decide');
+            $now = '2026-10-06 12:00:00';
+            $items = [['url' => 'https://x.com/a/status/2105205125585187227', 'date' => '2026-10-06 09:00:00', 'kind' => 'post', 'on_topic' => true, 'from' => 'search'],
+                      ['url' => 'https://www.tiktok.com/@b/video/7555000000000000000', 'date' => '2026-10-06 08:00:00', 'kind' => 'post', 'on_topic' => true, 'from' => 'search']];
+            $hi = sp_decide(['now' => $now, 'found_at' => '2026-10-06 09:30:00', 'items' => $items, 'saga' => 0, 'lane' => 'high']);
+            $no = sp_decide(['now' => $now, 'found_at' => '2026-10-06 09:30:00', 'items' => $items, 'saga' => 0, 'lane' => 'normal']);
+            return [$hi['decision'] === 'build' && $no['decision'] === 'watch', "high lane: {$hi['decision']}; normal lane: {$no['decision']} ({$no['rule']})"];
+        }],
+        [18, 'no-waiting', 'fix', 'High lane: a story short of sources is read again sooner and kept a week; the normal lane drops it after 48h', function () {
+            rt_need('sp_decide');
+            $now = '2026-10-06 12:00:00';
+            $items = [['url' => 'https://x.com/a/status/2105205125585187227', 'date' => '2026-10-06 09:00:00', 'kind' => 'post', 'on_topic' => true, 'seed' => true, 'from' => 'seed']];
+            $hi = sp_decide(['now' => $now, 'found_at' => '2026-10-04 06:00:00', 'watch_since' => '2026-10-04 06:00:00', 'items' => $items, 'saga' => 0, 'lane' => 'high']);
+            $no = sp_decide(['now' => $now, 'found_at' => '2026-10-04 06:00:00', 'watch_since' => '2026-10-04 06:00:00', 'items' => $items, 'saga' => 0, 'lane' => 'normal']);
+            return [$hi['decision'] === 'watch' && $hi['rule'] === 'sources_high' && $no['decision'] === 'drop', "high lane after 54h: {$hi['decision']}; normal lane: {$no['decision']}"];
+        }],
+        [18, 'age-not-relaxed', 'guard', 'High lane never relaxes the 72-hour rule: an old story is still dropped', function () {
+            rt_need('sp_decide');
+            $items = [['url' => 'https://kotaku.com/a', 'date' => '2026-09-20', 'kind' => 'outlet', 'on_topic' => true, 'from' => 'search'], ['url' => 'https://www.ign.com/b', 'date' => '2026-09-21', 'kind' => 'outlet', 'on_topic' => true, 'from' => 'search'],
+                      ['url' => 'https://x.com/a/status/2105205125585187227', 'date' => '2026-09-20', 'kind' => 'post', 'on_topic' => true, 'from' => 'search']];
+            $hi = sp_decide(['now' => '2026-10-06 12:00:00', 'found_at' => '2026-10-05 09:30:00', 'items' => $items, 'saga' => 0, 'lane' => 'high']);
+            return [$hi['decision'] === 'drop' && $hi['rule'] === 'age', "high lane, old story: {$hi['decision']} ({$hi['rule']})"];
+        }],
+        [18, 'the-line', 'fix', 'The line sits at ' . (defined('IS_HIGH') ? IS_HIGH : 50) . ': at or above it the idea is in the high lane', function () {
+            require_once __DIR__ . '/idea_score.php';
+            return [is_band(IS_HIGH) === 'high' && is_band(IS_HIGH - 1) === 'normal' && is_band(null) === 'normal', IS_HIGH . ' -> high, ' . (IS_HIGH - 1) . ' -> normal, no score -> normal'];
+        }],
+        [18, 'never-relaxes', 'guard', 'The fact check, the framing of claims, the accusation rules and the Human check never read the lane', function () {
+            $hits = [];
+            foreach (['accuracy.php', 'verify.php', 'framing_repair.php', 'human_review.php', 'page_rules.php', 'backing.php', 'quality.php'] as $f)
+                if (preg_match('/fast_lane|is_lane\(|gate_fast_lane|IS_HIGH/', (string)file_get_contents(__DIR__ . '/' . $f))) $hits[] = $f;
+            return [!$hits, $hits ? 'read by: ' . implode(', ', $hits) : 'none of them reads it'];
+        }],
         // RULE 17: one trend score for every idea (owner 2026-10-01 step 1, idea_score.php): it measures and shows, it decides nothing
         [17, 'rising-burst', 'fix', 'Use far above its own normal level scores high on "rising"', function () {
             require_once __DIR__ . '/idea_score.php';
