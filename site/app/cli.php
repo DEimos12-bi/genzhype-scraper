@@ -1242,6 +1242,13 @@ switch ($cmd) {
         echo $hd ? "SUBJECT: {$hd[0]}\n\n{$hd[1]}" : "nothing waits for the owner\n";
         break;
 
+    case 'laya':
+        // STEP 3 (owner 2026-10-01): Laya report-only. laya report [days] = how often it agreed with the real decision
+        require_once __DIR__ . '/laya_shadow.php';
+        $lsDays = ctype_digit((string)($argv[3] ?? '')) ? (int)$argv[3] : 7;
+    echo ls_report(db(), $lsDays);
+        break;
+
     case 'fastlane':
     // STEP 2 (owner 2026-10-01, idea_score.php): the picker uses the trend score. fastlane status | on | off
     require_once __DIR__ . '/idea_score.php';

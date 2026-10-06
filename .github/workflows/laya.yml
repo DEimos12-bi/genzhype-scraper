@@ -25,6 +25,7 @@ on:
     branches: [main]
     paths:
       - ".social/laya-trigger"
+      - ".social/laya-shadow/feed.json"   # step 3 (2026-10-06): the server's report-only feed
   workflow_dispatch:
 
 permissions: {}
@@ -68,12 +69,20 @@ jobs:
 
       # Runs only by hand now (the hook loop is retired), so every run is a
       # bench run: the guard bench, then the scored benches (~10 min).
+      # STEP 3 (owner 2026-10-01, 2026-10-06): report-only. Two text questions on the server's real decisions, answered blind;
+      # the server logs the answer next to the real decision (app/laya_shadow.php). Laya decides nothing.
+      - name: Answer the shadow questions
+        run: python laya_shadow.py
+
+      # the benches run by hand (the trigger file or the button), not on every shadow feed
       - name: Run the guard bench
+        if: github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, 'laya shadow feed')
         run: python laya_run.py
 
       # scored benches: every laya-bench/*.json with "questions" (owner taste,
       # hooks vs TikTok views). Reports AUC per question.
       - name: Run the scored benches
+        if: github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, 'laya shadow feed')
         run: python laya_eval.py
 
       - uses: actions/upload-artifact@v4

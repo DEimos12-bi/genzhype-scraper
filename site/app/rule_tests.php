@@ -545,6 +545,29 @@ function rt_cases(): array {
             return [substr($d, 0, 10) === '2022-12-06', 'dated ' . ($d ?: 'nothing')];
         }],
 
+        // RULE 19: Laya report-only (owner 2026-10-01 step 3, laya_shadow.php): logged next to the real decision, decides nothing
+        [19, 'agreement', 'fix', 'The weekly report counts agreement overall and when Laya was sure', function () {
+            require_once __DIR__ . '/laya_shadow.php';
+            $a = ls_agreement([
+                ['kind' => 'term', 'real_yes' => 1, 'laya_yes' => 1, 'laya_conf' => 0.9], ['kind' => 'term', 'real_yes' => 0, 'laya_yes' => 0, 'laya_conf' => 0.6],
+                ['kind' => 'term', 'real_yes' => 0, 'laya_yes' => 1, 'laya_conf' => 0.95], ['kind' => 'term', 'real_yes' => 1, 'laya_yes' => 0, 'laya_conf' => 0.55],
+            ]);
+            $t = $a['term'];
+            return [$t['answered'] === 4 && $t['agree'] === 2 && $t['agree_pct'] === 50 && $t['sure'] === 2 && $t['sure_agree'] === 1 && $t['laya_yes_real_no'] === 1 && $t['laya_no_real_yes'] === 1,
+                    "agreed 2 of 4 (50%), sure 1 of 2, yes-where-no 1, no-where-yes 1"];
+        }],
+        [19, 'answers-blind', 'guard', 'The feed never carries the real decision: Laya answers blind', function () {
+            $src = (string)file_get_contents(__DIR__ . '/laya_shadow.php');
+            preg_match('/\$feed\[\'items\'\]\[\] = \[(.*?)\];/s', $src, $m);
+            return [isset($m[1]) && !str_contains($m[1], 'real_yes') && !str_contains($m[1], 'real_by'), 'the feed item carries: ' . trim(preg_replace('/\s+/', ' ', (string)($m[1] ?? 'not found')))];
+        }],
+        [19, 'decides-nothing', 'guard', 'Laya decides nothing: the shadow module never writes to candidates, pages or the decision logs', function () {
+            $src = (string)file_get_contents(__DIR__ . '/laya_shadow.php');
+            $bad = preg_match('/(UPDATE|INSERT INTO|DELETE FROM)\s+(candidates|pages|trend_decisions|story_decisions|terms|dramas)\b/i', $src);
+            $reads = [];
+            foreach (['story_picker.php', 'trend.php', 'gate.php', 'cli.php', 'accuracy.php'] as $f) if (preg_match('/laya_shadow\b(?!\.php\';\s*$)|ls_agreement|ls_ingest/', (string)file_get_contents(__DIR__ . '/' . $f)) && $f !== 'cli.php') $reads[] = $f;
+            return [!$bad && !$reads, $bad ? 'it writes to a decision table' : ($reads ? 'read by: ' . implode(', ', $reads) : 'writes only its own table; no deciding code reads it')];
+        }],
         // RULE 18: the picker uses the trend score (owner 2026-10-01 step 2, idea_score.php + story_picker.php; on with app/FASTLANE_ON)
         [18, 'posts-are-proof', 'fix', 'High lane: two posts about a fresh story are proof enough, no outlet needed', function () {
             require_once __DIR__ . '/idea_score.php'; rt_need('sp_decide');

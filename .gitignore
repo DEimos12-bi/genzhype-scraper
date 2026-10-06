@@ -13,3 +13,7 @@ feeddir/
 # .social/ and their workflows commit .social - so .social/th_token.txt sat in
 # this PUBLIC repo from 07-05 to 09-24. Any *token* file there is now ignored.
 .social/*token*
+
+# step 3 (2026-10-06): the Laya shadow feed is data the runner must see
+!.social/laya-shadow/
+!.social/laya-shadow/feed.json
