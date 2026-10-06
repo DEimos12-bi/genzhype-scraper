@@ -60,7 +60,7 @@ function sl_rank_corr(array $x, array $y): ?float {
 function sl_stats(array $rows, string $which = 'day7', array $current = IS_WEIGHTS): array {
     $use = [];
     foreach ($rows as $r) { $v = $r[$which] ?? null; if ($v === null && $which === 'day7') $v = $r['day2'] ?? null; if ($v !== null) $use[] = $r + ['result' => (float)$v]; }
-    $alive = count(array_filter($use, fn($r) => $r['result'] > 0));   // pages with any result at all
+    $alive = count(array_filter($use, fn($r) => $r['result'] >= 5));   // pages with a real result (5+: a few views, a click, or indexed)
     // enough to act on: 30+ pages AND at least 10 with a result above zero (a week of all-zero results teaches nothing)
     $out = ['n' => count($use), 'alive' => $alive, 'parts' => [], 'score_corr' => null, 'proposed' => $current, 'current' => $current, 'enough' => count($use) >= 30 && $alive >= 10];
     if (!$use) return $out;
@@ -99,7 +99,7 @@ function sl_report(PDO $pdo, int $days = 30): string {
             . " | average result when the part was 50+: " . ($p['high_avg'] ?? 'none') . ", under 50: " . ($p['low_avg'] ?? 'none') . "\n";
     $s .= "  weights in use:  " . implode(', ', array_map(fn($k, $w) => "{$names[$k]} {$w}", array_keys($st['current']), $st['current'])) . "\n";
     $s .= "  proposed:        " . implode(', ', array_map(fn($k, $w) => "{$names[$k]} {$w}", array_keys($st['proposed']), $st['proposed'])) . "\n";
-    if (($st['alive'] ?? 0) < 10) $s .= "  Only {$st['alive']} page(s) had any views, clicks or an index entry: no signal yet, so no change is proposed.\n";
+    if (($st['alive'] ?? 0) < 10) $s .= "  Only {$st['alive']} page(s) had a real result (5+ views, a click, or an index entry): no signal yet, so no change is proposed.\n";
     $s .= $st['enough'] ? "  Enough pages to act on (30+). To apply: php app/cli.php score weights set " . implode(' ', array_map(fn($k, $w) => "{$k}={$w}", array_keys($st['proposed']), $st['proposed'])) . "\n"
                         : "  Fewer than 30 pages: a proposal to look at, not to apply yet.\n";
     $idx = count(array_filter($rows, fn($r) => $r['indexed']));
