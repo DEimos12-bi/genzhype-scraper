@@ -50,6 +50,9 @@ def main():
         asset = v.get('asset', 'card')
         a = plan['assets'].get(asset, {})
         kind = a.get('kind') or ('card' if asset == 'card' else 'site' if asset == 'site' else 'clip' if asset.startswith('clip') else 'photo')
+        if kind == 'hunt': kind = 'clip'                          # footage the runner hunted (fetch.py)
+        if kind in ('clip', 'photo') and not a.get('file'):   # not fetched: a paper card, never a blank
+            asset, a, kind = 'card', {}, 'card'
         mode = v.get('mode', 'V') if kind == 'clip' else ('P' if kind == 'photo' else 'N')
         dur = t1 - t0
         n = 1 if mode in ('S', 'P') else (0 if mode == 'N' else int(round(dur * FPS)) + 3)

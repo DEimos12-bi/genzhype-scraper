@@ -41,6 +41,7 @@ def main():
     shutil.copytree(os.path.join(HERE, 'fonts'), os.path.join(work, 'fonts'), dirs_exist_ok=True)
     py = sys.executable
     run([py, os.path.join(HERE, 'tts.py'), work], 'voice')
+    run([py, os.path.join(HERE, 'fetch.py'), work], 'fetch')       # YouTube links + footage hunts, on the runner
     run([py, os.path.join(HERE, 'receipts.py'), work], 'receipts')
     run([py, os.path.join(HERE, 'shots.py'), work], 'shots')
     run([py, os.path.join(HERE, 'render.py'), work, 'frames'], 'frames')

@@ -59,13 +59,17 @@ jobs:
           ffmpeg -version | head -1
           python -m pip install --upgrade pip 2>&1 | tail -1
           python -m pip install "playwright==1.48.0" "edge-tts==7.2.8" numpy 2>&1 | tail -2
+          # yt-dlp with browser-TLS impersonation: YouTube clips + footage hunts (v2/fetch.py), the old maker's route
+          python -m pip install -U "yt-dlp[default,curl-cffi]" 2>&1 | tail -1
           python -m playwright install --with-deps chromium 2>&1 | tail -2
 
       - name: Make the videos
         env:
           PAGES: ${{ github.event.inputs.pages }}
+          YT_COOKIES: ${{ secrets.YT_COOKIES }}   # the same secret the old maker uses; never printed
         run: |
           mkdir -p drop
+          if [ -n "$YT_COOKIES" ]; then printf '%s' "$YT_COOKIES" > yt_cookies.txt; chmod 600 yt_cookies.txt; export YT_COOKIES_FILE="$PWD/yt_cookies.txt"; echo "youtube cookies: $(wc -c < yt_cookies.txt) bytes"; else echo "YT_COOKIES not set: YouTube clips will mostly be refused"; fi
           for d in feed/*/; do
             p=$(basename "$d")
             [ -f "$d/plan.json" ] || continue
