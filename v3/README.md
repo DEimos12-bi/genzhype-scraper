@@ -6,6 +6,7 @@ of v2 (one text request, white cards) with a director that looks at its footage,
 ```
 python v3/make.py work/<name> --url https://genzhype.com/<lane>/<story>/     # the owner's PC
 python v3/feed.py https://genzhype.com/<lane>/<story>/                       # hand the story to the GitHub maker
+python v3/auto.py --max 2                                                    # the daily run: the newest untried stories, by itself
 ```
 
 ## The steps (each is one file; a stopped run continues where it stopped)
