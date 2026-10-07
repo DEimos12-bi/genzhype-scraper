@@ -58,7 +58,7 @@ jobs:
           command -v ffmpeg >/dev/null || { sudo apt-get update -qq >/dev/null 2>&1 || true; sudo timeout 200 apt-get install -y -qq ffmpeg >/dev/null 2>&1 || true; }
           ffmpeg -version | head -1
           python -m pip install --upgrade pip 2>&1 | tail -1
-          python -m pip install "playwright==1.48.0" "edge-tts==7.0.0" numpy 2>&1 | tail -2
+          python -m pip install "playwright==1.48.0" "edge-tts==7.2.8" numpy 2>&1 | tail -2
           python -m playwright install --with-deps chromium 2>&1 | tail -2
 
       - name: Make the videos
