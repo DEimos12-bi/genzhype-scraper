@@ -58,13 +58,18 @@ def main():
         return best
 
     def download(url, dest, start, seconds):
+        # as the old maker: cookies, no browser impersonation on YouTube (it trips the bot wall), then one retry with the
+        # android player client, the usual cure for "confirm you are not a bot"
         nonlocal tries
-        tries += 1
-        rc, out, err = run(base() + ['-f', 'bv*[height<=720][ext=mp4]+ba[ext=m4a]/b[height<=720]/bv*+ba/b', '--merge-output-format', 'mp4',
-                                     '--download-sections', '*%d-%d' % (start, start + seconds), '--force-keyframes-at-cuts', '-o', dest, url], 300)
-        ok = rc == 0 and os.path.isfile(dest) and os.path.getsize(dest) > 50000
-        if not ok: say('  download failed:', (err or out)[-200:].replace('\n', ' '))
-        return ok
+        for extra in ([], ['--extractor-args', 'youtube:player_client=android']):
+            if tries >= CAP: return False
+            tries += 1
+            cmd = [c for c in base() if c not in ('--impersonate', 'chrome')] + extra + ['-f', 'bv*[height<=720][ext=mp4]+ba[ext=m4a]/b[height<=720]/bv*+ba/b', '--merge-output-format', 'mp4',
+                   '--download-sections', '*%d-%d' % (start, start + seconds), '--force-keyframes-at-cuts', '-o', dest, url]
+            rc, out, err = run(cmd, 300)
+            if rc == 0 and os.path.isfile(dest) and os.path.getsize(dest) > 50000: return True
+            say('  download failed%s:' % (' (android client)' if extra else ''), (err or out)[:300].replace('\n', ' '))
+        return False
 
     for aid, a in plan.get('assets', {}).items():
         kind = a.get('kind'); plat = a.get('platform', '')
