@@ -134,9 +134,12 @@ def main():
     for f in ('comp.html', 'engine.js', 'engine.css', 'build.js'):
         shutil.copy(os.path.join(HERE, f), os.path.join(work, f))
     shutil.copytree(os.path.join(HERE, 'fonts'), os.path.join(work, 'fonts'), dirs_exist_ok=True)
+    began = time.time()
     for step in steps:
         if not forced and done(work, step):
             continue
+        if budget and time.time() - began > budget:            # a caller with a time limit: stop between steps, the same command continues
+            say('STOPPED at the time budget before "%s": run the same command again' % step); sys.exit(3)
         t = time.time()
         say('== %s' % step)
         if step == 'material':
@@ -152,7 +155,7 @@ def main():
             if py('tts.py', work, timeout=400) != 0:
                 refuse(work, 'the voice could not be made')
         elif step == 'footage':
-            rc = py('footage.py', work, *([budget] if budget else []))
+            rc = py('footage.py', work, *([max(budget, 75)] if budget else []))      # a download needs room: under 40 s left it would never start one
             if rc == 3:
                 say('STOPPED at the time budget: run the same command again'); sys.exit(3)
             mark(work, step)

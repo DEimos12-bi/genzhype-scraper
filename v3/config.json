@@ -2,17 +2,15 @@
  "_note": "Everything the owner may want to change without touching code. Models are tried in this order; a provider without a key in the environment is skipped.",
  "ai": {
   "text": [
-   "gemini/gemini-3.5-flash",
+   "gemini/gemini-2.5-flash",
    "groq/openai/gpt-oss-120b",
-   "nvidia/nvidia/nemotron-3-super-120b-a12b",
-   "gemini/gemini-2.5-flash"
+   "nvidia/nvidia/nemotron-3-super-120b-a12b"
   ],
   "vision": [
-   "gemini/gemini-3.5-flash",
-   "gemini/gemini-3.5-flash-lite",
    "gemini/gemini-2.5-flash",
    "nvidia/meta/llama-3.2-90b-vision-instruct"
-  ]
+  ],
+  "gemini_effort": "low"
  },
  "voice": "en-US-AndrewMultilingualNeural",
  "length": {
@@ -42,5 +40,6 @@
   "spoken": "Gen Z Hype"
  },
  "local_browser_python": "",
- "_local": "A file config.local.json next to this one (never committed) may override any setting on one machine: local_browser_python = the Python that has a working headless browser, local_site_config = the site config the keys are read from."
+ "_local": "A file config.local.json next to this one (never committed) may override any setting on one machine: local_browser_python = the Python that has a working headless browser, local_site_config = the site config the keys are read from.",
+ "_note_ai": "The videos use gemini-2.5-flash on purpose: Google counts free quota per model, and the site's editor uses the 3.5 models. Put a stronger model first only if its quota is not the editor's."
 }

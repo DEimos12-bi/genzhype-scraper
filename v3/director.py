@@ -15,7 +15,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 CFG = ai.CONFIG
 LIGHT, CARDS = ('stamp', 'chip', 'sub'), ('rows', 'quote', 'receipt', 'blocks')
 BANNED = ['official source', 'fans ask', 'fans are asking', 'in conclusion', 'stay tuned', 'buckle up', 'let that sink in', 'you won\'t believe', 'dive in', 'delve',
-          'the internet is', 'netizens', 'swipe up', 'smash that', 'in this video', 'welcome back']
+          'the internet is', 'netizens', 'swipe up', 'smash that', 'in this video', 'welcome back',
+          'our page', 'unverified', 'primary source', 'gen z hype', 'genzhype', 'gen-z hype']      # the video tells the story, never our own checking
 # words that state a crime, a lie or a death as fact: the line then has to say who says it
 HEAVY = re.compile(r'\b(stole|stolen|theft|thief|fraud|scam|scammed|lied|liar|arrested|guilty|convicted|assaulted|abuse[ds]?|groom\w*|rape\w*|murder\w*|died|'
                    r'overdos\w*|suicide|racist|harass\w*|cheat(?:ed|er|ing)|plagiari\w*|embezzl\w*)\b', re.I)
@@ -160,6 +161,9 @@ def fix_and_check(p, m):
         ov, kept, card, light = [o for o in (l.get('overlays') or []) if isinstance(o, dict)], [], 0, 0
         for o in ov:
             k = o.get('k')
+            shown = json.dumps(o, ensure_ascii=False).lower()
+            if any(b in shown for b in ('our page', 'our read', 'unverified', 'primary source', 'gen z hype', 'genzhype', 'gen-z hype')):
+                continue                                       # a graphic about our own checking is not part of the story: it is not drawn
             on = tokens(str(o.get('on') or ''))[:1]
             o['on'] = on[0] if on and on[0] in toks else ''
             if k in LIGHT and str(o.get('t', '')).strip() and light < 2:
@@ -213,8 +217,7 @@ def fix_and_check(p, m):
                     o['items'] = items
                 card += 1; kept.append(o)
         l['overlays'] = kept
-        if card:
-            l['show']['mode'] = 'under'
+        l['show']['mode'] = 'under' if card else 'sharp'      # decided here, not by the AI: footage is sharp unless a card needs to be read over it
         caps = []
         for c in l.get('caps') or []:
             if isinstance(c, dict) and str(c.get('say', '')).strip() and str(c.get('show', '')).strip() and norm(c['say']) in norm(t):
@@ -249,7 +252,7 @@ def unsupported(plan, m):
             'invented facts, numbers or names that differ, superlatives and predictions the material does not make ("the best in the world", "they will lose"), a claim about wrongdoing stated without who says it, '
             'a guessed gender. A fair summary of what the material says is supported. Questions and the vote are not claims. Strict JSON only: {"problems":[{"line":1,"text":"the words","why":"short"}]} (an empty list if all is supported).')
     try:
-        j, _ = ai.ask_json(sys_, 'MATERIAL\n%s\n\nSCRIPT\n%s' % (mat, script), temperature=0.1, timeout=120, max_tokens=2000)
+        j, _ = ai.ask_json(sys_, 'MATERIAL\n%s\n\nSCRIPT\n%s' % (mat, script), temperature=0.1, timeout=60, max_tokens=6000)
     except ai.AIError:
         return None                                           # no checker answered: said in the report, the plan is kept
     return ['line %s says "%s": not in the material (%s); say only what the material says, or cut it' % (p.get('line'), str(p.get('text', ''))[:70], str(p.get('why', ''))[:80])
@@ -258,7 +261,7 @@ def unsupported(plan, m):
 
 def direct(m, log=print):
     system, user = prompt_for(m)
-    plan, model = ai.ask_json(system, user, temperature=0.7, timeout=150, max_tokens=7000)
+    plan, model = ai.ask_json(system, user, temperature=0.7, timeout=90, max_tokens=12000, effort='medium')
     for round_ in range(3):
         plan, soft, hard = fix_and_check(plan, m)
         facts = unsupported(plan, m) if not hard and round_ < 2 else []
@@ -270,7 +273,7 @@ def direct(m, log=print):
             break
         fix = 'Your plan:\n%s\n\nA machine checked it. Fix exactly these points and return the WHOLE corrected JSON plan, same format:\n- %s' % (json.dumps(plan, ensure_ascii=False), '\n- '.join(soft + hard))
         try:
-            plan, model = ai.ask_json(system, user + '\n\n' + fix, temperature=0.4, timeout=150, max_tokens=7000)
+            plan, model = ai.ask_json(system, user + '\n\n' + fix, temperature=0.4, timeout=90, max_tokens=12000)
         except ai.AIError as e:
             log('director: the fix round got no answer (%s); keeping the last plan' % str(e)[:100])
             break

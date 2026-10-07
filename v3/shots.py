@@ -102,8 +102,20 @@ def plan_shots(plan, tl, log):
         if asset and sharp and sup.a[asset]['kind'] != 'photo' and (sup.a[asset]['kind'] == 'stock' or not sup.a[asset].get('usable', True)):
             asset = None                                       # refused by the eyes: not shown sharp
         if not asset:
-            pool = sup.clips(sharp) or sup.photos() or sup.clips(False)
-            asset = pool[0]
+            # the footage this line asked for is not there. Other footage may stand in SHARP only if its own title or post
+            # names something the line names (never the wrong game or the wrong event under the words); else it goes blurred.
+            said = {w.lower() for w in re.findall(r'\b[A-Z][A-Za-z0-9À-ÿ]{2,}\b', pl['text'])} - {'the', 'this', 'that', 'they', 'their', 'then', 'when', 'what', 'will', 'with', 'and', 'but', 'now', 'its', 'one', 'some', 'same'}
+            fits = [k for k in sup.clips(True) + sup.photos() if said & set(norm(sup.a[k].get('title', '') if sup.a[k]['kind'] == 'hunt' else sup.a[k].get('about', '')).split())]
+            if sharp and want != 'auto' and fits and i > 0 and plan['assets'].get(want, {}).get('kind') != 'hunt':
+                asset = fits[0]                                # a post's own clip or picture may stand in for another of the story's posts
+            elif sharp and want != 'auto':                     # a searched clip that is missing has no stand-in: the wrong game under the words is worse than a blur
+                if i == 0:
+                    raise SystemExit('NO FOOTAGE OF THE SUBJECT: the opening asked for "%s" (%s) and nothing fetched shows what the first line names' % (want, plan['assets'].get(want, {}).get('about', '')[:60]))
+                sharp = False
+                log('  %s: its footage (%s) is missing and nothing else names what the line names; other footage goes blurred' % (pl['id'], want))
+            if not asset:
+                pool = sup.clips(sharp) or sup.photos() or sup.clips(False)
+                asset = pool[0]
             if sup.a[asset]['kind'] == 'stock' or not sup.a[asset].get('usable', True):
                 sharp = False
         a = sup.a[asset]

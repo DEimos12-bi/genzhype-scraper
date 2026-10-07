@@ -68,7 +68,7 @@ def look(work, log=print):
         eyes = None
         if a['kind'] != 'stock':
             try:
-                eyes, model = ai.ask_json(SYSTEM, user, images=[out], temperature=0.2, timeout=90, max_tokens=2500)
+                eyes, model = ai.ask_json(SYSTEM, user, images=[out], temperature=0.2, timeout=60, max_tokens=6000)
                 eyes['model'] = model
             except Exception as e:  # noqa: BLE001
                 log('%s: no picture model answered (%s); cut evenly' % (aid, str(e)[-90:]))

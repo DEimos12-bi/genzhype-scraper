@@ -58,8 +58,10 @@ def _image_part(path, max_side=None):
     return {'type': 'image_url', 'image_url': {'url': 'data:%s;base64,%s' % (mime, base64.b64encode(data).decode())}}
 
 
-def _post(provider, model, messages, temperature, timeout, max_tokens):
+def _post(provider, model, messages, temperature, timeout, max_tokens, effort):
     body = {'model': model, 'messages': messages, 'temperature': temperature, 'max_tokens': max_tokens}
+    if provider == 'gemini' and effort:                       # without a cap its thinking uses up the answer's room and the JSON arrives cut off
+        body['reasoning_effort'] = effort
     req = urllib.request.Request(URLS[provider], data=json.dumps(body).encode(), method='POST',
                                  headers={'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key(provider), 'User-Agent': 'genzhype-video/3'})
     with urllib.request.urlopen(req, timeout=timeout) as r:
@@ -70,7 +72,7 @@ def _post(provider, model, messages, temperature, timeout, max_tokens):
     return text.strip()
 
 
-def chat(system, user, images=(), kind=None, temperature=0.5, timeout=120, max_tokens=6000, only=None, skip=()):
+def chat(system, user, images=(), kind=None, temperature=0.5, timeout=120, max_tokens=8000, only=None, skip=(), effort=None):
     kind = kind or ('vision' if images else 'text')
     content = user if not images else [{'type': 'text', 'text': user}] + [_image_part(p) for p in images]
     messages = [{'role': 'system', 'content': system}, {'role': 'user', 'content': content}]
@@ -80,7 +82,7 @@ def chat(system, user, images=(), kind=None, temperature=0.5, timeout=120, max_t
             continue
         t = time.time()
         try:
-            text = _post(provider, model, messages, temperature, timeout, max_tokens)
+            text = _post(provider, model, messages, temperature, timeout, max_tokens, effort or CONFIG['ai'].get('gemini_effort', 'low'))
             if len(text) < 2:
                 raise AIError('empty reply')
             note({'model': provider + '/' + model, 'kind': kind, 's': round(time.time() - t, 1), 'ok': True})
