@@ -1,0 +1,29 @@
+TIKTOK POST — Karmine Corp Wage Dispute: Vatira and Atow Unpaid (vote format)
+File: genzhype-karmine-corp-wage-dispute-vatira-and-atow-unpaid.mp4 (1080x1920, 46.9 s) · Cover: cover.jpg
+
+CAPTION
+Karmine Corp wage dispute: Vatira and Atow unpaid
+#KarmineCorp #WageDispute #RocketLeague
+
+PINNED COMMENT (post it yourself right after upload)
+
+
+LINK IN BIO must point to
+https://genzhype.com/gaming/karmine-corp-wage-dispute-vatira-and-atow-unpaid/
+
+THE DIRECTOR'S CHOICES
+- Format: vote (The vote format lets the audience act as a jury to decide whether Karmine Corp is responsible for the unpaid wages, matching the story's conflict of claims.)
+- Special moment: exhibits (We need to display the official receipt as evidence for the jury.)
+- First second: clip0 + "Gotaga says"
+- Proof: "Vatira and Atow. Agency Boss Accuses Karmine Corp of Several Hundred Thousand Euros in Unpaid Wages" (insider-gaming.com)
+- Ending: {"kind": "vote", "prompt": "Vote A, B, or C", "options": [{"letter": "A", "name": "Yes", "sub": "Karmine Corp should pay"}, {"letter": "B", "name": "No", "sub": "Karmine Corp not responsible"}, {"letter": "C", "name": "Not enough info", "sub": "Need more evidence"}], "comment": ""}
+
+WHERE EACH FACT COMES FROM
+- Karmine Corp owes over €300k in unpaid wages to Vatira and Atow: Jérôme Coupez via insider-gaming.com
+- Kameto claimed the issue was resolved on stream: Kameto stream
+
+FOOTAGE (credited on screen)
+- receipt1: insider-gaming.com
+- clip0: CLIP · @FRENCHRAPUS / X
+- clip1: CLIP · @FRENCHRAPUS / X
+- Voice: edge-tts (Andrew). Music and sound effects: made in code for this video, nothing licensed.

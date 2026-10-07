@@ -1,0 +1,59 @@
+== voice: /opt/hostedtoolcache/Python/3.11.16/x64/bin/python /home/runner/work/genzhype-scraper/genzhype-scraper/v2/tts.py /home/runner/work/genzhype-scraper/genzhype-scraper/work-3332
+take 0 hook 10 words
+take 1 quote 14 words
+take 2 hunt1 15 words
+take 3 note1 11 words
+take 4 hunt2 11 words
+take 5 proof 15 words
+take 6 hunt3 11 words
+take 7 note2 12 words
+take 8 note3 9 words
+take 9 note4 9 words
+take 10 site 9 words
+voice total 48.44 s, 11 lines
+== voice done in 4s (exit 0)
+== fetch: /opt/hostedtoolcache/Python/3.11.16/x64/bin/python /home/runner/work/genzhype-scraper/genzhype-scraper/v2/fetch.py /home/runner/work/genzhype-scraper/genzhype-scraper/work-3332
+cookies: active
+hunt1 hunt: 'Overwatch Jetpack Cat Cassidy High Noon combo'
+  download failed: ERROR: [youtube] VXMKEl4NGOw: Sign in to confirm you’re not a bot. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dlp/yt-dlp/wiki/FAQ#how-do-i-pass-cookies-to-yt-dlp  for how to manually pass cookies. Also see  https://github.com/yt-dlp/yt-dlp/wiki/Extract
+  download failed (android client): ERROR: [youtube] VXMKEl4NGOw: Sign in to confirm you’re not a bot. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dlp/yt-dlp/wiki/FAQ#how-do-i-pass-cookies-to-yt-dlp  for how to manually pass cookies. Also see  https://github.com/yt-dlp/yt-dlp/wiki/Extract
+hunt2 hunt: 'Overwatch Season 5 patch trailer'
+  download failed: ERROR: [youtube] Ih6DVdyQn3I: Sign in to confirm you’re not a bot. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dlp/yt-dlp/wiki/FAQ#how-do-i-pass-cookies-to-yt-dlp  for how to manually pass cookies. Also see  https://github.com/yt-dlp/yt-dlp/wiki/Extract
+  download failed (android client): ERROR: [youtube] Ih6DVdyQn3I: Sign in to confirm you’re not a bot. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dlp/yt-dlp/wiki/FAQ#how-do-i-pass-cookies-to-yt-dlp  for how to manually pass cookies. Also see  https://github.com/yt-dlp/yt-dlp/wiki/Extract
+hunt3 hunt: 'Overwatch Sombra support Roadhog new ability'
+  download failed: ERROR: [youtube] pY9CG9c_w6I: Sign in to confirm you’re not a bot. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dlp/yt-dlp/wiki/FAQ#how-do-i-pass-cookies-to-yt-dlp  for how to manually pass cookies. Also see  https://github.com/yt-dlp/yt-dlp/wiki/Extract
+  download failed (android client): ERROR: [youtube] pY9CG9c_w6I: Sign in to confirm you’re not a bot. Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dlp/yt-dlp/wiki/FAQ#how-do-i-pass-cookies-to-yt-dlp  for how to manually pass cookies. Also see  https://github.com/yt-dlp/yt-dlp/wiki/Extract
+line hunt1 falls back to a card ( hunt1 download refused )
+line hunt2 falls back to a card ( hunt2 download refused )
+line hunt3 falls back to a card ( hunt3 download refused )
+fetch done: 9 yt-dlp calls
+== fetch done in 9s (exit 0)
+== receipts: /opt/hostedtoolcache/Python/3.11.16/x64/bin/python /home/runner/work/genzhype-scraper/genzhype-scraper/v2/receipts.py /home/runner/work/genzhype-scraper/genzhype-scraper/work-3332
+receipt1 {"found": true, "text": "Overwatch\u2019s Latest Patch Kills One Of The Most Fun Team-Ups In The Game", "w": 508, "h": 48}
+receipt1 rects for []
+site FAILED Page.goto: Timeout 45000ms exceeded.
+Call log:
+navigating to "https://genzhype.com/gaming/overwatch-patch-ends-jetpack-cat-and-cassidy-combo/", waiting until "domcontentloaded"
+
+== receipts done in 55s (exit 0)
+== shots: /opt/hostedtoolcache/Python/3.11.16/x64/bin/python /home/runner/work/genzhype-scraper/genzhype-scraper/v2/shots.py /home/runner/work/genzhype-scraper/genzhype-scraper/work-3332
+hook       0.00-  3.85  clip0@0.00 x1.00 V frames 119 (1024x576)
+end 48.888 frames 1467
+== shots done in 2s (exit 0)
+== frames: /opt/hostedtoolcache/Python/3.11.16/x64/bin/python /home/runner/work/genzhype-scraper/genzhype-scraper/v2/render.py /home/runner/work/genzhype-scraper/genzhype-scraper/work-3332 frames
+frame 0/1467 0.2s
+frame 300/1467 30.9s
+frame 600/1467 54.8s
+frame 900/1467 78.5s
+frame 1200/1467 101.9s
+frames 1467 in 122.9s (84 ms each)
+decode errors: 0 | page errors: none
+== frames done in 124s (exit 0)
+== sound: /opt/hostedtoolcache/Python/3.11.16/x64/bin/python /home/runner/work/genzhype-scraper/genzhype-scraper/v2/audio.py /home/runner/work/genzhype-scraper/genzhype-scraper/work-3332
+mix 48.89s | voice -16.8 dB | music under voice -34.8 dB | clips under voice -47.2 dB | fx peak 0.79
+== sound done in 2s (exit 0)
+== assemble: ffmpeg -y -v error -framerate 30 -i /home/runner/work/genzhype-scraper/genzhype-scraper/work-3332/frames/f%05d.jpg -i /home/runner/work/genzhype-scraper/genzhype-scraper/work-3332/mix.wav -c:v libx264 -preset medium -crf 19 -pix_fmt yuv420p -profile:v high -level 4.1 -movflags +faststart -c:a aac -b:a 192k -shortest /home/runner/work/genzhype-scraper/genzhype-scraper/work-3332/out/genzhype-overwatch-patch-ends-jetpack-cat-and-cassidy-combo.mp4
+== assemble done in 49s (exit 0)
+== cover: ffmpeg -y -v error -ss 1.90 -i /home/runner/work/genzhype-scraper/genzhype-scraper/work-3332/out/genzhype-overwatch-patch-ends-jetpack-cat-and-cassidy-combo.mp4 -frames:v 1 -q:v 2 /home/runner/work/genzhype-scraper/genzhype-scraper/work-3332/out/cover.jpg
+== cover done in 0s (exit 0)
+DONE /home/runner/work/genzhype-scraper/genzhype-scraper/work-3332/out/genzhype-overwatch-patch-ends-jetpack-cat-and-cassidy-combo.mp4 48.9s

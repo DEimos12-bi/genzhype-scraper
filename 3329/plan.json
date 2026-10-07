@@ -1,0 +1,399 @@
+{
+ "format": "breakdown",
+ "why_format": "Breakdown format lets us clearly separate the accusation, admission, and outcome with on‑screen sections that guide the viewer through the story.",
+ "length_s": 40,
+ "special": {
+  "id": "rewind_clock",
+  "why": "Shows the two key dates Oct 5 and Oct 6 to highlight the rapid admission and response.",
+  "params": {
+   "from": "2026-10-05",
+   "to": "2026-10-06"
+  }
+ },
+ "kicker": "GAMING",
+ "sections": [
+  "THE ACCUSATION",
+  "THE ADMISSION",
+  "THE OUTCOME"
+ ],
+ "options": [],
+ "first_second": {
+  "asset": "photo0_0",
+  "claim": "Modern Warships admits copying Alex Jay Brady's ekranoplan design.",
+  "stamp": "ADMITTED"
+ },
+ "proof": {
+  "asset": "receipt1",
+  "line": "Artstorm, the developer of the PvP online game of naval war, has admitted to the plagiarism, and rather than removing the copied design",
+  "source": "kotaku.com",
+  "url": "https://kotaku.com/modern-warships-artstorm-plagiarism-alex-brady-war-thunder-2000740997",
+  "repaired_from": "Artstorm has admitted to the plagiarism"
+ },
+ "people": [
+  {
+   "name": "Alex Jay Brady",
+   "role": "CONCEPT ARTIST",
+   "tag": "ACCUSED MODERN WARSHIPS OF PLAGIARISM"
+  }
+ ],
+ "ending": {
+  "kind": "site",
+  "prompt": "Read the full story",
+  "options": [],
+  "comment": ""
+ },
+ "lines": [
+  {
+   "id": "line1",
+   "section": 0,
+   "text": "Modern Warships admits copying Alex Jay Brady's ekranoplan design.",
+   "rate": "+12%",
+   "pause": 0.2,
+   "mood": "intro",
+   "visual": {
+    "asset": "photo0_0",
+    "in": 0,
+    "mode": "V"
+   },
+   "overlays": [
+    {
+     "comp": "kicker",
+     "text": "GAMING",
+     "on": "Modern"
+    },
+    {
+     "comp": "stamp",
+     "text": "ADMITTED",
+     "on": "admits"
+    }
+   ],
+   "claims": [
+    {
+     "text": "Modern Warships admits copying Alex Jay Brady's ekranoplan design.",
+     "source": "kotaku.com, 2026-10-06"
+    }
+   ]
+  },
+  {
+   "id": "line2",
+   "section": 0,
+   "text": "On October 5, Brady accused the game of using his design without permission.",
+   "rate": "+12%",
+   "pause": 0.2,
+   "mood": "groove",
+   "visual": {
+    "asset": "card"
+   },
+   "overlays": [
+    {
+     "comp": "plate",
+     "name": "Alex Jay Brady",
+     "role": "CONCEPT ARTIST",
+     "tag": "ACCUSED MODERN WARSHIPS OF PLAGIARISM",
+     "on": "Brady"
+    }
+   ],
+   "claims": [
+    {
+     "text": "On October 5, Brady accused the game of using his design without permission.",
+     "source": "x.com/AlexJayBrady/status/2106930963242418214, 2026-10-05"
+    }
+   ]
+  },
+  {
+   "id": "line3",
+   "section": 0,
+   "text": "I did not give @ModernWarships permission to use my ekrano design",
+   "rate": "+12%",
+   "pause": 0.2,
+   "mood": "tense",
+   "visual": {
+    "asset": "card",
+    "in": 7
+   },
+   "overlays": [
+    {
+     "comp": "quote",
+     "text": "I did not give @ModernWarships permission to use my ekrano design",
+     "who": "Alex Jay Brady",
+     "on": "I"
+    }
+   ],
+   "claims": [
+    {
+     "text": "I did not give @ModernWarships permission to use my ekrano design",
+     "source": "x.com/AlexJayBrady/status/2106930963242418214, 2026-10-05"
+    }
+   ]
+  },
+  {
+   "id": "line4",
+   "section": 0,
+   "text": "Fair call, and apologies from us.",
+   "rate": "+12%",
+   "pause": 0.2,
+   "mood": "hits",
+   "visual": {
+    "asset": "card",
+    "in": 10.5
+   },
+   "overlays": [],
+   "claims": [
+    {
+     "text": "Fair call, and apologies from us.",
+     "source": "x.com/ModernWarships/status/2107131178062950802, 2026-10-05"
+    }
+   ]
+  },
+  {
+   "id": "line5",
+   "section": 1,
+   "text": "Artstorm has admitted to the plagiarism",
+   "rate": "+12%",
+   "pause": 0.2,
+   "mood": "desk",
+   "visual": {
+    "asset": "receipt1",
+    "in": 14
+   },
+   "overlays": [],
+   "claims": [
+    {
+     "text": "Artstorm has admitted to the plagiarism",
+     "source": "kotaku.com, 2026-10-06"
+    }
+   ]
+  },
+  {
+   "id": "line6",
+   "section": 1,
+   "text": "Instead of removing the design, they are trying to reach a deal with Brady.",
+   "rate": "+12%",
+   "pause": 0.2,
+   "mood": "bright",
+   "visual": {
+    "asset": "card",
+    "in": 17.5
+   },
+   "overlays": [
+    {
+     "comp": "note",
+     "label": "Kotaku",
+     "text": "Attempting to reach a deal",
+     "on": "trying"
+    }
+   ],
+   "claims": [
+    {
+     "text": "Instead of removing the design, they are trying to reach a deal with Brady.",
+     "source": "kotaku.com, 2026-10-06"
+    }
+   ]
+  },
+  {
+   "id": "line7",
+   "section": 2,
+   "text": "Kotaku reports that, as of October 6, no decision has been made to remove the design.",
+   "rate": "+12%",
+   "pause": 0.2,
+   "mood": "full",
+   "visual": {
+    "asset": "card",
+    "in": 21
+   },
+   "overlays": [
+    {
+     "comp": "note",
+     "label": "Source",
+     "text": "Kotaku.com, Oct 6, 2026",
+     "on": "Kotaku"
+    }
+   ],
+   "claims": [
+    {
+     "text": "Kotaku reports that, as of October 6, no decision has been made to remove the design.",
+     "source": "kotaku.com, 2026-10-06"
+    }
+   ]
+  },
+  {
+   "id": "line8",
+   "section": 2,
+   "text": "Kotaku says Brady has not yet responded publicly to the offer.",
+   "rate": "+12%",
+   "pause": 0.2,
+   "mood": "intro",
+   "visual": {
+    "asset": "card",
+    "in": 24.5
+   },
+   "overlays": [
+    {
+     "comp": "note",
+     "label": "Kotaku",
+     "text": "No public response yet",
+     "on": "Kotaku"
+    }
+   ],
+   "claims": [
+    {
+     "text": "Kotaku says Brady has not yet responded publicly to the offer.",
+     "source": "kotaku.com, 2026-10-06"
+    }
+   ]
+  },
+  {
+   "id": "line9",
+   "section": 2,
+   "text": "What do you think: fair nod or outright theft?",
+   "rate": "+12%",
+   "pause": 0.2,
+   "mood": "groove",
+   "visual": {
+    "asset": "card",
+    "in": 28
+   },
+   "overlays": [],
+   "claims": []
+  },
+  {
+   "id": "line10",
+   "section": 2,
+   "text": "Comment one word below or swipe up for more.",
+   "rate": "+12%",
+   "pause": 0.2,
+   "mood": "tense",
+   "visual": {
+    "asset": "card",
+    "in": 31.5
+   },
+   "overlays": [],
+   "claims": []
+  },
+  {
+   "id": "line11",
+   "section": 2,
+   "text": "Visit genzhype.com for the full timeline and receipts.",
+   "rate": "+12%",
+   "pause": 0.2,
+   "mood": "hits",
+   "visual": {
+    "asset": "card"
+   },
+   "overlays": [
+    {
+     "comp": "stamp",
+     "text": "READ MORE",
+     "on": "Visit"
+    }
+   ],
+   "claims": []
+  },
+  {
+   "id": "line12",
+   "section": 2,
+   "text": "Link's in the bio.",
+   "rate": "+12%",
+   "pause": 0.2,
+   "mood": "desk",
+   "visual": {
+    "asset": "site"
+   },
+   "overlays": [],
+   "claims": []
+  }
+ ],
+ "assets": {
+  "receipt1": {
+   "kind": "receipt",
+   "url": "https://kotaku.com/modern-warships-artstorm-plagiarism-alex-brady-war-thunder-2000740997",
+   "highlight": [
+    "Artstorm, the developer of the PvP online game of naval war, has admitted to the plagiarism, and rather than removing the copied design"
+   ],
+   "credit": "kotaku.com"
+  },
+  "photo0_0": {
+   "kind": "photo",
+   "url": "https://pbs.twimg.com/media/HT1Sc75W4AAIhib.jpg",
+   "post": "https://x.com/AlexJayBrady/status/2106930963242418214",
+   "credit": "PHOTO · @ALEXJAYBRADY / X",
+   "file": "photo0_0.jpg"
+  },
+  "site": {
+   "kind": "site",
+   "url": "https://genzhype.com/gaming/modern-warships-admits-copying-alex-jay-brady-s-aircraft-design/"
+  }
+ },
+ "post": {
+  "caption": "",
+  "hashtags": [],
+  "pinned": "",
+  "facts": []
+ },
+ "model": "nvidia/nvidia/nemotron-3-super-120b-a12b",
+ "words": 115,
+ "page_id": 3329,
+ "url": "https://genzhype.com/gaming/modern-warships-admits-copying-alex-jay-brady-s-aircraft-design/",
+ "lane": "gaming",
+ "title": "Modern Warships Admits Copying Alex Jay Brady's Aircraft Design",
+ "sensitive": {
+  "flag": false,
+  "why": ""
+ },
+ "made_at": "2026-10-07T13:35:34+00:00",
+ "tries": 2,
+ "posts_material": [
+  {
+   "url": "https://x.com/AlexJayBrady/status/2106930963242418214",
+   "platform": "x",
+   "handle": "@AlexJayBrady",
+   "name": "Alex Jay Brady 🥶",
+   "text": "I did not give @ModernWarships permission to use my ekrano design, but I have to say she's looking great. Much more detailed than my sketches. Honestly if they'd just asked and sent me some $$$$ Id have had zero issue with them using it. Its not to late to do the right thing guys https://t.co/E2K7z3rE9i",
+   "date": "2026-10-05",
+   "likes": 2268,
+   "media": [
+    {
+     "type": "photo",
+     "seconds": null,
+     "image": "https://pbs.twimg.com/media/HT1Sc75W4AAIhib.jpg"
+    }
+   ]
+  },
+  {
+   "url": "https://x.com/ModernWarships/status/2107131178062950802",
+   "platform": "x",
+   "handle": "@ModernWarships",
+   "name": "MODERN WARSHIPS: Naval Battles",
+   "text": "@AlexJayBrady Fair call, and apologies from us. Your design was used as a reference without proper clearance. We’ll contact you directly to make this right.",
+   "date": "2026-10-05",
+   "likes": 136,
+   "media": []
+  },
+  {
+   "url": "https://x.com/AlexJayBrady/status/2106930963242418214",
+   "platform": "x",
+   "handle": "@AlexJayBrady",
+   "name": "Alex Jay Brady 🥶",
+   "text": "I did not give @ModernWarships permission to use my ekrano design, but I have to say she's looking great. Much more detailed than my sketches. Honestly if they'd just asked and sent me some $$$$ Id have had zero issue with them using it. Its not to late to do the right thing guys https://t.co/E2K7z3rE9i",
+   "date": "2026-10-05",
+   "likes": 2268,
+   "media": [
+    {
+     "type": "photo",
+     "seconds": null,
+     "image": "https://pbs.twimg.com/media/HT1Sc75W4AAIhib.jpg"
+    }
+   ]
+  },
+  {
+   "url": "https://x.com/ModernWarships/status/2107131178062950802",
+   "platform": "x",
+   "handle": "@ModernWarships",
+   "name": "MODERN WARSHIPS: Naval Battles",
+   "text": "@AlexJayBrady Fair call, and apologies from us. Your design was used as a reference without proper clearance. We’ll contact you directly to make this right.",
+   "date": "2026-10-05",
+   "likes": 136,
+   "media": []
+  }
+ ]
+}

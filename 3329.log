@@ -1,0 +1,48 @@
+== voice: /opt/hostedtoolcache/Python/3.11.16/x64/bin/python /home/runner/work/genzhype-scraper/genzhype-scraper/v2/tts.py /home/runner/work/genzhype-scraper/genzhype-scraper/work-3329
+take 0 line1 9 words
+take 1 line2 12 words
+take 2 line3 12 words
+take 3 line4 6 words
+take 4 line5 6 words
+take 5 line6 14 words
+take 6 line7 15 words
+take 7 line8 11 words
+take 8 line9 9 words
+take 9 line10 9 words
+take 10 line11 8 words
+take 11 line12 4 words
+voice total 40.25 s, 12 lines
+== voice done in 4s (exit 0)
+== fetch: /opt/hostedtoolcache/Python/3.11.16/x64/bin/python /home/runner/work/genzhype-scraper/genzhype-scraper/v2/fetch.py /home/runner/work/genzhype-scraper/genzhype-scraper/work-3329
+cookies: active
+fetch done: 0 yt-dlp calls
+== fetch done in 0s (exit 0)
+== receipts: /opt/hostedtoolcache/Python/3.11.16/x64/bin/python /home/runner/work/genzhype-scraper/genzhype-scraper/v2/receipts.py /home/runner/work/genzhype-scraper/genzhype-scraper/work-3329
+receipt1 {"found": true, "text": "Warship Game Steals Nonsensical Aircraft Design And Then Tries To Sell It In-Game For $700\n\nArtstorm\nModern Warships\nplagiarism\nWar Thunder\n\nBy John Walker\nPublished October 6, 2026 | Comments (2) | \nBrady's 2014 design of the floaty ship. \u00a9 Alex Jay Brady\n'Yo
+receipt1 rects for ['Artstorm, the developer of the PvP online game of naval war, has admitted to the plagiarism, and rather than removing the copied design']
+site FAILED Page.goto: Timeout 45000ms exceeded.
+Call log:
+navigating to "https://genzhype.com/gaming/modern-warships-admits-copying-alex-jay-brady-s-aircraft-design/", waiting until "domcontentloaded"
+
+== receipts done in 53s (exit 0)
+== shots: /opt/hostedtoolcache/Python/3.11.16/x64/bin/python /home/runner/work/genzhype-scraper/genzhype-scraper/v2/shots.py /home/runner/work/genzhype-scraper/genzhype-scraper/work-3329
+line1      0.00-  4.44 photo
+end 40.697 frames 1221
+== shots done in 0s (exit 0)
+== frames: /opt/hostedtoolcache/Python/3.11.16/x64/bin/python /home/runner/work/genzhype-scraper/genzhype-scraper/v2/render.py /home/runner/work/genzhype-scraper/genzhype-scraper/work-3329 frames
+frame 0/1221 0.2s
+frame 300/1221 25.8s
+frame 600/1221 48.2s
+frame 900/1221 71.6s
+frame 1200/1221 95.4s
+frames 1221 in 97.0s (79 ms each)
+decode errors: 0 | page errors: none
+== frames done in 98s (exit 0)
+== sound: /opt/hostedtoolcache/Python/3.11.16/x64/bin/python /home/runner/work/genzhype-scraper/genzhype-scraper/v2/audio.py /home/runner/work/genzhype-scraper/genzhype-scraper/work-3329
+mix 40.70s | voice -15.9 dB | music under voice -33.9 dB | clips under voice -99.0 dB | fx peak 0.69
+== sound done in 3s (exit 0)
+== assemble: ffmpeg -y -v error -framerate 30 -i /home/runner/work/genzhype-scraper/genzhype-scraper/work-3329/frames/f%05d.jpg -i /home/runner/work/genzhype-scraper/genzhype-scraper/work-3329/mix.wav -c:v libx264 -preset medium -crf 19 -pix_fmt yuv420p -profile:v high -level 4.1 -movflags +faststart -c:a aac -b:a 192k -shortest /home/runner/work/genzhype-scraper/genzhype-scraper/work-3329/out/genzhype-modern-warships-admits-copying-alex-jay-brady-s-aircraft-des.mp4
+== assemble done in 39s (exit 0)
+== cover: ffmpeg -y -v error -ss 1.90 -i /home/runner/work/genzhype-scraper/genzhype-scraper/work-3329/out/genzhype-modern-warships-admits-copying-alex-jay-brady-s-aircraft-des.mp4 -frames:v 1 -q:v 2 /home/runner/work/genzhype-scraper/genzhype-scraper/work-3329/out/cover.jpg
+== cover done in 0s (exit 0)
+DONE /home/runner/work/genzhype-scraper/genzhype-scraper/work-3329/out/genzhype-modern-warships-admits-copying-alex-jay-brady-s-aircraft-des.mp4 40.7s

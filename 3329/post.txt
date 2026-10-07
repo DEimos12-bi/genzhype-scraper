@@ -1,0 +1,27 @@
+TIKTOK POST — Modern Warships Admits Copying Alex Jay Brady's Aircraft Design (breakdown format)
+File: genzhype-modern-warships-admits-copying-alex-jay-brady-s-aircraft-des.mp4 (1080x1920, 40.7 s) · Cover: cover.jpg
+
+CAPTION
+
+
+
+PINNED COMMENT (post it yourself right after upload)
+
+
+LINK IN BIO must point to
+https://genzhype.com/gaming/modern-warships-admits-copying-alex-jay-brady-s-aircraft-design/
+
+THE DIRECTOR'S CHOICES
+- Format: breakdown (Breakdown format lets us clearly separate the accusation, admission, and outcome with on‑screen sections that guide the viewer through the story.)
+- Special moment: rewind_clock (Shows the two key dates Oct 5 and Oct 6 to highlight the rapid admission and response.)
+- First second: photo0_0 + "Modern Warships admits copying Alex Jay Brady's ekranoplan design."
+- Proof: "Artstorm, the developer of the PvP online game of naval war, has admitted to the plagiarism, and rather than removing the copied design" (kotaku.com)
+- Ending: {"kind": "site", "prompt": "Read the full story", "options": [], "comment": ""}
+
+WHERE EACH FACT COMES FROM
+
+
+FOOTAGE (credited on screen)
+- receipt1: kotaku.com
+- photo0_0: PHOTO · @ALEXJAYBRADY / X
+- Voice: edge-tts (Andrew). Music and sound effects: made in code for this video, nothing licensed.

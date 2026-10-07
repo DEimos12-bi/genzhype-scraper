@@ -1,0 +1,402 @@
+{
+ "format": "breakdown",
+ "why_format": "The breakdown format splits the story into three clear acts—synergy, nerf, and twist—matching the video’s section rails and letting viewers follow the cause‑effect flow.",
+ "length_s": 43,
+ "special": {
+  "id": "highlight_sweep",
+  "why": "to highlight the key nerf sentence in the receipt",
+  "params": []
+ },
+ "kicker": "OVERWATCH SEASON 5 PATCH",
+ "sections": [
+  "THE SYNERGY",
+  "THE NERF",
+  "THE TWIST"
+ ],
+ "options": [],
+ "first_second": {
+  "asset": "clip0",
+  "claim": "Jetpack Cat and Cassidy once flew together for deadly combos.",
+  "stamp": "SYNERGY"
+ },
+ "proof": {
+  "asset": "receipt1",
+  "line": "which includes a balance change reportedly preventing Cassidy from attaching to Jetpack Cats tether while using his High Noon ultimate",
+  "source": "kotaku.com",
+  "url": "https://kotaku.com/overwatch-season-5-patch-notes-cassidy-jetpack-cat-2000741044",
+  "repaired_from": "now prevents attaching to Jetpack Cat's Lifeline while using High Noon"
+ },
+ "people": [
+  {
+   "name": "Jetpack Cat",
+   "role": "SUPPORT",
+   "tag": "TETHER: LIFELINE"
+  },
+  {
+   "name": "Cassidy",
+   "role": "DAMAGE",
+   "tag": "HIGH NOON ULT"
+  },
+  {
+   "name": "Blizzard",
+   "role": "DEVELOPER",
+   "tag": "PATCH NOTES"
+  }
+ ],
+ "ending": {
+  "kind": "site",
+  "prompt": "Visit GenZHype.com for the full timeline, link in bio.",
+  "options": [],
+  "comment": ""
+ },
+ "lines": [
+  {
+   "id": "hook",
+   "section": 0,
+   "text": "Jetpack Cat and Cassidy once flew together for deadly combos.",
+   "rate": "+12%",
+   "pause": 0.2,
+   "mood": "intro",
+   "visual": {
+    "asset": "clip0",
+    "in": 0,
+    "mode": "V"
+   },
+   "overlays": [
+    {
+     "comp": "stamp",
+     "text": "SYNERGY",
+     "on": "Jetpack"
+    },
+    {
+     "comp": "plate",
+     "name": "Jetpack Cat",
+     "role": "SUPPORT",
+     "tag": "TETHER: LIFELINE",
+     "on": "Jetpack"
+    },
+    {
+     "comp": "plate",
+     "name": "Cassidy",
+     "role": "DAMAGE",
+     "tag": "HIGH NOON ULT",
+     "on": "Cassidy"
+    }
+   ],
+   "claims": [
+    {
+     "text": "Jetpack Cat and Cassidy once flew together for deadly combos.",
+     "source": "kotaku.com"
+    }
+   ]
+  },
+  {
+   "id": "quote",
+   "section": 0,
+   "text": "Kotaku reportedly said the patch prevents Cassidy from staying attached while using High Noon.",
+   "rate": "+12%",
+   "pause": 0.2,
+   "mood": "groove",
+   "visual": {
+    "asset": "card"
+   },
+   "overlays": [
+    {
+     "comp": "quote",
+     "text": "which includes a balance change reportedly preventing Cassidy from attaching to Jetpack Cat's tether while using his High Noon ultimate",
+     "who": "Kotaku, Oct 6 2026",
+     "on": "reportedly"
+    }
+   ],
+   "claims": [
+    {
+     "text": "Kotaku reportedly said the patch prevents Cassidy from staying attached while using High Noon.",
+     "source": "kotaku.com"
+    }
+   ]
+  },
+  {
+   "id": "hunt1",
+   "section": 0,
+   "text": "Here's the Sky Noon combo in action: Jetpack Cat tethers Cassidy, who ults from above.",
+   "rate": "+12%",
+   "pause": 0.2,
+   "mood": "tense",
+   "visual": {
+    "asset": "hunt1",
+    "in": 0,
+    "mode": "V"
+   },
+   "overlays": [],
+   "claims": [
+    {
+     "text": "Here's the Sky Noon combo in action: Jetpack Cat tethers Cassidy, who ults from above.",
+     "source": "reddit.com/r/Overwatch"
+    }
+   ]
+  },
+  {
+   "id": "note1",
+   "section": 1,
+   "text": "Blizzard called the combo too powerful at repositioning Cassidy for eliminations.",
+   "rate": "+12%",
+   "pause": 0.2,
+   "mood": "hits",
+   "visual": {
+    "asset": "card"
+   },
+   "overlays": [
+    {
+     "comp": "note",
+     "label": "Blizzard",
+     "text": "Too powerful at repositioning Cassidy",
+     "on": "Blizzard"
+    },
+    {
+     "comp": "plate",
+     "name": "Blizzard",
+     "role": "DEVELOPER",
+     "tag": "PATCH NOTES",
+     "on": "Blizzard"
+    }
+   ],
+   "claims": [
+    {
+     "text": "Blizzard called the combo too powerful at repositioning Cassidy for eliminations.",
+     "source": "ign.com"
+    }
+   ]
+  },
+  {
+   "id": "hunt2",
+   "section": 1,
+   "text": "Season 5 patch trailer shows the nerf to Cassidy's tether interaction.",
+   "rate": "+12%",
+   "pause": 0.2,
+   "mood": "desk",
+   "visual": {
+    "asset": "hunt2",
+    "in": 0,
+    "mode": "V"
+   },
+   "overlays": [],
+   "claims": [
+    {
+     "text": "Season 5 patch trailer shows the nerf to Cassidy's tether interaction.",
+     "source": "ign.com"
+    }
+   ]
+  },
+  {
+   "id": "proof",
+   "section": 1,
+   "text": "The patch notes say: now prevents attaching to Jetpack Cat's Lifeline while using High Noon.",
+   "rate": "+12%",
+   "pause": 0.2,
+   "mood": "bright",
+   "visual": {
+    "asset": "card"
+   },
+   "overlays": [
+    {
+     "comp": "receipt",
+     "asset": "receipt1",
+     "line": "now prevents attaching to Jetpack Cat's Lifeline while using High Noon",
+     "on": "say:"
+    }
+   ],
+   "claims": [
+    {
+     "text": "The patch notes say: now prevents attaching to Jetpack Cat's Lifeline while using High Noon.",
+     "source": "kotaku.com"
+    }
+   ]
+  },
+  {
+   "id": "hunt3",
+   "section": 2,
+   "text": "Meanwhile Sombra becomes a support and Roadhog gets a new ability.",
+   "rate": "+12%",
+   "pause": 0.2,
+   "mood": "full",
+   "visual": {
+    "asset": "hunt3",
+    "in": 0,
+    "mode": "V"
+   },
+   "overlays": [],
+   "claims": [
+    {
+     "text": "Meanwhile Sombra becomes a support and Roadhog gets a new ability.",
+     "source": "ign.com"
+    }
+   ]
+  },
+  {
+   "id": "note2",
+   "section": 2,
+   "text": "These shifts reshape the meta as players adapt to new hero roles.",
+   "rate": "+12%",
+   "pause": 0.2,
+   "mood": "intro",
+   "visual": {
+    "asset": "card"
+   },
+   "overlays": [
+    {
+     "comp": "note",
+     "label": "Meta",
+     "text": "Shifts reshape meta",
+     "on": "shifts"
+    }
+   ],
+   "claims": [
+    {
+     "text": "These shifts reshape the meta as players adapt to new hero roles.",
+     "source": "ign.com"
+    }
+   ]
+  },
+  {
+   "id": "note3",
+   "section": 2,
+   "text": "Players debate whether the nerf was fair or overreached.",
+   "rate": "+12%",
+   "pause": 0.2,
+   "mood": "groove",
+   "visual": {
+    "asset": "card"
+   },
+   "overlays": [
+    {
+     "comp": "note",
+     "label": "Community",
+     "text": "Debate over nerf fairness",
+     "on": "debate"
+    }
+   ],
+   "claims": [
+    {
+     "text": "Players debate whether the nerf was fair or overreached.",
+     "source": "reddit.com/r/Overwatch"
+    }
+   ]
+  },
+  {
+   "id": "note4",
+   "section": 2,
+   "text": "Check the full timeline and sources on our page.",
+   "rate": "+12%",
+   "pause": 0.2,
+   "mood": "tense",
+   "visual": {
+    "asset": "card"
+   },
+   "overlays": [],
+   "claims": [
+    {
+     "text": "Check the full timeline and sources on our page.",
+     "source": "genzhype.com"
+    }
+   ]
+  },
+  {
+   "id": "site",
+   "section": 2,
+   "text": "Visit GenZHype.com for the full timeline, link in bio.",
+   "rate": "+12%",
+   "pause": 0.2,
+   "mood": "hits",
+   "visual": {
+    "asset": "site",
+    "in": 0,
+    "mode": "V"
+   },
+   "overlays": [],
+   "claims": []
+  }
+ ],
+ "assets": {
+  "clip0": {
+   "kind": "clip",
+   "url": "https://www.tiktok.com/@llsq_0/video/7603120922119212309",
+   "platform": "tiktok",
+   "credit": "CLIP · @LLSQ_0 / TIKTOK",
+   "file": "clip0.mp4"
+  },
+  "hunt1": {
+   "kind": "hunt",
+   "query": "Overwatch Jetpack Cat Cassidy High Noon combo",
+   "why": "the Sky Noon combo in play"
+  },
+  "hunt2": {
+   "kind": "hunt",
+   "query": "Overwatch Season 5 patch trailer",
+   "why": "the patch"
+  },
+  "hunt3": {
+   "kind": "hunt",
+   "query": "Overwatch Sombra support Roadhog new ability",
+   "why": "the other changes"
+  },
+  "receipt1": {
+   "kind": "receipt",
+   "url": "https://kotaku.com/overwatch-season-5-patch-notes-cassidy-jetpack-cat-2000741044",
+   "highlight": [
+    "which includes a balance change reportedly preventing Cassidy from attaching to Jetpack Cats tether while using his High Noon ultimate"
+   ],
+   "credit": "Kotaku, Oct 6 2026"
+  },
+  "site": {
+   "kind": "site",
+   "url": "https://genzhype.com/gaming/overwatch-patch-ends-jetpack-cat-and-cassidy-combo/"
+  }
+ },
+ "post": {
+  "caption": "Overwatch Season 5 patch removes the Jetpack Cat‑Cassidy Sky Noon combo. See the proof, the nerf, and what else changed.",
+  "hashtags": [
+   "#Overwatch",
+   "#PatchNotes",
+   "#JetpackCat",
+   "#Cassidy",
+   "#SkyNoon"
+  ],
+  "pinned": "",
+  "facts": [
+   {
+    "claim": "Blizzard’s Season 5 patch prevents Cassidy from staying attached to Jetpack Cat’s Lifeline while using High Noon.",
+    "source": "kotaku.com"
+   }
+  ]
+ },
+ "model": "nvidia/nvidia/nemotron-3-super-120b-a12b",
+ "words": 126,
+ "page_id": 3332,
+ "url": "https://genzhype.com/gaming/overwatch-patch-ends-jetpack-cat-and-cassidy-combo/",
+ "lane": "gaming",
+ "title": "Overwatch Season 5 Patch Removes Cassidy‑Jetpack Cat Synergy",
+ "sensitive": {
+  "flag": false,
+  "why": ""
+ },
+ "made_at": "2026-10-07T15:41:36+00:00",
+ "tries": 2,
+ "posts_material": [
+  {
+   "url": "https://www.tiktok.com/@llsq_0/video/7603120922119212309",
+   "platform": "tiktok",
+   "handle": "@llsq_0",
+   "name": "",
+   "text": "Original tiktok post by Iq: @llsq_0 First jetpack cat + Cassidy ult 😭 #overwatch #overwatch2 #jetpackcat #OWSpotlight2026 #overwatchtiktok ♬ original sound - Iq",
+   "date": "",
+   "likes": 0,
+   "media": [
+    {
+     "type": "video",
+     "seconds": null,
+     "image": ""
+    }
+   ]
+  }
+ ]
+}

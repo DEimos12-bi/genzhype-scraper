@@ -1,0 +1,27 @@
+TIKTOK POST — Overwatch Season 5 Patch Removes Cassidy‑Jetpack Cat Synergy (breakdown format)
+File: genzhype-overwatch-patch-ends-jetpack-cat-and-cassidy-combo.mp4 (1080x1920, 48.9 s) · Cover: cover.jpg
+
+CAPTION
+Overwatch Season 5 patch removes the Jetpack Cat‑Cassidy Sky Noon combo. See the proof, the nerf, and what else changed.
+#Overwatch #PatchNotes #JetpackCat #Cassidy #SkyNoon
+
+PINNED COMMENT (post it yourself right after upload)
+
+
+LINK IN BIO must point to
+https://genzhype.com/gaming/overwatch-patch-ends-jetpack-cat-and-cassidy-combo/
+
+THE DIRECTOR'S CHOICES
+- Format: breakdown (The breakdown format splits the story into three clear acts—synergy, nerf, and twist—matching the video’s section rails and letting viewers follow the cause‑effect flow.)
+- Special moment: highlight_sweep (to highlight the key nerf sentence in the receipt)
+- First second: clip0 + "Jetpack Cat and Cassidy once flew together for deadly combos."
+- Proof: "which includes a balance change reportedly preventing Cassidy from attaching to Jetpack Cats tether while using his High Noon ultimate" (kotaku.com)
+- Ending: {"kind": "site", "prompt": "Visit GenZHype.com for the full timeline, link in bio.", "options": [], "comment": ""}
+
+WHERE EACH FACT COMES FROM
+- Blizzard’s Season 5 patch prevents Cassidy from staying attached to Jetpack Cat’s Lifeline while using High Noon.: kotaku.com
+
+FOOTAGE (credited on screen)
+- clip0: CLIP · @LLSQ_0 / TIKTOK
+- receipt1: Kotaku, Oct 6 2026
+- Voice: edge-tts (Andrew). Music and sound effects: made in code for this video, nothing licensed.

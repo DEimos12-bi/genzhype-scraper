@@ -1,0 +1,47 @@
+== voice: /opt/hostedtoolcache/Python/3.11.16/x64/bin/python /home/runner/work/genzhype-scraper/genzhype-scraper/v2/tts.py /home/runner/work/genzhype-scraper/genzhype-scraper/work-3322
+take 0 hook 9 words
+take 1 kameto 9 words
+take 2 proof 14 words
+take 3 coupez1 11 words
+take 4 coupez2 11 words
+take 5 talks 15 words
+take 6 impact 11 words
+take 7 fans 9 words
+take 8 vote 12 words
+take 9 outro 8 words
+voice total 46.49 s, 10 lines
+== voice done in 4s (exit 0)
+== fetch: /opt/hostedtoolcache/Python/3.11.16/x64/bin/python /home/runner/work/genzhype-scraper/genzhype-scraper/v2/fetch.py /home/runner/work/genzhype-scraper/genzhype-scraper/work-3322
+cookies: active
+fetch done: 0 yt-dlp calls
+== fetch done in 1s (exit 0)
+== receipts: /opt/hostedtoolcache/Python/3.11.16/x64/bin/python /home/runner/work/genzhype-scraper/genzhype-scraper/v2/receipts.py /home/runner/work/genzhype-scraper/genzhype-scraper/work-3322
+receipt1 {"found": true, "text": "Darragh Harbinson\n\u00b7\nEsports\n\u00b7\nOctober 6, 2026\nVATIRA AND ATOW. AGENCY BOSS ACCUSES KARMINE CORP OF \u201cSEVERAL HUNDRED THOUSAND EUROS\u201d IN UNPAID WAGES\n\nProdigy SEG CEO J\u00e9r\u00f4me Coupez has accused Karmine Corp of \u201cseveral hundred thousand 
+receipt1 rects for ['Vatira and Atow. Agency Boss Accuses Karmine Corp of Several Hundred Thousand Euros in Unpaid Wages']
+site FAILED Page.goto: Timeout 45000ms exceeded.
+Call log:
+navigating to "https://genzhype.com/gaming/karmine-corp-wage-dispute-vatira-and-atow-unpaid/", waiting until "domcontentloaded"
+
+== receipts done in 55s (exit 0)
+== shots: /opt/hostedtoolcache/Python/3.11.16/x64/bin/python /home/runner/work/genzhype-scraper/genzhype-scraper/v2/shots.py /home/runner/work/genzhype-scraper/genzhype-scraper/work-3322
+hook       0.00-  4.38  clip0@0.00 x1.00 V frames 134 (1180x650)
+kameto     4.38-  7.44  clip1@0.00 x1.00 V frames 95 (1180x650)
+end 46.941 frames 1408
+== shots done in 3s (exit 0)
+== frames: /opt/hostedtoolcache/Python/3.11.16/x64/bin/python /home/runner/work/genzhype-scraper/genzhype-scraper/v2/render.py /home/runner/work/genzhype-scraper/genzhype-scraper/work-3322 frames
+frame 0/1408 0.1s
+frame 300/1408 35.9s
+frame 600/1408 61.2s
+frame 900/1408 84.8s
+frame 1200/1408 108.1s
+frames 1408 in 124.4s (88 ms each)
+decode errors: 0 | page errors: none
+== frames done in 125s (exit 0)
+== sound: /opt/hostedtoolcache/Python/3.11.16/x64/bin/python /home/runner/work/genzhype-scraper/genzhype-scraper/v2/audio.py /home/runner/work/genzhype-scraper/genzhype-scraper/work-3322
+mix 46.94s | voice -16.1 dB | music under voice -34.1 dB | clips under voice -43.4 dB | fx peak 0.78
+== sound done in 3s (exit 0)
+== assemble: ffmpeg -y -v error -framerate 30 -i /home/runner/work/genzhype-scraper/genzhype-scraper/work-3322/frames/f%05d.jpg -i /home/runner/work/genzhype-scraper/genzhype-scraper/work-3322/mix.wav -c:v libx264 -preset medium -crf 19 -pix_fmt yuv420p -profile:v high -level 4.1 -movflags +faststart -c:a aac -b:a 192k -shortest /home/runner/work/genzhype-scraper/genzhype-scraper/work-3322/out/genzhype-karmine-corp-wage-dispute-vatira-and-atow-unpaid.mp4
+== assemble done in 51s (exit 0)
+== cover: ffmpeg -y -v error -ss 1.90 -i /home/runner/work/genzhype-scraper/genzhype-scraper/work-3322/out/genzhype-karmine-corp-wage-dispute-vatira-and-atow-unpaid.mp4 -frames:v 1 -q:v 2 /home/runner/work/genzhype-scraper/genzhype-scraper/work-3322/out/cover.jpg
+== cover done in 0s (exit 0)
+DONE /home/runner/work/genzhype-scraper/genzhype-scraper/work-3322/out/genzhype-karmine-corp-wage-dispute-vatira-and-atow-unpaid.mp4 46.9s

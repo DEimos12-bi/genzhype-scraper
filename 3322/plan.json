@@ -1,0 +1,511 @@
+{
+ "format": "vote",
+ "why_format": "The vote format lets the audience act as a jury to decide whether Karmine Corp is responsible for the unpaid wages, matching the story's conflict of claims.",
+ "length_s": 39,
+ "special": {
+  "id": "exhibits",
+  "why": "We need to display the official receipt as evidence for the jury.",
+  "params": []
+ },
+ "kicker": "",
+ "sections": [],
+ "options": [
+  {
+   "letter": "A",
+   "name": "Yes",
+   "sub": "Karmine Corp should pay",
+   "comment": ""
+  },
+  {
+   "letter": "B",
+   "name": "No",
+   "sub": "Karmine Corp not responsible",
+   "comment": ""
+  },
+  {
+   "letter": "C",
+   "name": "Not enough info",
+   "sub": "Need more evidence",
+   "comment": ""
+  }
+ ],
+ "first_second": {
+  "asset": "clip0",
+  "claim": "Gotaga says",
+  "stamp": "Gotaga says"
+ },
+ "proof": {
+  "asset": "receipt1",
+  "line": "Vatira and Atow. Agency Boss Accuses Karmine Corp of Several Hundred Thousand Euros in Unpaid Wages",
+  "source": "insider-gaming.com",
+  "url": "https://insider-gaming.com/karmine-corp-unpaid-wages-vatira-atow/",
+  "repaired_from": "Vatira and Atow. Agency Boss Accuses Karmine Corp of 'Several Hundred Thousand Euros' in Unpaid Wage"
+ },
+ "people": [
+  {
+   "name": "Gotaga",
+   "role": "STREAMER",
+   "tag": "SAID KARMINE OWES >300k"
+  },
+  {
+   "name": "Kameto",
+   "role": "KARMINE CORP CO-FOUNDER",
+   "tag": "CLAIMED ISSUE RESOLVED"
+  },
+  {
+   "name": "Jérôme Coupez",
+   "role": "PRODIGY SEG CEO",
+   "tag": "SAID SEVERAL HUNDRED THOUSAND UNPAID"
+  },
+  {
+   "name": "Vatira",
+   "role": "ROCKET LEAGUE PLAYER",
+   "tag": "OWED WAGES"
+  },
+  {
+   "name": "Atow",
+   "role": "ROCKET LEAGUE PLAYER",
+   "tag": "OWED WAGES"
+  },
+  {
+   "name": "zen",
+   "role": "VITALITY PLAYER",
+   "tag": "TEAMMATE WITH ATOW"
+  }
+ ],
+ "ending": {
+  "kind": "vote",
+  "prompt": "Vote A, B, or C",
+  "options": [
+   {
+    "letter": "A",
+    "name": "Yes",
+    "sub": "Karmine Corp should pay"
+   },
+   {
+    "letter": "B",
+    "name": "No",
+    "sub": "Karmine Corp not responsible"
+   },
+   {
+    "letter": "C",
+    "name": "Not enough info",
+    "sub": "Need more evidence"
+   }
+  ],
+  "comment": ""
+ },
+ "lines": [
+  {
+   "id": "hook",
+   "section": 0,
+   "text": "Gotaga says Karmine Corp owes over €300k in wages.",
+   "rate": "+12%",
+   "pause": 0.2,
+   "mood": "intro",
+   "visual": {
+    "asset": "clip0",
+    "in": 0,
+    "mode": "V"
+   },
+   "overlays": [
+    {
+     "comp": "stamp",
+     "text": "Gotaga says",
+     "on": "Gotaga"
+    },
+    {
+     "comp": "plate",
+     "name": "Gotaga",
+     "role": "STREAMER",
+     "tag": "SAID KARMINE OWES >300k",
+     "on": "Karmine"
+    }
+   ],
+   "claims": [
+    {
+     "text": "Gotaga says Karmine Corp owes over €300k in wages.",
+     "source": "Gotaga"
+    }
+   ]
+  },
+  {
+   "id": "kameto",
+   "section": 0,
+   "text": "Kameto claimed on stream that the issue was resolved.",
+   "rate": "+12%",
+   "pause": 0.2,
+   "mood": "groove",
+   "visual": {
+    "asset": "clip1",
+    "in": 0,
+    "mode": "V"
+   },
+   "overlays": [
+    {
+     "comp": "stamp",
+     "text": "Kameto claims",
+     "on": "Kameto"
+    },
+    {
+     "comp": "plate",
+     "name": "Kameto",
+     "role": "KARMINE CORP CO-FOUNDER",
+     "tag": "CLAIMED ISSUE RESOLVED",
+     "on": "claimed"
+    }
+   ],
+   "claims": [
+    {
+     "text": "Kameto claimed on stream that the issue was resolved.",
+     "source": "Kameto"
+    }
+   ]
+  },
+  {
+   "id": "proof",
+   "section": 0,
+   "text": "Official source: agency boss accuses Karmine Corp of 'Several Hundred Thousand Euros' unpaid wages.",
+   "rate": "+12%",
+   "pause": 0.2,
+   "mood": "tense",
+   "visual": {
+    "asset": "card",
+    "in": 0
+   },
+   "overlays": [
+    {
+     "comp": "receipt",
+     "asset": "receipt1",
+     "line": "Vatira and Atow. Agency Boss Accuses Karmine Corp of 'Several Hundred Thousand Euros' in Unpaid Wage",
+     "on": "Official source:"
+    },
+    {
+     "comp": "note",
+     "label": "Source",
+     "text": "insider-gaming.com 2026-10-06",
+     "on": "Official source:"
+    }
+   ],
+   "claims": [
+    {
+     "text": "Official source: agency boss accuses Karmine Corp of 'Several Hundred Thousand Euros' unpaid wages.",
+     "source": "insider-gaming.com"
+    }
+   ]
+  },
+  {
+   "id": "coupez1",
+   "section": 0,
+   "text": "Jérôme Coupez disputes Kameto, saying several hundred thousand euros remain unpaid.",
+   "rate": "+12%",
+   "pause": 0.2,
+   "mood": "hits",
+   "visual": {
+    "asset": "card",
+    "in": 0
+   },
+   "overlays": [
+    {
+     "comp": "stamp",
+     "text": "Coupez says",
+     "on": "Jérôme"
+    },
+    {
+     "comp": "plate",
+     "name": "Jérôme Coupez",
+     "role": "PRODIGY SEG CEO",
+     "tag": "SAID SEVERAL HUNDRED THOUSAND UNPAID",
+     "on": "disputes"
+    }
+   ],
+   "claims": [
+    {
+     "text": "Jérôme Coupez disputes Kameto, saying several hundred thousand euros remain unpaid.",
+     "source": "Jérôme Coupez"
+    }
+   ]
+  },
+  {
+   "id": "coupez2",
+   "section": 0,
+   "text": "Coupez clarifies the sum exceeds €300k, noting it's not just bonuses.",
+   "rate": "+12%",
+   "pause": 0.2,
+   "mood": "desk",
+   "visual": {
+    "asset": "card",
+    "in": 0
+   },
+   "overlays": [
+    {
+     "comp": "stamp",
+     "text": "Coupez clarifies",
+     "on": "Coupez"
+    }
+   ],
+   "claims": [
+    {
+     "text": "Coupez clarifies the sum exceeds €300k, noting it's not just bonuses.",
+     "source": "Jérôme Coupez"
+    }
+   ]
+  },
+  {
+   "id": "talks",
+   "section": 0,
+   "text": "As of Oct 6, buyout talks for Vatira and Atow to Gentle Mates are still pending.",
+   "rate": "+12%",
+   "pause": 0.2,
+   "mood": "bright",
+   "visual": {
+    "asset": "card",
+    "in": 0
+   },
+   "overlays": [
+    {
+     "comp": "plate",
+     "name": "Vatira",
+     "role": "ROCKET LEAGUE PLAYER",
+     "tag": "OWED WAGES",
+     "on": "Vatira"
+    },
+    {
+     "comp": "plate",
+     "name": "Atow",
+     "role": "ROCKET LEAGUE PLAYER",
+     "tag": "OWED WAGES",
+     "on": "Atow"
+    },
+    {
+     "comp": "note",
+     "label": "Date",
+     "text": "2026-10-06",
+     "on": "Oct 6"
+    }
+   ],
+   "claims": [
+    {
+     "text": "As of Oct 6, buyout talks for Vatira and Atow to Gentle Mates are still pending.",
+     "source": "insider-gaming.com"
+    }
+   ]
+  },
+  {
+   "id": "impact",
+   "section": 0,
+   "text": "This could impact the planned Rocket League superteam with Vitality’s zen.",
+   "rate": "+12%",
+   "pause": 0.2,
+   "mood": "full",
+   "visual": {
+    "asset": "card",
+    "in": 0
+   },
+   "overlays": [
+    {
+     "comp": "plate",
+     "name": "zen",
+     "role": "VITALITY PLAYER",
+     "tag": "TEAMMATE WITH ATOW",
+     "on": "zen"
+    }
+   ],
+   "claims": [
+    {
+     "text": "This could impact the planned Rocket League superteam with Vitality’s zen.",
+     "source": "insider-gaming.com"
+    }
+   ]
+  },
+  {
+   "id": "fans",
+   "section": 0,
+   "text": "Fans ask: should Karmine Corp pay the wages immediately?",
+   "rate": "+12%",
+   "pause": 0.2,
+   "mood": "intro",
+   "visual": {
+    "asset": "card",
+    "in": 0
+   },
+   "overlays": [
+    {
+     "comp": "note",
+     "label": "Fans",
+     "text": "Community opinion",
+     "on": "Fans ask:"
+    }
+   ],
+   "claims": [
+    {
+     "text": "Fans ask: should Karmine Corp pay the wages immediately?",
+     "source": "Fans"
+    }
+   ]
+  },
+  {
+   "id": "vote",
+   "section": 0,
+   "text": "Vote: Is Karmine Corp responsible? A) Yes B) No C) Not enough",
+   "rate": "+12%",
+   "pause": 0.2,
+   "mood": "tense",
+   "visual": {
+    "asset": "card",
+    "in": 0
+   },
+   "overlays": [
+    {
+     "comp": "stamp",
+     "text": "Vote:",
+     "on": "Vote:"
+    }
+   ],
+   "claims": [
+    {
+     "text": "Vote: Is Karmine Corp responsible? A) Yes B) No C) Not enough",
+     "source": "Narrator"
+    }
+   ]
+  },
+  {
+   "id": "outro",
+   "section": 0,
+   "text": "See full timeline at genzhype.com, link in bio.",
+   "rate": "+12%",
+   "pause": 0.2,
+   "mood": "bright",
+   "visual": {
+    "asset": "site",
+    "in": 0
+   },
+   "overlays": [
+    {
+     "comp": "stamp",
+     "text": "Link in bio",
+     "on": "bio"
+    }
+   ],
+   "claims": [
+    {
+     "text": "See full timeline at genzhype.com, link in bio.",
+     "source": "GenZHype"
+    }
+   ]
+  }
+ ],
+ "assets": {
+  "receipt1": {
+   "kind": "receipt",
+   "url": "https://insider-gaming.com/karmine-corp-unpaid-wages-vatira-atow/",
+   "highlight": [
+    "Vatira and Atow. Agency Boss Accuses Karmine Corp of Several Hundred Thousand Euros in Unpaid Wages"
+   ],
+   "credit": "insider-gaming.com"
+  },
+  "clip0": {
+   "kind": "clip",
+   "url": "https://x.com/FrenchRapUS/status/2107233996295843990",
+   "platform": "x",
+   "credit": "CLIP · @FRENCHRAPUS / X",
+   "file": "clip0.mp4"
+  },
+  "clip1": {
+   "kind": "clip",
+   "url": "https://x.com/FrenchRapUS/status/2107233996295843990",
+   "platform": "x",
+   "credit": "CLIP · @FRENCHRAPUS / X",
+   "file": "clip1.mp4"
+  },
+  "site": {
+   "kind": "site",
+   "url": "https://genzhype.com/gaming/karmine-corp-wage-dispute-vatira-and-atow-unpaid/"
+  }
+ },
+ "post": {
+  "caption": "Karmine Corp wage dispute: Vatira and Atow unpaid",
+  "hashtags": [
+   "#KarmineCorp",
+   "#WageDispute",
+   "#RocketLeague"
+  ],
+  "pinned": "",
+  "facts": [
+   {
+    "claim": "Karmine Corp owes over €300k in unpaid wages to Vatira and Atow",
+    "source": "Jérôme Coupez via insider-gaming.com"
+   },
+   {
+    "claim": "Kameto claimed the issue was resolved on stream",
+    "source": "Kameto stream"
+   }
+  ]
+ },
+ "model": "nvidia/nvidia/nemotron-3-super-120b-a12b",
+ "words": 113,
+ "page_id": 3322,
+ "url": "https://genzhype.com/gaming/karmine-corp-wage-dispute-vatira-and-atow-unpaid/",
+ "lane": "gaming",
+ "title": "Karmine Corp Wage Dispute: Vatira and Atow Unpaid",
+ "sensitive": {
+  "flag": false,
+  "why": ""
+ },
+ "made_at": "2026-10-07T11:53:24+00:00",
+ "tries": 3,
+ "posts_material": [
+  {
+   "url": "https://x.com/FrenchRapUS/status/2107233996295843990",
+   "platform": "x",
+   "handle": "@FrenchRapUS",
+   "name": "FRENCHRAPUS 🇺🇸",
+   "text": "🚨 ALERTE ! Le streamer Gotaga révèle en live que la Karmine Corp aurait plus de 300 000 € d’impayés concernant ses joueurs Rocket League, en réponse au live de Kameto ce soir. https://t.co/qiYU4ZX49k",
+   "date": "2026-10-05",
+   "likes": 4649,
+   "media": [
+    {
+     "type": "video",
+     "seconds": 54,
+     "image": "https://pbs.twimg.com/amplify_video_thumb/2107233752778760192/img/qW05cP3iIYGtjvwi.jpg"
+    }
+   ]
+  },
+  {
+   "url": "https://x.com/Jerome_Coupez/status/2107220906212737204",
+   "platform": "x",
+   "handle": "@Jerome_Coupez",
+   "name": "Jérôme Coupez",
+   "text": "Puisque des informations factuellement erronées ont été partagées en live, quelques faits doivent être rétablis. 1. Les sujets financiers ayant eux-mêmes été abordés publiquement lors de ce live, nous pouvons désormais nous permettre d’y répondre également. À ce jour, ce sont",
+   "date": "2026-10-05",
+   "likes": 1799,
+   "media": []
+  },
+  {
+   "url": "https://x.com/FrenchRapUS/status/2107233996295843990",
+   "platform": "x",
+   "handle": "@FrenchRapUS",
+   "name": "FRENCHRAPUS 🇺🇸",
+   "text": "🚨 ALERTE ! Le streamer Gotaga révèle en live que la Karmine Corp aurait plus de 300 000 € d’impayés concernant ses joueurs Rocket League, en réponse au live de Kameto ce soir. https://t.co/qiYU4ZX49k",
+   "date": "2026-10-05",
+   "likes": 4649,
+   "media": [
+    {
+     "type": "video",
+     "seconds": 54,
+     "image": "https://pbs.twimg.com/amplify_video_thumb/2107233752778760192/img/qW05cP3iIYGtjvwi.jpg"
+    }
+   ]
+  },
+  {
+   "url": "https://x.com/Jerome_Coupez/status/2107220906212737204",
+   "platform": "x",
+   "handle": "@Jerome_Coupez",
+   "name": "Jérôme Coupez",
+   "text": "Puisque des informations factuellement erronées ont été partagées en live, quelques faits doivent être rétablis. 1. Les sujets financiers ayant eux-mêmes été abordés publiquement lors de ce live, nous pouvons désormais nous permettre d’y répondre également. À ce jour, ce sont",
+   "date": "2026-10-05",
+   "likes": 1799,
+   "media": []
+  }
+ ]
+}
