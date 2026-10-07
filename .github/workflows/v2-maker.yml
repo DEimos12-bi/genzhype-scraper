@@ -60,7 +60,7 @@ jobs:
           python -m pip install --upgrade pip 2>&1 | tail -1
           python -m pip install "playwright==1.48.0" "edge-tts==7.2.8" numpy 2>&1 | tail -2
           # yt-dlp with browser-TLS impersonation: YouTube clips + footage hunts (v2/fetch.py), the old maker's route
-          python -m pip install -U "yt-dlp[default,curl-cffi]" 2>&1 | tail -1
+          ( python -m pip install -U "yt-dlp[default,curl-cffi]" 2>&1 | tail -1 ) || ( python -m pip install -U yt-dlp 2>&1 | tail -1 ) || echo "yt-dlp install failed: YouTube clips off this run"
           python -m playwright install --with-deps chromium 2>&1 | tail -2
 
       - name: Make the videos
