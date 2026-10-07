@@ -1,0 +1,96 @@
+name: v2-maker
+
+# VIDEO SYSTEM v2 (owner 2026-10-07): renders one planned video per feed folder, the owner's hand-made method on the
+# runner (edge-tts voice with word timings, HTML frames in headless Chromium, sound made in code, ffmpeg). The server
+# writes the plan + assets to the `v2-feed` branch and touches .social/v2-feed/<page>.json on main to start a run.
+# Results go to the `v2-drop` branch (<page>/: mp4, cover, post.txt, plan.json, logs). Posts NOTHING.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".social/v2-feed/*.json"
+  workflow_dispatch:
+    inputs:
+      pages:
+        description: "page ids to render (space separated); empty = every folder on v2-feed"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v2-maker
+  cancel-in-progress: false
+
+jobs:
+  make:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Fetch the feed (plans + assets)
+        run: |
+          git fetch --depth 1 origin v2-feed:v2-feed
+          rm -rf feed && mkdir feed
+          git archive v2-feed | tar -x -C feed
+          ls -la feed | head -40
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Cache the browser and the pip wheels
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/ms-playwright
+            ~/.cache/pip
+          key: v2-maker-${{ runner.os }}-1
+
+      - name: Install (ffmpeg, Playwright Chromium, edge-tts, numpy)
+        run: |
+          set -o pipefail
+          command -v ffmpeg >/dev/null || { sudo apt-get update -qq >/dev/null 2>&1 || true; sudo timeout 200 apt-get install -y -qq ffmpeg >/dev/null 2>&1 || true; }
+          ffmpeg -version | head -1
+          python -m pip install --upgrade pip 2>&1 | tail -1
+          python -m pip install "playwright==1.48.0" "edge-tts==7.0.0" numpy 2>&1 | tail -2
+          python -m playwright install --with-deps chromium 2>&1 | tail -2
+
+      - name: Make the videos
+        env:
+          PAGES: ${{ github.event.inputs.pages }}
+        run: |
+          mkdir -p drop
+          for d in feed/*/; do
+            p=$(basename "$d")
+            [ -f "$d/plan.json" ] || continue
+            if [ -n "$PAGES" ] && ! echo " $PAGES " | grep -q " $p "; then continue; fi
+            echo "=== page $p"
+            cp -r "$d" "work-$p"
+            ( timeout 2400 python v2/make.py "work-$p" 2>&1 | tee "drop/$p.log" ) || echo "page $p FAILED (see log)"
+            mkdir -p "drop/$p"
+            cp -r "work-$p/out/." "drop/$p/" 2>/dev/null || true
+            [ -f "work-$p/render_errors.txt" ] && cp "work-$p/render_errors.txt" "drop/$p/" || true
+            # a few frames for a look without downloading the video
+            for f in 00030 00300 00900; do [ -f "work-$p/frames/f$f.jpg" ] && cp "work-$p/frames/f$f.jpg" "drop/$p/frame-$f.jpg"; done
+          done
+          ls -laR drop | head -60
+
+      - name: Push the results to the v2-drop branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          cd drop
+          git init -q
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -q -b v2-drop
+          git add -A
+          git commit -q -m "v2 videos $(date -u +%Y-%m-%dT%H:%M:%SZ)" || echo "nothing to push"
+          git push -qf "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" v2-drop || true

@@ -1,0 +1,343 @@
+"""v2 sound: voice + an original music bed (made here in code, nothing licensed) + effects on the cuts and the
+overlays + the clips' own sound under real footage. The owner's audio.py generalised: the cues come from comp.json
+(shots, overlays' times from the engine's rules) instead of a hand-written table. Writes mix.wav (48 kHz stereo)."""
+import json
+import os
+import subprocess
+import sys
+import wave
+
+import numpy as np
+
+SR = 48000
+work = sys.argv[1]
+C = json.load(open(os.path.join(work, 'comp.json'), encoding='utf-8'))
+PL = C['plan']
+END = C['end']
+N = int(END * SR) + SR // 4
+LN = {l['id']: l for l in C['lines']}
+SH = {s['id']: s for s in C['shots']}
+rng = np.random.default_rng(7)
+
+
+def norm(w):
+    return w.lower().strip('.,?!:;"')
+
+
+def W(i, word):
+    want = norm(word).split(' ')[0]
+    for w in LN[i]['words']:
+        if norm(w['w']) == want:
+            return w['s']
+    return LN[i]['s']
+
+
+def filt(x, lo=None, hi=None, shelf=None):
+    X = np.fft.rfft(x)
+    f = np.fft.rfftfreq(len(x), 1 / SR)
+    g = np.ones_like(f)
+    if lo:
+        g *= 1 / np.sqrt(1 + (lo / np.maximum(f, 1e-6)) ** 6)
+    if hi:
+        g *= 1 / np.sqrt(1 + (f / hi) ** 6)
+    if shelf:
+        g *= 1 + (10 ** (shelf[1] / 20) - 1) / (1 + (shelf[0] / np.maximum(f, 1e-6)) ** 4)
+    return np.fft.irfft(X * g, len(x))
+
+
+def env_follow(x, attack=0.02, release=0.25):
+    a = np.abs(x)
+    hop = 480
+    frames = a[:len(a) // hop * hop].reshape(-1, hop).max(axis=1)
+    out, e = np.empty_like(frames), 0.0
+    ka, kr = np.exp(-hop / SR / attack), np.exp(-hop / SR / release)
+    for i, v in enumerate(frames):
+        k = ka if v > e else kr
+        e = k * e + (1 - k) * v
+        out[i] = e
+    return np.interp(np.arange(len(x)), np.arange(len(frames)) * hop + hop / 2, out)
+
+
+def add(buf, sig, t, gain=1.0, pan=0.0):
+    i = int(t * SR)
+    if i < 0:
+        sig, i = sig[-i:], 0
+    n = min(len(sig), buf.shape[1] - i)
+    if n <= 0:
+        return
+    l, r = np.cos((pan + 1) * np.pi / 4), np.sin((pan + 1) * np.pi / 4)
+    buf[0, i:i + n] += sig[:n] * gain * l * 1.414
+    buf[1, i:i + n] += sig[:n] * gain * r * 1.414
+
+
+def tt(dur):
+    return np.arange(int(dur * SR)) / SR
+
+
+def kick():
+    t = tt(0.42); f = 46 + 120 * np.exp(-t * 30)
+    x = np.sin(2 * np.pi * np.cumsum(f) / SR) * np.exp(-t * 8.5)
+    x[:240] += rng.uniform(-1, 1, 240) * np.linspace(.5, 0, 240)
+    return np.tanh(1.8 * x)
+
+
+def sub(f, dur=0.75):
+    t = tt(dur); ff = f * (1 + .6 * np.exp(-t * 45))
+    e = np.minimum(1, t / .004) * np.exp(-t * 2.6) * np.minimum(1, (dur - t) / .03)
+    return np.tanh(3.2 * np.sin(2 * np.pi * np.cumsum(ff) / SR) * e) * .8
+
+
+def clap():
+    t = tt(0.34)
+    e = sum(np.where(t >= d, np.exp(-(t - d) * 85), 0) for d in (0, .011, .023)) * .5 + np.where(t >= .03, np.exp(-(t - .03) * 20), 0)
+    return filt(rng.uniform(-1, 1, len(t)), 900, 6500) * e
+
+
+def hat(dur=0.05, k=95):
+    t = tt(dur)
+    return filt(rng.uniform(-1, 1, len(t)), 7000, None) * np.exp(-t * k)
+
+
+def pluck(f, dur=1.1, bright=.55, seed=1):
+    n = max(8, int(4 * SR / f)); rate = f * (n + .5)
+    r = np.random.default_rng(seed); b = r.uniform(-1, 1, n)
+    for _ in range(int((1 - bright) * 8) * 6 + 6):
+        b = .5 * (b + np.roll(b, 1))
+    per = int(dur * f) + 2; out = np.empty(per * n)
+    for k in range(per):
+        out[k * n:(k + 1) * n] = b
+        b = .9965 * .5 * (b + np.roll(b, 1))
+        if k % 3 == 0:
+            b = .5 * (b + np.roll(b, 2))
+    m = int(dur * SR)
+    out = np.interp(np.arange(m) * rate / SR, np.arange(len(out)), out)
+    out[-480:] *= np.linspace(1, 0, 480)
+    return out / (np.max(np.abs(out)) + 1e-9)
+
+
+def whoosh(dur=.38, lo=.5, hi=2.2, peak=.72):
+    n = int(dur * SR); src = filt(rng.uniform(-1, 1, n * 3), 350, 2600)
+    rate = lo * (hi / lo) ** np.linspace(0, 1, n); x = np.interp(np.cumsum(rate), np.arange(len(src)), src)
+    p = np.linspace(0, 1, n); e = np.where(p < peak, (p / peak) ** 2.2, ((1 - p) / (1 - peak)) ** 1.4)
+    return x * e
+
+
+def riser(dur=1.2):
+    n = int(dur * SR); src = filt(rng.uniform(-1, 1, n * 4), 500, 5000)
+    rate = .35 * (3.2 / .35) ** np.linspace(0, 1, n); x = np.interp(np.cumsum(rate), np.arange(len(src)), src)
+    p = np.linspace(0, 1, n); tone = np.sin(2 * np.pi * np.cumsum(180 * (7 ** p)) / SR) * .25
+    return (x + tone) * p ** 2.6
+
+
+def impact(size=1.0):
+    t = tt(.9); f = 34 + 70 * np.exp(-t * 16)
+    low = np.tanh(2.6 * np.sin(2 * np.pi * np.cumsum(f) / SR) * np.exp(-t * (5.5 / size)))
+    crack = filt(rng.uniform(-1, 1, len(t)), 120, 3200) * np.exp(-t * 26) * .9
+    return low * .62 + crack
+
+
+def beep(f, dur=.07, k=40):
+    t = tt(dur)
+    return (np.sin(2 * np.pi * f * t) + .3 * np.sin(4 * np.pi * f * t)) * np.exp(-t * k) * np.minimum(1, t / .002)
+
+
+def ding():
+    t = tt(.55)
+    return (np.sin(2 * np.pi * 1318.5 * t) + .6 * np.sin(2 * np.pi * 1975.5 * t) + .3 * np.sin(2 * np.pi * 2637 * t)) * np.exp(-t * 9) * np.minimum(1, t / .003) * .5
+
+
+def pop():
+    t = tt(.09); f = 520 + 900 * np.exp(-t * 60)
+    return np.sin(2 * np.pi * np.cumsum(f) / SR) * np.exp(-t * 55)
+
+
+BPM = 122
+STEP = 60 / BPM / 4
+BAR = STEP * 16
+CHORDS = {'Dm': (73.42, [293.66, 349.23, 440.0, 587.33]), 'Bb': (58.27, [233.08, 293.66, 349.23, 466.16]), 'A': (55.0, [220.0, 277.18, 329.63, 440.0])}
+PROG = ['Dm', 'Dm', 'Bb', 'A']
+# the mood of each line, from the plan (intro | groove | tense | hits | desk | bright | full)
+SECTIONS = [(0.0, 'intro')]
+for pl in PL['lines']:
+    s = SH.get(pl['id'])
+    if s:
+        SECTIONS.append((s['t0'], pl.get('mood') or 'groove'))
+SECTIONS.append((END + 1, 'end'))
+
+
+def section(t):
+    kind = 'intro'
+    for a, k in SECTIONS:
+        if t >= a:
+            kind = k
+    return kind
+
+
+def chord_at(bar):
+    return CHORDS[PROG[(bar // 2) % 4]]
+
+
+def music():
+    drums, bass, mel = np.zeros((2, N)), np.zeros((2, N)), np.zeros((2, N))
+    K, CL, HC, HO = kick(), clap(), hat(), hat(.22, 22)
+    cache = {}
+    bars = int(END / BAR) + 1
+    for bar in range(bars):
+        root, tones = chord_at(bar)
+        for st in range(16):
+            t = bar * BAR + st * STEP
+            if t >= END:
+                break
+            k = section(t)
+            if k in ('groove', 'full', 'bright'):
+                if st in ((0, 6, 10) if bar % 2 == 0 else (0, 3, 10, 14)):
+                    add(drums, K, t, .68)
+                if st == 8:
+                    add(drums, CL, t, .62)
+                if st % 2 == 0:
+                    add(drums, HC, t, .20 if st % 4 else .30, .25)
+                if st == 14 and bar % 4 == 3:
+                    add(drums, HO, t, .2, .3)
+            elif k == 'tense':
+                add(drums, HC, t, .22 if st % 4 == 0 else .12, .2 if st % 2 else -.2)
+            elif k in ('intro', 'desk'):
+                if st % 4 == 0:
+                    add(drums, HC, t, .2, 0)
+            if k in ('groove', 'full') and st in ((0, 10) if bar % 2 == 0 else (0, 3, 10)):
+                add(bass, sub(root, .8 if st == 0 else .5), t, .33)
+            elif k in ('intro', 'desk', 'bright') and st == 0:
+                add(bass, sub(root, 1.3), t, .26)
+            pat = {0: 0, 2: 2, 4: 1, 6: 2, 8: 3, 10: 2, 12: 1, 14: 2}
+            if st in pat:
+                on = k in ('groove', 'full', 'bright') or (k in ('intro', 'desk', 'tense') and st in (0, 8))
+                if on:
+                    f = tones[pat[st]] * (2 if k == 'bright' else 1)
+                    key = (round(f, 1), k == 'bright')
+                    if key not in cache:
+                        cache[key] = pluck(f, 1.2, .62 if k == 'bright' else .5, seed=int(f))
+                    g = (.34 if st in (0, 8) else .22) * (1.15 if k == 'full' else 1)
+                    add(mel, cache[key], t, g, -.25)
+                    add(mel, cache[key], t + STEP * 3, g * .32, .55)
+    pad = np.zeros(N)
+    t = np.arange(N) / SR
+    for bar in range(0, bars, 2):
+        root, tones = chord_at(bar)
+        a, b = int(bar * BAR * SR), min(N, int((bar + 2) * BAR * SR))
+        if a >= N:
+            break
+        seg = np.zeros(b - a); ts = t[a:b]
+        for f in (root * 2, tones[0] / 2, tones[1] / 2, tones[2] / 2):
+            for det in (-.006, .006):
+                ph = (f * (1 + det) * ts) % 1.0
+                seg += 2 * ph - 1
+        fade = int(.08 * SR)
+        seg[:fade] *= np.linspace(0, 1, fade); seg[-fade:] *= np.linspace(1, 0, fade)
+        pad[a:b] += seg
+    pad = filt(pad, 90, 620) * (0.8 + .2 * np.sin(2 * np.pi * .23 * t))
+    pad /= np.max(np.abs(pad)) + 1e-9
+    padgain = np.array([{'intro': .9, 'groove': .45, 'tense': .9, 'hits': .5, 'full': .5, 'desk': .8, 'bright': .5, 'end': 0}.get(section(x), .5) for x in np.arange(0, N, 2400) / SR])
+    pad *= np.interp(np.arange(N), np.arange(0, N, 2400), padgain)
+    mus = drums * .8 + bass + mel + np.vstack([pad, pad]) * .16
+    g = np.array([.16 if section(x) == 'hits' else 1.0 for x in np.arange(0, N, 480) / SR])
+    g = np.interp(np.arange(N), np.arange(0, N, 480), np.convolve(g, np.ones(5) / 5, mode='same'))
+    return mus * g
+
+
+def effects():
+    fx = np.zeros((2, N))
+    shots = C['shots']
+    for i, s in enumerate(shots[1:]):                       # a whoosh into every cut
+        w = whoosh(.34)
+        add(fx, w, s['t0'] - len(w) / SR * .72, .30, (-.5, .5)[i % 2])
+    for pl in PL['lines']:                                   # the overlays: a hit on a stamp, a pop on a plate/note, a ding on an exhibit
+        sid = pl['id']
+        for o in pl.get('overlays', []):
+            at = (W(sid, o['on']) - .05) if o.get('on') else (SH[sid]['t0'] + .05)
+            comp = o.get('comp')
+            if comp in ('stamp', 'status'):
+                add(fx, impact(1.2 if comp == 'stamp' else .8), at, .75 if comp == 'stamp' else .5)
+                add(fx, riser(.9), at - .9, .22)
+            elif comp in ('plate', 'note', 'chip', 'kicker', 'quote', 'compare', 'post'):
+                add(fx, pop(), at, .26)
+            elif comp == 'exhibit':
+                add(fx, impact(1.2), at + .05, .75); add(fx, ding(), SH[sid]['t1'] - .08, .34)
+            elif comp == 'options':
+                for k in range(3):
+                    add(fx, impact(.9), at + .25 * k, .6)
+                add(fx, ding(), at + .9, .4)
+            elif comp == 'counter':
+                for k in range(10):
+                    add(fx, beep(900 + 110 * k, .04, 70), at + .11 * k, .11)
+            elif comp == 'receipt':
+                add(fx, pop(), at, .3); add(fx, impact(1.0), at + 2.1, .55)
+    last = shots[-1]
+    if last.get('kind') == 'site':
+        add(fx, riser(1.0), last['t0'] - 1.0, .3); add(fx, ding(), last['t0'] + .9, .4)
+    return fx
+
+
+def clip_audio(path, ss, dur):
+    raw = subprocess.run(['ffmpeg', '-v', 'error', '-ss', '%.3f' % ss, '-t', '%.3f' % dur, '-i', path, '-f', 'f32le', '-ac', '1', '-ar', str(SR), '-'], capture_output=True).stdout
+    x = np.frombuffer(raw, dtype=np.float32).astype(np.float64)
+    if len(x) < SR // 10:
+        return np.zeros(1)
+    x = filt(x, 160, 9000)
+    f = int(.03 * SR)
+    x[:f] *= np.linspace(0, 1, f); x[-f:] *= np.linspace(1, 0, f)
+    return x / (np.percentile(np.abs(x), 99.5) + 1e-9)
+
+
+def game():
+    g = np.zeros((2, N))
+    for s in C['shots']:
+        if s.get('kind') != 'clip' or s['mode'] not in ('V',):
+            continue
+        a = PL['assets'].get(s['asset'], {})
+        if not a.get('file'):
+            continue
+        add(g, clip_audio(os.path.join(work, 'assets', a['file']), s.get('in', 0), s['t1'] - s['t0']), s['t0'], .5)
+    return g
+
+
+def db(x):
+    return 20 * np.log10(np.sqrt(np.mean(x ** 2)) + 1e-9)
+
+
+def main():
+    with wave.open(os.path.join(work, 'vo.wav')) as w:
+        vo = np.frombuffer(w.readframes(w.getnframes()), dtype=np.int16).astype(np.float64) / 32768
+    vo = np.pad(vo, (0, max(0, N - len(vo))))[:N]
+    vo = filt(vo, 85, None, shelf=(3800, 3.0))
+    e = env_follow(vo, .005, .12)
+    vo *= np.where(e > .16, (.16 / np.maximum(e, 1e-6)) ** .45, 1.0)
+    vo /= np.max(np.abs(vo)) + 1e-9
+    duck = env_follow(vo, .03, .28)
+    duck = np.clip((duck - .05) / .22, 0, 1)
+    mus, fx, gm = music(), effects(), game()
+    mus /= np.max(np.abs(mus)) + 1e-9
+    speaking = duck > .5
+    if speaking.sum() < SR:
+        speaking = np.ones(N, dtype=bool)
+    target_mus, target_game = db(vo[speaking]) - 15.0, db(vo[speaking]) - 16
+    mus *= 10 ** ((target_mus - db(mus[:, speaking])) / 20)
+    if np.abs(gm).max() > 1e-5:
+        gm *= 10 ** ((target_game - db(gm[:, np.abs(gm[0]) > 1e-5])) / 20)
+    mus *= 1 - .36 * duck
+    gm *= 1 - .4 * duck
+    fx *= .9
+    mix = np.vstack([vo, vo]) * .92 + mus + fx + gm
+    mix = np.vstack([filt(mix[0], 38, None), filt(mix[1], 38, None)])
+    mix = np.tanh(mix * 1.15) / np.tanh(1.15)
+    mix *= .89 / (np.max(np.abs(mix)) + 1e-9)
+    f = int(.02 * SR)
+    mix[:, -f:] *= np.linspace(1, 0, f)
+    mix = mix[:, :int(END * SR)]
+    with wave.open(os.path.join(work, 'mix.wav'), 'wb') as w:
+        w.setnchannels(2); w.setsampwidth(2); w.setframerate(SR)
+        w.writeframes((mix.T * 32767).astype(np.int16).tobytes())
+    print('mix %.2fs | voice %.1f dB | music under voice %.1f dB | clips under voice %.1f dB | fx peak %.2f' % (
+        mix.shape[1] / SR, db(vo[speaking] * .92), db(mus[:, speaking]), db(gm[:, speaking]) if np.abs(gm).max() > 1e-5 else -99, np.max(np.abs(fx))), flush=True)
+
+
+if __name__ == '__main__':
+    main()

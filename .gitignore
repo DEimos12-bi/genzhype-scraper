@@ -17,3 +17,5 @@ feeddir/
 # step 3 (2026-10-06): the Laya shadow feed is data the runner must see
 !.social/laya-shadow/
 !.social/laya-shadow/feed.json
+!.social/v2-feed/
+!.social/v2-feed/*.json
