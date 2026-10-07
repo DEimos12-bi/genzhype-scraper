@@ -1,0 +1,477 @@
+{
+ "angle": "Modern Warships admits to copying concept artist Alex Jay Brady's vehicle design and attempts to pay them rather than removing the $700 ship.",
+ "lines": [
+  {
+   "id": "hook",
+   "text": "A popular naval war game just admitted to copying an artist's vehicle design. And they are selling it to players for up to seven hundred dollars.",
+   "show": {
+    "asset": "hunt1",
+    "mode": "sharp"
+   },
+   "overlays": [
+    {
+     "k": "stamp",
+     "t": "$700 SHIP",
+     "on": "seven"
+    }
+   ],
+   "caps": [
+    {
+     "say": "seven hundred dollars",
+     "show": "$700"
+    }
+   ]
+  },
+  {
+   "id": "who",
+   "text": "The game is Modern Warships. The creator is concept artist Alex Jay Brady, who drew the original flying ship back in twenty-fourteen.",
+   "show": {
+    "asset": "photo1",
+    "mode": "sharp"
+   },
+   "overlays": [
+    {
+     "k": "tag",
+     "name": "Alex Jay Brady",
+     "role": "CONCEPT ARTIST",
+     "on": ""
+    },
+    {
+     "k": "stamp",
+     "t": "2014 DESIGN",
+     "on": "twenty-fourteen"
+    }
+   ],
+   "caps": [
+    {
+     "say": "twenty-fourteen",
+     "show": "2014"
+    }
+   ]
+  },
+  {
+   "id": "discovery",
+   "text": "Brady spotted the ship in-game and posted the proof on X. The developers copied everything, including non-functional design mistakes like planes taking off backward.",
+   "show": {
+    "asset": "auto",
+    "mode": "under"
+   },
+   "overlays": [
+    {
+     "k": "receipt",
+     "post": "post1",
+     "mark": "I did not give @ModernWarships permission to use my ekrano design",
+     "on": ""
+    }
+   ],
+   "caps": []
+  },
+  {
+   "id": "cost",
+   "text": "IGN reports the vehicle is locked behind gacha spins costing up to one hundred dollars, or seven hundred dollars to buy outright.",
+   "show": {
+    "asset": "hunt2",
+    "mode": "under"
+   },
+   "overlays": [
+    {
+     "k": "blocks",
+     "items": [
+      {
+       "label": "IN GACHA SPINS",
+       "big": "$50–$100",
+       "on": "one"
+      },
+      {
+       "label": "TO BUY OUTRIGHT",
+       "big": "$700",
+       "on": "seven"
+      }
+     ],
+     "on": ""
+    }
+   ],
+   "caps": [
+    {
+     "say": "one hundred dollars",
+     "show": "$100"
+    },
+    {
+     "say": "seven hundred dollars",
+     "show": "$700"
+    }
+   ]
+  },
+  {
+   "id": "artistreaction",
+   "text": "Brady says they did not give permission, but wrote that if the studio had just sent some money, they would have zero issues.",
+   "show": {
+    "asset": "auto",
+    "mode": "under"
+   },
+   "overlays": [
+    {
+     "k": "quote",
+     "t": "Honestly if they'd just asked and sent me some $$$$ Id have had zero issue with them using it.",
+     "who": "ALEX JAY BRADY · VIA X",
+     "label": "ARTIST STATEMENT",
+     "on": ""
+    }
+   ],
+   "caps": []
+  },
+  {
+   "id": "studioconfession",
+   "text": "Then the developers did something rare. They publicly replied, apologized, and admitted they used the design as a reference without proper clearance.",
+   "show": {
+    "asset": "auto",
+    "mode": "under"
+   },
+   "overlays": [
+    {
+     "k": "receipt",
+     "post": "post0",
+     "mark": "Your design was used as a reference without proper clearance.",
+     "on": ""
+    }
+   ],
+   "caps": []
+  },
+  {
+   "id": "whatsnext",
+   "text": "Kotaku reports the studio is not removing the vehicle. Instead, they are trying to reach a deal to pay the artist directly.",
+   "show": {
+    "asset": "hunt1",
+    "mode": "under"
+   },
+   "overlays": [
+    {
+     "k": "rows",
+     "rows": [
+      {
+       "t": "NOT REMOVING SHIP",
+       "on": "removing",
+       "tone": "red"
+      },
+      {
+       "t": "NEGOTIATING DEAL",
+       "on": "deal",
+       "tone": "green"
+      }
+     ],
+     "on": ""
+    }
+   ],
+   "caps": []
+  },
+  {
+   "id": "vote",
+   "text": "So what should happen? Should the studio pay the artist to keep it, or remove the design completely? Comment one word. Pay, or remove.",
+   "show": {
+    "asset": "photo1",
+    "mode": "sharp"
+   },
+   "overlays": [
+    {
+     "k": "chip",
+     "t": "CHOOSE ONE",
+     "on": "word"
+    }
+   ],
+   "caps": []
+  },
+  {
+   "id": "site",
+   "text": "The full timeline, and every receipt, is on Gen Z Hype. Link in bio.",
+   "show": {
+    "asset": "auto",
+    "mode": "under"
+   },
+   "overlays": [],
+   "caps": [
+    {
+     "say": "Gen Z Hype",
+     "show": "GenZHype"
+    }
+   ]
+  }
+ ],
+ "vote": {
+  "question": "PAY OR REMOVE?",
+  "a": {
+   "word": "PAY",
+   "sub": "buy the rights"
+  },
+  "b": {
+   "word": "REMOVE",
+   "sub": "delete the ship"
+  }
+ },
+ "people": [
+  {
+   "name": "Alex Jay Brady",
+   "role": "CONCEPT ARTIST"
+  }
+ ],
+ "hunts": [
+  {
+   "id": "hunt1",
+   "query": "Modern Warships mobile gameplay combat",
+   "must_show": "naval battles gameplay from Modern Warships"
+  },
+  {
+   "id": "hunt2",
+   "query": "Modern Warships gacha menu shop",
+   "must_show": "in-game purchase or gacha spin screen"
+  },
+  {
+   "id": "hunt3",
+   "query": "ekranoplan ground effect vehicle",
+   "must_show": "ekranoplan hybrid vehicle gliding over water"
+  }
+ ],
+ "stock": "naval combat games",
+ "post": {
+  "caption": "Modern Warships admitted to copying an artist's design and selling it for $700. Now they are trying to pay them. Pay, or remove?",
+  "hashtags": [
+   "modernwarships",
+   "gamingnews",
+   "plagiarism",
+   "alexjaybrady",
+   "gacha",
+   "artstorm",
+   "conceptart",
+   "gamers"
+  ],
+  "pinned": "Pay, or remove? Receipts on genzhype.com (link in bio)"
+ },
+ "words": 185,
+ "sensitive": {
+  "flag": false,
+  "why": ""
+ },
+ "url": "https://genzhype.com/gaming/modern-warships-admits-copying-alex-jay-brady-s-aircraft-design/",
+ "title": "Modern Warships Admits Copying Alex Jay Brady's Aircraft Design",
+ "model": "gemini/gemini-3.5-flash",
+ "assets": {
+  "photo1": {
+   "kind": "photo",
+   "post": 1,
+   "url": "https://pbs.twimg.com/media/HT1Sc75W4AAIhib.jpg",
+   "credit": "IMAGE · @ALEXJAYBRADY / X",
+   "about": "I did not give @ModernWarships permission to use my ekrano design, but I have to say she's looking great. Much more detailed than my sketches. Honestly if they'd just asked and sent me some $$$$ Id have had zero issue with them using it. It",
+   "by": "@AlexJayBrady",
+   "page": "https://x.com/AlexJayBrady/status/2106930963242418214",
+   "file": "photo1.jpg",
+   "w": 1920,
+   "h": 2264,
+   "dur": 0.0
+  },
+  "hunt1": {
+   "kind": "hunt",
+   "missing": "no usable result or the download was refused",
+   "about": "Modern Warships mobile gameplay combat"
+  },
+  "hunt2": {
+   "kind": "hunt",
+   "missing": "no usable result or the download was refused",
+   "about": "Modern Warships gacha menu shop"
+  },
+  "hunt3": {
+   "kind": "hunt",
+   "missing": "no usable result or the download was refused",
+   "about": "ekranoplan ground effect vehicle"
+  },
+  "stock1": {
+   "kind": "stock",
+   "file": "stock1.mp4",
+   "credit": "",
+   "about": "neutral stock footage: naval combat games",
+   "page": "https://www.pexels.com/video/drone-footage-of-navy-battleships-2837972/",
+   "by": "Andrey Kirievskiy",
+   "w": 1920,
+   "h": 1080,
+   "dur": 16.76,
+   "eyes": {
+    "kind": "other",
+    "relevant": true,
+    "exact": true,
+    "shows": "",
+    "model": "none"
+   },
+   "windows": [
+    {
+     "t": 0.67,
+     "score": 3.0,
+     "x": 0.5,
+     "face": false,
+     "what": ""
+    },
+    {
+     "t": 3.75,
+     "score": 3.0,
+     "x": 0.5,
+     "face": false,
+     "what": ""
+    },
+    {
+     "t": 6.84,
+     "score": 3.0,
+     "x": 0.5,
+     "face": false,
+     "what": ""
+    },
+    {
+     "t": 9.92,
+     "score": 3.0,
+     "x": 0.5,
+     "face": false,
+     "what": ""
+    },
+    {
+     "t": 13.01,
+     "score": 3.0,
+     "x": 0.5,
+     "face": false,
+     "what": ""
+    },
+    {
+     "t": 16.09,
+     "score": 3.0,
+     "x": 0.5,
+     "face": false,
+     "what": ""
+    }
+   ],
+   "usable": true
+  },
+  "stock2": {
+   "kind": "stock",
+   "file": "stock2.mp4",
+   "credit": "",
+   "about": "neutral stock footage: naval combat games",
+   "page": "https://www.pexels.com/video/sunset-view-of-battleship-at-harbor-29024465/",
+   "by": "JeetsVids",
+   "w": 1080,
+   "h": 1920,
+   "dur": 20.979292,
+   "eyes": {
+    "kind": "other",
+    "relevant": true,
+    "exact": true,
+    "shows": "",
+    "model": "none"
+   },
+   "windows": [
+    {
+     "t": 0.84,
+     "score": 3.0,
+     "x": 0.5,
+     "face": false,
+     "what": ""
+    },
+    {
+     "t": 4.7,
+     "score": 3.0,
+     "x": 0.5,
+     "face": false,
+     "what": ""
+    },
+    {
+     "t": 8.56,
+     "score": 3.0,
+     "x": 0.5,
+     "face": false,
+     "what": ""
+    },
+    {
+     "t": 12.42,
+     "score": 3.0,
+     "x": 0.5,
+     "face": false,
+     "what": ""
+    },
+    {
+     "t": 16.28,
+     "score": 3.0,
+     "x": 0.5,
+     "face": false,
+     "what": ""
+    },
+    {
+     "t": 20.14,
+     "score": 3.0,
+     "x": 0.5,
+     "face": false,
+     "what": ""
+    }
+   ],
+   "usable": true
+  },
+  "stock3": {
+   "kind": "stock",
+   "file": "stock3.mp4",
+   "credit": "",
+   "about": "neutral stock footage: naval combat games",
+   "page": "https://www.pexels.com/video/an-old-naval-cannon-at-la-spezia-port-in-italy-12070895/",
+   "by": "Attila Pergel",
+   "w": 1920,
+   "h": 1080,
+   "dur": 12.458333,
+   "eyes": {
+    "kind": "other",
+    "relevant": true,
+    "exact": true,
+    "shows": "",
+    "model": "none"
+   },
+   "windows": [
+    {
+     "t": 0.5,
+     "score": 3.0,
+     "x": 0.5,
+     "face": false,
+     "what": ""
+    },
+    {
+     "t": 2.79,
+     "score": 3.0,
+     "x": 0.5,
+     "face": false,
+     "what": ""
+    },
+    {
+     "t": 5.08,
+     "score": 3.0,
+     "x": 0.5,
+     "face": false,
+     "what": ""
+    },
+    {
+     "t": 7.38,
+     "score": 3.0,
+     "x": 0.5,
+     "face": false,
+     "what": ""
+    },
+    {
+     "t": 9.67,
+     "score": 3.0,
+     "x": 0.5,
+     "face": false,
+     "what": ""
+    },
+    {
+     "t": 11.96,
+     "score": 3.0,
+     "x": 0.5,
+     "face": false,
+     "what": ""
+    }
+   ],
+   "usable": true
+  }
+ },
+ "left_open": [],
+ "fact_checked": true
+}

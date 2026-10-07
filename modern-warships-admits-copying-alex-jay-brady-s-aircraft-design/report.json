@@ -1,0 +1,34 @@
+{
+ "made": true,
+ "file": "genzhype-modern-warships-admits-copying-alex-jay-brady-s-aircraft-design.mp4",
+ "seconds": 66.0,
+ "words": 185,
+ "shots": 16,
+ "assets_used": [
+  "photo1",
+  "stock1",
+  "stock2",
+  "stock3"
+ ],
+ "director_model": "gemini/gemini-3.5-flash",
+ "fact_checked": true,
+ "left_open": [],
+ "sensitive": {
+  "flag": false,
+  "why": ""
+ },
+ "ai_calls": [
+  {
+   "model": "gemini/gemini-3.5-flash",
+   "kind": "text",
+   "s": 21.2,
+   "ok": true
+  },
+  {
+   "model": "gemini/gemini-3.5-flash",
+   "kind": "text",
+   "s": 7.8,
+   "ok": true
+  }
+ ]
+}

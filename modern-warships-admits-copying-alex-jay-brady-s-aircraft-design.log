@@ -1,0 +1,87 @@
+== plan
+director round 1 (gemini/gemini-3.5-flash): 185 words, 8 lines, 3 hunts | fact check: clean | to fix: nothing
+hook     [hunt1 sharp] A popular naval war game just admitted to copying an artist's vehicle design. And they are selling it to players for up to seven hundred dollars.
+         stamp:$700 SHIP
+who      [photo1 sharp] The game is Modern Warships. The creator is concept artist Alex Jay Brady, who drew the original flying ship back in twenty-fourteen.
+         tag:Alex Jay Brady | stamp:2014 DESIGN
+discovery [auto under] Brady spotted the ship in-game and posted the proof on X. The developers copied everything, including non-functional design mistakes like planes taking off backward.
+         receipt:post1
+cost     [hunt2 under] IGN reports the vehicle is locked behind gacha spins costing up to one hundred dollars, or seven hundred dollars to buy outright.
+         blocks:2
+artistreaction [auto under] Brady says they did not give permission, but wrote that if the studio had just sent some money, they would have zero issues.
+         quote:Honestly if they'd just asked and sent me some $$$$ Id have had zero issue with them using it.
+studioconfession [auto under] Then the developers did something rare. They publicly replied, apologized, and admitted they used the design as a reference without proper clearance.
+         receipt:post0
+whatsnext [hunt1 under] Kotaku reports the studio is not removing the vehicle. Instead, they are trying to reach a deal to pay the artist directly.
+         rows:2
+vote     [photo1 sharp] So what should happen? Should the studio pay the artist to keep it, or remove the design completely? Comment one word. Pay, or remove.
+         chip:CHOOSE ONE
+site     [auto under] The full timeline, and every receipt, is on Gen Z Hype. Link in bio.
+         
+vote: {"question": "PAY OR REMOVE?", "a": {"word": "PAY", "sub": "buy the rights"}, "b": {"word": "REMOVE", "sub": "delete the ship"}} | hunts: [{"id": "hunt1", "query": "Modern Warships mobile gameplay combat", "must_show": "naval battles gameplay from Modern Warships"}, {"id": "hunt2", "query": "Modern Warships gacha menu shop", "must_show": "in-game purchase or gacha spin screen"}, {"id": "hunt3", "query": "ekranoplan ground effect vehicle", "must_show": "ekranoplan hybrid vehicle gliding over water"}] | stock: naval combat games | sensitive: {'flag': False, 'why': ''}
+== plan done in 29 s
+== voice
+voice: 65.5 s, 9 lines, 199 words
+== voice done in 24 s
+== footage
+photo1: fetched from the post of @AlexJayBrady
+hunt1: searching "Modern Warships mobile gameplay combat"
+  download refused or failed: pass cookies. Also see https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies for tips on effectively exporting YouTube cookies
+  download refused or failed: pass cookies. Also see https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies for tips on effectively exporting YouTube cookies
+  download refused or failed: pass cookies. Also see https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies for tips on effectively exporting YouTube cookies
+hunt2: searching "Modern Warships gacha menu shop"
+  download refused or failed: pass cookies. Also see https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies for tips on effectively exporting YouTube cookies
+  download refused or failed: pass cookies. Also see https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies for tips on effectively exporting YouTube cookies
+  download refused or failed: pass cookies. Also see https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies for tips on effectively exporting YouTube cookies
+hunt3: searching "ekranoplan ground effect vehicle"
+  download refused or failed: pass cookies. Also see https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies for tips on effectively exporting YouTube cookies
+  download refused or failed: pass cookies. Also see https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies for tips on effectively exporting YouTube cookies
+  download refused or failed: pass cookies. Also see https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies for tips on effectively exporting YouTube cookies
+little footage (0 clips, 0 s): adding neutral stock, used blurred only
+  stock "naval combat games": 3 clips
+footage: photo1 1920x2264 0s, stock1 1920x1080 17s, stock2 1080x1920 21s, stock3 1920x1080 12s | missing: hunt1, hunt2, hunt3
+== footage done in 18 s
+== eyes
+stock1: other, shows exactly it, 6 of 6 moments usable: 
+stock2: other, shows exactly it, 6 of 6 moments usable: 
+stock3: other, shows exactly it, 6 of 6 moments usable: 
+== eyes done in 5 s
+== receipts
+receipt post1 (@AlexJayBrady): 548x871, words found: yes
+receipt post0 (@ModernWarships): 548x295, words found: yes
+== receipts done in 6 s
+== cut
+cut: 16 shots over 66.0 s, footage under 100% of it | sharp 0, blurred 10, pictures 6 | assets used: photo1, stock1, stock2, stock3
+== cut done in 17 s
+== layout
+layout: 45 moments read
+picture errors: 0 | page errors: none
+layout check 1: clean
+== layout done in 3 s
+== gate
+== gate done in 0 s
+== frames
+frames 0..449 in 63s (141 ms each)
+picture errors: 0 | page errors: none
+frames 0-450 of 1979 done (72 s so far)
+frames 450..899 in 67s (149 ms each)
+picture errors: 0 | page errors: none
+frames 450-900 of 1979 done (147 s so far)
+frames 900..1349 in 64s (141 ms each)
+picture errors: 0 | page errors: none
+frames 900-1350 of 1979 done (218 s so far)
+frames 1350..1799 in 65s (145 ms each)
+picture errors: 0 | page errors: none
+frames 1350-1800 of 1979 done (292 s so far)
+frames 1800..1978 in 24s (136 ms each)
+picture errors: 0 | page errors: none
+frames 1800-1979 of 1979 done (321 s so far)
+== frames done in 321 s
+== sound
+length 65.95s
+voice rms while speaking -16.6 dB | music under voice -33.1 dB | game under voice -180.0 dB | effects peak 0.83
+share of time with voice 91% | mix rms in the gaps -22.9 dB | mix rms overall -15.3 dB
+== sound done in 5 s
+== pack
+DONE /home/runner/work/genzhype-scraper/genzhype-scraper/work-modern-warships-admits-copying-alex-jay-brady-s-aircraft-design/out/genzhype-modern-warships-admits-copying-alex-jay-brady-s-aircraft-design.mp4  66.0 s
+== pack done in 2 s
