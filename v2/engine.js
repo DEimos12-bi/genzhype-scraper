@@ -113,7 +113,8 @@ for (const line of PL.lines) { const ov = (line.overlays || []).slice(); if ((li
 function animate(t) {
   for (const sid in OV) for (const r of OV[sid]) {
     const on = t >= r.on && t < r.off;
-    for (const n of r.nodes) { if (!on) { n.style.visibility = 'hidden'; continue; }
+    for (const n of r.nodes) { if (!on) { n.style.display = 'none'; continue; }   // display, not visibility: animated children carry their own visibility and would stay on screen
+      n.style.display = '';
       switch (r.anim) {
         case 'slam': put(n, {...slam(t, r.on, .2), r: r.rot || -5}); break;
         case 'slide': put(n, slide(t, r.on)); break;
