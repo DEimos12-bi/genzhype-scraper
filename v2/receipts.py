@@ -41,7 +41,7 @@ def main():
                 phrases = [x for x in a.get('highlight', []) if x]
                 # find the element that holds the first highlight phrase (a block a phone can read), else the headline
                 info = page.evaluate("""(phrases) => {
-                  const norm = s => s.replace(/\\s+/g, ' ').trim().toLowerCase();
+                  const norm = s => s.replace(/[“”"‘’']/g, '').replace(/\\s+/g, ' ').trim().toLowerCase();
                   const leaf = [...document.querySelectorAll('p,li,h1,h2,h3,h4,div,span,td')].filter(e => e.children.length <= 3 && phrases.some(ph => norm(e.textContent).includes(norm(ph))));
                   let el = leaf.length ? leaf[0] : document.querySelector('h1');
                   if (!el) return {found: false, title: document.title};
@@ -57,10 +57,11 @@ def main():
                 page.wait_for_timeout(600)
                 page.locator('[data-shot="1"]').first.screenshot(path=os.path.join(adir, aid + '.png'))
                 rects = page.evaluate("""(phrases) => { const c = document.querySelector('[data-shot]'); const r = c.getBoundingClientRect(); const out = {};
-                  const norm = s => s.replace(/\\s+/g, ' ').toLowerCase();
+                  const norm = s => s.replace(/[“”"‘’']/g, '').replace(/\\s+/g, ' ').toLowerCase();
                   const walker = document.createTreeWalker(c, NodeFilter.SHOW_TEXT);
-                  for (let n = walker.nextNode(); n; n = walker.nextNode()) for (const ph of phrases) { const i = norm(n.textContent).indexOf(norm(ph)); if (i < 0) continue;
-                    const rg = document.createRange(); rg.setStart(n, i); rg.setEnd(n, Math.min(n.textContent.length, i + ph.length));
+                  for (let n = walker.nextNode(); n; n = walker.nextNode()) for (const ph of phrases) { const raw = n.textContent; let i = raw.toLowerCase().indexOf(ph.toLowerCase()), len = ph.length;
+                    if (i < 0) { if (!norm(raw).includes(norm(ph))) continue; i = 0; len = raw.length; }   // quotes differ: the whole node
+                    const rg = document.createRange(); rg.setStart(n, i); rg.setEnd(n, Math.min(raw.length, i + len));
                     out[ph] = [...rg.getClientRects()].map(b => [Math.round((b.x - r.x) * 2), Math.round((b.y - r.y) * 2), Math.round(b.width * 2), Math.round(b.height * 2)]); }
                   return out; }""", phrases)
                 json.dump({'info': info, 'rects': rects, 'w': info['w'] * 2, 'h': info['h'] * 2}, open(os.path.join(adir, aid + '.json'), 'w', encoding='utf-8'), ensure_ascii=False)

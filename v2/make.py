@@ -53,7 +53,7 @@ def main():
          '-c:v', 'libx264', '-preset', 'medium', '-crf', '19', '-pix_fmt', 'yuv420p', '-profile:v', 'high', '-level', '4.1', '-movflags', '+faststart',
          '-c:a', 'aac', '-b:a', '192k', '-shortest', mp4], 'assemble')
     # the cover: the frame where the first stamp has landed
-    cover_t = 1.1
+    cover_t = 1.9   # after the first stamp's slam has settled (mid-slam the stamp is scaled up and cut at the edge)
     run(['ffmpeg', '-y', '-v', 'error', '-ss', '%.2f' % cover_t, '-i', mp4, '-frames:v', '1', '-q:v', '2', os.path.join(out, 'cover.jpg')], 'cover')
     dur = float(subprocess.run(['ffprobe', '-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', mp4], capture_output=True, text=True).stdout.strip() or 0)
     open(os.path.join(out, 'post.txt'), 'w', encoding='utf-8').write(post_text(plan, mp4, dur))

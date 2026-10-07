@@ -74,11 +74,11 @@ function build(line, o, idx) {
   const slot = idx % 3;   // where in the picture stacked overlays go: 0 = upper, 1 = middle, 2 = lower
   switch (o.comp) {
     case 'stamp': { const e = el('div', 'stamp' + (o.tone ? ' ' + o.tone : ''), esc(o.text)); fitFont(e, 980, 170, 70); const w = wrapAt(540, [520, 840, 700][slot], e); w.style.transform = 'translate(-50%,-50%)'; layer.appendChild(w); r.nodes.push(w); r.anim = 'slam'; r.rot = -6 + 3 * (idx % 3); HITS.push([r.on, 18]); FLASH.push([r.on, .7]); break; }
-    case 'kicker': { const e = el('div', 'kick', esc(o.text)); const w = el('div', 'abs'); w.style.left = '60px'; w.style.top = (420 + 70 * slot) + 'px'; w.appendChild(e); layer.appendChild(w); r.nodes.push(w); r.anim = 'slide'; break; }
+    case 'kicker': { if (PL.kicker && norm(o.text) === norm(PL.kicker)) return null; const e = el('div', 'kick', esc(o.text)); const w = el('div', 'abs'); w.style.left = '60px'; w.style.top = (420 + 70 * slot) + 'px'; w.appendChild(e); layer.appendChild(w); r.nodes.push(w); r.anim = 'slide'; break; }
     case 'chip': { const e = el('div', 'chip dark', esc(o.text)); e.style.fontSize = '32px'; const w = wrapAt(540, [440, 640, 1120][slot], e); layer.appendChild(w); r.nodes.push(w); break; }
-    case 'plate': { const e = el('div', 'plate', `<div class="pk">${esc(o.role || '')}</div><div class="pn">${esc(o.name)}</div><div class="tags">${o.tag ? `<span class="red">${esc(o.tag)}</span>` : ''}</div>`);
-      layer.appendChild(e); fitFont(e.querySelector('.pn'), 940, 128, 60); r.nodes.push(e); r.anim = 'plate'; break; }
-    case 'note': { const e = el('div', 'note', `<u>${esc(o.label || 'SOURCE')}</u>${esc(o.text)}`); e.style.top = [430, 560, 690][slot] + 'px'; layer.appendChild(e); r.nodes.push(e); r.anim = 'slide'; break; }
+    case 'plate': { const same = (OV[sid] || []).filter(x => x.comp === 'plate'); if (same.some(x => norm(x.data.name) === norm(o.name))) return null; const e = el('div', 'plate', `<div class="pk">${esc(o.role || '')}</div><div class="pn">${esc(o.name)}</div><div class="tags">${o.tag ? `<span class="red">${esc(o.tag)}</span>` : ''}</div>`);
+      e.style.top = (968 - 300 * same.length) + 'px'; layer.appendChild(e); fitFont(e.querySelector('.pn'), 940, 128, 60); r.nodes.push(e); r.anim = 'plate'; break; }
+    case 'note': { const big = (line.overlays || []).some(x => ['receipt', 'quote', 'post', 'compare', 'options'].includes(x.comp)); const e = el('div', 'note', `<u>${esc(o.label || 'SOURCE')}</u>${esc(o.text)}`); e.style.top = (big ? 1230 : [430, 560, 690][slot]) + 'px'; layer.appendChild(e); r.nodes.push(e); r.anim = 'slide'; break; }
     case 'quote': { const e = el('div', 'qc', `<s>${esc(o.who ? ('“' + (o.who.toUpperCase()) + '”').replace(/[“”]/g, '') : 'QUOTE')}</s><p>“${esc(o.text)}”</p><em>${esc(o.source || o.who || '')}${o.date ? ' · ' + esc(o.date) : ''}</em>`);
       e.style.top = '700px'; layer.appendChild(e); fitFont(e.querySelector('p'), 880, 92, 44); e.style.top = (960 - e.offsetHeight / 2) + 'px'; r.nodes.push(e); r.anim = 'rise'; break; }
     case 'status': { const e = el('div', 'st' + (o.tone ? ' ' + o.tone : ''), (o.small ? `<small>${esc(o.small)}</small>` : '') + esc(o.text)); e.style.top = [430, 640, 850][slot] + 'px'; layer.appendChild(e); fitFont(e, 960, 84, 44); r.nodes.push(e); r.anim = 'slam'; r.rot = [-3, 2, -2][slot]; HITS.push([r.on, 9]); break; }
@@ -99,13 +99,15 @@ function build(line, o, idx) {
       if (shot && rects.length && a.w) { rects.forEach(([x, y, w, h]) => { const m = el('div', 'mk', '<i></i>'); const k = 930 / a.w; m.style.left = (x * k) + 'px'; m.style.top = (y * k) + 'px'; m.style.width = (w * k) + 'px'; m.style.height = (h * k) + 'px'; shot.appendChild(m); r.marks = r.marks || []; r.marks.push(m); });
         const ys = rects.map(r2 => r2[1] * (930 / a.w)); const cy = Math.max(0, Math.min(...ys) - 120); shot.scrollTop = 0; shot.dataset.cy = cy; }
       break; }
+    case 'headline': { const e = el('div', 'hl', esc(o.text)); layer.appendChild(e); fitFont(e, 960, 96, 60); e.style.top = (960 - e.offsetHeight / 2 - 80) + 'px'; r.nodes.push(e); r.anim = 'rise'; break; }
     default: { const e = el('div', 'chip dark', esc(o.text || o.comp)); layer.appendChild(wrapAt(540, 640, e)); r.nodes.push(layer.lastChild); }
   }
   for (const n of r.nodes) n.style.visibility = 'hidden';
   (OV[sid] = OV[sid] || []).push(r);
   return r;
 }
-for (const line of PL.lines) (line.overlays || []).forEach((o, i) => { try { build(line, o, i); } catch (e) { window.ERR = (window.ERR || 0) + 1; console.error('overlay', line.id, o.comp, e); } });
+const BIG = ['receipt', 'quote', 'post', 'compare', 'options', 'counter', 'exhibit', 'status', 'note', 'stamp'];
+for (const line of PL.lines) { const ov = (line.overlays || []).slice(); if ((line.visual || {}).asset === 'card' && !ov.some(o => BIG.includes(o.comp))) ov.push({comp: 'headline', text: line.text}); ov.forEach((o, i) => { try { build(line, o, i); } catch (e) { window.ERR = (window.ERR || 0) + 1; console.error('overlay', line.id, o.comp, e); } }); }
 
 function animate(t) {
   for (const sid in OV) for (const r of OV[sid]) {
