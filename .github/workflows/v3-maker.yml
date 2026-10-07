@@ -1,0 +1,121 @@
+name: v3-maker
+
+# VIDEO SYSTEM v3 (owner 2026-10-07): one story in, one finished TikTok video out, with nobody in the loop.
+# The director (v3/director.py) writes the script and the plan with the repository's own AI keys, the clips are looked
+# at by a picture model before they are cut (v3/eyes.py), footage sits under every second, and code checks refuse a
+# video that is too short, has too little to show or waits for the owner. Posts NOTHING.
+#
+# In:  the `v3-feed` branch, one folder per story: <id>/material.json (what the story offers; `python v3/feed.py <page url>`
+#      on the owner's PC writes and pushes it, a server step can do the same). A push that touches .social/v3-feed/<id>.json
+#      on main starts a run for it; "Run workflow" renders the ids typed in (empty = every folder).
+# Out: the `v3-drop` branch, <id>/: the mp4, cover.jpg, post.txt, plan.json, report.json and the run log; the same files as
+#      a downloadable artifact of the run.
+# Limit to know: YouTube refuses GitHub's machines, so footage searches return nothing here; a run on GitHub uses the
+#      videos and pictures of the story's own posts, and neutral stock footage (blurred) when that is too little. The same
+#      code on the owner's PC also searches YouTube.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".social/v3-feed/*.json"
+  workflow_dispatch:
+    inputs:
+      pages:
+        description: "story ids to render (space separated); empty = every folder on v3-feed"
+        required: false
+        default: ""
+      approved:
+        description: "type yes if the owner has read the plan of a story the system held back as sensitive"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v3-maker
+  cancel-in-progress: false
+
+jobs:
+  make:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Fetch the feed (one material.json per story)
+        run: |
+          git fetch --depth 1 origin v3-feed:v3-feed
+          rm -rf feed && mkdir feed
+          git archive v3-feed | tar -x -C feed
+          ls -la feed | head -40
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Cache the browser and the pip wheels
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/ms-playwright
+            ~/.cache/pip
+          key: v3-maker-${{ runner.os }}-1
+
+      - name: Install (ffmpeg, Playwright Chromium, edge-tts, numpy, Pillow, yt-dlp)
+        run: |
+          command -v ffmpeg >/dev/null || { sudo apt-get update -qq >/dev/null 2>&1 || true; sudo timeout 200 apt-get install -y -qq ffmpeg >/dev/null 2>&1 || true; }
+          ffmpeg -version | head -1
+          python -m pip install --upgrade pip 2>&1 | tail -1
+          python -m pip install "playwright==1.48.0" "edge-tts==7.2.8" numpy pillow 2>&1 | tail -2
+          ( python -m pip install -U yt-dlp 2>&1 | tail -1 ) || echo "yt-dlp not installed: footage searches off this run"
+          python -m playwright install --with-deps chromium 2>&1 | tail -2
+
+      - name: Make the videos
+        env:
+          PAGES: ${{ github.event.inputs.pages }}
+          APPROVED: ${{ github.event.inputs.approved }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          AI_PROBE_NVIDIA: ${{ secrets.AI_PROBE_NVIDIA }}
+          AI_PROBE_OPENROUTER: ${{ secrets.AI_PROBE_OPENROUTER }}
+          PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
+        run: |
+          mkdir -p drop
+          for d in feed/*/; do
+            p=$(basename "$d")
+            [ -f "$d/material.json" ] || continue
+            if [ -n "$PAGES" ] && ! echo " $PAGES " | grep -q " $p "; then continue; fi
+            echo "=== story $p"
+            cp -r "$d" "work-$p"
+            extra=""; [ "$APPROVED" = "yes" ] && extra="--approved"
+            ( timeout 3300 python v3/make.py "work-$p" $extra 2>&1 | tee "drop/$p.log" ) || echo "story $p: no video (the reason is in the log and in report.json)"
+            mkdir -p "drop/$p"
+            cp -r "work-$p/out/." "drop/$p/" 2>/dev/null || true
+            [ -f "work-$p/render_errors.txt" ] && cp "work-$p/render_errors.txt" "drop/$p/" || true
+          done
+          ls -laR drop | head -60
+
+      - name: Keep the results with the run
+        uses: actions/upload-artifact@v4
+        with:
+          name: v3-videos
+          path: drop
+          retention-days: 14
+
+      - name: Push the results to the v3-drop branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          cd drop
+          git init -q
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -q -b v3-drop
+          git add -A
+          git commit -q -m "v3 videos $(date -u +%Y-%m-%dT%H:%M:%SZ)" || echo "nothing to push"
+          git push -qf "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" v3-drop || true

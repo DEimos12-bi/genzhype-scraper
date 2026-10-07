@@ -1,0 +1,5 @@
+edge-tts==7.2.8
+numpy
+pillow
+yt-dlp
+playwright==1.48.0
