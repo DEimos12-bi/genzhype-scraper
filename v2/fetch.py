@@ -51,7 +51,7 @@ def main():
             vid, dur, title, channel, views, live = p[:6]
             try: dur = float(dur); views = float(views or 0)
             except ValueError: dur = 0; views = 0
-            if live not in ('', 'None', 'not_live', 'was_live') or not (20 <= dur <= 900): continue
+            if live in ('is_live', 'is_upcoming', 'post_live') or not (20 <= dur <= 1200): continue   # yt-dlp prints NA when unknown
             if keys and not any(k in title.lower() for k in keys): continue   # the clip's title must name the thing (r172 rule)
             if best is None or views > best[4]: best = (vid, dur, title, channel, views)
         if best is None: say('  search found nothing usable for', repr(query), '|', (err or out)[:160].replace('\n', ' '))
