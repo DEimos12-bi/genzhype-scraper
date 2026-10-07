@@ -29,6 +29,8 @@ def main(url):
             git('init', '-q', cwd=tmp); git('checkout', '-q', '-b', 'v3-feed', cwd=tmp); git('remote', 'add', 'origin', origin, cwd=tmp)
         os.makedirs(os.path.join(tmp, sid), exist_ok=True)
         json.dump(mat, open(os.path.join(tmp, sid, 'material.json'), 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
+        import make                                             # the page on three screens, taken here: GitHub cannot open the site
+        subprocess.run([make.browser_python(), os.path.join(HERE, 'site.py'), os.path.join(tmp, sid)], timeout=300)
         git('add', '-A', cwd=tmp)
         git('-c', 'user.name=genzhype-feed', '-c', 'user.email=feed@genzhype.local', 'commit', '-q', '-m', 'v3 feed: ' + sid, cwd=tmp, check=False)
         git('push', '-q', 'origin', 'v3-feed', cwd=tmp)

@@ -8,6 +8,7 @@ import json
 import os
 import re
 import sys
+import time
 
 import ai
 
@@ -53,6 +54,8 @@ def assets_of(m):
                 out['clip%d' % i] = {'kind': 'clip', 'post': i, 'url': md['video'], 'seconds': md.get('seconds'), 'credit': 'CLIP · %s / X' % p['handle'].upper(), 'about': p['text'][:240], 'by': p['handle'], 'page': p['url']}
             elif md['type'] == 'photo' and md.get('image') and 'photo%d' % i not in out:
                 out['photo%d' % i] = {'kind': 'photo', 'post': i, 'url': md['image'], 'credit': 'IMAGE · %s / X' % p['handle'].upper(), 'about': p['text'][:240], 'by': p['handle'], 'page': p['url']}
+    for i, im in enumerate(m.get('images') or []):             # the page's own pictures (a meme's examples, the cover)
+        out['page%d' % i] = {'kind': 'photo', 'url': im['url'], 'credit': '', 'about': im.get('alt', ''), 'by': 'the page', 'page': m.get('url', '')}
     return out
 
 
@@ -76,7 +79,7 @@ THE VOICE (study the examples: this exact rhythm)
 ON SCREEN, for each line
 - "show": what footage is under the line. {"asset":"clip0"} / {"asset":"photo1"} = a clip or picture from the story's own posts (ids listed in the material). {"asset":"hunt1"} = footage you ask for in "hunts". "mode":"sharp" = the footage is the point (hook, a person talking, the thing itself); "mode":"under" = blurred behind a card.
   A line WITHOUT a card should be "sharp". A clip of a person may only be shown sharp on a line about THAT person (the clip's own post tells you who is in it).
-- "hunts": up to %(hunts)d footage requests for things the words describe but the posts do not show: the game's gameplay or trailer, the event, the arena, the product. Each: {"id":"hunt1","query":"4 to 7 search words naming the exact thing","must_show":"what the picture must show"}. Ask for enough: every line needs footage, a video with one clip is refused. Hunt THINGS (the game, the event, the arena, the product, a trailer), not a named person's face: a search cannot promise who is in the picture. Never hunt a private person's home, a victim, a mugshot.
+- "hunts": up to %(hunts)d footage requests for things the words describe but the posts do not show: the game's gameplay or trailer, the event, the arena, the product. Each: {"id":"hunt1","query":"4 to 7 search words naming the exact thing","must_show":"what the picture must show","game":"only when the footage wanted is a video game: its exact title, nothing else"}. A hunt with "game" gets that game's official trailer (always found, always the right game); use one for every game the story is about. Ask for enough: every line needs footage, a video with one clip is refused. Hunt THINGS (the game, the event, the arena, the product, a trailer), not a named person's face: a search cannot promise who is in the picture. Never hunt a private person's home, a victim, a mugshot.
 - "overlays": the graphics, each with "on": ONE word of that line (exactly as written) on which it appears. Use few and big:
   {"k":"stamp","t":"22.8M VIEWS"}          the one number or word of the line, huge (max 12 characters)
   {"k":"chip","t":"KOTAKU · OCT 2"}        a small label (max 30 characters)
@@ -102,7 +105,7 @@ def prompt_for(m):
     ex = [e for e in json.load(open(os.path.join(HERE, 'examples.json'), encoding='utf-8')) if e['slug'] != slug][:2]
     examples = '\n\n'.join('EXAMPLE (%s). Vote: %s or %s.\n%s' % (e['about'], e['vote'][0], e['vote'][1], '\n'.join('%d. %s' % (i + 1, l) for i, l in enumerate(e['lines']))) for e in ex)
     a = assets_of(m)
-    alist = '\n'.join('  %s: %s%s. Its post says: "%s"' % (k, 'video, %ss' % v.get('seconds') if v['kind'] == 'clip' else 'picture', ' by ' + v['by'], v['about'][:200]) for k, v in a.items()) or '  (none: every line needs a hunt)'
+    alist = '\n'.join('  %s: %s%s. Its post says: "%s"' % (k, 'video, %ss' % v.get('seconds') if v['kind'] == 'clip' else 'picture', ' from ' + v['by'], v['about'][:200]) for k, v in a.items()) or '  (none: every line needs a hunt)'
     plist = '\n'.join('  post%d: %s (%s), %s, %s likes%s: "%s"' % (i, p['handle'], p['name'], p['date'], p['likes'], ', replying to @' + p['reply_to'] if p.get('reply_to') else '', p['text'][:500]) for i, p in enumerate(m.get('posts', []))) or '  (none)'
     slist = '\n\n'.join('OUTLET %s: "%s"\n%s' % (s['publisher'], s['title'], s['excerpt'][:2600]) for s in m.get('sources', [])) or '(none fetched)'
     user = ('%s\n\nTHE STORY\nTitle: %s\nPage: %s\nPublished: %s\n\nOUR PAGE (already fact-checked; its attributions are the safe wording):\n%s\n\nTHE POSTS THE PAGE CITES (ids for receipts):\n%s\n\n'
@@ -252,38 +255,67 @@ def unsupported(plan, m):
             'invented facts, numbers or names that differ, superlatives and predictions the material does not make ("the best in the world", "they will lose"), a claim about wrongdoing stated without who says it, '
             'a guessed gender. A fair summary of what the material says is supported. Questions and the vote are not claims. Strict JSON only: {"problems":[{"line":1,"text":"the words","why":"short"}]} (an empty list if all is supported).')
     try:
-        j, _ = ai.ask_json(sys_, 'MATERIAL\n%s\n\nSCRIPT\n%s' % (mat, script), temperature=0.1, timeout=60, max_tokens=6000)
+        j, _ = ai.ask_json(sys_, 'MATERIAL\n%s\n\nSCRIPT\n%s' % (mat, script), temperature=0.1, timeout=ai.CONFIG['ai'].get('timeout', 100), max_tokens=6000)
     except ai.AIError:
         return None                                           # no checker answered: said in the report, the plan is kept
     return ['line %s says "%s": not in the material (%s); say only what the material says, or cut it' % (p.get('line'), str(p.get('text', ''))[:70], str(p.get('why', ''))[:80])
             for p in j.get('problems', []) if isinstance(p, dict)][:8]
 
 
-def direct(m, log=print):
+def direct(m, log=print, work=None, budget=None):
+    """The plan, in up to three rounds of write -> code checks -> fact check -> repair. With a work folder the progress is
+    kept after every AI answer (plan_progress.json): a run that is stopped, or a caller with a time limit (budget, in
+    seconds: exit code 3 = run again), continues where it was instead of paying for the same answers twice."""
     system, user = prompt_for(m)
-    plan, model = ai.ask_json(system, user, temperature=0.7, timeout=90, max_tokens=12000, effort='medium')
-    for round_ in range(3):
-        plan, soft, hard = fix_and_check(plan, m)
-        facts = unsupported(plan, m) if not hard and round_ < 2 else []
+    t0, wait = time.time(), ai.CONFIG['ai'].get('timeout', 100)
+    ck = os.path.join(work, 'plan_progress.json') if work else None
+    st = json.load(open(ck, encoding='utf-8')) if ck and os.path.isfile(ck) else {'round': 0, 'plan': None, 'model': '', 'facts': None, 'facts_for': -1}
+
+    def keep():
+        if ck:
+            json.dump(st, open(ck, 'w', encoding='utf-8'), ensure_ascii=False)
+        if budget and time.time() - t0 > budget:
+            log('director: stopped at the time budget after round %d; run again' % (st['round'] + 1))
+            raise SystemExit(3)
+
+    if st['plan'] is None:
+        st['plan'], st['model'] = ai.ask_json(system, user, temperature=0.7, timeout=wait, max_tokens=12000, effort='medium')
+        keep()
+    checked, soft = True, []
+    while True:
+        plan, soft, hard = fix_and_check(st['plan'], m)
+        if st['facts_for'] != st['round']:
+            st['facts'] = unsupported(plan, m) if not hard and st['round'] < 2 else []
+            st['facts_for'], st['plan'] = st['round'], plan
+            keep()
+        facts = st['facts']
         checked = facts is not None
         soft += facts or []
-        log('director round %d (%s): %d words, %d lines, %d hunts | fact check: %s | to fix: %s' % (round_ + 1, model, plan.get('words', 0), len(plan.get('lines', [])), len(plan.get('hunts', [])),
+        log('director round %d (%s): %d words, %d lines, %d hunts | fact check: %s | to fix: %s' % (st['round'] + 1, st['model'], plan.get('words', 0), len(plan.get('lines', [])), len(plan.get('hunts', [])),
             ('%d problems' % len(facts) if facts else 'clean') if checked else 'NOT RUN', '; '.join(soft + hard) or 'nothing'))
-        if not soft or round_ == 2:
+        if not soft or st['round'] >= 2:
             break
-        fix = 'Your plan:\n%s\n\nA machine checked it. Fix exactly these points and return the WHOLE corrected JSON plan, same format:\n- %s' % (json.dumps(plan, ensure_ascii=False), '\n- '.join(soft + hard))
+        st['fix_tries'] = st.get('fix_tries', 0) + 1                # counted across runs: when no model answers the repair, the last plan stands
+        if st['fix_tries'] > 2:
+            log('director: the repair got no answer twice; keeping the last plan (what is left open goes in the report)')
+            break
+        if ck:
+            json.dump(st, open(ck, 'w', encoding='utf-8'), ensure_ascii=False)
+        fix ='Your plan:\n%s\n\nA machine checked it. Fix exactly these points and return the WHOLE corrected JSON plan, same format:\n- %s' % (json.dumps(plan, ensure_ascii=False), '\n- '.join(soft + hard))
         try:
-            plan, model = ai.ask_json(system, user + '\n\n' + fix, temperature=0.4, timeout=90, max_tokens=12000)
+            st['plan'], st['model'] = ai.ask_json(system, user + '\n\n' + fix, temperature=0.4, timeout=wait, max_tokens=12000)
         except ai.AIError as e:
             log('director: the fix round got no answer (%s); keeping the last plan' % str(e)[:100])
             break
-    plan, soft, hard = fix_and_check(plan, m)
+        st['round'] += 1
+        keep()
+    plan, soft2, hard = fix_and_check(st['plan'], m)
     lo = CFG['length']['words_min']
     if plan.get('words', 0) < lo - 25:
         hard.append('the script stayed at %d words (under %d): too short for a video over a minute' % (plan['words'], lo - 25))
     if hard:
         raise SystemExit('PLAN REFUSED: ' + '; '.join(hard))
-    plan.update({'url': m['url'], 'title': m['title'], 'model': model, 'assets': assets_of(m), 'left_open': soft, 'fact_checked': checked})
+    plan.update({'url': m['url'], 'title': m['title'], 'model': st['model'], 'assets': assets_of(m), 'left_open': soft2 + (st['facts'] or []) if st['round'] >= 2 else soft2, 'fact_checked': checked})
     return add_site_line(plan)
 
 
@@ -293,7 +325,7 @@ if __name__ == '__main__':
     localenv.load()
     work = sys.argv[1]
     mat = json.load(open(os.path.join(work, 'material.json'), encoding='utf-8'))
-    pl = direct(mat)
+    pl = direct(mat, lambda *a: print(*a, flush=True), work, float(sys.argv[2]) if len(sys.argv) > 2 else None)
     json.dump(pl, open(os.path.join(work, 'plan.json'), 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
     for ln in pl['lines']:
         print('%-8s [%s %s] %s\n         %s' % (ln['id'], ln['show']['asset'], ln['show']['mode'], ln['text'], ' | '.join('%s:%s' % (o['k'], o.get('t') or o.get('name') or o.get('post') or len(o.get('rows', o.get('items', [])))) for o in ln['overlays'])))

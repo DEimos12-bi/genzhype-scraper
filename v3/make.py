@@ -3,7 +3,7 @@
     python make.py <work folder>                                     (a material.json is already in the folder: the server feed)
 Steps, each one a file in this folder; a run can be stopped and started again, finished steps are kept:
     material -> plan (director.py) -> voice (tts.py) -> footage (footage.py) -> eyes (eyes.py) -> receipts (receipts.py)
-    -> cut (shots.py) -> layout (render.py + check.py, repaired) -> gate (check.py) -> frames (render.py, in batches)
+    -> site (site.py: the page on a PC, a tablet and a phone, for the closing) -> cut (shots.py) -> layout (render.py + check.py, repaired) -> gate (check.py) -> frames (render.py, in batches)
     -> sound (audio.py) -> pack (mp4, cover.jpg, post.txt, report.json in <work>/out)
 Options: --steps a,b,c  only these steps      --from STEP  this step and the ones after it      --approved  the owner read
 the plan of a sensitive story      --budget N  seconds a step may spend before it stops to be run again (frames, footage)
@@ -21,7 +21,7 @@ sys.path.insert(0, HERE)
 import ai          # noqa: E402
 import localenv    # noqa: E402
 
-STEPS = ['material', 'plan', 'voice', 'footage', 'eyes', 'receipts', 'cut', 'layout', 'gate', 'frames', 'sound', 'pack']
+STEPS = ['material', 'plan', 'voice', 'footage', 'eyes', 'receipts', 'site', 'cut', 'layout', 'gate', 'frames', 'sound', 'pack']
 BATCH = 450
 
 
@@ -36,7 +36,7 @@ def browser_python():
 
 
 def py(script, *args, timeout=None):
-    exe = browser_python() if script in ('render.py', 'receipts.py') else sys.executable
+    exe = browser_python() if script in ('render.py', 'receipts.py', 'site.py') else sys.executable
     r = subprocess.run([exe, os.path.join(HERE, script)] + [str(a) for a in args], timeout=timeout)
     return r.returncode
 
@@ -122,6 +122,7 @@ def main():
     os.makedirs(work, exist_ok=True)
     localenv.load()
     os.environ['V3_AI_LOG'] = os.path.join(work, 'ai_log.jsonl')
+    os.environ['V3_AI_STRIKES'] = os.path.join(work, 'ai_strikes.json')
     steps = STEPS
     if opt('--steps'):
         steps = [s for s in STEPS if s in opt('--steps').split(',')]
@@ -149,7 +150,10 @@ def main():
                 if py('material.py', opt('--url'), work, timeout=180) != 0:
                     refuse(work, 'the page could not be read')
         elif step == 'plan':
-            if py('director.py', work, timeout=700) != 0:
+            rc = py('director.py', work, *([budget] if budget else []), timeout=900)
+            if rc == 3:
+                say('STOPPED at the time budget: run the same command again'); sys.exit(3)
+            if rc != 0:
                 refuse(work, 'the director gave no usable plan (see the lines above)')
         elif step == 'voice':
             if py('tts.py', work, timeout=400) != 0:
@@ -163,6 +167,8 @@ def main():
             py('eyes.py', work, timeout=900); mark(work, step)
         elif step == 'receipts':
             py('receipts.py', work, timeout=400); mark(work, step)
+        elif step == 'site':
+            py('site.py', work, timeout=300); mark(work, step)
         elif step == 'cut':
             if py('shots.py', work, timeout=1500) != 0:
                 refuse(work, 'no footage to cut: nothing usable was fetched for this story')

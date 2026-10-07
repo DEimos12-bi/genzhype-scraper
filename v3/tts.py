@@ -1,6 +1,7 @@
 """THE VOICE: one take per script line (edge-tts with word timings), trimmed and laid end to end with chosen pauses.
 Writes vo.wav (48 kHz mono) and timeline.json (every line and word with its time in the final video); every cut and
-every graphic is placed from those times.  usage: tts.py <work folder>"""
+every graphic is placed from those times. A script that comes out a little under the minimum length is spoken once
+more, a little slower (never slower than a natural pace), instead of losing the video.  usage: tts.py <work folder>"""
 import asyncio
 import json
 import os
@@ -14,6 +15,7 @@ import ai
 
 SR = 48000
 LEAD = 0.10          # silence before the first word
+SLOWEST = -4         # per cent: the slowest the voice may go
 
 
 async def one(takes, i, text, rate, voice):
@@ -39,16 +41,12 @@ def load(mp3):
     return np.frombuffer(raw, dtype=np.float32).copy()
 
 
-def main(work):
-    plan = json.load(open(os.path.join(work, 'plan.json'), encoding='utf-8'))
-    takes = os.path.join(work, 'takes'); os.makedirs(takes, exist_ok=True)
-    lines = [(l['id'], l['text'], l.get('rate') or ('+10%' if l['id'] in ('vote', 'site') else '+12%'), 0.5 if l['id'] == 'site' else 0.3 if l['id'] == 'vote' else 0.22) for l in plan['lines']]
-
+def speak(takes, lines):
     async def synth():
         for i, (lid, text, rate, _) in enumerate(lines):
             for attempt in range(3):                      # the free voice service drops a request now and then
                 try:
-                    if await one(takes, i, text, rate, ai.CONFIG['voice']) > 0:
+                    if await one(takes, i, text, '%+d%%' % rate, ai.CONFIG['voice']) > 0:
                         break
                 except Exception as e:  # noqa: BLE001
                     if attempt == 2:
@@ -70,7 +68,22 @@ def main(work):
         tl.append({'id': lid, 'text': text, 's': round(t, 3), 'e': round(t + dur, 3), 'words': ws})
         out.append(a); out.append(np.zeros(int(pause * SR), dtype=np.float32))
         t += dur + pause
-    vo = np.concatenate(out)
+    return np.concatenate(out), tl, t
+
+
+def main(work):
+    plan = json.load(open(os.path.join(work, 'plan.json'), encoding='utf-8'))
+    takes = os.path.join(work, 'takes'); os.makedirs(takes, exist_ok=True)
+    lines = [[l['id'], l['text'], 10 if l['id'] in ('vote', 'site') else 12, 0.5 if l['id'] == 'site' else 0.3 if l['id'] == 'vote' else 0.22] for l in plan['lines']]
+    need = ai.CONFIG['length']['min_s'] + 1.0
+    vo, tl, t = speak(takes, lines)
+    if t + 0.45 < need:                                   # a little short: once more, slower by what is missing
+        slower = [max(SLOWEST, int(round((100 + r) * (t + 0.45) / need - 100))) for _, _, r, _ in lines]
+        if slower != [l[2] for l in lines]:
+            print('voice: %.1f s is under the minimum; spoken again at %+d%% instead of %+d%%' % (t + 0.45, slower[0], lines[0][2]), flush=True)
+            for l, r in zip(lines, slower):
+                l[2] = r
+            vo, tl, t = speak(takes, lines)
     vo = vo / (np.max(np.abs(vo)) + 1e-9) * 0.89
     with wave.open(os.path.join(work, 'vo.wav'), 'wb') as w:
         w.setnchannels(1); w.setsampwidth(2); w.setframerate(SR)

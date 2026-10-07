@@ -59,7 +59,7 @@ def look(work, log=print):
         tsec = dict(tiles)
         user = ('THE STORY: %s\nTHIS CLIP: %s\n%s\nThe sheet has %d pictures%s.\n'
                 'For each picture: "n" its letter, "what" it shows in at most 10 words, "score" 0 to 5 as footage for THIS story (5 = clear, lively, shows the subject; 3 = usable background; '
-                '1 = dull or unclear; 0 = black, a title or text screen, an ad, a logo, unrelated), "x" where the main subject sits from 0 (left edge) to 1 (right edge), '
+                '1 = dull or unclear; 0 = black or very dark, a title or text screen, an ad, a logo, unrelated), "x" where the main subject sits from 0 (left edge) to 1 (right edge), '
                 '"text" true if big burned-in text, captions or a channel banner cover it, "face" true if a real person\'s face is the main subject.\n'
                 'Then for the whole clip: "kind" one of gameplay, trailer, event, stream, talking, other; "relevant" true if it shows the game, people, product or event of THIS story at all (false for a different game, a fan concept, an ad, an unrelated video); "exact" true if it shows exactly this: %s; "shows" one sentence.\n'
                 'JSON: {"tiles":[{"n":"A","what":"","score":0,"x":0.5,"text":false,"face":false}],"kind":"","relevant":true,"exact":true,"shows":""}'
@@ -68,7 +68,7 @@ def look(work, log=print):
         eyes = None
         if a['kind'] != 'stock':
             try:
-                eyes, model = ai.ask_json(SYSTEM, user, images=[out], temperature=0.2, timeout=60, max_tokens=6000)
+                eyes, model = ai.ask_json(SYSTEM, user, images=[out], temperature=0.2, timeout=ai.CONFIG['ai'].get('timeout', 100), max_tokens=6000)
                 eyes['model'] = model
             except Exception as e:  # noqa: BLE001
                 log('%s: no picture model answered (%s); cut evenly' % (aid, str(e)[-90:]))
@@ -89,6 +89,7 @@ def look(work, log=print):
         a['eyes'] = {'kind': str(eyes.get('kind', 'other')), 'relevant': bool(eyes.get('relevant', True)), 'exact': bool(eyes.get('exact', eyes.get('relevant', True))), 'shows': str(eyes.get('shows', ''))[:160], 'model': eyes.get('model', '')}
         a['windows'] = sorted([g for g in good if g['score'] >= 2.5], key=lambda g: (-g['score'], g['t']))
         a['usable'] = bool(a['windows']) and (a['eyes']['relevant'] or a['kind'] == 'stock')
+        json.dump(plan, open(os.path.join(work, 'plan.json'), 'w', encoding='utf-8'), ensure_ascii=False, indent=1)      # kept clip by clip: a stopped run does not look twice
         log('%s: %s, %s, %d of %d moments usable: %s' % (aid, a['eyes']['kind'], ('shows exactly it' if a['eyes']['exact'] else 'on topic') if a['eyes']['relevant'] else 'OFF TOPIC', len(a['windows']), len(good), a['eyes']['shows'][:90]))
     json.dump(plan, open(os.path.join(work, 'plan.json'), 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
 

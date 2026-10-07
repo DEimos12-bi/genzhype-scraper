@@ -48,8 +48,25 @@ def key(provider):
     return ''
 
 
+def strikes(add=None):
+    """Models that failed in the last 15 minutes (out of quota, timed out, empty answer), kept in a small file so that the
+    next step, and the next run, do not wait on them again. They stay available as a last resort."""
+    path = os.environ.get('V3_AI_STRIKES', '')
+    try:
+        d = json.load(open(path, encoding='utf-8')) if path and os.path.isfile(path) else {}
+    except Exception:  # noqa: BLE001
+        d = {}
+    d = {k: t for k, t in d.items() if time.time() - t < 900}
+    if add:
+        d[add] = time.time()
+        if path:
+            json.dump(d, open(path, 'w', encoding='utf-8'))
+    return d
+
+
 def available(kind='text'):
-    return [(p, m) for p, m in (x.split('/', 1) for x in CONFIG['ai'][kind]) if key(p)]
+    out, bad = [(p, m) for p, m in (x.split('/', 1) for x in CONFIG['ai'][kind]) if key(p)], strikes()
+    return [x for x in out if '/'.join(x) not in bad] + [x for x in out if '/'.join(x) in bad]
 
 
 def _image_part(path, max_side=None):
@@ -60,7 +77,7 @@ def _image_part(path, max_side=None):
 
 def _post(provider, model, messages, temperature, timeout, max_tokens, effort):
     body = {'model': model, 'messages': messages, 'temperature': temperature, 'max_tokens': max_tokens}
-    if provider == 'gemini' and effort:                       # without a cap its thinking uses up the answer's room and the JSON arrives cut off
+    if provider == 'gemini' and effort and model.startswith('gemini-'):                       # without a cap its thinking uses up the answer's room and the JSON arrives cut off
         body['reasoning_effort'] = effort
     req = urllib.request.Request(URLS[provider], data=json.dumps(body).encode(), method='POST',
                                  headers={'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key(provider), 'User-Agent': 'genzhype-video/3'})
@@ -92,6 +109,7 @@ def chat(system, user, images=(), kind=None, temperature=0.5, timeout=120, max_t
         except Exception as e:  # noqa: BLE001  (a timeout, a broken reply: the next model answers)
             last = '%s/%s: %s' % (provider, model, str(e)[:160])
         note({'model': provider + '/' + model, 'kind': kind, 's': round(time.time() - t, 1), 'ok': False, 'why': last[-170:]})
+        strikes(add=provider + '/' + model)
     raise AIError(last)
 
 

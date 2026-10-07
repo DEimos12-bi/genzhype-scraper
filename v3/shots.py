@@ -60,14 +60,14 @@ class Supply:
     def __init__(self, assets):
         self.a = {k: v for k, v in assets.items() if v.get('file')}
         self.used = {k: [] for k in self.a}
-        self.turn = 0
+        self.uses = {k: 0 for k in self.a}                    # lines that showed it: the least shown comes first
 
     def clips(self, sharp):
         out = [k for k, v in self.a.items() if v['kind'] in ('clip', 'hunt', 'stock') and (not sharp or (v['kind'] != 'stock' and v.get('usable', True)))]
         return sorted(out, key=lambda k: (not self.a[k].get('usable', True), not self.a[k].get('eyes', {}).get('exact', True), len(self.used[k]), -len(self.a[k].get('windows', []))))
 
     def photos(self):
-        return [k for k, v in self.a.items() if v['kind'] == 'photo']
+        return sorted([k for k, v in self.a.items() if v['kind'] == 'photo'], key=lambda k: self.uses[k])
 
     def moment(self, k, dur):
         v = self.a[k]
@@ -102,23 +102,26 @@ def plan_shots(plan, tl, log):
         if asset and sharp and sup.a[asset]['kind'] != 'photo' and (sup.a[asset]['kind'] == 'stock' or not sup.a[asset].get('usable', True)):
             asset = None                                       # refused by the eyes: not shown sharp
         if not asset:
-            # the footage this line asked for is not there. Other footage may stand in SHARP only if its own title or post
-            # names something the line names (never the wrong game or the wrong event under the words); else it goes blurred.
-            said = {w.lower() for w in re.findall(r'\b[A-Z][A-Za-z0-9À-ÿ]{2,}\b', pl['text'])} - {'the', 'this', 'that', 'they', 'their', 'then', 'when', 'what', 'will', 'with', 'and', 'but', 'now', 'its', 'one', 'some', 'same'}
-            fits = [k for k in sup.clips(True) + sup.photos() if said & set(norm(sup.a[k].get('title', '') if sup.a[k]['kind'] == 'hunt' else sup.a[k].get('about', '')).split())]
-            if sharp and want != 'auto' and fits and i > 0 and plan['assets'].get(want, {}).get('kind') != 'hunt':
-                asset = fits[0]                                # a post's own clip or picture may stand in for another of the story's posts
-            elif sharp and want != 'auto':                     # a searched clip that is missing has no stand-in: the wrong game under the words is worse than a blur
-                if i == 0:
-                    raise SystemExit('NO FOOTAGE OF THE SUBJECT: the opening asked for "%s" (%s) and nothing fetched shows what the first line names' % (want, plan['assets'].get(want, {}).get('about', '')[:60]))
-                sharp = False
-                log('  %s: its footage (%s) is missing and nothing else names what the line names; other footage goes blurred' % (pl['id'], want))
+            # the footage this line asked for is not there. The story's OWN material (its posts' clips and pictures, the page's
+            # pictures) may stand in sharp, the opening included: it is the story. Footage that was searched for something
+            # else may not (the wrong game under the words is worse than a blur): it goes blurred, and an opening with
+            # nothing of its own to show is refused.
+            own = sorted([k for k in sup.a if sup.a[k]['kind'] in ('clip', 'photo') and sup.a[k].get('usable', True)], key=lambda k: sup.uses[k])
+            if sharp and want != 'auto':
+                if own:
+                    asset = own[0]
+                elif i == 0:
+                    raise SystemExit('NO FOOTAGE OF THE SUBJECT: the opening asked for "%s" (%s) and the story has no clip or picture of its own' % (want, plan['assets'].get(want, {}).get('about', '')[:60]))
+                else:
+                    sharp = False
+                    log('  %s: its footage (%s) is missing and the story has nothing of its own left; other footage goes blurred' % (pl['id'], want))
             if not asset:
-                pool = sup.clips(sharp) or sup.photos() or sup.clips(False)
-                asset = pool[0]
+                pool = (sup.clips(True) or own) if sharp else (sup.clips(False) or sup.photos())
+                asset = (pool or sup.photos() or sup.clips(False))[0]
             if sup.a[asset]['kind'] == 'stock' or not sup.a[asset].get('usable', True):
                 sharp = False
         a = sup.a[asset]
+        sup.uses[asset] += 1
         if sharp and a['kind'] != 'photo' and (a.get('eyes', {}).get('kind') in ('stream', 'talking') or any(w.get('face') for w in a.get('windows', [])[:3])):
             own = norm(a.get('title', '')) if a['kind'] == 'hunt' else norm(a.get('about', '') + ' ' + a.get('by', ''))     # a hunt is trusted by its title only, never by what was searched
             named = [p for p in people if p and p in own]
@@ -137,12 +140,12 @@ def plan_shots(plan, tl, log):
             parts = max(1, math.ceil(dur / 5.0))
         cuts = [t0] + split_times(ln, t0, t1, parts) + [t1]
         for k in range(len(cuts) - 1):
-            s = {'id': '%s_%d' % (pl['id'], k), 'line': pl['id'], 't0': cuts[k], 't1': cuts[k + 1], 'asset': asset, 'credit': a.get('credit', ''), 'dim': 0.08 if sharp else 0.28}
+            s = {'id': '%s_%d' % (pl['id'], k), 'line': pl['id'], 't0': cuts[k], 't1': cuts[k + 1], 'asset': asset, 'credit': a.get('credit', ''), 'dim': 0.08 if sharp else 0.22}
             d = s['t1'] - s['t0']
             if a['kind'] == 'photo':
                 w, h = a['w'], a['h']
                 n = sum(1 for x in shots if x['asset'] == asset)
-                if sharp and n % 3 != 2:                       # fills the screen, a slow move across the picture
+                if sharp and n % 3 != 2 and min(w, h) >= 800:  # fills the screen, a slow move across the picture (a small picture is never blown up: it is shown whole)
                     z = max(1920 / h, 1080 / w) * 1.02
                     span = max(0.0, w - 1080 / z)
                     x0, x1 = (w / 2 - span * 0.42, w / 2 + span * 0.42) if n % 2 == 0 else (w / 2 + span * 0.42, w / 2 - span * 0.42)
@@ -208,7 +211,7 @@ def fit(mode, w, h, x):
     if mode == 'F':
         return ['-vf', 'fps=%d,%s,unsharp=5:5:0.5' % (FPS, win)]
     if mode == 'B':
-        return ['-vf', 'fps=%d,%s,gblur=sigma=16,eq=brightness=-0.16:saturation=0.9' % (FPS, win)]
+        return ['-vf', 'fps=%d,%s,gblur=sigma=16,eq=brightness=-0.09:saturation=0.9' % (FPS, win)]
     return ['-filter_complex', '[0:v]fps=%d,split[a][b];[a]crop=ih*9/16:ih:(iw-ih*9/16)*0.5:0,scale=1080:1920,gblur=sigma=26,eq=brightness=-0.2:saturation=0.85[bg];'
             '[b]crop=ih*4/5:ih:(iw-ih*4/5)*%.3f:0,scale=1080:-2:flags=lanczos,unsharp=5:5:0.5[fg];[bg][fg]overlay=0:240' % (FPS, x)]
 
@@ -238,7 +241,9 @@ def main(work, log=lambda *a: print(*a, flush=True)):
             raise SystemExit('no frames for shot %s (%s at %.1fs)' % (s['id'], s['asset'], s['ss']))
         for k in range(got + 1, s['n'] + 1):                   # a clip that ends early holds its last picture
             shutil.copy(os.path.join(folder, '%04d.jpg' % got), os.path.join(folder, '%04d.jpg' % k))
+    sfile = os.path.join(work, 'site', 'site.json')
     comp = {'fps': FPS, 'end': end, 'frames': int(round(end * FPS)), 'shots': shots, 'lines': tl['lines'], 'cues': cues(plan, tl), 'receipts': receipts,
+            'site': json.load(open(sfile, encoding='utf-8')) if os.path.isfile(sfile) else None,
             'plan': {k: plan.get(k) for k in ('lines', 'vote', 'title', 'url')}, 'brand': json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'config.json'), encoding='utf-8'))['brand']}
     json.dump(comp, open(os.path.join(work, 'comp.json'), 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
     open(os.path.join(work, 'comp.js'), 'w', encoding='utf-8').write('window.COMP = ' + json.dumps(comp, ensure_ascii=False) + ';')

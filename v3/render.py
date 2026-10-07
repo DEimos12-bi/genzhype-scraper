@@ -39,14 +39,16 @@ def main():
             page.screenshot(path=os.path.join(out, 's%02d.jpg' % i), type='jpeg', quality=88)
     elif mode == 'layout':
         end = page.evaluate('window.COMP.end')
-        times = set()
-        for a, b in page.evaluate('spans()'):
+        times, spans = set(), page.evaluate('spans()')
+        for a, b in spans:
             b = min(b, end)
             for t in (a + 0.5, (a + b) / 2, b - 0.07):
                 if a < t < b:
                     times.add(round(t, 2))
+        # a graphic is measured where it rests, never while another one is still flying in (its entrance is larger than its place)
+        times = [t for t in sorted(times) if not any(a <= t < a + 0.45 for a, b in spans)]
         samples = []
-        for t in sorted(times):
+        for t in times:
             page.evaluate('render(%s)' % t)
             samples.append({'t': t, 'rects': page.evaluate('rects()')})
         json.dump(samples, open(os.path.join(work, 'layout.json'), 'w', encoding='utf-8'))

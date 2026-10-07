@@ -33,7 +33,7 @@ def layout_issues(work):
                 issues.setdefault(('out', a['key'], ''), s['t'])
             for j in range(i + 1, len(r)):
                 b = r[j]
-                if inter(a, b) > CFG['checks']['overlap_px']:
+                if inter(a, b) > CFG['checks']['overlap_px'] and not (a['key'].startswith('site.') and b['key'].startswith('site.')):      # the closing's devices overlap on purpose
                     issues.setdefault(('over', a['key'], b['key']), s['t'])
     return [{'kind': k[0], 'a': k[1], 'b': k[2], 't': t} for k, t in issues.items()]
 

@@ -34,7 +34,17 @@ PLAN.lines.forEach((pl, li) => {
     item(`<div class="ob red"><span>${esc(v.b.sub || 'THE OTHER').toUpperCase()}</span><b>${esc(v.b.word).toUpperCase()}</b></div>`, 60, 730, wb - .02, b, 'slam', {tl: 1, r: 1.5, big: 1, pulse: last(v.b.word) ? [last(v.b.word)] : [], key: 'vote.b'});
     item('<div class="go">COMMENT ONE WORD 👇</div>', 500, 1110, at(pl.id, 'Comment'), b, 'pop', {r: -2, wob: 9, key: 'vote.go'});
     return; }
-  if (pl.id === 'site') { const end = C.end + 1;
+  if (pl.id === 'site') { const end = C.end + 1, S = C.site;
+    if (S && S.desktop && S.tablet && S.phone) {                         // the real page on a PC, a tablet and a phone
+      const dev = (cls, name, W, H, pad) => `<div class="dev ${cls}" style="width:${W}px;height:${H}px"><div class="scr" style="left:${pad}px;top:${pad}px;width:${W - 2 * pad}px;height:${H - 2 * pad}px"><img src="site/${name}.jpg" style="width:${W - 2 * pad}px" alt=""></div></div>`;
+      const roll = (name, W, H, pad, far) => (t, el) => { const m = S[name], full = m.h * (W - 2 * pad) / m.w, p = clamp((t - a - .5) / Math.max(1, C.end - a - .7));
+        el.querySelector('img').style.transform = `translateY(${(-Math.max(0, Math.min(full - (H - 2 * pad), far)) * p * p * (3 - 2 * p)).toFixed(1)}px)`; };
+      item(`<div class="url" style="font-size:96px">${esc(C.brand.site)}</div>`, 505, 262, at(pl.id, 'Gen', .04), end, 'slam', {r: -2, fit: 900, key: 'site.url'});
+      item(`<div class="pcwrap">${dev('pc', 'desktop', 820, 500, 14)}<i class="neck"></i><i class="foot"></i></div>`, 110, 372, a + .1, end, 'rise', {tl: 1, fn: roll('desktop', 820, 500, 14, 520), key: 'site.pc'});
+      item(dev('tab', 'tablet', 330, 450, 14), 70, 770, at(pl.id, 'timeline'), end, 'pop', {tl: 1, r: -3, fn: roll('tablet', 330, 450, 14, 420), key: 'site.tab'});
+      item(dev('ph', 'phone', 204, 420, 10), 716, 800, at(pl.id, 'receipt'), end, 'pop', {tl: 1, r: 3, fn: roll('phone', 204, 420, 10, 620), key: 'site.ph'});
+      item('<div class="bio" style="font-size:44px">LINK IN BIO →</div>', 558, 1150, at(pl.id, 'Link'), end, 'pop', {r: -2, wob: 7, key: 'site.bio'});
+      return; }
     item('<div class="tick"><u>✓</u>THE FULL TIMELINE</div>', 60, 400, at(pl.id, 'full'), end, 'pop', {tl: 1, r: -3, key: 'site.1'});
     item('<div class="tick"><u>✓</u>EVERY RECEIPT</div>', 380, 540, at(pl.id, 'every'), end, 'pop', {tl: 1, r: 3, key: 'site.2'});
     item(`<div class="url">${esc(C.brand.site)}</div>`, 505, 800, at(pl.id, 'Gen', .04), end, 'slam', {r: -2, fit: 940, key: 'site.url'});

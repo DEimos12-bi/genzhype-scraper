@@ -75,6 +75,13 @@ def from_url(url):
                     if isinstance(x, dict) and x.get('name') and x.get('@type') in ('Person', 'Organization', 'Thing', None):
                         people.append(str(x['name']))
     links = list(dict.fromkeys(html.unescape(h) for h in re.findall(r'href="(https?://[^"#]+)', main)))
+    images = []                                                # the page's own content pictures: a meme's examples first, then the cover
+    for tag in re.findall(r'(?is)<img[^>]+>', main):
+        src, alt = re.search(r'src="([^"]+)"', tag), re.search(r'alt="([^"]*)"', tag)
+        if src and re.search(r'/assets/(memes|covers|proofs|events)/', src.group(1)):
+            u = html.unescape(src.group(1))
+            images.append({'url': u if u.startswith('http') else url.split('/', 3)[0] + '//' + url.split('/')[2] + u, 'alt': html.unescape(alt.group(1)) if alt else ''})
+    images = sorted({i['url']: i for i in images}.values(), key=lambda i: '/covers/' in i['url'])[:6]
     post_ids = list(dict.fromkeys(re.findall(r'(?:x|twitter)\.com/[^/"\s]+/status/(\d+)', main)))      # one post = one id, however it is linked
     posts = [p for p in (x_post(t) for t in post_ids[:8]) if p]
     sources = []
@@ -91,7 +98,7 @@ def from_url(url):
         t = text_of((re.search(r'(?is)<h1[^>]*>(.*?)</h1>', art) or [None, ''])[1]) or text_of((re.search(r'(?is)<title[^>]*>(.*?)</title>', art) or [None, ''])[1])
         sources.append({'url': u, 'publisher': re.sub(r'^www\.', '', u.split('/')[2]), 'title': t[:200], 'excerpt': text_of(body.group(1) if body else art)[:5000]})
     return {'url': url, 'title': title, 'summary': desc, 'published': published, 'people': list(dict.fromkeys(people))[:12], 'page_text': text_of(main)[:9000],
-            'posts': posts, 'sources': sources}
+            'posts': posts, 'sources': sources, 'images': images}
 
 
 if __name__ == '__main__':

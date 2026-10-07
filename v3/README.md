@@ -16,9 +16,10 @@ python v3/auto.py --max 2                                                    # t
 | material | `material.py` | reads the page: its text, the posts it cites (text, pictures, videos, through X's public embed data) and the outlets' text |
 | plan | `director.py` | the AI writes the script and what is on screen for each line; code checks every rule; a second AI reading checks every statement against the material; two repair rounds; a plan that still breaks a hard rule is refused |
 | voice | `tts.py` | one take per line with word timings (edge-tts); everything is timed from the spoken words |
-| footage | `footage.py` | the posts' own videos and pictures; footage searches on YouTube for what the words describe; neutral stock (blurred only) if that leaves too little |
+| footage | `footage.py` | the posts' own videos and pictures and the page's own pictures (a meme's examples); a video game's official trailer from its Steam store page (exact name only); YouTube searches for the rest; neutral stock (blurred only) if that leaves too little |
 | eyes | `eyes.py` | a picture model looks at a sheet of every clip: what each moment shows, how good it is, where the subject sits, whether it is on topic |
 | receipts | `receipts.py` | the posts shown as proof, photographed from X's embed page with the boxes of the words to highlight |
+| site | `site.py` | the story's page photographed as a PC, a tablet and a phone see it; the closing shows the three devices with the real page |
 | cut | `shots.py` | footage under every second, cut on spoken words, best moments first, none twice; a person's clip is shown sharp only on a line that names that person |
 | layout | `render.py layout` + `check.py` | reads where every graphic sits; two graphics on one spot or a graphic outside the free area are repaired |
 | gate | `check.py` | refuses a video under 61 s, with footage missing, with too little to show, or about a death, an arrest, sexual violence or a minor (that one waits for the owner: `--approved`) |
@@ -51,3 +52,10 @@ copy of the site's config; nothing is printed or written.
   that). Stories arrive on the `v3-feed` branch, results leave on `v3-drop` and as a run artifact.
 
 Nothing here posts anything.
+
+## When the AI is slow or out of quota
+
+Free quotas run out (about ten requests a video). A model that fails is passed over for 15 minutes, the next one in
+`ai.text` / `ai.vision` answers, and the plan step keeps its progress after every answer (`plan_progress.json`), so a
+stopped run continues instead of starting again. If no model answers the repair round twice, the last plan stands and
+what it left open is written in `report.json`. A script that comes out a little short is spoken a little slower.

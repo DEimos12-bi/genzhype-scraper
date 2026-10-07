@@ -58,3 +58,11 @@ html,body{background:#000;overflow:hidden}
 #credit{position:absolute;right:40px;top:1236px;font:500 20px Mono;letter-spacing:.05em;background:rgba(10,9,8,.6);color:#fff;padding:7px 10px 6px;border-radius:3px;white-space:nowrap}
 #flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none}
 #grain{position:absolute;inset:-64px;opacity:.09;mix-blend-mode:overlay;pointer-events:none;background-size:540px 960px}
+.dev{position:relative;background:var(--ink);border-radius:22px;box-shadow:12px 12px 0 var(--red)}
+.dev .scr{position:absolute;overflow:hidden;background:#fff;border-radius:6px}
+.dev img{display:block;transform-origin:0 0}
+.dev.tab{border-radius:30px} .dev.tab .scr{border-radius:12px}
+.dev.ph{border-radius:36px} .dev.ph .scr{border-radius:26px}
+.pcwrap{position:relative;width:820px;height:580px}
+.pcwrap .neck{position:absolute;left:365px;top:498px;width:90px;height:54px;background:var(--ink)}
+.pcwrap .foot{position:absolute;left:290px;top:548px;width:240px;height:20px;border-radius:10px;background:var(--ink);box-shadow:8px 8px 0 var(--red)}

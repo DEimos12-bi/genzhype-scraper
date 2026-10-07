@@ -4,20 +4,25 @@
   "text": [
    "gemini/gemini-2.5-flash",
    "groq/openai/gpt-oss-120b",
-   "nvidia/nvidia/nemotron-3-super-120b-a12b"
+   "nvidia/nvidia/nemotron-3-ultra-550b-a55b",
+   "nvidia/z-ai/glm-5.3",
+   "nvidia/nvidia/nemotron-3-super-120b-a12b",
+   "nvidia/openai/gpt-oss-20b"
   ],
   "vision": [
    "gemini/gemini-2.5-flash",
+   "nvidia/meta/llama-3.2-11b-vision-instruct",
    "nvidia/meta/llama-3.2-90b-vision-instruct"
   ],
-  "gemini_effort": "low"
+  "gemini_effort": "low",
+  "timeout": 100
  },
  "voice": "en-US-AndrewMultilingualNeural",
  "length": {
   "min_s": 61,
   "max_s": 75,
-  "words_min": 165,
-  "words_max": 200
+  "words_min": 150,
+  "words_max": 178
  },
  "footage": {
   "min_share": 0.97,
@@ -41,5 +46,7 @@
  },
  "local_browser_python": "",
  "_local": "A file config.local.json next to this one (never committed) may override any setting on one machine: local_browser_python = the Python that has a working headless browser, local_site_config = the site config the keys are read from.",
- "_note_ai": "The videos use gemini-2.5-flash on purpose: Google counts free quota per model, and the site's editor uses the 3.5 models. Put a stronger model first only if its quota is not the editor's."
+ "_note_ai": "The videos use gemini-2.5-flash on purpose: Google counts free quota per model, and the site's editor uses the 3.5 models. Put a stronger model first only if its quota is not the editor's.",
+ "youtube": true,
+ "_youtube": "false = no YouTube searches (set it in config.local.json on a machine where YouTube has become slow or refuses; GitHub never asks it)"
 }
