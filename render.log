@@ -1,0 +1,471 @@
+2026-10-07 21:19:31,112 INFO caption font: /usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf
+2026-10-07 21:19:31,113 INFO job feed from repo branch (generated 2026-10-07T21:10:23+00:00)
+2026-10-07 21:19:31,113 INFO job from static feed (generated 2026-10-07T21:10:23+00:00)
+2026-10-07 21:19:31,113 INFO processing page_id=1431 slug=braden-peters-clavicular-faces-rape-allegations-in-massachusetts
+2026-10-07 21:19:31,114 INFO page 1431 is a GRAVE story: ambient bed, no whoosh/transitions, halved hook-rate boost
+2026-10-07 21:19:31,114 INFO STYLE punch: lead=faces cuts~1.5s xfade=0.08 zoom=0.16 punch=1.17 bgm_3 evidence_cap=2 footage_consec=2
+2026-10-07 21:19:31,114 INFO voice: en-US-AndrewMultilingualNeural (grave register)
+2026-10-07 21:19:31,114 INFO STAGE: visuals
+2026-10-07 21:19:31,114 INFO PROVENANCE: 3 clip(s) were embedded by reporters in this story's own articles; the footage gate cannot veto those
+2026-10-07 21:19:31,114 INFO story clips available: 7 (file, youtube)
+2026-10-07 21:19:31,114 INFO person photos from feed (site-resolved): Clavicular x1
+2026-10-07 21:19:31,558 INFO UPSIZED: https://commons.wikimedia.org/wiki/Special:FilePath/Mugshot_of_Braden_%22Clavicular%22_Peters.png?width=1600
+2026-10-07 21:19:31,588 INFO CONTAIN MODE: 480x600 needs 3.2x upscale to cover; rendering whole on a blurred fill instead
+2026-10-07 21:19:31,647 INFO face detected in vis-1431-0: 249x342 at (119,140)
+2026-10-07 21:19:31,660 INFO trimmed letterbox (480, 360) -> (480, 270): https://i.ytimg.com/vi/al13dc8reXg/hqdefault.jpg
+2026-10-07 21:19:31,664 INFO CONTAIN MODE: 480x270 needs 7.1x upscale to cover; rendering whole on a blurred fill instead
+2026-10-07 21:19:31,678 INFO face detected in vis-1431-1: 88x126 at (78,44)
+2026-10-07 21:19:38,714 INFO vision rotation: still-relevance served by gemini-3.5-flash-lite
+2026-10-07 21:19:38,780 INFO CONTAIN MODE: 1280x720 needs 2.7x upscale to cover; rendering whole on a blurred fill instead
+2026-10-07 21:19:38,815 INFO face detected in vis-1431-2: 222x308 at (507,122)
+2026-10-07 21:19:40,958 INFO vision rotation: still-relevance served by gemini-3.5-flash-lite
+/opt/hostedtoolcache/Python/3.12.14/x64/lib/python3.12/site-packages/PIL/Image.py:1047: UserWarning: Palette images with Transparency expressed in bytes should be converted to RGBA images
+  warnings.warn(
+2026-10-07 21:19:41,007 INFO CONTAIN MODE: 1200x675 needs 2.8x upscale to cover; rendering whole on a blurred fill instead
+2026-10-07 21:19:41,024 INFO face detected in vis-1431-3: 150x198 at (636,69)
+2026-10-07 21:19:45,406 INFO vision rotation: still-relevance served by gemini-3.5-flash-lite
+2026-10-07 21:19:45,427 INFO CONTAIN MODE: 1200x630 needs 3.0x upscale to cover; rendering whole on a blurred fill instead
+2026-10-07 21:19:45,440 INFO face detected in vis-1431-4: 357x468 at (556,111)
+2026-10-07 21:19:58,591 INFO vision rotation: still-relevance served by gemini-3.5-flash-lite
+2026-10-07 21:19:58,637 INFO text-heavy visual (heuristic) -> contain mode (no crop/zoom): https://genzhype.com/assets/covers/braden-peters-clavicular-faces-rape-allegations-in-massachusetts-hero.webp
+2026-10-07 21:19:59,266 INFO visual pool: 6 distinct of 6 candidates (1 from people, 1 name(s) mapped: {'clavicular': 1})
+2026-10-07 21:19:59,266 INFO SUBJECT ON SCREEN: headline names ['Clavicular']; verified picture(s) for ['Clavicular']
+2026-10-07 21:19:59,266 INFO visual_i 0 ready (cover photo of the story)
+2026-10-07 21:19:59,266 INFO visual_i 1 ready (event thumbnail: Braden Peters Discusses "Looksmaxxing" on Fox News)
+2026-10-07 21:19:59,266 INFO visual_i 2 ready (the actual moment (Jul 20 report photo): Braden Peters Discusses "Looksmaxxing" )
+2026-10-07 21:19:59,266 INFO visual_i 3 ready (the actual moment (Sep 4 report photo): Probable Cause Found for Braden Peters C)
+2026-10-07 21:19:59,266 INFO visual_i 4 ready (the actual moment (Sep 21 report photo): Braden Peters Defends Himself on X)
+2026-10-07 21:19:59,266 INFO STAGE: receipts
+2026-10-07 21:19:59,291 INFO receipts: 1 card(s) downloaded of 9 entries (event entries carry no card by design)
+2026-10-07 21:19:59,291 INFO STAGE: screenshots
+2026-10-07 21:20:00,897 INFO Readability injected from vendor/Readability.js
+2026-10-07 21:20:07,604 INFO Readability column 0..745 (19 nodes) on https://www.npr.org/2026/09/22/nx-s1-5978033/braden-pet
+2026-10-07 21:20:07,614 INFO crop r30c: 760x932 at 0,76 (col 745, lead-img True) https://www.npr.org/2026/09/22/nx-s1-5978033/braden-peters-c
+2026-10-07 21:20:10,134 INFO vision rotation: screenshot-clean served by gemini-3.5-flash-lite
+2026-10-07 21:20:10,136 INFO REAL source screenshot: https://www.npr.org/2026/09/22/nx-s1-5978033/braden-peters-clavicular-looksmaxxing-rape-accusation
+2026-10-07 21:20:19,701 INFO Readability column 16..744 (25 nodes) on https://www.foxnews.com/media/controversial-streamer-cl
+2026-10-07 21:20:19,717 INFO crop r30c: 760x938 at 0,277 (col 728, lead-img False) https://www.foxnews.com/media/controversial-streamer-clavicu
+2026-10-07 21:20:22,160 INFO vision rotation: screenshot-clean served by gemini-3.5-flash-lite
+2026-10-07 21:20:22,161 INFO REAL source screenshot: https://www.foxnews.com/media/controversial-streamer-clavicular-explains-viral-looksmaxxing-trend-ge
+2026-10-07 21:20:28,975 INFO Readability column 12..748 (14 nodes) on https://www.nbcboston.com/news/local/clavicular-braden-
+2026-10-07 21:20:28,982 INFO crop r30c: 760x950 at 0,142 (col 736, lead-img False) https://www.nbcboston.com/news/local/clavicular-braden-peter
+2026-10-07 21:20:29,326 INFO SHOT BLANK-BAND: removed 567px empty band at y=440 (shot-1431-4.png)
+2026-10-07 21:20:31,183 INFO vision rotation: screenshot-clean served by gemini-3.5-flash-lite
+2026-10-07 21:20:31,184 INFO REAL source screenshot: https://www.nbcboston.com/news/local/clavicular-braden-peters-arrested-in-massachusetts/4018789/
+2026-10-07 21:20:39,092 INFO Readability column 80..680 (31 nodes) on https://www.nbcnews.com/news/us-news/clavicular-looksma
+2026-10-07 21:20:39,109 INFO crop r30c: 704x880 at 0,172 (col 660, lead-img False) https://www.nbcnews.com/news/us-news/clavicular-looksmaxxing
+2026-10-07 21:20:39,569 INFO SHOT DEAD-ZONE: removed 622px dead band at y=368 (shot-1431-6.png)
+2026-10-07 21:20:39,619 INFO SHOT BLANK-BAND: removed 67px empty band at y=289 (shot-1431-6.png)
+2026-10-07 21:20:41,378 INFO vision rotation: screenshot-clean served by gemini-3.5-flash-lite
+2026-10-07 21:20:41,379 INFO REAL source screenshot: https://www.nbcnews.com/news/us-news/clavicular-looksmaxxing-charged-rape-massachusetts-rcna599130
+2026-10-07 21:20:41,443 INFO event receipts: 4 clean screenshot(s), 0 og report photo(s); the rest fall back to subject photos
+2026-10-07 21:20:41,443 INFO STAGE: tts
+2026-10-07 21:20:42,187 INFO expressive TTS: segment 1/2 rate=+11% pitch=- 4.25s 7 cue(s)
+2026-10-07 21:20:43,020 INFO expressive TTS: segment 2/2 rate=+5% pitch=- 24.10s 55 cue(s)
+2026-10-07 21:20:43,422 INFO expressive TTS ok: 2 segment(s), 28.39s audio, 62 word timings
+2026-10-07 21:20:43,422 INFO STAGE: compose
+2026-10-07 21:20:43,422 INFO bgm (GRAVE story -> ambient bed): .social/bgm/bgm_1.mp3
+2026-10-07 21:20:43,433 INFO EDL: 12 shot(s) from 12 directed (words=62)
+2026-10-07 21:20:43,433 INFO VARIETY tuned for pool=6 scenes=12 -> window=5 max_share=0.25
+/opt/hostedtoolcache/Python/3.12.14/x64/lib/python3.12/site-packages/PIL/Image.py:1047: UserWarning: Palette images with Transparency expressed in bytes should be converted to RGBA images
+  warnings.warn(
+2026-10-07 21:20:43,745 INFO PICTURE IN PROOF: shot-1431-0.png shows vis-1431-4 (44 matching points); one picture to the use cap
+2026-10-07 21:20:44,012 INFO footage: cookies active
+2026-10-07 21:20:44,013 INFO CLIP staged by the server: dc686a7efc713df7231a0edc27be2ef325e6a95c.mp4 (https://prodamdnewsencoding.akamaized.net/NBC_News_Digital/n)
+2026-10-07 21:20:44,062 INFO CLIP FRAMES: opener dc686a7efc713df7231a0edc27be2ef325e6a95c.mp4 not harvested (UNJUDGED: error)
+2026-10-07 21:20:44,062 INFO HOOK = OPENING CLIP: dc686a7efc713df7231a0edc27be2ef325e6a95c.mp4 (t=0s)
+2026-10-07 21:20:44,062 INFO visual_i 0 -> real story image (vis-1431-5)
+2026-10-07 21:20:44,074 INFO CLIP FIT: no clip's title matches scene 2's words ('According to police narrative in court'); the planned still stands
+2026-10-07 21:20:44,075 INFO visual_i 2 -> real story image (vis-1431-2)
+2026-10-07 21:20:44,105 INFO CLIP FIT: no clip's title matches scene 3's words ('documents obtained by'); the planned still stands
+2026-10-07 21:20:44,132 INFO visual_i 3 -> real story image (vis-1431-3)
+2026-10-07 21:20:44,142 INFO CLIP FIT: no clip's title matches scene 5's words ("2025 at Peters' Chatham"); the planned still stands
+2026-10-07 21:20:44,142 INFO visual_i 4 -> real story image (vis-1431-4)
+2026-10-07 21:20:44,142 INFO CLIP FIT: no clip's title matches scene 6's words ('home involving a then 17‑year‑old'); the planned still stands
+2026-10-07 21:20:44,155 INFO visual_i 1 -> real story image (vis-1431-1)
+2026-10-07 21:20:59,890 INFO FOOTAGE unavailable for al13dc8reXg; thumbnail fallback
+2026-10-07 21:20:59,890 INFO CLIP FIT: no clip's title matches scene 8's words ("Peters' representative Mitchell Jackson told NPR"); the planned still stands
+2026-10-07 21:20:59,890 INFO visual_i 0 -> real story image (vis-1431-5)
+2026-10-07 21:20:59,890 INFO pinned visual_i already shown at scene 1; 1 unused pool image(s) left -> fresh pick instead
+2026-10-07 21:20:59,899 INFO CLIP FIT: no clip's title matches scene 9's words ('that Peters denies the allegations.'); the planned still stands
+2026-10-07 21:20:59,899 INFO CLIP FIT: no clip's title matches scene 10's words ('Do you seriously still believe'); the planned still stands
+2026-10-07 21:20:59,899 INFO CLIP FIT: no clip's title matches scene 11's words ('the denial really affects how'); the planned still stands
+2026-10-07 21:20:59,899 INFO visual_i 4 -> real story image (vis-1431-4)
+2026-10-07 21:20:59,899 INFO CLIP FIT: no clip's title matches scene 12's words ('you view the charges?'); the planned still stands
+2026-10-07 21:20:59,899 INFO PACING: 12 scenes -> 13 beats (target 1.5s/image, avg 2.22s)
+2026-10-07 21:20:59,900 INFO RENDER REPORT: {"style": "punch", "ck_mode": true, "cookie_bytes": 1668, "story_vids": 1, "scenes": 13, "runtime_s": 28.8, "footage_scenes": 1, "gap_fill_scenes": 0, "opportunistic_footage": 1, "still_photo_scenes": 10, "card_scenes": 3, "frozen_stills": 0, "footage_fetches": 1, "seq": "fcscsscssssss"}
+2026-10-07 21:20:59,900 INFO CLIP verify disabled (VIDEO_CLIP_VERIFY=0)
+2026-10-07 21:20:59,900 INFO scene plan (v4 EDL): 13 scene(s) (2 receipt, 1 b-roll), pool=6
+2026-10-07 21:20:59,900 INFO   scene 1: 0.00-4.04s type=broll(FOOTAGE) motion=punch_build sfx=pop music=bed visual=dc686a7efc713df7231a0edc27be2ef325e6a95c.mp4
+2026-10-07 21:20:59,900 INFO   scene 2: 4.04-5.95s type=photo motion=contain sfx=none music=bed visual=vis-1431-5
+2026-10-07 21:20:59,900 INFO   scene 3: 5.95-7.02s type=photo motion=pan_left sfx=none music=bed visual=vis-1431-2
+2026-10-07 21:20:59,900 INFO   scene 4: 7.02-10.61s type=receipt motion=contain sfx=pop music=bed visual=shot-1431-3.png
+2026-10-07 21:20:59,900 INFO   scene 5: 10.61-12.04s type=photo motion=pan_right sfx=none music=bed visual=vis-1431-3
+2026-10-07 21:20:59,900 INFO   scene 6: 12.04-14.27s type=photo motion=punch_build sfx=none music=bed visual=vis-1431-4
+2026-10-07 21:20:59,900 INFO   scene 7: 14.27-17.79s type=receipt motion=contain sfx=pop music=bed visual=shot-1431-4.png
+2026-10-07 21:20:59,900 INFO   scene 8: 17.79-19.39s type=photo motion=pan_left sfx=none music=bed visual=vis-1431-1
+2026-10-07 21:20:59,900 INFO   scene 9: 19.39-20.98s type=photo motion=zoom_out sfx=None music=bed visual=vis-1431-0
+2026-10-07 21:20:59,900 INFO   scene 10: 20.98-23.53s type=photo motion=punch_hit sfx=none music=bed visual=vis-1431-0
+2026-10-07 21:20:59,900 INFO   scene 11: 23.53-25.02s type=photo motion=pan_right sfx=none music=bed visual=vis-1431-2
+2026-10-07 21:20:59,900 INFO   scene 12: 25.02-26.63s type=photo motion=punch_build sfx=none music=bed visual=vis-1431-3
+2026-10-07 21:20:59,900 INFO   scene 13: 26.63-28.84s type=photo motion=zoom_out sfx=none music=bed visual=vis-1431-4
+2026-10-07 21:20:59,900 INFO VARIETY: 8 distinct stills, top visual carries 2/12 (17%)
+2026-10-07 21:20:59,900 INFO SELFCHECK: repeats=0 short_scenes=none caption_cov=96% (window=5, assets=12)
+2026-10-07 21:20:59,900 WARNING SELFCHECK: 1 near-repeat(s) within the 5-scene window (small pool; each reappears with different motion) — non-fatal
+2026-10-07 21:20:59,951 ERROR failed to make video for 1431: Error passing `ffmpeg -i` command output:
+
+[mov,mp4,m4a,3gp,3g2,mj2 @ 0x557bcf74ce40] moov atom not found
+[in#0 @ 0x557bcf74cd40] Error opening input: Invalid data found when processing input
+Error opening input file /home/runner/work/genzhype-scraper/genzhype-scraper/feeddir/clips/dc686a7efc713df7231a0edc27be2ef325e6a95c.mp4.
+Error opening input files: Invalid data found when processing input
+
+2026-10-07 21:21:00,112 INFO PARKED page 1431 after 3 failures on generation e26906dc1d
+Traceback (most recent call last):
+  File "/opt/hostedtoolcache/Python/3.12.14/x64/lib/python3.12/site-packages/moviepy/video/io/ffmpeg_reader.py", line 904, in ffmpeg_parse_infos
+    ).parse()
+      ^^^^^^^
+  File "/opt/hostedtoolcache/Python/3.12.14/x64/lib/python3.12/site-packages/moviepy/video/io/ffmpeg_reader.py", line 606, in parse
+    if stream["stream_type"] not in self._default_streams:
+       ~~~~~~^^^^^^^^^^^^^^^
+TypeError: 'NoneType' object is not subscriptable
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/runner/work/genzhype-scraper/genzhype-scraper/video_maker.py", line 10934, in main
+    make_one(post, font_path)
+  File "/home/runner/work/genzhype-scraper/genzhype-scraper/video_maker.py", line 10804, in make_one
+    compose_video(pool, broll_terms, mp3, hook, script, timings, duration,
+  File "/home/runner/work/genzhype-scraper/genzhype-scraper/video_maker.py", line 9556, in compose_video
+    clip, src = broll_scene_clip(
+                ^^^^^^^^^^^^^^^^^
+  File "/home/runner/work/genzhype-scraper/genzhype-scraper/video_maker.py", line 8322, in broll_scene_clip
+    src = VideoFileClip(video_path)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/hostedtoolcache/Python/3.12.14/x64/lib/python3.12/site-packages/decorator/__init__.py", line 247, in fun
+    return caller(func, *(extras + args), **kw)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/hostedtoolcache/Python/3.12.14/x64/lib/python3.12/site-packages/moviepy/decorators.py", line 102, in wrapper
+    return func(*new_args, **new_kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/hostedtoolcache/Python/3.12.14/x64/lib/python3.12/site-packages/moviepy/video/io/VideoFileClip.py", line 109, in __init__
+    self.reader = FFMPEG_VideoReader(
+                  ^^^^^^^^^^^^^^^^^^^
+  File "/opt/hostedtoolcache/Python/3.12.14/x64/lib/python3.12/site-packages/moviepy/video/io/ffmpeg_reader.py", line 35, in __init__
+    infos = ffmpeg_parse_infos(
+            ^^^^^^^^^^^^^^^^^^^
+  File "/opt/hostedtoolcache/Python/3.12.14/x64/lib/python3.12/site-packages/moviepy/video/io/ffmpeg_reader.py", line 910, in ffmpeg_parse_infos
+    raise IOError(f"Error passing `ffmpeg -i` command output:\n\n{infos}") from exc
+OSError: Error passing `ffmpeg -i` command output:
+
+[mov,mp4,m4a,3gp,3g2,mj2 @ 0x557bcf74ce40] moov atom not found
+[in#0 @ 0x557bcf74cd40] Error opening input: Invalid data found when processing input
+Error opening input file /home/runner/work/genzhype-scraper/genzhype-scraper/feeddir/clips/dc686a7efc713df7231a0edc27be2ef325e6a95c.mp4.
+Error opening input files: Invalid data found when processing input
+
+2026-10-07 21:21:00,282 INFO job feed from repo branch (generated 2026-10-07T21:10:23+00:00)
+2026-10-07 21:21:00,282 INFO job from static feed (generated 2026-10-07T21:10:23+00:00)
+2026-10-07 21:21:00,282 INFO processing page_id=1391 slug=dan-gheesling-us-army-sponsorship-northernlion-backlash-timeline
+2026-10-07 21:21:00,282 INFO STYLE slowburn: lead=footage cuts~2.2s xfade=0.25 zoom=0.10 punch=1.10 bgm_1 evidence_cap=2 footage_consec=6
+2026-10-07 21:21:00,282 INFO voice: en-US-AvaMultilingualNeural
+2026-10-07 21:21:00,282 INFO STAGE: visuals
+2026-10-07 21:21:00,282 INFO PROVENANCE: 8 clip(s) were embedded by reporters in this story's own articles; the footage gate cannot veto those
+2026-10-07 21:21:00,282 INFO story clips available: 8 (file, twitch)
+2026-10-07 21:21:00,282 INFO person photos from feed (site-resolved): Dan Gheesling x1
+2026-10-07 21:21:00,282 INFO person photos from feed (site-resolved): Northernlion x1
+2026-10-07 21:21:00,431 INFO UPSIZED: https://yt3.ggpht.com/ytc/AIdro_np1VOyUJVi0dfQiMW8UgbuJ0-hnSIbnk-3U7hZAtovBoA=s1200
+2026-10-07 21:21:00,435 INFO CONTAIN MODE: 362x362 needs 5.3x upscale to cover; rendering whole on a blurred fill instead
+2026-10-07 21:21:00,442 INFO face detected in vis-1391-0: 172x257 at (108,93)
+2026-10-07 21:21:00,669 INFO UPSIZED: https://yt3.ggpht.com/ytc/AIdro_mZSSRynYDl-MtAWGJNtmT9jCjFc4MWUPo5_5gGaErnfA=s1200
+2026-10-07 21:21:00,678 INFO CONTAIN MODE: 413x414 needs 4.6x upscale to cover; rendering whole on a blurred fill instead
+2026-10-07 21:21:00,811 INFO CONTAIN MODE: 1920x1080 needs 1.8x upscale to cover; rendering whole on a blurred fill instead
+2026-10-07 21:21:00,830 INFO face detected in vis-1391-2: 418x535 at (339,308)
+2026-10-07 21:21:02,446 INFO vision rotation: still-relevance served by gemini-3.5-flash-lite
+2026-10-07 21:21:02,487 INFO trimmed letterbox (1280, 720) -> (1280, 684): https://media-prod.livestreamfails.com/image/511a8d31c56a8f18c48185442d71d9f5f24f350e.png
+2026-10-07 21:21:02,495 INFO CONTAIN MODE: 1280x684 needs 2.8x upscale to cover; rendering whole on a blurred fill instead
+2026-10-07 21:21:02,509 INFO face detected in vis-1391-3: 224x282 at (509,160)
+2026-10-07 21:21:03,506 INFO vision rotation: still-relevance served by gemini-3.5-flash-lite
+2026-10-07 21:21:03,653 INFO UPSIZED: https://kotaku.com/app/uploads/2026/09/Dan-Gheesling-US-Army-sponsored-boot-camp-stream-Twitch.jpg
+2026-10-07 21:21:03,682 INFO trimmed letterbox (1920, 1080) -> (1920, 1079): https://kotaku.com/app/uploads/2026/09/Dan-Gheesling-US-Army-sponsored-boot-camp-stream-Twitch-1200x675.jpg
+2026-10-07 21:21:03,705 INFO CONTAIN MODE: 1920x1079 needs 1.8x upscale to cover; rendering whole on a blurred fill instead
+2026-10-07 21:21:03,724 INFO face detected in vis-1391-4: 85x127 at (1680,93)
+2026-10-07 21:21:07,208 INFO vision rotation: still-relevance served by gemini-3.5-flash-lite
+2026-10-07 21:21:07,246 INFO CONTAIN MODE: 1200x675 needs 2.8x upscale to cover; rendering whole on a blurred fill instead
+2026-10-07 21:21:07,261 INFO face detected in vis-1391-5: 293x394 at (461,130)
+2026-10-07 21:21:17,632 INFO vision rotation: still-relevance served by gemini-3.5-flash-lite
+2026-10-07 21:21:17,657 INFO trimmed letterbox (1200, 630) -> (1135, 586): https://genzhype.com/assets/covers/dan-gheesling-us-army-sponsorship-northernlion-backlash-timeline.png
+2026-10-07 21:21:17,659 INFO text-heavy visual (heuristic) -> contain mode (no crop/zoom): https://genzhype.com/assets/covers/dan-gheesling-us-army-sponsorship-northernlion-backlash-timeline.png
+2026-10-07 21:21:18,110 INFO visual pool: 7 distinct of 7 candidates (2 from people, 2 name(s) mapped: {'dan gheesling': 1, 'northernlion': 1})
+2026-10-07 21:21:18,110 INFO SUBJECT ON SCREEN: headline names ['Dan Gheesling', 'Northernlion']; verified picture(s) for ['Dan Gheesling', 'Northernlion']
+2026-10-07 21:21:18,110 INFO visual_i 1 ready (the actual moment (Sep 16 report photo): Dan Gheesling Joins US Army Reality Gam)
+2026-10-07 21:21:18,110 INFO visual_i 2 ready (the actual moment (Sep 19 report photo): Dan Gheesling Addresses Community Backl)
+2026-10-07 21:21:18,110 INFO visual_i 3 ready (the actual moment (Sep 21 report photo): Northernlion Addresses Friends About U.)
+2026-10-07 21:21:18,110 INFO STAGE: receipts
+2026-10-07 21:21:18,177 INFO receipts: 4 card(s) downloaded of 13 entries (event entries carry no card by design)
+2026-10-07 21:21:18,177 INFO STAGE: screenshots
+2026-10-07 21:21:18,583 INFO Readability injected from vendor/Readability.js
+2026-10-07 21:21:20,477 INFO screenshot: DEAD PAGE (http 403, title 'Forbidden') — the source itself is gone, not a detection failure: https://www.sportskeeda.com/us/streamers/news-northernlion-dan-gheesling-controv
+2026-10-07 21:21:26,750 INFO Readability column 60..700 (10 nodes) on https://livestreamfails.com/clip/y9JTcJo2zaCv/dan-ghees
+2026-10-07 21:21:26,759 INFO crop r30c: 688x860 at 36,468 (col 640, lead-img False) https://livestreamfails.com/clip/y9JTcJo2zaCv/dan-gheesling-
+2026-10-07 21:21:27,555 INFO SHOT BLANK-BAND: removed 202px empty band at y=184 (shot-1391-1.png)
+2026-10-07 21:21:36,909 INFO vision rotation: screenshot-clean served by gemini-3.5-flash-lite
+2026-10-07 21:21:36,910 INFO SHOT AD-GATE: ad/merch-cluttered screenshot rejected (shot-1391-1.png)
+2026-10-07 21:21:47,718 INFO screenshot: no headline block found; skipping (no raw-page fallback): https://kotaku.com/northernlion-addresses-his-friends-u-s-army-sponsored-twitch-streams-it
+2026-10-07 21:21:53,252 INFO screenshot: no headline block found; skipping (no raw-page fallback): https://www.realityblurred.com/realitytv/2026/09/dan-gheesling-twitch-army/
+2026-10-07 21:21:58,308 INFO Readability column 24..736 (48 nodes) on https://en.wikipedia.org/wiki/Dan_Gheesling
+2026-10-07 21:21:58,316 INFO crop r30c: 708x1196 at 46,251 (col 310, lead-img True) https://en.wikipedia.org/wiki/Dan_Gheesling
+2026-10-07 21:22:00,436 INFO vision rotation: screenshot-clean served by gemini-3.5-flash-lite
+2026-10-07 21:22:00,438 INFO SHOT AD-GATE: ad/merch-cluttered screenshot rejected (shot-1391-6.png)
+2026-10-07 21:22:07,231 INFO Readability column 64..716 (5 nodes) on https://particle.news/story/northernlion-publicly-rebuk
+2026-10-07 21:22:07,239 INFO crop r30c: 720x892 at 20,108 (col 672, lead-img False) https://particle.news/story/northernlion-publicly-rebukes-da
+2026-10-07 21:22:10,332 INFO vision rotation: screenshot-clean served by gemini-3.5-flash-lite
+2026-10-07 21:22:10,333 INFO REAL source screenshot: https://particle.news/story/northernlion-publicly-rebukes-dan-gheesling-over-us-armysponsored-twitch
+2026-10-07 21:22:15,681 INFO Readability column 60..700 (17 nodes) on https://malf.io/statement-regarding-dan-gheesling/
+2026-10-07 21:22:15,689 INFO crop r30c: 688x846 at 36,151 (col 640, lead-img False) https://malf.io/statement-regarding-dan-gheesling/
+2026-10-07 21:22:18,426 INFO vision rotation: screenshot-clean served by gemini-3.5-flash-lite
+2026-10-07 21:22:18,428 INFO REAL source screenshot: https://malf.io/statement-regarding-dan-gheesling/
+2026-10-07 21:22:18,569 INFO trimmed letterbox (1280, 720) -> (1280, 684): https://media-prod.livestreamfails.com/image/511a8d31c56a8f18c48185442d71d9f5f24f350e.png
+2026-10-07 21:22:18,671 INFO UPSIZED: https://kotaku.com/app/uploads/2026/09/Dan-Gheesling-US-Army-sponsored-boot-camp-stream-Twitch.jpg
+2026-10-07 21:22:18,697 INFO trimmed letterbox (1920, 1080) -> (1920, 1079): https://kotaku.com/app/uploads/2026/09/Dan-Gheesling-US-Army-sponsored-boot-camp-stream-Twitch-1200x675.jpg
+2026-10-07 21:22:18,732 INFO event receipts: 2 clean screenshot(s), 5 og report photo(s); the rest fall back to subject photos
+2026-10-07 21:22:18,732 INFO STAGE: tts
+2026-10-07 21:22:21,152 INFO expressive TTS: segment 1/2 rate=+18% pitch=+2Hz 5.30s 12 cue(s)
+2026-10-07 21:22:27,160 INFO expressive TTS: segment 2/2 rate=+5% pitch=- 22.99s 51 cue(s)
+2026-10-07 21:22:27,459 INFO expressive TTS ok: 2 segment(s), 28.34s audio, 63 word timings
+2026-10-07 21:22:27,459 INFO STAGE: compose
+2026-10-07 21:22:27,459 INFO bgm: SIGNATURE bed bgm_2.mp3 (same on every video, by design)
+2026-10-07 21:22:27,459 INFO EDL: 11 shot(s) from 11 directed (words=63)
+2026-10-07 21:22:27,459 INFO VARIETY tuned for pool=7 scenes=11 -> window=6 max_share=0.27
+2026-10-07 21:22:28,645 INFO CLIP staged by the server: 5da82206031a7ea569acee007385f039ef58e47f.mp4 (https://livestreamfails-video-prod.b-cdn.net/video/4da9e84cd)
+2026-10-07 21:22:31,699 INFO vision footage-relevance: gemini-flash-latest HTTP 503
+2026-10-07 21:22:33,064 INFO vision footage-relevance: gemma-4-31b-it HTTP 500
+2026-10-07 21:22:33,950 INFO vision rotation: footage-relevance served by gemini-3.5-flash-lite
+2026-10-07 21:22:36,054 INFO face detected in clipfr-1.jpg: 165x220 at (470,132)
+2026-10-07 21:22:36,144 INFO clip frame too similar to one already kept; skipped
+2026-10-07 21:22:36,159 INFO face detected in clipfr-5.jpg: 132x171 at (456,175)
+2026-10-07 21:22:36,244 INFO clip frame too similar to one already kept; skipped
+2026-10-07 21:22:36,249 INFO clip frame too similar to one already kept; skipped
+2026-10-07 21:22:36,258 INFO clip frame too similar to one already kept; skipped
+2026-10-07 21:22:36,262 INFO clip frame too similar to one already kept; skipped
+2026-10-07 21:22:36,267 INFO clip frame too similar to one already kept; skipped
+2026-10-07 21:22:36,267 INFO CLIP FRAMES: +3 stills harvested from the money-moment clip (pool 7 -> 10)
+2026-10-07 21:22:36,267 INFO HOOK = OPENING CLIP: 5da82206031a7ea569acee007385f039ef58e47f.mp4 (t=0s)
+2026-10-07 21:22:36,322 INFO CLIP FIT: no clip's title matches scene 2's words ('on September 23, 2026.'); the planned still stands
+2026-10-07 21:22:36,329 INFO receipt 1 -> og report photo (photo scene)
+2026-10-07 21:22:36,329 INFO CLIP FIT: no clip's title matches scene 3's words ('He joined the Army-sponsored three‑day competiti'); the planned still stands
+2026-10-07 21:22:36,329 INFO CLIP FIT: no clip's title matches scene 4's words ('on September 16, sparking immediate backlash'); the planned still stands
+2026-10-07 21:22:36,345 INFO receipt 2 -> og report photo (photo scene)
+2026-10-07 21:22:36,345 INFO CLIP FIT: no clip's title matches scene 5's words ('from viewers who called the military‑themed stre'); the planned still stands
+2026-10-07 21:22:36,356 INFO receipt 5 -> og report photo (photo scene)
+2026-10-07 21:22:36,356 INFO CLIP FIT: no clip's title matches scene 6's words ('Despite Northernlion’s public criticism and'); the planned still stands
+2026-10-07 21:22:36,356 INFO receipt 6 missing/unresolved; subject photo fallback
+2026-10-07 21:22:36,356 INFO CLIP FIT: no clip's title matches scene 7's words ('Gheesling’s apology stream on September 22,'); the planned still stands
+2026-10-07 21:22:36,356 INFO CLIP FIT: no clip's title matches scene 8's words ('he still clinched victory,'); the planned still stands
+2026-10-07 21:22:36,356 INFO visual_i 3 -> real story image (vis-1391-4)
+2026-10-07 21:22:36,356 INFO CLIP FIT: no clip's title matches scene 9's words ('turning the controversy into a win.'); the planned still stands
+2026-10-07 21:22:36,356 INFO visual_i 2 -> real story image (vis-1391-3)
+2026-10-07 21:22:36,357 INFO IMAGE CAP: vis-1391-3 already fills 2 shot(s); LRU pool pick instead
+2026-10-07 21:22:36,357 INFO CLIP FIT: no clip's title matches scene 10's words ('Should Dan Gheesling have refused the'); the planned still stands
+2026-10-07 21:22:36,357 INFO visual_i 1 -> real story image (vis-1391-2)
+2026-10-07 21:22:36,357 INFO pinned image would repeat within 6 scenes; LRU pool pick instead
+2026-10-07 21:22:36,357 INFO CLIP FIT: no clip's title matches scene 11's words ('Army sponsorship despite winning?'); the planned still stands
+2026-10-07 21:22:36,362 INFO SPEND THE POOL: 1 repeat(s) swapped for unused images (7 distinct stills now on screen)
+2026-10-07 21:22:36,362 INFO RENDER REPORT: {"style": "slowburn", "ck_mode": true, "cookie_bytes": 1668, "story_vids": 0, "scenes": 11, "runtime_s": 28.8, "footage_scenes": 1, "gap_fill_scenes": 0, "opportunistic_footage": 1, "still_photo_scenes": 10, "card_scenes": 0, "frozen_stills": 0, "footage_fetches": 1, "seq": "fssssssssss"}
+2026-10-07 21:22:36,362 INFO CLIP verify disabled (VIDEO_CLIP_VERIFY=0)
+2026-10-07 21:22:36,362 INFO scene plan (v4 EDL): 11 scene(s) (0 receipt, 1 b-roll), pool=10
+2026-10-07 21:22:36,362 INFO   scene 1: 0.00-2.23s type=broll(FOOTAGE) motion=punch_build sfx=pop music=bed visual=5da82206031a7ea569acee007385f039ef58e47f.mp4
+2026-10-07 21:22:36,362 INFO   scene 2: 2.23-5.16s type=photo motion=zoom_out sfx=none music=bed visual=vis-1391-0
+2026-10-07 21:22:36,362 INFO   scene 3: 5.16-7.72s type=photo motion=punch_build sfx=whoosh music=bed visual=receipt-og-1391-1.jpg
+2026-10-07 21:22:36,362 INFO   scene 4: 7.72-10.73s type=photo motion=pan_left sfx=none music=bed visual=vis-1391-1
+2026-10-07 21:22:36,362 INFO   scene 5: 10.73-14.49s type=photo motion=punch_hit sfx=pop music=bed visual=receipt-og-1391-2.jpg
+2026-10-07 21:22:36,362 INFO   scene 6: 14.49-16.77s type=photo motion=punch_build sfx=none music=bed visual=receipt-og-1391-5.jpg
+2026-10-07 21:22:36,362 INFO   scene 7: 16.77-19.98s type=photo motion=pan_right sfx=riser music=silence visual=vis-1391-2
+2026-10-07 21:22:36,362 INFO   scene 8: 19.98-21.65s type=photo motion=punch_hit sfx=impact music=duck visual=clipfr-0.jpg
+2026-10-07 21:22:36,362 INFO   scene 9: 21.65-23.94s type=photo motion=zoom_out sfx=none music=bed visual=vis-1391-4
+2026-10-07 21:22:36,362 INFO   scene 10: 23.94-25.99s type=photo motion=pan_left sfx=none music=bed visual=vis-1391-5
+2026-10-07 21:22:36,362 INFO   scene 11: 25.99-28.79s type=photo motion=punch_build sfx=none music=bed visual=clipfr-0.jpg
+2026-10-07 21:22:36,362 INFO VARIETY: 1 scene(s) re-pointed (cap 2 of 10 still scenes)
+2026-10-07 21:22:36,362 INFO VARIETY: 10 distinct stills, top visual carries 1/10 (10%)
+2026-10-07 21:22:36,362 INFO SELFCHECK: repeats=0 short_scenes=none caption_cov=100% (window=6, assets=22)
+2026-10-07 21:22:37,854 INFO face detected in receipt-og-1391-1.jpg: 224x282 at (509,160)
+[0;93m2026-10-07 21:22:38.043688695 [W:onnxruntime:Default, device_discovery.cc:146 GetPciBusId] Skipping pci_bus_id for PCI path at "/sys/devices/LNXSYSTM:00/LNXSYBUS:00/ACPI0004:00/MSFT1000:00/5620e0c7-8062-4dce-aeb7-520c7ef76171" because filename "5620e0c7-8062-4dce-aeb7-520c7ef76171" did not match expected pattern of [0-9a-f]+:[0-9a-f]+:[0-9a-f]+[.][0-9a-f]+[m
+2026-10-07 21:22:38,329 INFO depth: session ready
+2026-10-07 21:22:39,149 INFO depth: receipt-og-1391-1.jpg in 0.82s
+2026-10-07 21:22:39,235 INFO DEPTH SCENE receipt-og-1391-1.jpg motion=punch_build dur=2.6s
+2026-10-07 21:22:39,557 INFO face detected in receipt-og-1391-2.jpg: 85x127 at (1680,93)
+2026-10-07 21:22:40,585 INFO depth: receipt-og-1391-2.jpg in 0.83s
+2026-10-07 21:22:40,628 INFO DEPTH SCENE receipt-og-1391-2.jpg motion=punch_hit dur=3.8s
+2026-10-07 21:22:40,654 INFO face detected in receipt-og-1391-5.jpg: 293x394 at (461,130)
+2026-10-07 21:22:41,655 INFO depth: receipt-og-1391-5.jpg in 0.83s
+2026-10-07 21:22:41,701 INFO DEPTH SCENE receipt-og-1391-5.jpg motion=punch_build dur=2.3s
+2026-10-07 21:22:44,190 INFO depth: clipfr-0.jpg in 0.82s
+2026-10-07 21:22:44,236 INFO DEPTH SCENE clipfr-0.jpg motion=punch_build dur=2.8s
+2026-10-07 21:22:44,586 INFO transition 1/3: whip at 5.16s (beat change)
+2026-10-07 21:22:51,323 INFO TEXT AVOID: burned-in text on 4 of 11 scene(s) (6.7s)
+2026-10-07 21:22:52,509 INFO CAPTION PLACEMENT: 17 caption event(s) by position: {"home": 10, "top": 5, "top-least-covered": 2}
+2026-10-07 21:22:53,730 INFO bgm: SIGNATURE bed bgm_2.mp3 (same on every video, by design)
+2026-10-07 21:22:54,204 INFO sound: SWELL +5dB over 3.2s into the reveal at 20.0s, decaying 1.8s
+2026-10-07 21:22:54,228 INFO sound: bed bgm_2.mp3 over 3 interval(s), 1 swell(s)
+2026-10-07 21:22:54,914 INFO sound: 5 SFX placed
+2026-10-07 21:22:54,956 INFO sound: final -17.5 dBFS avg / -1.5 dBFS peak
+2026-10-07 21:26:41,199 INFO COMPOSE TIMING: {'prepare_s': 18.7, 'draw_encode_s': 226.0, 'remux_s': 0.1, 'scenes': 11, 'seconds': 28.8}
+2026-10-07 21:26:41,248 INFO STAGE: judge
+2026-10-07 21:26:49,167 INFO vision rotation: JUDGE served by gemini-3.5-flash-lite
+2026-10-07 21:26:49,169 INFO vision judge: pass=False weird=[{'frame': 11, 'issue': 'b. SLICED FACE: human face cropped by the frame edge, only showing an eye and part of a hat'}] mismatches=[] artifact_misses=[] scores={'readability': 9, 'framing': 7, 'variety': 8, 'edit_variety': 8, 'completeness': 9} issues=['Frame 11 features a severely cropped and mangled framing of a face inside a small inset panel.']
+2026-10-07 21:26:58,246 INFO caption font: /usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf
+2026-10-07 21:26:58,459 INFO filmstrip built: build/reject-1391.jpg
+2026-10-07 21:27:02,045 INFO DIAG reject-sheet -> HTTP 200
+2026-10-07 21:27:02,635 INFO DIAG shot-1391-1 -> HTTP 200
+2026-10-07 21:27:03,095 INFO DIAG shot-1391-6 -> HTTP 200
+2026-10-07 21:27:03,598 INFO DIAG shot-1391-7 -> HTTP 200
+2026-10-07 21:27:03,920 INFO DIAG shot-1391-8 -> HTTP 200
+2026-10-07 21:27:04,084 ERROR failed to make video for 1391: vision judge rejected page 1391 (attempt 1/1): weird=[{'frame': 11, 'issue': 'b. SLICED FACE: human face cropped by the frame edge, only showing an eye and part of a hat'}] mism=[] issues=['Frame 11 features a severely cropped and mangled framing of a face inside a small inset panel.']
+Traceback (most recent call last):
+  File "/home/runner/work/genzhype-scraper/genzhype-scraper/video_maker.py", line 10934, in main
+    make_one(post, font_path)
+  File "/home/runner/work/genzhype-scraper/genzhype-scraper/video_maker.py", line 10889, in make_one
+    raise JudgeRejected(
+JudgeRejected: vision judge rejected page 1391 (attempt 1/1): weird=[{'frame': 11, 'issue': 'b. SLICED FACE: human face cropped by the frame edge, only showing an eye and part of a hat'}] mism=[] issues=['Frame 11 features a severely cropped and mangled framing of a face inside a small inset panel.']
+2026-10-07 21:27:04,242 INFO job feed from repo branch (generated 2026-10-07T21:10:23+00:00)
+2026-10-07 21:27:04,242 INFO job from static feed (generated 2026-10-07T21:10:23+00:00)
+2026-10-07 21:27:04,242 INFO processing page_id=452 slug=influencer-denies-misconduct-claims
+2026-10-07 21:27:04,242 INFO page 452 is a GRAVE story: ambient bed, no whoosh/transitions, halved hook-rate boost
+2026-10-07 21:27:04,242 INFO STYLE slowburn: lead=footage cuts~2.2s xfade=0.25 zoom=0.10 punch=1.10 bgm_1 evidence_cap=2 footage_consec=6
+2026-10-07 21:27:04,242 INFO voice: en-US-AndrewMultilingualNeural (grave register)
+2026-10-07 21:27:04,242 INFO STAGE: visuals
+2026-10-07 21:27:04,242 INFO PROVENANCE: 2 clip(s) were embedded by reporters in this story's own articles; the footage gate cannot veto those
+2026-10-07 21:27:04,242 INFO story clips available: 5 (file, tiktok)
+2026-10-07 21:27:04,242 INFO person photos from feed (site-resolved): Eric Swalwell x1
+2026-10-07 21:27:04,783 INFO UPSIZED: https://commons.wikimedia.org/wiki/Special:FilePath/Eric_Swalwell_114th_official_photo.jpg?width=1600
+2026-10-07 21:27:04,876 INFO face detected in vis-452-0: 568x721 at (574,328)
+2026-10-07 21:27:04,923 INFO CONTAIN MODE: 960x540 needs 3.6x upscale to cover; rendering whole on a blurred fill instead
+2026-10-07 21:27:04,935 INFO face detected in vis-452-1: 174x239 at (350,72)
+2026-10-07 21:27:08,066 INFO vision rotation: still-relevance served by gemini-3.5-flash-lite
+2026-10-07 21:27:08,083 INFO CONTAIN MODE: 1200x630 needs 3.0x upscale to cover; rendering whole on a blurred fill instead
+2026-10-07 21:27:08,094 INFO face detected in vis-452-2: 100x133 at (244,21)
+2026-10-07 21:27:09,300 INFO vision rotation: still-relevance served by gemini-3.5-flash-lite
+2026-10-07 21:27:09,301 INFO STILL GATE: judged off-topic, dropped: https://assets1.cbsnewsstatic.com/hub/i/r/2026/04/08/746104e8-7370-46b2-83a0-87ae625bde99/thumbnail/
+2026-10-07 21:27:09,313 INFO trimmed letterbox (1600, 900) -> (1600, 899): https://cdn.abcotvs.com/dip/images/18856235_040826-kgo-swalwell-img.jpg?w=1600
+2026-10-07 21:27:09,327 INFO CONTAIN MODE: 1600x899 needs 2.1x upscale to cover; rendering whole on a blurred fill instead
+2026-10-07 21:27:09,341 INFO face detected in vis-452-3: 349x486 at (509,131)
+2026-10-07 21:27:11,224 INFO vision rotation: still-relevance served by gemini-3.5-flash-lite
+2026-10-07 21:27:11,583 INFO UPSIZED: https://nypost.com/wp-content/uploads/sites/2/2026/04/crop-39019198_8fe626.jpg?quality=75&strip=all&w=1600
+2026-10-07 21:27:11,610 INFO CONTAIN MODE: 1600x1066 needs 1.8x upscale to cover; rendering whole on a blurred fill instead
+2026-10-07 21:27:11,632 INFO face detected in vis-452-4: 267x376 at (867,247)
+2026-10-07 21:27:12,840 INFO vision rotation: still-relevance served by gemini-3.5-flash-lite
+2026-10-07 21:27:12,869 INFO text-heavy visual (heuristic) -> contain mode (no crop/zoom): https://genzhype.com/assets/covers/influencer-denies-misconduct-claims-hero.webp
+2026-10-07 21:27:14,852 INFO openverse: 2 modifiable-licence photos for 'denies allegations women come'
+2026-10-07 21:27:19,321 INFO vision rotation: still-relevance served by gemini-3.5-flash-lite
+2026-10-07 21:27:19,323 INFO openverse candidate rejected (not this story): https://live.staticflickr.com/65535/54070942958_3739ffa84a_b.jpg
+2026-10-07 21:27:20,764 INFO vision rotation: still-relevance served by gemini-3.5-flash-lite
+2026-10-07 21:27:20,766 INFO openverse candidate rejected (not this story): https://live.staticflickr.com/65535/54451444688_f78af3a925_b.jpg
+2026-10-07 21:27:20,766 INFO visual pool: 5 distinct of 6 candidates (1 from people, 1 name(s) mapped: {'eric swalwell': 1})
+2026-10-07 21:27:20,766 INFO SUBJECT ON SCREEN: headline names ['Eric Swalwell']; verified picture(s) for ['Eric Swalwell']
+2026-10-07 21:27:20,766 INFO visual_i 0 ready (cover photo of the story)
+2026-10-07 21:27:20,766 INFO STAGE: receipts
+2026-10-07 21:27:20,844 INFO receipts: 3 card(s) downloaded of 9 entries (event entries carry no card by design)
+2026-10-07 21:27:20,844 INFO STAGE: screenshots
+2026-10-07 21:27:21,273 INFO Readability injected from vendor/Readability.js
+2026-10-07 21:27:29,888 INFO Readability column -4..760 (37 nodes) on https://sports.yahoo.com/articles/swalwell-says-plans-r
+2026-10-07 21:27:29,898 INFO crop r30c: 760x950 at 0,229 (col 764, lead-img True) https://sports.yahoo.com/articles/swalwell-says-plans-resign
+2026-10-07 21:27:30,638 INFO SHOT DEAD-ZONE: removed 259px dead band at y=127 (shot-452-0.png)
+2026-10-07 21:27:31,918 INFO vision rotation: screenshot-clean served by gemini-3.5-flash-lite
+2026-10-07 21:27:31,920 INFO REAL source screenshot: https://sports.yahoo.com/articles/swalwell-says-plans-resign-congress-221537559.html
+2026-10-07 21:27:39,933 INFO screenshot: no headline block found; skipping (no raw-page fallback): https://www.cbsnews.com/news/katie-porter-influencer-cheyenne-hunt-eric-swalwell-allegatio
+2026-10-07 21:27:48,966 INFO Readability column 48..712 (12 nodes) on https://abc7news.com/post/california-gubernatorial-cand
+2026-10-07 21:27:48,974 INFO crop r30c: 713x564 at 24,232 (col 665, lead-img True) https://abc7news.com/post/california-gubernatorial-candidate
+2026-10-07 21:27:54,087 INFO vision rotation: screenshot-clean served by gemini-3.5-flash-lite
+2026-10-07 21:27:54,088 INFO REAL source screenshot: https://abc7news.com/post/california-gubernatorial-candidate-rep-eric-swalwell-denies-accusations-in
+2026-10-07 21:28:02,859 INFO screenshot: no headline block found; skipping (no raw-page fallback): https://nypost.com/2026/04/13/us-news/eric-swalwell-accuser-to-air-her-claims-against-him-
+2026-10-07 21:28:02,993 INFO screenshot: 3 page(s) showed no headline at 760px; re-shooting at desktop 1440px
+2026-10-07 21:28:03,396 INFO Readability injected from vendor/Readability.js
+2026-10-07 21:28:11,450 INFO Readability column 173..813 (33 nodes) on https://www.cbsnews.com/news/katie-porter-influencer-ch
+2026-10-07 21:28:11,459 INFO crop r30c: 688x846 at 149,107 (col 640, lead-img False) https://www.cbsnews.com/news/katie-porter-influencer-cheyenn
+2026-10-07 21:28:13,164 INFO vision rotation: screenshot-clean served by gemini-3.5-flash-lite
+2026-10-07 21:28:13,165 INFO REAL source screenshot: https://www.cbsnews.com/news/katie-porter-influencer-cheyenne-hunt-eric-swalwell-allegations/
+2026-10-07 21:28:19,748 INFO Readability column 188..922 (18 nodes) on https://nypost.com/2026/04/13/us-news/eric-swalwell-acc
+2026-10-07 21:28:19,760 INFO crop r30c: 782x964 at 164,396 (col 734, lead-img True) https://nypost.com/2026/04/13/us-news/eric-swalwell-accuser-
+2026-10-07 21:28:24,602 INFO vision rotation: screenshot-clean served by gemini-3.5-flash-lite
+2026-10-07 21:28:24,604 INFO REAL source screenshot: https://nypost.com/2026/04/13/us-news/eric-swalwell-accuser-to-air-her-claims-against-him-in-bombshe
+2026-10-07 21:28:24,666 INFO event receipts: 4 clean screenshot(s), 0 og report photo(s); the rest fall back to subject photos
+2026-10-07 21:28:24,666 INFO STAGE: tts
+2026-10-07 21:28:26,911 INFO expressive TTS: segment 1/2 rate=+11% pitch=- 5.45s 8 cue(s)
+2026-10-07 21:28:31,751 INFO expressive TTS: segment 2/2 rate=+5% pitch=- 24.86s 56 cue(s)
+2026-10-07 21:28:32,062 INFO expressive TTS ok: 2 segment(s), 30.36s audio, 64 word timings
+2026-10-07 21:28:32,062 INFO STAGE: compose
+2026-10-07 21:28:32,062 INFO bgm (GRAVE story -> ambient bed): .social/bgm/bgm_1.mp3
+2026-10-07 21:28:32,063 INFO EDL: 10 shot(s) from 10 directed (words=64)
+2026-10-07 21:28:32,617 INFO PICTURE IN PROOF: shot-452-0.png shows vis-452-1 (55 matching points); one picture to the use cap
+2026-10-07 21:28:32,721 INFO PICTURE IN PROOF: shot-452-2.png shows vis-452-3 (83 matching points); one picture to the use cap
+2026-10-07 21:28:32,989 INFO CLIP staged by the server: 5c8435e0f0e7e93a7f0be4030c9d5ed1a89ea4d0.mp4 (https://cdn.jwplayer.com/videos/BPccMSN4-RyIcpnTz.mp4)
+2026-10-07 21:29:10,052 INFO vision footage-relevance: gemini-flash-latest HTTP 503
+2026-10-07 21:29:50,126 INFO vision footage-relevance: gemma-4-31b-it failed (HTTPSConnectionPool(host='generativelanguage.googleapis.com', port=443): Read timed out. (read timeout=40))
+2026-10-07 21:30:02,876 INFO vision rotation: footage-relevance served by gemini-3.5-flash-lite
+2026-10-07 21:30:02,876 INFO FOOTAGE GATE: off-topic clip rejected (5c8435e0f0e7e93a7f0be4030c9d5ed1a89ea4d0.mp4)
+2026-10-07 21:30:02,876 INFO HOOK: candidate unavailable (off-topic); trying next
+2026-10-07 21:30:05,418 INFO CLIP REFUSED (tiktok): ERROR: [TikTok] 7426134151213993246: Your IP address is blocked from accessing this post | https://www.tiktok.com/@abcgma3/video/7426134151213993246
+2026-10-07 21:30:05,418 INFO HOOK: candidate unavailable (fetch failed); trying next
+2026-10-07 21:30:05,418 INFO CLIP staged by the server: b64dc310e2fd356e49f3e5b7685d36f050aa3f91.mp4 (https://www.tiktok.com/@7newsaustralia/video/764172652108174)
+2026-10-07 21:30:26,968 INFO vision footage-relevance: gemini-flash-latest HTTP 503
+2026-10-07 21:30:49,310 INFO vision rotation: footage-relevance served by gemma-4-31b-it
+2026-10-07 21:30:49,311 INFO FOOTAGE GATE: off-topic clip rejected (b64dc310e2fd356e49f3e5b7685d36f050aa3f91.mp4)
+2026-10-07 21:30:49,312 INFO HOOK: candidate unavailable (off-topic); trying next
+2026-10-07 21:30:49,312 INFO HOOK: no fetchable clip; normal opener
+2026-10-07 21:30:51,748 INFO CLIP REFUSED (tiktok): ERROR: [TikTok] 7426134151213993246: Your IP address is blocked from accessing this post | https://www.tiktok.com/@abcgma3/video/7426134151213993246#t=12
+2026-10-07 21:30:51,748 INFO CLIP FRAMES: no usable clip of the 5 available (fetch or a quality gate refused every one); pool stays at 5
+2026-10-07 21:30:51,813 INFO person shot -> Eric Swalwell's photo 1/1 (vis-452-0)
+2026-10-07 21:30:51,813 INFO CLIP FIT: no clip's title matches scene 3's words ('with specific claims of sexual misconduct agains'); the planned still stands
+2026-10-07 21:30:51,845 INFO broll time budget (120s) exhausted; photos from here
+2026-10-07 21:30:51,862 INFO CLIP FIT: no clip's title matches scene 6's words ('yet a press conference was scheduled'); the planned still stands
+2026-10-07 21:30:51,862 INFO IMAGE CAP: receipt 0 shows a picture already in 2 shot(s); subject photo instead
+2026-10-07 21:30:51,862 INFO receipt 0 missing/unresolved; subject photo fallback
+2026-10-07 21:30:51,862 INFO CLIP FIT: no clip's title matches scene 7's words ('for April 13 by an accuser'); the planned still stands
+2026-10-07 21:30:51,862 INFO CLIP staged by the server: 5c8435e0f0e7e93a7f0be4030c9d5ed1a89ea4d0.mp4 (https://cdn.jwplayer.com/videos/BPccMSN4-RyIcpnTz.mp4)
+2026-10-07 21:30:51,862 INFO PROVENANCE: beat 8 clip kept without a vision vote (embedded in this story's own coverage)
+2026-10-07 21:30:51,862 INFO TIMELINE ARTIFACT: beat 8 plays its own clip 5c8435e0f0e7e93a7f0be4030c9d5ed1a89ea4d0.mp4
+2026-10-07 21:30:51,862 INFO person shot -> Eric Swalwell's photo 1/1 (vis-452-0)
+2026-10-07 21:30:51,862 INFO CLIP FIT: no clip's title matches scene 9's words ('Do you think Swalwell denial holds up'); the planned still stands
+2026-10-07 21:30:51,862 INFO CLIP FIT: no clip's title matches scene 10's words ("after the accuser's press conference?"); the planned still stands
+2026-10-07 21:30:51,874 INFO SPEND THE POOL: 1 repeat(s) swapped for unused images (6 distinct stills now on screen)
+2026-10-07 21:30:51,874 INFO RENDER REPORT: {"style": "slowburn", "ck_mode": true, "cookie_bytes": 1989, "story_vids": 0, "scenes": 10, "runtime_s": 30.8, "footage_scenes": 1, "gap_fill_scenes": 0, "opportunistic_footage": 1, "still_photo_scenes": 5, "card_scenes": 4, "frozen_stills": 0, "footage_fetches": 3, "seq": "ccsccssfss"}
+2026-10-07 21:30:51,874 INFO CLIP verify disabled (VIDEO_CLIP_VERIFY=0)
+2026-10-07 21:30:51,874 INFO scene plan (v4 EDL): 10 scene(s) (4 receipt, 1 b-roll), pool=5
+2026-10-07 21:30:51,874 INFO   scene 1: 0.00-5.23s type=receipt motion=contain sfx=pop music=bed visual=shot-452-0.png
+2026-10-07 21:30:51,874 INFO   scene 2: 5.23-8.98s type=receipt motion=contain sfx=pop music=bed visual=shot-452-1.png
+2026-10-07 21:30:51,875 INFO   scene 3: 8.98-12.66s type=photo motion=pan_left sfx=none music=bed visual=vis-452-0
+2026-10-07 21:30:51,875 INFO   scene 4: 12.66-15.10s type=receipt motion=contain sfx=none music=bed visual=shot-452-2.png
+2026-10-07 21:30:51,875 INFO   scene 5: 15.10-18.39s type=receipt motion=contain sfx=pop music=bed visual=shot-452-4.png
+2026-10-07 21:30:51,875 INFO   scene 6: 18.39-19.86s type=photo motion=punch_build sfx=none music=bed visual=vis-452-4
+2026-10-07 21:30:51,875 INFO   scene 7: 19.86-21.92s type=photo motion=zoom_out sfx=none music=bed visual=vis-452-3
+2026-10-07 21:30:51,875 INFO   scene 8: 21.92-25.27s type=broll(FOOTAGE) motion=None sfx=none music=bed visual=5c8435e0f0e7e93a7f0be4030c9d5ed1a89ea4d0.mp4
+2026-10-07 21:30:51,875 INFO   scene 9: 25.27-27.97s type=photo motion=pan_left sfx=none music=bed visual=vis-452-0
+2026-10-07 21:30:51,875 INFO   scene 10: 27.97-30.81s type=photo motion=punch_build sfx=none music=bed visual=vis-452-4
+2026-10-07 21:30:51,875 INFO VARIETY: 7 distinct stills, top visual carries 2/9 (22%)
+2026-10-07 21:30:51,875 INFO SELFCHECK: repeats=0 short_scenes=none caption_cov=100% (window=2, assets=13)
+2026-10-07 21:30:55,708 INFO GRAVE story: transitions + pattern interrupt disabled
+2026-10-07 21:31:00,095 INFO TEXT AVOID: burned-in text on 6 of 10 scene(s) (4.4s)
+2026-10-07 21:31:01,271 INFO CAPTION PLACEMENT: 19 caption event(s) by position: {"card": 8, "home-least-covered": 3, "top": 4, "top-least-covered": 4}
+2026-10-07 21:31:01,980 INFO bgm: SIGNATURE bed bgm_2.mp3 (same on every video, by design)
+2026-10-07 21:31:02,445 INFO sound: bed bgm_2.mp3 over 1 interval(s), 0 swell(s)
+2026-10-07 21:31:02,788 INFO sound: 3 SFX placed
+2026-10-07 21:31:02,832 INFO sound: final -17.6 dBFS avg / -1.5 dBFS peak
+2026-10-07 21:35:38,644 INFO COMPOSE TIMING: {'prepare_s': 11.1, 'draw_encode_s': 275.6, 'remux_s': 0.1, 'scenes': 10, 'seconds': 30.8}
+2026-10-07 21:35:38,699 INFO STAGE: judge
+2026-10-07 21:35:45,213 INFO vision rotation: JUDGE served by gemini-3.5-flash-lite
+2026-10-07 21:35:45,214 INFO vision judge: pass=False weird=[{'frame': 3, 'issue': 'c. REPETITION: portrait image appears in frames 3, 9, and 1 (if counting official portraits/reused visuals)'}] mismatches=[] artifact_misses=[] scores={'readability': 8, 'framing': 9, 'variety': 4, 'edit_variety': 5, 'completeness': 6} issues=['repetition of portrait image across multiple frames violates the repetition checklist rule']
+2026-10-07 21:35:55,794 WARNING strip frame 38 extraction failed
+2026-10-07 21:35:55,797 INFO caption font: /usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf
+2026-10-07 21:35:56,031 INFO filmstrip built: build/reject-452.jpg
+2026-10-07 21:35:56,381 INFO DIAG reject-sheet -> HTTP 200
+2026-10-07 21:35:57,500 INFO DIAG shot-452-0 -> HTTP 200
+2026-10-07 21:36:00,907 INFO DIAG shot-452-1 -> HTTP 200
+2026-10-07 21:36:01,450 INFO DIAG shot-452-2 -> HTTP 200
+2026-10-07 21:36:02,232 INFO DIAG shot-452-4 -> HTTP 200
+2026-10-07 21:36:02,405 ERROR failed to make video for 452: vision judge rejected page 452 (attempt 1/1): weird=[{'frame': 3, 'issue': 'c. REPETITION: portrait image appears in frames 3, 9, and 1 (if counting official portraits/reused visuals)'}] mism=[] issues=['repetition of portrait image across multiple frames violates the repetition checklist rule']
+Traceback (most recent call last):
+  File "/home/runner/work/genzhype-scraper/genzhype-scraper/video_maker.py", line 10934, in main
+    make_one(post, font_path)
+  File "/home/runner/work/genzhype-scraper/genzhype-scraper/video_maker.py", line 10889, in make_one
+    raise JudgeRejected(
+JudgeRejected: vision judge rejected page 452 (attempt 1/1): weird=[{'frame': 3, 'issue': 'c. REPETITION: portrait image appears in frames 3, 9, and 1 (if counting official portraits/reused visuals)'}] mism=[] issues=['repetition of portrait image across multiple frames violates the repetition checklist rule']
+2026-10-07 21:36:02,563 INFO done. made 0 video(s), 3 failed
