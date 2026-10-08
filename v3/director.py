@@ -252,10 +252,10 @@ SLANG_SYSTEM = """You are the director of GenZHype's TikTok videos about ONE sla
 
 THE SEVEN PARTS, in this order
 1. THE TEST. Three short text messages on screen (A, B, C). Exactly ONE of them uses the word the right way (or is the thing the word names). The viewer picks before the reveal. The machine itself adds "Locked in?", a 3-2-1 and "It's B."
-2. THE MEANING. One plain sentence a 14-year-old gets at once, with one picture in words if it helps ("think of...").
+2. THE MEANING. One plain sentence a 14-year-old gets at once, then a second sentence with a picture in words ("Think of...").
 3. THE FORMS. The other shapes of the word (the person who does it, the act, a spelling) in one or two short sentences.
-4. QUICK ROUND. Three everyday situations, one line each; after each one the verdict is spoken: it IS the word, or it is NOT. At least one of each.
-5. THE ORIGIN. Two or three dated steps, only from the material.
+4. QUICK ROUND. FIVE everyday situations, one line each (round1 to round5); after each one the verdict is spoken: it IS the word, or it is NOT. At least one of each, two of each is best.
+5. THE ORIGIN. Three dated steps if the material has them (two at least), one sentence each, only from the material.
 6. A REAL QUOTE or example from the material, if it has a good one (else leave "quote" null and write no "quote" line).
 7. FINAL TEST. One situation, two answers of ONE word each. The line ends with both answers and "Comment one word."
 Do NOT write a closing line about the website; the machine adds it.
@@ -273,6 +273,8 @@ forms: Do it a lot, and you're a glazer. And the act? Glazing.
 round1: Quick round. Calling your teacher's class the best ever, for a grade: glaze.
 round2: Hyping your friend's blurry selfie: glaze.
 round3: Your mom saying she's proud of you: not glaze. That's just your mom.
+round4: Telling the ref he's the best you've ever seen, right after he gives you the call: glaze.
+round5: Thanking the bus driver: not glaze. That's manners.
 origin: It showed up online in the early twenty-twenties. A Twitch star took it to the Grammys red carpet. And by twenty twenty-four, a teacher was explaining it on morning TV.
 quote: His example? Yo, bro, stop glazing. It's not that big of a deal. So no. It's not a compliment.
 final: Final test. He scores twelve, his team loses, and you still post: greatest ever. Glaze, or facts? Comment one word.
@@ -283,19 +285,31 @@ OUTPUT: strict JSON, nothing around it:
  "meaning":{"pos":"verb, noun, adjective or phrase","text":"the meaning as shown, max 100 characters","source":"where the material takes it from, max 24 characters, capitals"},
  "forms":[{"t":"THE FORM, max 14 characters","tag":"what it is, max 22 characters","on":"one word of the forms line"}],
  "round":{"meter":"a name for the meter, max 18 characters, e.g. GLAZE-O-METER","yes":"the verdict when it is, max 12 characters","no":"the verdict when it is not, max 14 characters",
-          "items":[{"t":"the situation as shown, max 80 characters","is":true,"pct":93},{"t":"","is":true,"pct":80},{"t":"","is":false,"pct":12}]},
+          "items":[{"t":"the situation as shown, max 80 characters","is":true,"pct":93},{"t":"","is":true,"pct":80},{"t":"","is":false,"pct":12},{"t":"","is":true,"pct":88},{"t":"","is":false,"pct":8}]},
  "origin":[{"when":"the date in DIGITS as shown on screen, e.g. 1920s or EARLY 2020s (max 14 characters)","t":"what happened, max 56 characters","on":"one word of the origin line"}],
  "quote":{"t":"real words from the material, max 90 characters","who":"WHO · WHERE"},
  "final":{"setup":"the situation as shown, max 70 characters","a":{"word":"ONE WORD","sub":"that side in 3 words"},"b":{"word":"ONE WORD","sub":"that side in 3 words"}},
- "lines":[{"id":"hook","text":"","caps":[]},{"id":"mean","text":""},{"id":"forms","text":""},{"id":"round1","text":""},{"id":"round2","text":""},{"id":"round3","text":""},{"id":"origin","text":""},{"id":"quote","text":""},{"id":"final","text":""}],
+ "lines":[{"id":"hook","text":"","caps":[]},{"id":"mean","text":""},{"id":"forms","text":""},{"id":"round1","text":""},{"id":"round2","text":""},{"id":"round3","text":""},{"id":"round4","text":""},{"id":"round5","text":""},{"id":"origin","text":""},{"id":"quote","text":""},{"id":"final","text":""}],
  "post":{"caption":"max 150 characters, ends with the final choice","hashtags":["8 to 11 lowercase tags without #"],"pinned":"the final choice again, then: the full story of the word on genzhype.com (link in bio)"}}
 Each round line says its situation and ends with its verdict (the "yes" or the "no" words of "round"). "round1" starts with "Quick round." The hook says "Pick one"."""
+
+
+DISPUTED = re.compile(r'\b(pejorativ\w*|derogator\w*|politic\w*|culture war\w*|controvers\w*|contested|polariz\w*|divisive|slur)\b', re.I)
+DISPUTED_RULE = (' THIS WORD IS DISPUTED: the material says people use it in opposite ways, or as an insult. So the video sorts USES of the word and never judges people or causes. '
+                 'Every test text and every quick-round situation is a SENTENCE SOMEONE SAYS that contains the word, and the verdict names which sense that sentence uses: set "yes" and "no" to the two senses '
+                 '(for example ORIGINAL and INSULT). Never put the word, or a verdict, on a real cause, movement, group, belief, religion or party. Give both senses evenly. '
+                 'The final test is also about a sentence, and its two answers are the two senses.')
+
+
+def is_disputed(m):
+    hits = {h.lower()[:6] for h in DISPUTED.findall(m.get('page_text', ''))}
+    return len(hits) >= 2 or any(h.startswith('politi') for h in hits)
 
 
 def prompt_slang(m):
     slist = '\n\n'.join('SOURCE %s: "%s"\n%s' % (s['publisher'], s['title'], s['excerpt'][:2200]) for s in m.get('sources', []) if 'fonts.' not in s['publisher']) or '(none fetched)'
     user = 'THE WORD PAGE\nTitle: %s\nPage: %s\n\nOUR PAGE (the meaning, the forms, the origin and the examples to use):\n%s\n\nWHAT THE SOURCES SAY:\n%s\n\nWrite the plan.' % (m['title'], m['url'], m['page_text'][:6500], slist)
-    return SLANG_SYSTEM % {'wmin': CFG['length']['words_min'], 'wmax': CFG['length']['words_max']}, user
+    return SLANG_SYSTEM % {'wmin': CFG['length']['words_min'], 'wmax': CFG['length']['words_max']} + ('\n\n' + DISPUTED_RULE.strip() if is_disputed(m) else ''), user
 
 
 def slang_for_repair(p):
@@ -324,7 +338,7 @@ def check_slang(p, m):
         soft.append('"meaning.text" is missing')
     rnd = part('round')
     items = []
-    for x in (rnd.get('items') or [])[:3]:
+    for x in (rnd.get('items') or [])[:6]:
         if isinstance(x, dict) and cut(x.get('t'), 90):
             is_ = bool(x.get('is'))
             try:
@@ -332,9 +346,9 @@ def check_slang(p, m):
             except (TypeError, ValueError):
                 pct = 90 if is_ else 12
             items.append({'t': cut(x.get('t'), 90), 'is': is_, 'pct': pct if (pct >= 50) == is_ else (90 if is_ else 12)})
-    if len(items) != 3:
-        soft.append('the quick round needs exactly 3 situations')
-    elif len({i['is'] for i in items}) < 2:
+    if len(items) < 5:
+        soft.append('the quick round needs five situations (round1 to round5, one line each); it has %d' % len(items))
+    if len(items) >= 2 and len({i['is'] for i in items}) < 2:
         soft.append('the quick round needs at least one situation that IS the word and one that is NOT')
     yes, no = cut(rnd.get('yes'), 14).upper() or word.upper(), cut(rnd.get('no'), 16).upper() or 'NOT ' + word.upper()
     final = part('final')
@@ -354,7 +368,7 @@ def check_slang(p, m):
     missing = [i for i in need if i not in by]
     if missing:
         soft.append('these lines are missing: %s' % ', '.join(missing))
-    order = ['hook', 'lock', 'rev', 'mean', 'forms', 'round1', 'round2', 'round3', 'origin'] + (['quote'] if quote and 'quote' in by else []) + ['final']
+    order = ['hook', 'lock', 'rev', 'mean', 'forms'] + ['round%d' % (i + 1) for i in range(len(items))] + ['origin'] + (['quote'] if quote and 'quote' in by else []) + ['final']
     letter = 'ABC'[[x['right'] for x in texts].index(True)]
     notes = {'hook': ['EXAMPLE texts on screen: ' + ' / '.join(x['t'] for x in texts)], 'mean': [mean['text'], mean['source']], 'final': ['EXAMPLE: ' + cut(final.get('setup'), 80)],
              'quote': [quote['t'] + ' (' + quote['who'] + ')'] if quote else []}
@@ -370,7 +384,7 @@ def check_slang(p, m):
             t = cut(by[lid].get('text'), 500)
             l = {'id': lid, 'text': t, 'caps': [{'say': str(c['say']).strip(), 'show': str(c['show']).strip()[:14]} for c in (by[lid].get('caps') or [])
                                                if isinstance(c, dict) and c.get('say') and c.get('show') and norm(c['say']) in norm(t)]}
-            l['pause'] = {'hook': 0.2, 'final': 1.1, 'round1': 0.55, 'round2': 0.55, 'round3': 0.6}.get(lid, 0.45)      # a game needs beats: time to read, a breath between scenes
+            l['pause'] = 0.2 if lid == 'hook' else 1.1 if lid == 'final' else 0.55 if lid.startswith('round') else 0.45      # a game needs beats: time to read, a breath between scenes
             low = t.lower()
             for b in BANNED + ['the word', 'in various contexts', 'is considered', 'often used']:
                 if b in low:
@@ -417,13 +431,44 @@ def check_slang(p, m):
         lid, last = 'round%d' % (i + 1), norm(yes).split(' ')[-1]
         if lid in by and last and norm(by[lid].get('text', '')).split(' ').count(last) > 2:
             soft.append('line "%s" holds several situations: ONE situation and its verdict per round line (three lines, three situations)' % lid)
+    disputed = is_disputed(m)
+    if disputed and word:
+        loose = [x['t'] for x in texts + items if norm(word) not in norm(x['t'])]
+        if loose:
+            soft.append('this word is disputed: every test text and quick-round situation must be a sentence someone SAYS that contains "%s", sorted by which sense it uses; these do not: %s' % (word.lower(), ' | '.join(loose)[:200]))
     p.update({'format': 'slang', 'raw_lines': raw, 'lines': lines, 'words': total, 'hunts': [], 'incomplete': bool(missing),
-              'slang': {'word': word, 'theme': {'color': color, 'emoji': cut(theme.get('emoji'), 8) or '💬'}, 'quiz': {'question': cut(quiz.get('question'), 26).upper() or 'WHICH TEXT IS RIGHT?', 'texts': texts},
+              'slang': {'word': word, 'disputed': disputed, 'theme': {'color': color, 'emoji': cut(theme.get('emoji'), 8) or '💬'}, 'quiz': {'question': cut(quiz.get('question'), 26).upper() or 'WHICH TEXT IS RIGHT?', 'texts': texts},
                         'meaning': mean, 'forms': forms, 'round': {'meter': cut(rnd.get('meter'), 20).upper() or word.upper() + '-O-METER', 'yes': yes, 'no': no, 'items': items},
                         'origin': origin, 'quote': quote, 'final': {'setup': cut(final.get('setup'), 80), 'a': {'word': a_word, 'sub': cut(fa.get('sub'), 26)}, 'b': {'word': b_word, 'sub': cut(fb.get('sub'), 26)}}}})
     flat = m.get('title', '') + ' ' + m.get('summary', '')
     p['sensitive'] = {'flag': bool(SENSITIVE.search(flat)), 'why': (SENSITIVE.search(flat).group(0) if SENSITIVE.search(flat) else '')}
     return p, soft, hard
+
+
+def slang_top_up(p, m, log):
+    """A short slang script gets MORE quick-round situations (up to six in all): lines are only added, nothing is rewritten.
+    Returns the plan with the additions (to be checked again), or None when nothing could be added."""
+    S, lo = p['slang'], CFG['length']['words_min']
+    items = S['round']['items']
+    want = min(6 - len(items), max(1, -(-(lo - p.get('words', 0)) // 11)))
+    if want <= 0:
+        return None
+    user = ('THE WORD: %s\nIT MEANS: %s\nThe quick round so far (what is shown -> the verdict):\n%s\n\nWrite %d MORE quick-round situations in the same style: everyday, concrete, different from these. '
+            'Verdict words: "%s" when it is, "%s" when it is not.%s\n'
+            'JSON: {"items":[{"t":"the situation as shown on screen, max 80 characters","is":true,"line":"the spoken line: the situation, then the verdict words at the very end"}]}'
+            % (S['word'], S['meaning']['text'], '\n'.join('- %s -> %s' % (i['t'], S['round']['yes'] if i['is'] else S['round']['no']) for i in items), want,
+               S['round']['yes'].lower(), S['round']['no'].lower(), DISPUTED_RULE if S.get('disputed') else ''))
+    j, _ = ai.ask_json('You add lines to a short video script about one slang word. Strict JSON only.', user, temperature=0.6, timeout=ai.CONFIG['ai'].get('timeout', 100), max_tokens=1500)
+    p['round'] = dict(p.get('round') if isinstance(p.get('round'), dict) else {}, items=[dict(i) for i in items])
+    lines, added = list(p.get('raw_lines') or []), 0
+    for x in (j.get('items') or [])[:want]:
+        if isinstance(x, dict) and str(x.get('t', '')).strip() and str(x.get('line', '')).strip():
+            p['round']['items'].append({'t': str(x['t']), 'is': bool(x.get('is')), 'pct': 90 if x.get('is') else 12})
+            lines.append({'id': 'round%d' % len(p['round']['items']), 'text': str(x['line'])})
+            added += 1
+    p['raw_lines'] = lines
+    log('director: the script is short; asked for %d more quick-round situations, got %d' % (want, added))
+    return p if added else None
 
 
 def unsupported(plan, m):
@@ -506,6 +551,22 @@ def direct(m, log=print, work=None, budget=None):
             log('director: the correction got no answer (%s); the best version stands' % str(e)[:100])
             break
         st['round'] += 1
+        keep()
+    if slang_page and not st.get('topped') and st['best']['plan'].get('words', 0) < lo and not st['best']['plan'].get('incomplete'):
+        st['topped'] = True                                         # a short script gets more quick-round lines: added, never rewritten
+        try:
+            grown = slang_top_up(copy(st['best']['plan']), m, log)
+        except ai.AIError as e:
+            grown = None
+            log('director: the extra lines got no answer (%s)' % str(e)[:80])
+        if grown:
+            g, gsoft, ghard = check(grown, m)
+            gfacts = unsupported(g, m) if not ghard else []
+            gr = rank(g, gsoft, ghard, gfacts)
+            log('director: with the extra lines: %d words | fact check: %s | %s' % (g.get('words', 0), 'NOT RUN' if gfacts is None else '%d problems' % len(gfacts) if gfacts else 'clean',
+                'KEPT' if gr < st['best']['rank'] else 'not better: thrown away'))
+            if gr < st['best']['rank']:
+                st['best'] = {'plan': copy(g), 'model': st['best']['model'], 'rank': gr, 'facts': gfacts}
         keep()
     plan, soft2, hard = check(copy(st['best']['plan']), m)
     facts = st['best']['facts']

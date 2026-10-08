@@ -58,7 +58,7 @@ if (PLAN.format === 'slang') (function () {
     S.forms.forEach((f, k) => item(`<div class="sform"><b>${esc(f.t)}</b><span>${esc(f.tag)}</span></div>`, 60, 360 + k * 250, f.on ? at('forms', f.on) : a + .2 + k * (b - a - .6) / n, b, 'slam', {tl: 1, r: k % 2 ? 1.2 : -1.2, fit: 880, key: 'slang.f' + k})); }
 
   /* 4. the quick round, with the meter */
-  const rounds = ['round1', 'round2', 'round3'].filter(has);
+  const rounds = ['round1', 'round2', 'round3', 'round4', 'round5', 'round6'].filter(has);
   if (rounds.length) { const ra = span(rounds[0])[0], rb = span(rounds[rounds.length - 1])[1], marks = [];
     rounds.forEach((id, k) => { const it = S.round.items[k], [a, b] = span(id), vt = verdictAt(id, it.is ? S.round.yes : S.round.no);
       marks.push([vt, it.pct]);
