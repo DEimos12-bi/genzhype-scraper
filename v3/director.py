@@ -444,63 +444,80 @@ def unsupported(plan, m):
 
 
 def direct(m, log=print, work=None, budget=None):
-    """The plan, in up to three rounds of write -> code checks -> fact check -> repair. With a work folder the progress is
-    kept after every AI answer (plan_progress.json): a run that is stopped, or a caller with a time limit (budget, in
-    seconds: exit code 3 = run again), continues where it was instead of paying for the same answers twice."""
+    """The plan: one draft, then up to two corrections (code checks + a fact check on every version). THE BEST VERSION IS
+    KEPT: a correction that comes back worse (too short for a minute, more unsupported statements, more faults, fewer
+    words) is thrown away, and the next correction starts again from the best one. With a work folder the progress is
+    kept after every AI answer (plan_progress.json): a stopped run, or a caller with a time limit (budget, in seconds:
+    exit code 3 = run again), continues where it was instead of paying for the same answers twice."""
     slang_page = '/slang/' in m['url']                         # a word page is told as a game (the slang format), a story page as a story
     system, user = prompt_slang(m) if slang_page else prompt_for(m)
     check = check_slang if slang_page else fix_and_check
+    lo, hi = CFG['length']['words_min'], CFG['length']['words_max']
     t0, wait = time.time(), ai.CONFIG['ai'].get('timeout', 100)
     ck = os.path.join(work, 'plan_progress.json') if work else None
-    st = json.load(open(ck, encoding='utf-8')) if ck and os.path.isfile(ck) else {'round': 0, 'plan': None, 'model': '', 'facts': None, 'facts_for': -1}
+    st = json.load(open(ck, encoding='utf-8')) if ck and os.path.isfile(ck) else {'round': 0, 'plan': None, 'model': '', 'facts': None, 'facts_for': -1, 'best': None}
+    copy = lambda x: json.loads(json.dumps(x))
 
     def keep():
         if ck:
             json.dump(st, open(ck, 'w', encoding='utf-8'), ensure_ascii=False)
         if budget and time.time() - t0 > budget:
-            log('director: stopped at the time budget after round %d; run again' % (st['round'] + 1))
+            log('director: stopped at the time budget in round %d; run again' % (st['round'] + 1))
             raise SystemExit(3)
+
+    def rank(plan, soft, hard, facts):
+        """Lower is better: broken, then too short to reach a minute, then unsupported statements, then other faults, then words."""
+        w = plan.get('words', 0)
+        return [len(hard) + (1 if plan.get('incomplete') else 0), 0 if w >= lo - 25 else 1, len(facts or []), len(soft), -min(w, hi)]
 
     if st['plan'] is None:
         st['plan'], st['model'] = ai.ask_json(system, user, temperature=0.7, timeout=wait, max_tokens=12000, effort='medium')
         keep()
-    checked, soft = True, []
     while True:
         plan, soft, hard = check(st['plan'], m)
-        if st['facts_for'] != st['round']:
-            st['facts'] = unsupported(plan, m) if not hard and st['round'] < 2 else []
+        if st['facts_for'] != st['round']:                        # every version is fact-checked, the last one included
+            st['facts'] = unsupported(plan, m) if not hard else []
             st['facts_for'], st['plan'] = st['round'], plan
             keep()
-        facts = st['facts']
-        checked = facts is not None
-        soft += facts or []
-        log('director round %d (%s): %d words, %d lines, %d hunts | fact check: %s | to fix: %s' % (st['round'] + 1, st['model'], plan.get('words', 0), len(plan.get('lines', [])), len(plan.get('hunts', [])),
-            ('%d problems' % len(facts) if facts else 'clean') if checked else 'NOT RUN', '; '.join(soft + hard) or 'nothing'))
-        if not soft or st['round'] >= 2:
+        facts, r = st['facts'], rank(plan, soft, hard, st['facts'])
+        better = st.get('best') is None or r < st['best']['rank']
+        log('director round %d (%s): %d words, %d lines, %d hunts | fact check: %s | faults: %s | %s' % (st['round'] + 1, st['model'], plan.get('words', 0), len(plan.get('lines', [])),
+            len(plan.get('hunts', [])), 'NOT RUN' if facts is None else '%d problems' % len(facts) if facts else 'clean', '; '.join(soft + hard) or 'none',
+            'KEPT as the best so far' if better else 'WORSE than the best so far (%d words): thrown away' % st['best']['plan'].get('words', 0)))
+        if better:
+            st['best'] = {'plan': copy(plan), 'model': st['model'], 'rank': r, 'facts': facts}
+        base, bsoft, bhard = check(copy(st['best']['plan']), m)       # the next correction always starts from the best version
+        todo = bsoft + bhard + (st['best']['facts'] or [])
+        if not todo or st['round'] >= 2:
             break
-        st['fix_tries'] = st.get('fix_tries', 0) + 1                # counted across runs: when no model answers the repair, the last plan stands
+        st['fix_tries'] = st.get('fix_tries', 0) + 1                # counted across runs: when no model answers the correction, the best version stands
         if st['fix_tries'] > 2:
-            log('director: the repair got no answer twice; keeping the last plan (what is left open goes in the report)')
+            log('director: the correction got no answer twice; the best version stands (what is left open goes in the report)')
             break
         if ck:
             json.dump(st, open(ck, 'w', encoding='utf-8'), ensure_ascii=False)
-        fix ='Your plan:\n%s\n\nA machine checked it. Fix exactly these points and return the WHOLE corrected JSON plan, same format:\n- %s' % (json.dumps(slang_for_repair(plan) if slang_page else plan, ensure_ascii=False), '\n- '.join(soft + hard))
+        fix = ('Your plan:\n%s\n\nA machine checked it. Fix exactly these points and return the WHOLE corrected JSON plan, same format:\n- %s\n\n'
+               'Change ONLY what is listed above. Keep every other line word for word. The plan has %d spoken words now: the corrected plan must have %d to %d, never fewer than now.'
+               % (json.dumps(slang_for_repair(base) if slang_page else base, ensure_ascii=False), '\n- '.join(todo), base.get('words', 0), max(lo, base.get('words', 0)), hi))
         try:
             st['plan'], st['model'] = ai.ask_json(system, user + '\n\n' + fix, temperature=0.4, timeout=wait, max_tokens=12000)
         except ai.AIError as e:
-            log('director: the fix round got no answer (%s); keeping the last plan' % str(e)[:100])
+            log('director: the correction got no answer (%s); the best version stands' % str(e)[:100])
             break
         st['round'] += 1
         keep()
-    plan, soft2, hard = check(st['plan'], m)
+    plan, soft2, hard = check(copy(st['best']['plan']), m)
+    facts = st['best']['facts']
     if plan.get('incomplete'):
         hard.append('the plan still lacks lines the format needs')
-    lo = CFG['length']['words_min']
     if plan.get('words', 0) < lo - 25:
-        hard.append('the script stayed at %d words (under %d): too short for a video over a minute' % (plan['words'], lo - 25))
+        hard.append('the best script has %d words (under %d): too short for a video over a minute' % (plan['words'], lo - 25))
     if hard:
         raise SystemExit('PLAN REFUSED: ' + '; '.join(hard))
-    plan.update({'url': m['url'], 'title': m['title'], 'model': st['model'], 'assets': {} if slang_page else assets_of(m), 'left_open': soft2 + (st['facts'] or []) if st['round'] >= 2 else soft2, 'fact_checked': checked})
+    log('director: the plan used is the one by %s, %d words, %s' % (st['best']['model'], plan.get('words', 0),
+        'fact check not run' if facts is None else '%d unsupported statements left' % len(facts) if facts else 'fact check clean'))
+    plan.update({'url': m['url'], 'title': m['title'], 'model': st['best']['model'], 'assets': {} if slang_page else assets_of(m), 'left_open': soft2 + (facts or []),
+                 'fact_checked': facts is not None, 'unsupported_left': len(facts or [])})
     return add_site_line(plan)
 
 
