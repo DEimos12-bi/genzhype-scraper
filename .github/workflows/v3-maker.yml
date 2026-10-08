@@ -81,6 +81,9 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           AI_PROBE_NVIDIA: ${{ secrets.AI_PROBE_NVIDIA }}
+          AI_PROBE_NVIDIA_DIRECTOR: ${{ secrets.AI_PROBE_NVIDIA_DIRECTOR }}
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          CF_AI_TOKEN: ${{ secrets.CF_AI_TOKEN }}
           AI_PROBE_OPENROUTER: ${{ secrets.AI_PROBE_OPENROUTER }}
           PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
         run: |

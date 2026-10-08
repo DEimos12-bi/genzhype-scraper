@@ -20,11 +20,15 @@ URLS = {
     'gemini': 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
     'groq': 'https://api.groq.com/openai/v1/chat/completions',
     'nvidia': 'https://integrate.api.nvidia.com/v1/chat/completions',
+    'nvidia_b': 'https://integrate.api.nvidia.com/v1/chat/completions',            # the brain's second NVIDIA account
+    'nvidia_director': 'https://integrate.api.nvidia.com/v1/chat/completions',     # the brain's director key
+    'cloudflare': 'https://api.cloudflare.com/client/v4/accounts/%s/ai/v1/chat/completions',
     'openrouter': 'https://openrouter.ai/api/v1/chat/completions',
     'anthropic': 'https://api.anthropic.com/v1/chat/completions',
     'openai': 'https://api.openai.com/v1/chat/completions',
 }
-ENV = {'gemini': ['GEMINI_API_KEY', 'AI_PROBE_GEMINI'], 'groq': ['GROQ_API_KEY'], 'nvidia': ['NVIDIA_API_KEY', 'AI_PROBE_NVIDIA'],
+ENV = {'gemini': ['GEMINI_API_KEY', 'AI_PROBE_GEMINI'], 'groq': ['GROQ_API_KEY'], 'nvidia': ['NVIDIA_API_KEY', 'AI_PROBE_NVIDIA'], 'nvidia_b': ['NVIDIA_B_API_KEY'],
+       'nvidia_director': ['NVIDIA_DIRECTOR_API_KEY', 'AI_PROBE_NVIDIA_DIRECTOR'], 'cloudflare': ['CF_AI_TOKEN'],
        'openrouter': ['OPENROUTER_API_KEY', 'AI_PROBE_OPENROUTER'], 'anthropic': ['ANTHROPIC_API_KEY'], 'openai': ['OPENAI_API_KEY']}
 LOG = []          # one entry per request: provider/model, seconds, ok or the reason it failed
 
@@ -41,6 +45,8 @@ class AIError(RuntimeError):
 
 
 def key(provider):
+    if provider == 'cloudflare' and not os.environ.get('CF_ACCOUNT_ID', '').strip():
+        return ''
     for name in ENV.get(provider, []):
         v = os.environ.get(name, '').strip()
         if v:
@@ -48,17 +54,20 @@ def key(provider):
     return ''
 
 
-def strikes(add=None):
-    """Models that failed in the last 15 minutes (out of quota, timed out, empty answer), kept in a small file so that the
-    next step, and the next run, do not wait on them again. They stay available as a last resort."""
+def strikes(add=None, why=''):
+    """Models that failed, each with the time until which it is passed over, kept in a small file so that the next step and
+    the next run do not wait on them again: a daily quota that ran out = 3 hours, a model that is gone = a day, a
+    too-many-requests answer = 2 minutes, a timeout or an empty answer = 15 minutes. They stay as a last resort."""
     path = os.environ.get('V3_AI_STRIKES', '')
     try:
         d = json.load(open(path, encoding='utf-8')) if path and os.path.isfile(path) else {}
     except Exception:  # noqa: BLE001
         d = {}
-    d = {k: t for k, t in d.items() if time.time() - t < 900}
+    d = {k: t for k, t in d.items() if t > time.time()}
     if add:
-        d[add] = time.time()
+        low = why.lower()
+        hold = 10800 if ('quota' in low or 'per-day' in low or 'per day' in low) else 86400 if ('http 404' in low or 'http 410' in low or 'http 403' in low) else 120 if 'http 429' in low else 900
+        d[add] = time.time() + hold
         if path:
             json.dump(d, open(path, 'w', encoding='utf-8'))
     return d
@@ -76,10 +85,11 @@ def _image_part(path, max_side=None):
 
 
 def _post(provider, model, messages, temperature, timeout, max_tokens, effort):
-    body = {'model': model, 'messages': messages, 'temperature': temperature, 'max_tokens': max_tokens}
+    body = {'model': model, 'messages': messages, 'temperature': temperature, 'max_tokens': min(max_tokens, {'cloudflare': 4096, 'groq': 8192}.get(provider, max_tokens))}
     if provider == 'gemini' and effort and model.startswith('gemini-'):                       # without a cap its thinking uses up the answer's room and the JSON arrives cut off
         body['reasoning_effort'] = effort
-    req = urllib.request.Request(URLS[provider], data=json.dumps(body).encode(), method='POST',
+    url = URLS[provider] % os.environ['CF_ACCOUNT_ID'].strip() if provider == 'cloudflare' else URLS[provider]
+    req = urllib.request.Request(url, data=json.dumps(body).encode(), method='POST',
                                  headers={'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key(provider), 'User-Agent': 'genzhype-video/3'})
     with urllib.request.urlopen(req, timeout=timeout) as r:
         j = json.loads(r.read().decode('utf-8', 'replace'))
@@ -109,7 +119,7 @@ def chat(system, user, images=(), kind=None, temperature=0.5, timeout=120, max_t
         except Exception as e:  # noqa: BLE001  (a timeout, a broken reply: the next model answers)
             last = '%s/%s: %s' % (provider, model, str(e)[:160])
         note({'model': provider + '/' + model, 'kind': kind, 's': round(time.time() - t, 1), 'ok': False, 'why': last[-170:]})
-        strikes(add=provider + '/' + model)
+        strikes(add=provider + '/' + model, why=last)
     raise AIError(last)
 
 

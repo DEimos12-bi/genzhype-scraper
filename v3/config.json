@@ -2,17 +2,24 @@
  "_note": "Everything the owner may want to change without touching code. Models are tried in this order; a provider without a key in the environment is skipped.",
  "ai": {
   "text": [
-   "gemini/gemini-2.5-flash",
    "groq/openai/gpt-oss-120b",
-   "nvidia/nvidia/nemotron-3-ultra-550b-a55b",
+   "cloudflare/@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+   "cloudflare/@cf/meta/llama-4-scout-17b-16e-instruct",
+   "groq/qwen/qwen3.8-27b",
+   "cloudflare/@cf/qwen/qwen3-30b-a3b-fp8",
    "nvidia/z-ai/glm-5.3",
-   "nvidia/nvidia/nemotron-3-super-120b-a12b",
-   "nvidia/openai/gpt-oss-20b"
+   "nvidia_b/nvidia/nemotron-3-super-120b-a12b",
+   "nvidia_b/z-ai/glm-5.3",
+   "nvidia/nvidia/nemotron-3-ultra-550b-a55b",
+   "nvidia_director/nvidia/nemotron-3-super-120b-a12b",
+   "nvidia/nvidia/nemotron-3-super-120b-a12b"
   ],
   "vision": [
-   "gemini/gemini-2.5-flash",
+   "cloudflare/@cf/meta/llama-4-scout-17b-16e-instruct",
+   "cloudflare/@cf/google/gemma-4-26b-a4b-it",
+   "nvidia_b/meta/llama-3.2-11b-vision-instruct",
    "nvidia/meta/llama-3.2-11b-vision-instruct",
-   "nvidia/meta/llama-3.2-90b-vision-instruct"
+   "nvidia_director/meta/llama-3.2-11b-vision-instruct"
   ],
   "gemini_effort": "low",
   "timeout": 100
@@ -46,7 +53,7 @@
  },
  "local_browser_python": "",
  "_local": "A file config.local.json next to this one (never committed) may override any setting on one machine: local_browser_python = the Python that has a working headless browser, local_site_config = the site config the keys are read from.",
- "_note_ai": "The videos use gemini-2.5-flash on purpose: Google counts free quota per model, and the site's editor uses the 3.5 models. Put a stronger model first only if its quota is not the editor's.",
+ "_note_ai": "The videos share the site brain's keys, so they stay OFF the brain's own Gemini models (gemini-2.5-flash, gemma-4-31b-it, the flash-lite models): on 2026-10-07 video tests used up that daily quota. Groq and Cloudflare answer in seconds; the NVIDIA accounts are the slow reserve. `python v3/probe.py` shows what answers right now.",
  "youtube": true,
  "_youtube": "false = no YouTube searches (set it in config.local.json on a machine where YouTube has become slow or refuses; GitHub never asks it)"
 }
