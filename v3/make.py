@@ -155,7 +155,8 @@ def main():
             if rc == 3:
                 say('STOPPED at the time budget: run the same command again'); sys.exit(3)
             if rc != 0:
-                refuse(work, 'the director gave no usable plan (see the lines above)')
+                why = os.path.join(work, 'plan_refused.txt')
+                refuse(work, open(why, encoding='utf-8').read() if os.path.isfile(why) else 'the director gave no usable plan (see the lines above)')
         elif step == 'voice':
             if py('tts.py', work, timeout=400) != 0:
                 refuse(work, 'the voice could not be made')

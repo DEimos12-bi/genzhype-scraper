@@ -432,8 +432,10 @@ def check_slang(p, m):
         if lid in by and last and norm(by[lid].get('text', '')).split(' ').count(last) > 2:
             soft.append('line "%s" holds several situations: ONE situation and its verdict per round line (three lines, three situations)' % lid)
     disputed = is_disputed(m)
+    p['disputed_faults'] = []
     if disputed and word:
         loose = [x['t'] for x in texts + items if norm(word) not in norm(x['t'])]
+        p['disputed_faults'] = loose
         if loose:
             soft.append('this word is disputed: every test text and quick-round situation must be a sentence someone SAYS that contains "%s", sorted by which sense it uses; these do not: %s' % (word.lower(), ' | '.join(loose)[:200]))
     p.update({'format': 'slang', 'raw_lines': raw, 'lines': lines, 'words': total, 'hunts': [], 'incomplete': bool(missing),
@@ -469,6 +471,27 @@ def slang_top_up(p, m, log):
     p['raw_lines'] = lines
     log('director: the script is short; asked for %d more quick-round situations, got %d' % (want, added))
     return p if added else None
+
+
+def labels_causes(plan, m):
+    """A disputed word, read once more for neutrality only: is the word, or a verdict, put on a cause or a group?
+    Returns the reasons to fix ([] = neutral), or None when no model could do the reading."""
+    S = plan['slang']
+    shown = (['TEST %s: %s' % ('ABC'[i], x['t']) for i, x in enumerate(S['quiz']['texts'])]
+             + ['ROUND %d: %s -> %s' % (i + 1, it['t'], S['round']['yes'] if it['is'] else S['round']['no']) for i, it in enumerate(S['round']['items'])]
+             + ['FINAL: %s -> %s or %s' % (S['final']['setup'], S['final']['a']['word'], S['final']['b']['word'])])
+    spoken = [l['text'] for l in plan['lines'] if l['id'].startswith('round') or l['id'] in ('hook', 'final')]
+    sys_ = ('You check a short video about a disputed word ("%s") for ONE thing: neutrality. The video may sort SENTENCES THAT USE THE WORD by the sense in which that sentence uses it. '
+            'It may NOT put the word, or a verdict, on a real cause, movement, group, identity, belief, religion or party, nor on a stance towards one (supporting, protesting, mocking or criticising something). '
+            'Allowed: "That movie is so woke, I walked out" -> INSULT (it only says how the word is used in that sentence). '
+            'NOT allowed: "Supporting X rights" -> ORIGINAL; "Calling out racism is woke" -> ORIGINAL; "Mocking a diversity plan" -> INSULT (each stamps a cause or its critics). '
+            'List every item that is not allowed. Strict JSON only: {"problems":[{"item":"TEST A, ROUND 2 or FINAL","text":"the words","why":"short"}]} (an empty list if every item is allowed).' % S['word'])
+    try:
+        j, _ = ai.ask_json(sys_, 'ON SCREEN\n%s\n\nSPOKEN\n%s' % ('\n'.join(shown), '\n'.join(spoken)), temperature=0.1, timeout=ai.CONFIG['ai'].get('timeout', 100), max_tokens=2500)
+    except ai.AIError:
+        return None
+    return ['DISPUTED WORD: %s puts a verdict on a cause or a group ("%s"); make it a sentence someone says that contains the word, judged only for the sense it uses'
+            % (str(x.get('item', '?'))[:14], str(x.get('text', ''))[:70]) for x in j.get('problems', []) if isinstance(x, dict)][:8]
 
 
 def unsupported(plan, m):
@@ -510,6 +533,17 @@ def direct(m, log=print, work=None, budget=None):
             log('director: stopped at the time budget in round %d; run again' % (st['round'] + 1))
             raise SystemExit(3)
 
+    def read(plan, hard):
+        """Every version is read by a second model: against the material, and (a disputed word) for neutrality.
+        [] = nothing found, None = a reading could not be run."""
+        if hard:
+            return []
+        found = unsupported(plan, m)
+        if slang_page and plan.get('slang', {}).get('disputed'):
+            sides = labels_causes(plan, m)
+            found = None if found is None or sides is None else found + sides
+        return found
+
     def rank(plan, soft, hard, facts):
         """Lower is better: broken, then too short to reach a minute, then unsupported statements, then how far under the
         wanted length (in steps of ten words: length weighs more than a small fault), then the other faults, then words."""
@@ -522,7 +556,7 @@ def direct(m, log=print, work=None, budget=None):
     while True:
         plan, soft, hard = check(st['plan'], m)
         if st['facts_for'] != st['round']:                        # every version is fact-checked, the last one included
-            st['facts'] = unsupported(plan, m) if not hard else []
+            st['facts'] = read(plan, hard)
             st['facts_for'], st['plan'] = st['round'], plan
             keep()
         facts, r = st['facts'], rank(plan, soft, hard, st['facts'])
@@ -561,7 +595,7 @@ def direct(m, log=print, work=None, budget=None):
             log('director: the extra lines got no answer (%s)' % str(e)[:80])
         if grown:
             g, gsoft, ghard = check(grown, m)
-            gfacts = unsupported(g, m) if not ghard else []
+            gfacts = read(g, ghard)
             gr = rank(g, gsoft, ghard, gfacts)
             log('director: with the extra lines: %d words | fact check: %s | %s' % (g.get('words', 0), 'NOT RUN' if gfacts is None else '%d problems' % len(gfacts) if gfacts else 'clean',
                 'KEPT' if gr < st['best']['rank'] else 'not better: thrown away'))
@@ -574,6 +608,14 @@ def direct(m, log=print, work=None, budget=None):
         hard.append('the plan still lacks lines the format needs')
     if plan.get('words', 0) < lo - 25:
         hard.append('the best script has %d words (under %d): too short for a video over a minute' % (plan['words'], lo - 25))
+    # the two refusals (owner 2026-10-08): what the second reading refused does not go out as a note in a report
+    if facts:
+        hard.append('%d statements are still in the script that the second reading refused (not in the material, or a verdict on a cause or a group): %s' % (len(facts), ' | '.join(f[:110] for f in facts[:3])))
+    if slang_page and plan.get('slang', {}).get('disputed'):
+        if facts is None:
+            hard.append('the word is disputed and the neutrality reading could not be run')
+        if plan.get('disputed_faults'):
+            hard.append('the word is disputed and these texts are not sentences that use it: %s' % ' | '.join(plan['disputed_faults'])[:200])
     if hard:
         raise SystemExit('PLAN REFUSED: ' + '; '.join(hard))
     log('director: the plan used is the one by %s, %d words, %s' % (st['best']['model'], plan.get('words', 0),
@@ -589,7 +631,12 @@ if __name__ == '__main__':
     localenv.load()
     work = sys.argv[1]
     mat = json.load(open(os.path.join(work, 'material.json'), encoding='utf-8'))
-    pl = direct(mat, lambda *a: print(*a, flush=True), work, float(sys.argv[2]) if len(sys.argv) > 2 else None)
+    try:
+        pl = direct(mat, lambda *a: print(*a, flush=True), work, float(sys.argv[2]) if len(sys.argv) > 2 else None)
+    except SystemExit as e:
+        if str(e.code).startswith('PLAN REFUSED'):                 # the reason goes into the run's report
+            open(os.path.join(work, 'plan_refused.txt'), 'w', encoding='utf-8').write(str(e.code))
+        raise
     json.dump(pl, open(os.path.join(work, 'plan.json'), 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
     for ln in pl['lines']:
         print('%-8s [%s %s] %s\n         %s' % (ln['id'], ln['show']['asset'], ln['show']['mode'], ln['text'], ' | '.join('%s:%s' % (o['k'], o.get('t') or o.get('name') or o.get('post') or len(o.get('rows', o.get('items', [])))) for o in ln['overlays'])))
