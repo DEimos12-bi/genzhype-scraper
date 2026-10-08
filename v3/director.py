@@ -466,9 +466,10 @@ def direct(m, log=print, work=None, budget=None):
             raise SystemExit(3)
 
     def rank(plan, soft, hard, facts):
-        """Lower is better: broken, then too short to reach a minute, then unsupported statements, then other faults, then words."""
+        """Lower is better: broken, then too short to reach a minute, then unsupported statements, then how far under the
+        wanted length (in steps of ten words: length weighs more than a small fault), then the other faults, then words."""
         w = plan.get('words', 0)
-        return [len(hard) + (1 if plan.get('incomplete') else 0), 0 if w >= lo - 25 else 1, len(facts or []), len(soft), -min(w, hi)]
+        return [len(hard) + (1 if plan.get('incomplete') else 0), 0 if w >= lo - 25 else 1, len(facts or []), -(-max(0, lo - w) // 10), len(soft), -min(w, hi)]
 
     if st['plan'] is None:
         st['plan'], st['model'] = ai.ask_json(system, user, temperature=0.7, timeout=wait, max_tokens=12000, effort='medium')
