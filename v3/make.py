@@ -100,7 +100,8 @@ def pack(work):
     subprocess.run(['ffmpeg', '-y', '-v', 'error', '-ss', '%.2f' % stamp_t, '-i', mp4, '-frames:v', '1', '-q:v', '2', os.path.join(out, 'cover.jpg')], check=True)
     dur = float(subprocess.run(['ffprobe', '-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', mp4], capture_output=True, text=True).stdout.strip() or 0)
     post, used = plan.get('post') or {}, sorted({s['asset'] for s in comp['shots']})
-    credits = '\n'.join('- %s: %s  %s' % (k, plan['assets'][k].get('credit') or 'stock footage (Pexels), blurred', plan['assets'][k].get('page', '')) for k in used)
+    credits = '\n'.join('- %s: %s  %s' % (k, plan['assets'][k].get('credit') or 'stock footage (Pexels), blurred', plan['assets'][k].get('page', '')) for k in used if k in plan['assets']) \
+        or '- none: this video is drawn (motion graphics), no outside footage'
     proof = '\n'.join('- %s' % (o.get('t') or 'the post of ' + json.load(open(os.path.join(work, 'material.json'), encoding='utf-8'))['posts'][int(o['post'][4:])]['url'])
                       for l in plan['lines'] for o in l['overlays'] if o['k'] in ('quote', 'receipt') and not o.get('drop'))
     open(os.path.join(out, 'post.txt'), 'w', encoding='utf-8').write(
@@ -132,7 +133,7 @@ def main():
             mark(work, s, False)
     budget = float(opt('--budget')) if opt('--budget') else None
     forced = bool(opt('--steps') or opt('--from'))
-    for f in ('comp.html', 'engine.js', 'engine.css', 'build.js'):
+    for f in ('comp.html', 'engine.js', 'engine.css', 'build.js', 'slang.js'):
         shutil.copy(os.path.join(HERE, f), os.path.join(work, f))
     shutil.copytree(os.path.join(HERE, 'fonts'), os.path.join(work, 'fonts'), dirs_exist_ok=True)
     began = time.time()
@@ -158,6 +159,8 @@ def main():
         elif step == 'voice':
             if py('tts.py', work, timeout=400) != 0:
                 refuse(work, 'the voice could not be made')
+        elif step in ('footage', 'eyes', 'receipts') and json.load(open(os.path.join(work, 'plan.json'), encoding='utf-8')).get('format') == 'slang':
+            say('(the slang format is drawn: no footage, nothing to look at, no posts to photograph)'); mark(work, step)
         elif step == 'footage':
             rc = py('footage.py', work, *([max(budget, 75)] if budget else []))      # a download needs room: under 40 s left it would never start one
             if rc == 3:

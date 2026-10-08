@@ -74,11 +74,13 @@ def speak(takes, lines):
 def main(work):
     plan = json.load(open(os.path.join(work, 'plan.json'), encoding='utf-8'))
     takes = os.path.join(work, 'takes'); os.makedirs(takes, exist_ok=True)
-    lines = [[l['id'], l['text'], 10 if l['id'] in ('vote', 'site') else 12, 0.5 if l['id'] == 'site' else 0.3 if l['id'] == 'vote' else 0.22] for l in plan['lines']]
+    lines = [[l['id'], l['text'], int(l.get('rate') or (10 if l['id'] in ('vote', 'site', 'final') else 12)),
+              float(l.get('pause') or (0.5 if l['id'] == 'site' else 0.3 if l['id'] in ('vote', 'final') else 0.22))] for l in plan['lines']]
     need = ai.CONFIG['length']['min_s'] + 1.0
     vo, tl, t = speak(takes, lines)
     if t + 0.45 < need:                                   # a little short: once more, slower by what is missing
-        slower = [max(SLOWEST, int(round((100 + r) * (t + 0.45) / need - 100))) for _, _, r, _ in lines]
+        silent = LEAD + sum(l[3] for l in lines)          # the pauses do not stretch: only the speech is slowed, by what the speech is missing
+        slower = [max(SLOWEST, int((100 + r) * (t - silent) / max(1.0, need - 0.45 - silent) - 100)) for _, _, r, _ in lines]
         if slower != [l[2] for l in lines]:
             print('voice: %.1f s is under the minimum; spoken again at %+d%% instead of %+d%%' % (t + 0.45, slower[0], lines[0][2]), flush=True)
             for l, r in zip(lines, slower):

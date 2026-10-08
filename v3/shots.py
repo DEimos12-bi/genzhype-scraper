@@ -203,6 +203,43 @@ def cues(plan, tl):
     return {'bpm': 120 + (len(plan['title']) % 3) * 4, 'transpose': len(plan['title']) % 5 - 2, 'sections': sect, 'impact': imp, 'pop': sorted(set(pop)), 'ding': ding, 'buzz': [], 'riser': riser, 'count': []}
 
 
+def slang_shots(plan, tl):
+    """The slang format has no footage: one drawn scene per script line."""
+    lines = {l['id']: l for l in tl['lines']}
+    end, ids = round(tl['total'] + 0.45, 3), [l['id'] for l in plan['lines']]
+    shots = []
+    for i, lid in enumerate(ids):
+        t0 = 0.0 if i == 0 else round(max(0.0, lines[lid]['s'] - 0.08), 3)
+        t1 = end if i == len(ids) - 1 else round(max(0.0, lines[ids[i + 1]]['s'] - 0.08), 3)
+        shots.append({'id': lid + '_0', 'line': lid, 't0': t0, 't1': t1, 'mode': 'N', 'asset': 'drawn', 'credit': '', 'dim': 0.0})
+    return shots, end
+
+
+def cues_slang(plan, tl):
+    L, S = {l['id']: l for l in tl['lines']}, plan['slang']
+    start = lambda i: round(max(0.0, L[i]['s'] - 0.08), 3)
+    last = lambda i, label: next((w['s'] - 0.05 for w in reversed(L[i]['words']) if norm(w['w']) == norm(label).split(' ')[0]), L[i]['e'] - 0.8)
+    rev = L['rev']['words'][-1]['s'] - 0.04
+    sect = [[0.0, 'tense'], [round(rev, 3), 'hits']] + [[start(i), mood] for i, mood in (('mean', 'groove'), ('forms', 'full'), ('round1', 'full'), ('origin', 'desk'), ('quote', 'tense'), ('final', 'full'), ('site', 'bright')) if i in L]
+    imp, pop = [[0.0, 1.0, 0.6], [round(rev, 3), 1.6, 1.0]], [round(L['hook']['s'] + 0.55 + k * 0.28, 3) for k in range(3)]
+    for k, it in enumerate(S['round']['items']):
+        if 'round%d' % (k + 1) in L:
+            imp.append([round(last('round%d' % (k + 1), S['round']['yes'] if it['is'] else S['round']['no']), 3), 1.1, 0.7])
+    for i in ('mean', 'forms', 'origin', 'quote'):
+        if i in L:
+            pop.append(round(L[i]['s'] + 0.15, 3))
+    ding = []
+    if 'final' in L:
+        for side in ('a', 'b'):
+            imp.append([wt(L['final'], S['final'][side]['word']), 0.9, 0.55])
+        ding.append([wt(L['final'], 'Comment'), 0.4])
+    if 'site' in L:
+        imp.append([wt(L['site'], 'Gen'), 0.9, 0.5]); pop += [wt(L['site'], 'timeline'), wt(L['site'], 'receipt'), wt(L['site'], 'Link')]
+    gap = max(0.3, (rev - L['lock']['e']) / 3)
+    return {'bpm': 122, 'transpose': len(S['word']) % 5 - 2, 'sections': sect, 'impact': sorted(imp), 'pop': sorted(set(pop)), 'ding': ding, 'buzz': [],
+            'riser': [[round(L['lock']['s'], 3), round(rev, 3)]], 'count': [[round(L['lock']['e'] + 0.02, 3), 3, round(gap, 3)]]}
+
+
 def fit(mode, w, h, x):
     if w * 16 > h * 9:                                         # wider than 9:16: a window of the picture
         win = 'crop=ih*9/16:ih:(iw-ih*9/16)*%.3f:0,scale=1080:1920:flags=lanczos' % x
@@ -219,7 +256,8 @@ def fit(mode, w, h, x):
 def main(work, log=lambda *a: print(*a, flush=True)):
     plan = json.load(open(os.path.join(work, 'plan.json'), encoding='utf-8'))
     tl = json.load(open(os.path.join(work, 'timeline.json'), encoding='utf-8'))
-    shots, end = plan_shots(plan, tl, log)
+    slang = plan.get('format') == 'slang'
+    shots, end = slang_shots(plan, tl) if slang else plan_shots(plan, tl, log)
     receipts = {}
     rdir = os.path.join(work, 'receipts')
     for f in sorted(os.listdir(rdir)) if os.path.isdir(rdir) else []:
@@ -230,7 +268,7 @@ def main(work, log=lambda *a: print(*a, flush=True)):
     for s in shots:
         s['n'] = int(round((s['t1'] - s['t0']) * FPS)) + 3
         s['dir'] = s['id']
-        if s['mode'] == 'S':
+        if s['mode'] in 'SN':
             continue
         folder = os.path.join(base, s['id']); os.makedirs(folder)
         d = s['t1'] - s['t0']
@@ -242,9 +280,9 @@ def main(work, log=lambda *a: print(*a, flush=True)):
         for k in range(got + 1, s['n'] + 1):                   # a clip that ends early holds its last picture
             shutil.copy(os.path.join(folder, '%04d.jpg' % got), os.path.join(folder, '%04d.jpg' % k))
     sfile = os.path.join(work, 'site', 'site.json')
-    comp = {'fps': FPS, 'end': end, 'frames': int(round(end * FPS)), 'shots': shots, 'lines': tl['lines'], 'cues': cues(plan, tl), 'receipts': receipts,
+    comp = {'fps': FPS, 'end': end, 'frames': int(round(end * FPS)), 'shots': shots, 'lines': tl['lines'], 'cues': cues_slang(plan, tl) if slang else cues(plan, tl), 'receipts': receipts,
             'site': json.load(open(sfile, encoding='utf-8')) if os.path.isfile(sfile) else None,
-            'plan': {k: plan.get(k) for k in ('lines', 'vote', 'title', 'url')}, 'brand': json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'config.json'), encoding='utf-8'))['brand']}
+            'plan': {k: plan.get(k) for k in ('lines', 'vote', 'title', 'url', 'format', 'slang')}, 'brand': json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'config.json'), encoding='utf-8'))['brand']}
     json.dump(comp, open(os.path.join(work, 'comp.json'), 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
     open(os.path.join(work, 'comp.js'), 'w', encoding='utf-8').write('window.COMP = ' + json.dumps(comp, ensure_ascii=False) + ';')
     film = sum(s['t1'] - s['t0'] for s in shots)

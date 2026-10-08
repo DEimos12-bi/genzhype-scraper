@@ -29,11 +29,13 @@ def layout_issues(work):
         r = s['rects']
         for i in range(len(r)):
             a = r[i]
+            if a['w'] * a['h'] < 4:                              # an empty helper element is nothing on screen
+                continue
             if a['key'] != 'caption' and (a['x'] < x0 or a['y'] < y0 or a['x'] + a['w'] > x1 or a['y'] + a['h'] > y1):
                 issues.setdefault(('out', a['key'], ''), s['t'])
             for j in range(i + 1, len(r)):
                 b = r[j]
-                if inter(a, b) > CFG['checks']['overlap_px'] and not (a['key'].startswith('site.') and b['key'].startswith('site.')):      # the closing's devices overlap on purpose
+                if inter(a, b) > CFG['checks']['overlap_px'] and not (a['key'].startswith(('site.', 'slang.')) and b['key'].startswith(('site.', 'slang.'))):      # the closing's devices overlap on purpose
                     issues.setdefault(('over', a['key'], b['key']), s['t'])
     return [{'kind': k[0], 'a': k[1], 'b': k[2], 't': t} for k, t in issues.items()]
 
@@ -92,6 +94,10 @@ def gate(work, allow_sensitive=False):
     why = []
     if comp['end'] < CFG['length']['min_s']:
         why.append('%.1f s long: under %d s' % (comp['end'], CFG['length']['min_s']))
+    if plan.get('format') == 'slang':                          # drawn, not filmed: the footage rules do not apply
+        if plan.get('sensitive', {}).get('flag') and not allow_sensitive:
+            why.append('WAITS FOR THE OWNER: the page mentions "%s" (run again with --approved once he has read the plan)' % plan['sensitive']['why'])
+        return why
     film = sum(s['t1'] - s['t0'] for s in comp['shots'] if s['mode'] in 'FBCS')
     if film / comp['end'] < CFG['footage']['min_share']:
         why.append('footage under only %.0f%% of the video' % (100 * film / comp['end']))

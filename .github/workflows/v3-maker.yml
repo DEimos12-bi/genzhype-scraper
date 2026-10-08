@@ -73,6 +73,7 @@ jobs:
           python -m pip install "playwright==1.48.0" "edge-tts==7.2.8" numpy pillow 2>&1 | tail -2
           ( python -m pip install -U yt-dlp 2>&1 | tail -1 ) || echo "yt-dlp not installed: footage searches off this run"
           python -m playwright install --with-deps chromium 2>&1 | tail -2
+          sudo timeout 120 apt-get install -y -qq fonts-noto-color-emoji >/dev/null 2>&1 || echo "no emoji font: emoji in the slang format will not draw"
 
       - name: Make the videos
         env:

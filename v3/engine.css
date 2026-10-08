@@ -66,3 +66,42 @@ html,body{background:#000;overflow:hidden}
 .pcwrap{position:relative;width:820px;height:580px}
 .pcwrap .neck{position:absolute;left:365px;top:498px;width:90px;height:54px;background:var(--ink)}
 .pcwrap .foot{position:absolute;left:290px;top:548px;width:240px;height:20px;border-radius:10px;background:var(--ink);box-shadow:8px 8px 0 var(--red)}
+/* the slang format */
+:root{--acc:#F26FB0;--onacc:#1A1814}
+#sbg{position:absolute;inset:-60px;background:var(--paper)}
+#sbg svg{left:60px!important;top:60px!important}
+#swipe{position:absolute;inset:0;pointer-events:none}
+#swipe i{position:absolute;top:-20px;width:136px;height:0;background:var(--acc);border-radius:0 0 68px 68px}
+#sburst{position:absolute;inset:0;pointer-events:none}
+#sburst span{position:absolute;left:-32px;top:-32px;font-size:64px;line-height:1;visibility:hidden}
+.sq{font:800 66px/1 Spartan;color:var(--ink)}
+.sb{position:relative;width:880px;min-height:164px;background:#fff;color:var(--ink);border:6px solid var(--ink);border-radius:30px;box-shadow:10px 10px 0 var(--ink);padding:30px 30px 22px 128px;white-space:normal}
+.sb b{position:absolute;left:26px;top:36px;width:78px;height:78px;border-radius:50%;background:var(--ink);color:var(--paper);font:800 50px/88px Spartan;text-align:center}
+.sb p{font:700 54px/1.1 Spartan}
+.sb.yes{background:var(--acc);color:var(--onacc)}
+.scount{width:190px;height:190px;border-radius:50%;background:var(--ink);color:var(--paper);font:900 130px/190px Fraunces;text-align:center;box-shadow:10px 10px 0 var(--acc)}
+.sdict{width:880px;background:#fff;color:var(--ink);border:6px solid var(--ink);border-radius:22px;box-shadow:14px 14px 0 var(--acc);padding:40px 44px 34px;white-space:normal}
+.sdict h2{font:900 150px/1 Fraunces;letter-spacing:-.02em}
+.sdict i{display:block;font:italic 600 44px/1 Fraunces;color:var(--red);margin:6px 0 26px}
+.sdict p{display:inline;font:600 62px/1.16 Fraunces;background:linear-gradient(transparent 62%,var(--yellow) 62%);background-size:0% 100%;background-repeat:no-repeat}
+.sdict em{display:block;font:700 24px Mono;font-style:normal;letter-spacing:.08em;color:#6B6559;margin-top:30px}
+.semo{font-size:210px;line-height:1}
+.sform{display:inline-block;font-size:124px;background:#fff;color:var(--ink);border:6px solid var(--ink);border-radius:18px;box-shadow:12px 12px 0 var(--ink);padding:.3em .34em .16em;white-space:nowrap}
+.sform b{font:800 1em/1 Spartan}
+.sform span{display:block;font:700 28px Mono;letter-spacing:.06em;background:var(--acc);color:var(--onacc);padding:9px 13px 8px;border-radius:5px;margin-top:10px;width:max-content}
+.srcard{position:relative;width:880px;min-height:340px;background:#fff;color:var(--ink);border:6px solid var(--ink);border-radius:20px;box-shadow:12px 12px 0 var(--ink);padding:34px 40px 40px;white-space:normal}
+.srcard u{display:inline-block;text-decoration:none;font:700 28px Mono;background:var(--ink);color:var(--paper);padding:8px 12px 7px;border-radius:5px}
+.srcard p{font:900 66px/1.1 Fraunces;margin-top:22px}
+.smeter{position:relative;width:880px;height:140px}
+.smeter b{position:absolute;left:0;top:0;font:700 30px Mono;letter-spacing:.1em;color:var(--ink)}
+.smeter span{position:absolute;right:0;top:0;font:700 30px Mono;color:var(--ink)}
+.smeter div{position:absolute;left:0;top:56px;width:880px;height:60px;background:var(--ink);border-radius:30px;overflow:hidden}
+.smeter i{position:absolute;left:0;top:0;bottom:0;width:0;background:var(--acc)}
+.sline{width:10px;height:40px;background:var(--acc);border-radius:5px}
+.spoint{position:relative;width:880px;padding-left:96px;white-space:normal;color:var(--paper)}
+.spoint u{position:absolute;left:18px;top:6px;width:46px;height:46px;border-radius:50%;background:var(--acc);border:7px solid var(--paper)}
+.spoint span{display:inline-block;font:700 30px Mono;letter-spacing:.06em;background:var(--acc);color:var(--onacc);padding:9px 13px 8px;border-radius:5px}
+.spoint p{font:900 62px/1.08 Fraunces;margin-top:16px}
+.sset{width:880px;background:var(--paper);color:var(--ink);border-radius:18px;box-shadow:12px 12px 0 var(--acc);padding:30px 36px 32px;white-space:normal}
+.sset u{display:inline-block;text-decoration:none;font:700 28px Mono;background:var(--red);color:#fff;padding:8px 12px 7px;border-radius:5px}
+.sset p{font:900 58px/1.1 Fraunces;margin-top:18px}

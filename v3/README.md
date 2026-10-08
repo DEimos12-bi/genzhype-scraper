@@ -27,6 +27,14 @@ python v3/auto.py --max 2                                                    # t
 | sound | `audio.py` | voice + music and effects made in code, placed on the same words as the graphics |
 | pack | `make.py` | `out/`: the mp4, `cover.jpg`, `post.txt` (caption, hashtags, pinned comment, script, proof, footage credits), `report.json` |
 
+## Two formats
+
+- **Story** (`/gaming/`, `/drama/`, `/meme/` pages): footage under every second, the proof on screen, a vote.
+- **Slang** (`/slang/` pages): a game in motion graphics with no footage, modelled on the hand-made glaze video
+  (`slang.js`, `check_slang` in `director.py`): three texts to pick from with a 3-2-1 and the reveal, the meaning on a
+  dictionary card, the forms, a quick round with a meter, the origin on a timeline, a real quote, a final one-word
+  choice. The word's theme (one colour, one emoji) gives the look: drips, wipes and emoji bursts.
+
 ## What is fixed by rule, not left to the AI
 
 - Footage under every second; a video that is mostly one clip is refused. No white cards.
