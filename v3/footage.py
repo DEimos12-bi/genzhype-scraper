@@ -180,7 +180,10 @@ def fetch_all(work, budget=None, log=lambda *a: print(*a, flush=True)):
     assets, more = plan['assets'], False
     memes = [a for a in assets.values() if a.get('whole') and a.get('file') and a.get('usable', True)]      # a meme's own examples, fetched and looked at by the director (memes.py)
     mfile = os.path.join(work, 'material.json')                # the page's own pictures (a meme's examples, the cover) are footage too
-    for i, im in enumerate((json.load(open(mfile, encoding='utf-8')).get('images') or []) if os.path.isfile(mfile) and len(memes) < 3 else []):      # not when the examples themselves are there: these are their small copies
+    mat = json.load(open(mfile, encoding='utf-8')) if os.path.isfile(mfile) else {}
+    for i, im in enumerate(mat.get('images') or []):
+        if mat.get('examples') and '/covers/' not in im['url']:      # a meme page's small pictures are copies of its examples, which were fetched and looked at themselves
+            continue
         assets.setdefault('page%d' % i, {'kind': 'photo', 'url': im['url'], 'credit': '', 'about': im.get('alt', ''), 'by': 'the page', 'page': plan.get('url', '')})
     over = lambda: budget is not None and time.time() - t0 > budget
     for aid, a in assets.items():                                 # 1. the story's own posts

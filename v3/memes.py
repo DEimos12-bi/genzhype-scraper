@@ -3,9 +3,9 @@ fetched and LOOKED AT before the script is written, so that the director writes 
 shows the meme from the first second to the last.
   collect(m, work)   every example into <work>/assets: a GIF as a short looping clip, a post as its preview picture
                      (the public embed data of TikTok and YouTube: no login, nothing is worked around);
-  look(assets, m, work)   one labelled sheet of all of them goes to the picture model: what each one shows, and whether
-                     it shows THIS meme. An example that shows something else is not used (a page's list of examples
-                     is not always clean).
+  look(assets, m, work)   each one goes to the picture model on its own: what it shows, whether it shows THIS meme, and
+                     whether a real person is its subject. An example that shows something else is not used (a page's
+                     list of examples is not always clean), nor is one that nobody looked at.
 usage: memes.py <work folder>     (prints what was fetched and seen; the director does this by itself)"""
 import json
 import math
@@ -16,14 +16,13 @@ import sys
 import ai
 import footage
 
-LETTERS = 'ABCDEFGHIJKL'
 PREVIEWS = ('https://i.ytimg.com/vi/%s/oar2.jpg', 'https://i.ytimg.com/vi/%s/maxresdefault.jpg', 'https://i.ytimg.com/vi/%s/hqdefault.jpg')      # a Short's upright picture first
 
 
 def collect(m, work, log=print):
     adir = os.path.join(work, 'assets'); os.makedirs(adir, exist_ok=True)
     out = {}
-    for i, ex in enumerate((m.get('examples') or [])[:len(LETTERS)]):
+    for i, ex in enumerate((m.get('examples') or [])[:10]):
         aid = 'meme%d' % i
         a = {'whole': True, 'from': ex['kind'], 'by': ex.get('by', ''), 'page': ex.get('page', ''), 'title': ex.get('title', ''), 'date': ex.get('date', ''), 'about': ex.get('title', '')[:240]}
         who = ''.join(c for c in ex.get('by', '').upper() if c.isalnum() or c in '@._- ')[:24].strip()
@@ -64,66 +63,47 @@ def collect(m, work, log=print):
     return out
 
 
-def sheet(assets, work):
-    """One picture of every example side by side, each with its letter."""
-    from PIL import Image, ImageDraw
+def look(assets, m, work, log=print, tick=None):
+    """Every example is looked at on its own (on a shared sheet the picture model mixes pictures up). Sets "seen" (what
+    it shows), "usable" and, for a GIF, what the cut needs. tick() is called after each one: the caller keeps the
+    progress there, and may stop the run at its time budget (the next run goes on with the next picture)."""
     edir = os.path.join(work, 'eyes'); os.makedirs(edir, exist_ok=True)
-    keys, cell, cols = list(assets)[:len(LETTERS)], 384, 4
-    im = Image.new('RGB', (cols * cell, ((len(keys) + cols - 1) // cols) * cell), 'black')
-    d = ImageDraw.Draw(im)
-    for n, k in enumerate(keys):
-        a, f = assets[k], os.path.join(edir, k + '.tile.jpg')
-        src = os.path.join(work, 'assets', a['file'])
-        subprocess.run(['ffmpeg', '-y', '-v', 'error'] + (['-ss', '%.2f' % (a.get('loop', 1.0) * 0.45)] if a['kind'] == 'clip' else []) + ['-i', src, '-frames:v', '1',
-                        '-vf', 'scale=%d:%d:force_original_aspect_ratio=decrease,pad=%d:%d:(ow-iw)/2:(oh-ih)/2:black' % (cell, cell, cell, cell), '-q:v', '3', f], timeout=40)
-        x, y = (n % cols) * cell, (n // cols) * cell
-        if os.path.isfile(f):
-            im.paste(Image.open(f), (x, y))
-            os.remove(f)
-        d.rectangle([x, y, x + 46, y + 34], fill='black')
-        d.text((x + 14, y + 9), LETTERS[n], fill='white')
-    out = os.path.join(edir, 'memes.jpg')
-    im.save(out, quality=86)
-    return out, keys
-
-
-def look(assets, m, work, log=print):
-    """Sets on every example: "seen" (what it shows), "usable" (it shows this meme) and, for a GIF, what the cut needs."""
-    if not assets:
-        return assets
-    seen, model = {}, 'none'
-    try:
-        out, keys = sheet(assets, work)
-        user = ('THE MEME: %s\nWHAT IT IS: %s\n\nThe sheet has %d pictures, each labelled with a letter. A page about this meme links them as examples of it. For each picture: "n" its letter, '
-                '"what" it shows in at most 16 words (who or what, doing what; name a character only if the text in the picture names it or it is unmistakable), '
-                '"text" the words written in the picture, if any (at most 10 words), "on_topic" true if it shows this meme, its characters or its subject, false if it clearly shows something else, '
-                '"person" true if a REAL human being (photographed or filmed; not a drawing, not a cartoon, not a game or 3D character) is the main subject, '
-                '"score" 0 to 5: how clear and striking it is as a picture (0 = black, blank or unreadable).\n'
-                'JSON: {"tiles":[{"n":"A","what":"","text":"","on_topic":true,"person":false,"score":3}]}' % (m.get('title', ''), (m.get('summary') or m.get('page_text', ''))[:700], len(keys)))
-        j, model = ai.ask_json('You look at pictures for a short video about one internet meme. You get ONE sheet of small pictures. Answer with strict JSON only.', user, images=[out],
-                               temperature=0.2, timeout=ai.CONFIG['ai'].get('timeout', 100), max_tokens=3000)
-        for t in j.get('tiles') or []:
-            n = str(t.get('n', '')).strip().upper()[:1]
-            if n and n in LETTERS[:len(keys)]:
-                seen[keys[LETTERS.index(n)]] = t
-    except Exception as e:  # noqa: BLE001
-        log('  no picture model looked at the meme pictures (%s): all are kept, the script is written without knowing them' % str(e)[-90:])
     for k, a in assets.items():
-        t = seen.get(k) or {}
+        if 'looked' in a:
+            continue
+        tile, t, model = os.path.join(edir, k + '.jpg'), None, 'none'
+        subprocess.run(['ffmpeg', '-y', '-v', 'error'] + (['-ss', '%.2f' % (a.get('loop', 1.0) * 0.45)] if a['kind'] == 'clip' else []) + ['-i', os.path.join(work, 'assets', a['file']), '-frames:v', '1',
+                        '-vf', 'scale=768:768:force_original_aspect_ratio=decrease', '-q:v', '3', tile], timeout=40)
+        user = ('THE MEME: %s\nWHAT IT IS: %s\n\nA page about this meme links this ONE picture as an example of it%s. About this picture:\n'
+                '"what": what it shows, in at most 16 words (who or what, doing what; name a character only if the text in the picture names it or it is unmistakable);\n'
+                '"text": the words written in the picture, if any (at most 10 words);\n'
+                '"on_topic": true if it shows this meme, its characters or its subject, false if it clearly shows something else;\n'
+                '"person": "real" if a real human being (photographed or filmed) is the main subject, "drawn" if its figures are drawn, animated, 3D-rendered or game characters, "none" if nobody is in it;\n'
+                '"score": 0 to 5, how clear and striking it is as a picture (0 = black, blank or unreadable).\n'
+                'JSON: {"what":"","text":"","on_topic":true,"person":"none","score":3}'
+                % (m.get('title', ''), (m.get('summary') or m.get('page_text', ''))[:600], ' (it was posted with the words "%s")' % a['title'][:120] if a.get('title') and a['from'] != 'gif' else ''))
         try:
-            score = float(t.get('score', 3))
+            t, model = ai.ask_json('You look at ONE picture for a short video about an internet meme. Answer with strict JSON only.', user, images=[tile], temperature=0.1, timeout=60, max_tokens=500)
+        except Exception as e:  # noqa: BLE001
+            log('  %s: no picture model answered (%s)' % (k, str(e)[-80:]))
+        try:
+            score = float((t or {}).get('score', 3))
         except (TypeError, ValueError):
             score = 3.0
+        a['looked'], a['score'] = model, score
         a['seen'] = (str(t.get('what', '')).strip()[:110] + (' (text in it: "%s")' % str(t['text']).strip()[:70] if str(t.get('text') or '').strip() else '')) if t else ''
-        a['usable'], a['score'], why = bool(t.get('on_topic', True)) and score >= 1, score, 'NOT THIS MEME'
+        a['usable'], why = bool(t) and bool(t.get('on_topic', True)) and score >= 1, 'NOT THIS MEME' if t else 'NOBODY LOOKED AT IT'
         # A real person as the subject: a GIF of a stranger turned into a joke is never shown; somebody's own post only when
-        # the owner allows it ("memes": {"real_people": true} in config.json). Nobody watches these videos before they exist.
-        if a['usable'] and t.get('person') and (a['from'] == 'gif' or not ai.CONFIG.get('memes', {}).get('real_people')):
+        # the owner allows it ("memes": {"real_people": true} in config.json). Nobody watches these videos before they exist,
+        # which is also why a picture that no model looked at is not used.
+        if a['usable'] and str(t.get('person', '')).lower().startswith('real') and (a['from'] == 'gif' or not ai.CONFIG.get('memes', {}).get('real_people')):
             a['usable'], why = False, 'A REAL PERSON IS ITS SUBJECT'
         if a['kind'] == 'clip':                                # a GIF needs no second look by the eyes step
             a['eyes'] = {'kind': 'meme', 'relevant': a['usable'], 'exact': a['usable'], 'shows': a['seen'][:160], 'model': model}
             a['windows'] = [{'t': 0.0, 'score': 4.0, 'x': 0.5, 'face': False, 'what': a['seen'][:70]}] if a['usable'] else []
         log('  %s (%s by %s): %s%s' % (k, a['from'], a['by'], a['seen'] or 'not looked at', '' if a['usable'] else '  -> %s: not used' % why))
+        if tick:
+            tick()
     return assets
 
 

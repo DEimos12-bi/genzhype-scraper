@@ -71,9 +71,10 @@ def assets_of(m):
                 out['photo%d' % i] = {'kind': 'photo', 'post': i, 'url': md['image'], 'credit': 'IMAGE · %s / X' % p['handle'].upper(), 'about': p['text'][:240], 'by': p['handle'], 'page': p['url']}
     memes = {k: v for k, v in (m.get('meme_assets') or {}).items() if v.get('usable', True)}      # a meme's own examples: already fetched and looked at (memes.py)
     out.update(memes)
-    if len(memes) < 3:                                         # the page's own pictures (small copies of the examples, the cover): only when the examples are too few
-        for i, im in enumerate(m.get('images') or []):
-            out['page%d' % i] = {'kind': 'photo', 'url': im['url'], 'credit': '', 'about': im.get('alt', ''), 'by': 'the page', 'page': m.get('url', '')}
+    for i, im in enumerate(m.get('images') or []):             # the page's own pictures
+        if m.get('examples') and '/covers/' not in im['url']:  # a meme page's small pictures are copies of its examples, which were fetched and looked at themselves
+            continue
+        out['page%d' % i] = {'kind': 'photo', 'url': im['url'], 'credit': '', 'about': im.get('alt', ''), 'by': 'the page', 'page': m.get('url', '')}
     return out
 
 
@@ -96,18 +97,18 @@ VIEWER = """WHO IS WATCHING
 A 16-year-old scrolling with the sound on. They give the video two seconds, they have never heard of this story, and they leave the moment a sentence sounds like an article or a school report."""
 
 OPENING = """THE OPENING (line 1) decides everything
-- 2 or 3 short sentences, 14 to 30 words in all. The FIRST sentence has 10 words at most. It puts the strangest TRUE thing of the story in front of the viewer: a number, a name, or the thing they are looking at.
+- 2 or 3 short sentences, 10 to 30 words in all. The FIRST sentence has 10 words at most. It puts the strangest TRUE thing of the story in front of the viewer: a number, a name, or the thing they are looking at.
 - It makes the viewer need the next sentence. It never explains, sums up or announces ("X, explained", "here is why", "a new trend is taking over").
-- It never starts with "The", "A new", "In", "On", "Recently", a date or an outlet's name.
+- It never starts with "The", "A new", "In", "On", "Recently", a date or an outlet's name. It never orders the viewer around before showing anything ("Pick...", "Guess...", "Watch...").
 - Five ways to build one. These are openings of OTHER stories: take the shape, never the facts.
   number:   "Twenty-two million views. For a game that does not exist."
   contrast: "This team packs arenas with tens of thousands of fans. Now its two star players are owed over three hundred thousand euros."
   picture:  "This ship can cost seven hundred dollars in a video game. One problem. An artist designed it twelve years ago."
   list:     "Skateboarding, in Call of Duty. Minecraft, in Elden Ring. Tarkov, in Skyrim. None of these games exist."
-  you:      "One of these three texts is glazing. Pick one, before I tell you." """
+  fight:    "The boss says everyone got paid. The agent says three hundred thousand euros are missing. One of them is wrong." """
 
 VOICE = """THE VOICE (study the examples: this exact rhythm)
-- You are telling a friend who has not seen it. Short sentences, one idea each: most have 3 to 9 words, NONE has more than 16. A line is 2 to 4 of them. Fragments are good ("Not bonuses. Wages.").
+- You are telling a friend who has not seen it. Short sentences, one idea each: most have 3 to 9 words, NONE has more than 16. A line is 2 to 4 of them. Fragments are good ("Not bonuses. Wages."). No semicolons, no dashes that join two ideas: a new idea is a new sentence.
 - Every line brings ONE new thing, with its name, its number or its quote. One line in the middle is the turn and starts with "But", "Then", "Now", "Same night" or "Meanwhile".
 - Never sound like an article: no "explained", "phenomenon", "showcases", "garnered", "sparks debate", "amid", "users", "netizens", "widespread", "refers to", "various", "numerous", "moreover", "furthermore", "notably", "continues to". No filler, no hype words, no questions to "fans", no "official source". Present tense where possible.
 - %(wmin)d to %(wmax)d spoken words in total, in 8 to 9 lines of 12 to 32 words. Count them.
@@ -139,11 +140,12 @@ SCREEN_MEME = """
 
 OUT_WRITE = """OUTPUT: strict JSON, nothing around it. Write the five openings FIRST, then pick one, then write the script that follows it:
 {"angle":"the conflict in one sentence",
- "openings":[{"how":"number","text":""},{"how":"contrast","text":""},{"how":"picture","text":""},{"how":"list","text":""},{"how":"you","text":""}],
+ "openings":[{"how":"number","say":["",""]},{"how":"contrast","say":["",""]},{"how":"picture","say":["",""]},{"how":"list","say":["","",""]},{"how":"fight","say":["",""]}],
  "pick":1,
- "lines":[{"id":"hook","text":"the opening you picked, word for word"},{"id":"who","text":""},{"id":"...","text":""},{"id":"vote","text":""}],
+ "lines":[{"id":"hook","say":["the opening you picked,","sentence by sentence"]},{"id":"who","say":["One short sentence.","Then another."]},{"id":"...","say":["",""]},{"id":"vote","say":["The question.","Comment one word.","This, or that."]}],
  "vote":{"question":"max 22 characters","a":{"word":"ONE WORD","sub":"that side in 3 words"},"b":{"word":"ONE WORD","sub":"that side in 3 words"}},
  "people":[{"name":"","role":""}]}
+Every "say" is a list of 2 to 4 SENTENCES: ONE sentence per string, each of 3 to 12 words (only a real quote may be longer). A string never holds two ideas.
 "pick" is the number (1 to 5) of the strongest opening. The first line's id is "hook", the last line's id is "vote". You write only what is SPOKEN: no pictures, no graphics."""
 
 OUT_STAGE = """OUTPUT: strict JSON, nothing around it. One entry per line of the script, same ids, same order, WITHOUT the spoken text:
@@ -211,6 +213,10 @@ def prompt_for(m):
 
 def tidy_script(sc):
     """The writer's lines made usable: only lines with words, one id each, "hook" first and "vote" last."""
+    for l in (sc.get('lines') or []) + (sc.get('openings') or []):      # the writer gives each line sentence by sentence ("say"): joined here
+        if isinstance(l, dict) and isinstance(l.get('say'), list):
+            parts = [re.sub(r'\s+', ' ', str(x)).strip() for x in l['say'] if str(x).strip()]
+            l['text'] = ' '.join(x if x[-1] in '.!?…"”' else x + '.' for x in parts)
     lines, seen = [l for l in (sc.get('lines') or []) if isinstance(l, dict) and str(l.get('text', '')).strip() and l.get('id') != 'site'], set()
     for i, l in enumerate(lines):
         base = 'hook' if i == 0 else 'vote' if i == len(lines) - 1 else re.sub(r'[^a-z0-9]', '', str(l.get('id') or '').lower()) or 'l%d' % i
@@ -226,12 +232,14 @@ def opening_faults(text):
     out, ss, low = [], sentences(text), (text or '').lower().strip()
     if not 2 <= len(ss) <= 4:
         out.append('it has %d sentence%s: write 2 or 3 short ones' % (len(ss), '' if len(ss) == 1 else 's'))
-    if not 10 <= words(text) <= 34:
-        out.append('it has %d words: write 14 to 30' % words(text))
+    if not 8 <= words(text) <= 34:
+        out.append('it has %d words: write 10 to 30' % words(text))
     if ss and words(ss[0]) > 12:
         out.append('its first sentence has %d words: 10 at most' % words(ss[0]))
     if re.match(r'(the|a new|in|on|recently|today|according|there (?:is|are))\b', low):
         out.append('it starts with "%s": start with the thing itself' % low.split()[0])
+    if re.match(r'(pick|guess|watch|imagine|meet|check out|get ready|wait|stop|listen|choose)\b', low):
+        out.append('it orders the viewer around before showing anything ("%s ..."): start with the thing itself' % low.split()[0].capitalize())
     if ARTICLE.search(text or ''):
         out.append('it sounds like an article ("%s")' % ARTICLE.search(text).group(0).strip(', '))
     return out
@@ -277,16 +285,20 @@ def choose_opening(sc, m, log):
         info.update(by='the form rules alone', picked=lines[0]['text'])
         log('director: %d openings written, %d keep the form: no choice to make; line 1 is "%s"' % (len(ops), len(good), lines[0]['text']))
         return info
-    user = ('THE VIDEO IS ABOUT: %s\n%s\n\nOPENINGS\n%s\n\nPick ONE by this, in order: (1) I see at once what this is about, (2) it is strange, or it starts a fight I have an opinion on, '
-            '(3) it leaves something open that I need answered, (4) it sounds like a person talking, not an article.\nJSON: {"best":1,"why":"max 12 words"}'
+    user = ('THE VIDEO IS ABOUT: %s\n%s\n\nOPENINGS\n%s\n\nScore EACH opening from 1 to 10: how likely are you to keep watching after hearing it?\n'
+            'HIGH: it puts something concrete in front of me that I can picture (a thing, a number, a name), it is strange or it starts a fight I have an opinion on, and it leaves a question open.\n'
+            'LOW: it is vague ("absurd", "chaos", "endless", "sparks memes"), it sums the story up, it tells me what to do before showing me anything, or it sounds like an article.\n'
+            'JSON: {"scores":[{"n":1,"score":7},{"n":2,"score":4}],"why":"max 12 words about the best one"}'
             % (m.get('title', ''), (m.get('summary') or '')[:300], '\n'.join('%d. %s' % (i + 1, o) for i, o in enumerate(good))))
     try:
-        j, model = ai.ask_json(JUDGE, user, kind='reader', temperature=0.2, timeout=60, max_tokens=400)
-        n = int(j.get('best'))
-        if not 1 <= n <= len(good):
-            raise IndexError(n)
-        best, info['why'] = good[n - 1], str(j.get('why', ''))[:120]
-    except (ai.AIError, TypeError, ValueError, IndexError):
+        j, model = ai.ask_json(JUDGE, user, kind='reader', temperature=0.2, timeout=60, max_tokens=600)
+        got = {int(x['n']): float(x['score']) for x in j.get('scores') or [] if isinstance(x, dict) and 1 <= int(x.get('n', 0)) <= len(good)}
+        if not got:
+            raise ValueError('no scores')
+        top = max(got.values())
+        best = cur if cur in good and got.get(good.index(cur) + 1) == top else good[max(got, key=lambda n: (got[n], -n)) - 1]      # a tie goes to the writer's own pick
+        info.update(scores=[[o, got.get(i + 1)] for i, o in enumerate(good)], why=str(j.get('why', ''))[:120])
+    except (ai.AIError, TypeError, ValueError, IndexError, KeyError):
         best, model = (cur if cur in good else good[0]), 'the form rules alone (no reader answered)'
     lines[0]['text'] = best
     info.update(by=model, picked=best)
@@ -757,10 +769,13 @@ def direct(m, log=print, work=None, budget=None):
         w = plan.get('words', 0)
         return [len(hard) + (1 if plan.get('incomplete') else 0), 0 if w >= lo - 25 else 1, len(facts or []), -(-max(0, lo - w) // 10), len(soft), -min(w, hi)]
 
-    if is_meme(m) and work and st.get('memes') is None:        # a meme's own pictures: fetched and looked at before a word is written
+    if is_meme(m) and work:                                    # a meme's own pictures: fetched and looked at, one by one, before a word is written
         import memes
-        st['memes'] = memes.look(memes.collect(m, work, log), m, work, log)
-        keep()
+        if st.get('memes') is None:
+            st['memes'] = memes.collect(m, work, log)
+            keep()
+        if any('looked' not in a for a in st['memes'].values()):
+            memes.look(st['memes'], m, work, log, keep)
     m['meme_assets'] = st.get('memes') or {}
     system, user = prompt_slang(m) if slang_page else prompt_for(m)
     if st['plan'] is None and slang_page:

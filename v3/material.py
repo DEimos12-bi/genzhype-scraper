@@ -77,12 +77,12 @@ def examples_of(main):
             ex = {'kind': 'gif', 'id': g.group(1), 'by': name or 'GIPHY', 'title': ' '.join(u.rstrip('/').split('/')[-1].split('-')[:-1]), 'video': 'https://media.giphy.com/media/%s/giphy.mp4' % g.group(1)}
         elif t or y:
             j = None
-            for _ in range(2):                                 # the embed data answers "busy" now and then: asked twice
+            for pause in (1.5, 3, 5, 0):                       # the embed data answers "busy" now and then: asked up to four times
                 try:
                     j = json.loads(get(('https://www.tiktok.com/oembed?url=' if t else 'https://www.youtube.com/oembed?format=json&url=') + urllib.parse.quote(u, safe=''), 15))
                     break
                 except Exception:  # noqa: BLE001
-                    time.sleep(1.5)
+                    time.sleep(pause)
             if not isinstance(j, dict):
                 continue
             ex = {'kind': 'tiktok' if t else 'youtube', 'id': t.group(2) if t else y.group(1), 'by': '@' + t.group(1) if t else str(j.get('author_name') or name), 'title': re.sub(r'\s+', ' ', str(j.get('title') or '')).strip()[:300]}
