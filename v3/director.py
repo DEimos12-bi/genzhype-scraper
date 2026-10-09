@@ -776,6 +776,10 @@ def direct(m, log=print, work=None, budget=None):
             keep()
         if any('looked' not in a for a in st['memes'].values()):
             memes.look(st['memes'], m, work, log, keep)
+        if not st.get('sorted'):
+            memes.sort_topic(st['memes'], m, log)
+            st['sorted'] = True
+            keep()
     m['meme_assets'] = st.get('memes') or {}
     system, user = prompt_slang(m) if slang_page else prompt_for(m)
     if st['plan'] is None and slang_page:
@@ -822,6 +826,11 @@ def direct(m, log=print, work=None, budget=None):
                % (json.dumps(slang_for_repair(base) if slang_page else story_for_repair(base), ensure_ascii=False), '\n- '.join(todo), base.get('words', 0), max(lo, base.get('words', 0)), hi))
         try:
             st['plan'], st['model'] = ai.ask_json(system, user + '\n\n' + fix, temperature=0.4, timeout=wait, max_tokens=12000, patient=True)
+        except ai.OutOfTime:
+            st['fix_tries'] -= 1                                    # stopped by the caller's time limit: not a try the correction had
+            if ck:
+                json.dump(st, open(ck, 'w', encoding='utf-8'), ensure_ascii=False)
+            raise
         except ai.AIError as e:
             log('director: the correction got no answer (%s); the best version stands' % str(e)[:100])
             break
@@ -873,8 +882,13 @@ if __name__ == '__main__':
     localenv.load()
     work = sys.argv[1]
     mat = json.load(open(os.path.join(work, 'material.json'), encoding='utf-8'))
+    if len(sys.argv) > 2:                                          # a caller with a time limit: no AI answer is awaited past it
+        ai.DEADLINE = time.time() + float(sys.argv[2]) + 75
     try:
         pl = direct(mat, lambda *a: print(*a, flush=True), work, float(sys.argv[2]) if len(sys.argv) > 2 else None)
+    except ai.OutOfTime as e:
+        print('director: %s; run again' % e, flush=True)
+        sys.exit(3)
     except SystemExit as e:
         if str(e.code).startswith('PLAN REFUSED'):                 # the reason goes into the run's report
             open(os.path.join(work, 'plan_refused.txt'), 'w', encoding='utf-8').write(str(e.code))

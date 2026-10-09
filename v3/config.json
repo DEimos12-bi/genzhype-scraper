@@ -3,6 +3,9 @@
  "ai": {
   "text": [
    "groq/openai/gpt-oss-120b",
+   "nvidia_b/moonshotai/kimi-k3",
+   "nvidia_director/moonshotai/kimi-k3",
+   "cloudflare/@cf/openai/gpt-oss-120b",
    "cloudflare/@cf/meta/llama-3.3-70b-instruct-fp8-fast",
    "cloudflare/@cf/meta/llama-4-scout-17b-16e-instruct",
    "groq/qwen/qwen3.8-27b",
@@ -16,6 +19,8 @@
   ],
   "reader": [
    "cloudflare/@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+   "nvidia_director/moonshotai/kimi-k3",
+   "nvidia_b/moonshotai/kimi-k3",
    "groq/qwen/qwen3.8-27b",
    "cloudflare/@cf/meta/llama-4-scout-17b-16e-instruct",
    "groq/openai/gpt-oss-120b",

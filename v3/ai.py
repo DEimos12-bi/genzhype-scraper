@@ -44,6 +44,14 @@ class AIError(RuntimeError):
     pass
 
 
+class OutOfTime(Exception):
+    """The caller's time limit (DEADLINE) is reached while an answer is awaited: not a failure of the model. The step
+    stops and is run again; nothing is held against the model."""
+
+
+DEADLINE = None    # set by a step whose caller has a time limit (director.py with a budget): no answer is awaited past it
+
+
 def key(provider):
     if provider == 'cloudflare' and not os.environ.get('CF_ACCOUNT_ID', '').strip():
         return ''
@@ -117,21 +125,28 @@ def chat(system, user, images=(), kind=None, temperature=0.5, timeout=120, max_t
             continue
         for again in (False, True):
             t, pause = time.time(), 0
+            left = None if DEADLINE is None else DEADLINE - t
+            if left is not None and left < 12:
+                raise OutOfTime('the time limit of this run is reached before %s/%s could be asked' % (provider, model))
+            wait_for = timeout if left is None else min(timeout, left)
             try:
-                text = _post(provider, model, messages, temperature, timeout, max_tokens, effort or CONFIG['ai'].get('gemini_effort', 'low'))
+                text = _post(provider, model, messages, temperature, wait_for, max_tokens, effort or CONFIG['ai'].get('gemini_effort', 'low'))
                 if len(text) < 2:
                     raise AIError('empty reply')
                 note({'model': provider + '/' + model, 'kind': kind, 's': round(time.time() - t, 1), 'ok': True})
                 return text, provider + '/' + model
             except urllib.error.HTTPError as e:
                 body = e.read().decode('utf-8', 'replace')
-                last = '%s/%s: HTTP %s %s' % (provider, model, e.code, body[:160].replace('\n', ' '))
+                last = '%s/%s: HTTP %s %s' % (provider, model, e.code, body[:420].replace('\n', ' '))
                 wait = re.search(r'try again in (?:(\d+)m)?([\d.]+)s', body)
                 if patient and not again and e.code == 429 and wait and '(tpd)' not in body.lower() and 'per day' not in body.lower():
                     pause = int(wait.group(1) or 0) * 60 + float(wait.group(2)) + 1
             except Exception as e:  # noqa: BLE001  (a timeout, a broken reply: the next model answers)
                 last = '%s/%s: %s' % (provider, model, str(e)[:160])
-            note({'model': provider + '/' + model, 'kind': kind, 's': round(time.time() - t, 1), 'ok': False, 'why': last[-170:]})
+                if wait_for < timeout and time.time() - t >= wait_for - 1:      # cut short by the caller's limit, not by the model
+                    note({'model': provider + '/' + model, 'kind': kind, 's': round(time.time() - t, 1), 'ok': False, 'why': 'stopped at the time limit of this run after %d s' % wait_for})
+                    raise OutOfTime('the time limit of this run was reached while %s/%s was answering' % (provider, model))
+            note({'model': provider + '/' + model, 'kind': kind, 's': round(time.time() - t, 1), 'ok': False, 'why': last[-330:]})
             if 0 < pause <= 50:
                 time.sleep(pause)                              # the per-minute limit of the strong writer: worth one wait
                 continue
