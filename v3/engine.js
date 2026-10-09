@@ -69,7 +69,7 @@ async function setBase(t) {
     still.style.transform = `translate(${(540 - cx * z).toFixed(2)}px,${(fy - cy * z).toFixed(2)}px) scale(${z.toFixed(4)})`;
   } else if (s.mode === 'D') {
     await img(stillbg, s.img);
-    for (const [el, k] of [[wA, s.a], [wB, s.b]]) { await img(el, s.img); const cx = lerp(k.k0[0], k.k1[0], p), cy = lerp(k.k0[1], k.k1[1], p), z = lerp(k.k0[2], k.k1[2], p);
+    for (const [el, k] of [[wA, s.a], [wB, s.b]]) { await img(el, k.img || s.img); const cx = lerp(k.k0[0], k.k1[0], p), cy = lerp(k.k0[1], k.k1[1], p), z = lerp(k.k0[2], k.k1[2], p);
       el.style.transform = `translate(${(540 - cx * z).toFixed(2)}px,${(280 - cy * z).toFixed(2)}px) scale(${z.toFixed(4)})`; }
   }
   return s;

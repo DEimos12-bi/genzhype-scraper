@@ -17,6 +17,8 @@ import shutil
 import subprocess
 import sys
 
+import beats
+
 FPS = 30
 MAX_SHARP, MAX_UNDER = 4.0, 6.0
 
@@ -93,21 +95,41 @@ def plan_shots(plan, tl, log):
     shots, ids = [], [l['id'] for l in plan['lines']]
     # A MEME VIDEO SHOWS THE MEME: its own examples (and a searched clip the eyes found to be exactly it) carry every line,
     # shown whole, a new one every three seconds, the least shown first.
-    pool = lambda: sorted([k for k, v in sup.a.items() if v.get('usable', True) and (v.get('whole') or (v['kind'] == 'hunt' and v.get('eyes', {}).get('exact')))],
-                          key=lambda k: (sup.uses[k], -sup.a[k].get('score', 3), k))
-    meme = plan.get('kind') == 'meme' and len(pool()) >= 2
-    nxt = lambda last: ([k for k in pool() if k != last] or pool())[0]
+    meme_pool = lambda: sorted([k for k, v in sup.a.items() if v.get('usable', True) and (v.get('whole') or (v['kind'] == 'hunt' and v.get('eyes', {}).get('exact')))],
+                               key=lambda k: (sup.uses[k], -sup.a[k].get('score', 3), k))
+    meme = plan.get('kind') == 'meme' and len(meme_pool()) >= 2
+    nxt = lambda last: ([k for k in meme_pool() if k != last] or meme_pool())[0]
+
+    def pick(last):
+        """A picture for a sentence whose own choice does not exist: a meme's least shown picture, else the story's own."""
+        if meme:
+            return nxt(last)
+        own = sorted([k for k in sup.a if sup.a[k]['kind'] in ('clip', 'photo') and sup.a[k].get('usable', True)], key=lambda k: (k == last, sup.uses[k]))
+        return (own or sup.clips(True) or sup.photos() or sup.clips(False))[0]
+
+    def face_ok(asset, text):
+        """A clip whose subject is a person's face is shown sharp only under words that name a person its own post names."""
+        a = sup.a[asset]
+        if not (a.get('eyes', {}).get('kind') in ('stream', 'talking') or any(w.get('face') for w in a.get('windows', [])[:3])):
+            return True
+        own = norm(a.get('title', '')) if a['kind'] == 'hunt' else norm(a.get('about', '') + ' ' + a.get('by', ''))
+        spoken = {w.lower() for w in re.findall(r'\b[A-Z][A-Za-zÀ-ÿ]{3,}\b', text)} - {'then', 'this', 'that', 'they', 'their', 'when', 'what', 'will', 'with', 'same', 'some'}
+        return any(p and p in own and p in norm(text) for p in people) or any(w in own.split() for w in spoken)
     for i, pl in enumerate(plan['lines']):
         ln = lines[pl['id']]
         t0 = 0.0 if i == 0 else round(max(0.0, ln['s'] - 0.08), 3)
         t1 = end if i == len(ids) - 1 else round(max(0.0, lines[ids[i + 1]]['s'] - 0.08), 3)
+        if pl.get('beats'):                                    # the montage, sentence by sentence (beats.py)
+            cards = {int(o.get('beat', 0)): int(o.get('to', o.get('beat', 0))) for o in pl.get('overlays', []) if o.get('k') in ('rows', 'quote', 'receipt', 'blocks') and not o.get('drop')}
+            shots += beats.for_line(pl, ln, t0, t1, sup, shots, pick, lambda b: b in cards, lambda b: cards.get(b, b), face_ok, log, first=(i == 0), single=pl['id'] in ('vote', 'site'))
+            continue
         want, sharp = pl['show']['asset'], pl['show']['mode'] == 'sharp'
         if i == 0:
             sharp = True                                       # the first second is always real footage, sharp
         asset = want if want in sup.a else None
         if asset and sharp and sup.a[asset]['kind'] != 'photo' and (sup.a[asset]['kind'] == 'stock' or not sup.a[asset].get('usable', True)):
             asset = None                                       # refused by the eyes: not shown sharp
-        if meme and (asset not in pool() or (shots and shots[-1]['asset'] == asset)):
+        if meme and (asset not in meme_pool() or (shots and shots[-1]['asset'] == asset)):
             asset = nxt(shots[-1]['asset'] if shots else None)
         if not asset:
             # the footage this line asked for is not there. The story's OWN material (its posts' clips and pictures, the page's
@@ -288,7 +310,7 @@ def main(work, log=lambda *a: print(*a, flush=True)):
     for s in shots:
         s['n'] = int(round((s['t1'] - s['t0']) * FPS)) + 3
         s['dir'] = s['id']
-        if s['mode'] in 'SN':
+        if s['mode'] in 'SDN':
             continue
         folder = os.path.join(base, s['id']); os.makedirs(folder)
         d = s['t1'] - s['t0']
@@ -307,7 +329,7 @@ def main(work, log=lambda *a: print(*a, flush=True)):
     open(os.path.join(work, 'comp.js'), 'w', encoding='utf-8').write('window.COMP = ' + json.dumps(comp, ensure_ascii=False) + ';')
     film = sum(s['t1'] - s['t0'] for s in shots)
     log('cut: %d shots over %.1f s, footage under %.0f%% of it | sharp %d, blurred %d, pictures %d | assets used: %s' % (
-        len(shots), end, 100 * film / end, sum(s['mode'] in 'FCW' for s in shots), sum(s['mode'] == 'B' for s in shots), sum(s['mode'] == 'S' for s in shots), ', '.join(sorted({s['asset'] for s in shots}))))
+        len(shots), end, 100 * film / end, sum(s['mode'] in 'FCW' for s in shots), sum(s['mode'] == 'B' for s in shots), sum(s['mode'] in 'SD' for s in shots), ', '.join(sorted({s['asset'] for s in shots}))))
     return comp
 
 

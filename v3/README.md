@@ -39,6 +39,20 @@ python v3/auto.py --max 2                                                    # t
   dictionary card, the forms, a quick round with a meter, the origin on a timeline, a real quote, a final one-word
   choice. The word's theme (one colour, one emoji) gives the look: drips, wipes and emoji bursts.
 
+## The montage, sentence by sentence
+
+A story or meme video is cut the way these videos are cut by hand (`beats.py`): every SENTENCE of the script is a beat
+with its own picture, chosen by the picture editor for what that sentence names and cut on its first spoken word.
+- The picture model says where each subject of a picture is (`subjects`: s1, s2... with a position), so a beat can be
+  `close` on the one the words name, `pan` from one to another, or show `two` of them in two labelled windows; a clip
+  can `play` sharp or sit `under` a card; `whole` shows the whole picture.
+- Graphics belong to a beat as well: they land on a word of that sentence and leave with its picture. A `name` graphic
+  says who or what is on screen, low, without covering it; a card (quote, rows, receipt, blocks) on a sharp picture
+  sits low and the subject is kept above it; a lyric shown line by line can run over two sentences.
+- A sentence too short to read (under 0.8 s) shares the picture of the next one; the same picture framed the same way
+  for two sentences in a row plays on as one shot.
+- A meme page also gets moving GIFs of the meme from GIPHY's search (YouTube and TikTok often refuse a download).
+
 ## What is fixed by rule, not left to the AI
 
 - Footage under every second; a video that is mostly one clip is refused. No white cards.

@@ -27,7 +27,7 @@ PREVIEWS = ('https://i.ytimg.com/vi/%s/oar2.jpg', 'https://i.ytimg.com/vi/%s/max
 def collect(m, work, log=print):
     adir = os.path.join(work, 'assets'); os.makedirs(adir, exist_ok=True)
     out = {}
-    for i, ex in enumerate((m.get('examples') or [])[:10]):
+    for i, ex in enumerate((m.get('examples') or [])[:12]):
         aid = 'meme%d' % i
         a = {'whole': True, 'from': ex['kind'], 'by': ex.get('by', ''), 'page': ex.get('page', ''), 'title': ex.get('title', ''), 'date': ex.get('date', ''), 'about': ex.get('title', '')[:240]}
         who = ''.join(c for c in ex.get('by', '').upper() if c.isalnum() or c in '@._- ')[:24].strip()
@@ -39,10 +39,12 @@ def collect(m, work, log=print):
                 if not w or dur <= 0:
                     raise ValueError('unreadable GIF')
                 loops = max(0, int(math.ceil(13.0 / dur)) - 1)   # a GIF lasts a second or two: it is looped, so a shot can start at different points of it
-                footage.run(['ffmpeg', '-y', '-v', 'error', '-stream_loop', str(loops), '-i', raw, '-t', '14', '-an', '-vf', 'fps=30,scale=trunc(iw/2)*2:trunc(ih/2)*2',
-                             '-c:v', 'libx264', '-crf', '17', '-pix_fmt', 'yuv420p', dest], 80)
+                # an upright GIF is small (270 px wide is common): scaled up ONCE, cleaned and sharpened, so that it can fill the screen
+                size = 'hqdn3d=1.5:1:3:3,scale=1080:-2:flags=spline,unsharp=7:7:0.9:5:5:0.0' if h >= w * 1.3 and w < 1000 else 'scale=trunc(iw/2)*2:trunc(ih/2)*2'
+                footage.run(['ffmpeg', '-y', '-v', 'error', '-stream_loop', str(loops), '-i', raw, '-t', '14', '-an', '-vf', 'fps=30,' + size,
+                             '-c:v', 'libx264', '-crf', '16', '-pix_fmt', 'yuv420p', dest], 100)
                 os.remove(raw)
-                a.update(kind='clip', file=aid + '.mp4', credit='GIF · %s / GIPHY' % who, loop=round(dur, 2))
+                a.update(kind='clip', file=aid + '.mp4', credit='GIF · %s / GIPHY' % who if who and who != 'GIPHY' else 'GIF · GIPHY', loop=round(dur, 2))
                 a['w'], a['h'], a['dur'] = footage.probe(dest)
             else:
                 raw, dest = os.path.join(adir, aid + '.raw'), os.path.join(adir, aid + '.jpg')
@@ -85,10 +87,13 @@ def look(assets, m, work, log=print, tick=None):
                 '"text": the words written in the picture, exactly as written (at most 12 words; "" if there are none);\n'
                 '"photo": true if it is a photograph or a frame of real-world video, false if it is an animation, a cartoon, a drawing, a video game or a 3D render;\n'
                 '"person": "real" if a real human being (photographed or filmed) is the main subject, "drawn" if its figures are drawn, animated, 3D-rendered or game characters, "none" if nobody is in it;\n'
-                '"score": 0 to 5, how clear and striking it is as a picture (0 = black, blank or unreadable).\n'
-                'JSON: {"what":"","text":"","photo":false,"person":"none","score":3}')
+                '"score": 0 to 5, how clear and striking it is as a picture (0 = black, blank or unreadable);\n'
+                '"subjects": the separate things or figures in it that a camera could go close on, the most important first, at most 5. For each: "name" (what it is by its look, 3 to 7 words: '
+                '"pirate in a yellow coat"), "x" and "y" (where its CENTRE is, as numbers from 0 to 1: x 0 = left edge, 1 = right edge; y 0 = top, 1 = bottom), '
+                '"h" (how much of the picture\'s height it takes, from 0 to 1).\n'
+                'JSON: {"what":"","text":"","photo":false,"person":"none","score":3,"subjects":[{"name":"","x":0.5,"y":0.5,"h":0.4}]}')
         try:
-            t, model = ai.ask_json('You look at ONE picture. Answer with strict JSON only.', user, images=[tile], tries=3, temperature=0.1, timeout=60, max_tokens=500)
+            t, model = ai.ask_json('You look at ONE picture. Answer with strict JSON only.', user, images=[tile], tries=3, temperature=0.1, timeout=60, max_tokens=1100)
         except ai.OutOfTime:
             raise                                              # the caller's time limit: this picture is looked at in the next run
         except Exception as e:  # noqa: BLE001
@@ -99,6 +104,15 @@ def look(assets, m, work, log=print, tick=None):
             score = 3.0
         what, person = str((t or {}).get('what', '')).strip()[:170], str((t or {}).get('person', '')).lower()
         a['looked'], a['score'] = model, score
+        subjects = []                                          # where each thing is, so that the cut can go close on the one a sentence names
+        for sb in ((t or {}).get('subjects') or []) if a['kind'] == 'photo' else []:
+            try:
+                x, y, hh = float(sb.get('x')), float(sb.get('y')), float(sb.get('h') or 0.4)
+            except (TypeError, ValueError, AttributeError):
+                continue
+            if 0 <= x <= 1 and 0 <= y <= 1 and str(sb.get('name') or '').strip():
+                subjects.append({'id': 's%d' % (len(subjects) + 1), 'name': str(sb['name']).strip()[:60], 'x': round(x, 3), 'y': round(y, 3), 'h': round(min(1.0, max(0.08, hh)), 3)})
+        a['subjects'] = subjects[:5]
         a['seen'] = (what + (' (text in it: "%s")' % str(t['text']).strip()[:80] if str(t.get('text') or '').strip() else '')) if t else ''
         a['usable'], why = bool(t) and score >= 1, 'UNREADABLE' if t else 'NOBODY LOOKED AT IT'
         # A real person as the subject: a GIF of a stranger turned into a joke is never shown; somebody's own post only when

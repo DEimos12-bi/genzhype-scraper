@@ -95,6 +95,34 @@ def examples_of(main):
     return out[:10]
 
 
+NOT_NAMES = set('The This That These Those There Then They Their What When Where Which While Because Some Others Other People Published Updated Status Type Category Lane Meme Memes Explained '
+                'Peaking Tracking Live Seen Tone Every Each Also With From Into Over Under About After Before Since Until Through Variants Frequently Asked Related Sources Read Next Via '
+                'January February March April June July August September October November December Monday Tuesday Wednesday Thursday Friday Saturday Sunday '
+                'Instagram TikTok Twitter YouTube Reddit Facebook Google'.split())      # words with a capital that name no meme
+
+
+def giphy_search(text, have, limit=5):
+    """Moving pictures of a meme: GIPHY's own search page for the names the page uses most (the meme's characters, its
+    game). YouTube and TikTok often refuse a download; a GIF of the thing itself is the motion a video about it needs.
+    What comes back is only a candidate: each one is looked at, and sorted on or off topic, like the page's own examples."""
+    names = [w for w in re.findall(r'\b[A-Z][a-z]{3,}\b', text[:4000]) if w not in NOT_NAMES]
+    top = [w for w, _ in sorted({w: names.count(w) for w in names}.items(), key=lambda kv: -kv[1])[:3]]
+    out, seen = [], set(have)
+    for query in ('-'.join(top[:3]), '-'.join(top[:2])) if len(top) >= 2 else ():
+        try:
+            page = get('https://giphy.com/search/' + urllib.parse.quote(query.lower()), 20)
+        except Exception:  # noqa: BLE001
+            continue
+        for slug in dict.fromkeys(re.findall(r'giphy\.com/gifs/([a-z0-9-]+-[A-Za-z0-9]{10,22})(?=["\\/? ])', page)):
+            gid = slug.split('-')[-1]
+            if gid in seen or len(out) >= limit:
+                continue
+            seen.add(gid)
+            out.append({'kind': 'gif', 'id': gid, 'by': 'GIPHY', 'title': ' '.join(slug.split('-')[:-1]), 'video': 'https://media.giphy.com/media/%s/giphy.mp4' % gid,
+                        'page': 'https://giphy.com/gifs/' + slug, 'date': '', 'found': 'search: ' + query})
+    return out
+
+
 def from_url(url):
     page = get(url)
     m = re.search(r'(?is)<main[^>]*>(.*?)</main>', page)
@@ -150,8 +178,11 @@ def from_url(url):
             continue                                           # nothing to read: it does not take the place of an outlet that answers
         t = (h1 if len(h1.split()) >= 4 else '') or text_of((re.search(r'(?is)<title[^>]*>(.*?)</title>', art) or [None, ''])[1]) or h1
         sources.append({'url': u, 'publisher': re.sub(r'^www\.', '', u.split('/')[2]), 'title': t[:200], 'excerpt': body[:5000]})
+    examples = examples_of(main) if '/meme/' in url else []
+    if '/meme/' in url:                                         # the meme in motion, beyond what the page links
+        examples += giphy_search(text_of(main), [e['id'] for e in examples if e['kind'] == 'gif'])
     return {'url': url, 'title': title, 'summary': desc, 'published': published, 'people': list(dict.fromkeys(people))[:12], 'page_text': text_of(main)[:9000],
-            'posts': posts, 'sources': sources, 'images': images, 'examples': examples_of(main) if '/meme/' in url else []}
+            'posts': posts, 'sources': sources, 'images': images, 'examples': examples}
 
 
 if __name__ == '__main__':

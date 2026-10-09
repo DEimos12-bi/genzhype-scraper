@@ -13,6 +13,8 @@ import sys
 import time
 
 import ai
+import beats
+from beats import squash
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 CFG = ai.CONFIG
@@ -85,19 +87,23 @@ SHAPE = {'story': """HOW THE VIDEO WORKS
 - Line 1 is THE OPENING (rules below). It plays on real footage, with its key number or word stamped on screen.
 - Line 2 says who or what this is, in one breath. Then the evidence, beat by beat: each beat is one line with its proof (a post, a quote, a number). One line is the turn. One line says what is at stake.
 - The last line is a VOTE: one question, two answers of ONE or TWO words each, taken from the story's real conflict (never "yes / no"). The line says "Comment one word." and both answers.
+- Every sentence is cut to its OWN picture. The material lists each picture and clip with who or what is in it: write sentences that NAME what the viewer is looking at, one thing per sentence. Open by naming the players, one short sentence each ("The boss. The agent. And the two players in the middle." is the shape, never the words).
+- One line is THE TWIST: the fact the viewer could not have guessed, announced in three words ("Here's the twist.", "One problem.").
 - Do NOT write the closing line that sends to the website; the machine adds it.""",
          'meme': """THIS STORY IS A MEME. The video shows the meme itself from the first second to the last: its real pictures are listed in the material, each with what it shows.
 - Line 1 is THE OPENING (rules below): it points at the meme on screen and says the strangest true thing about it.
 - Line 2 says what the meme is, in one breath, for someone who has never seen it. Then: where it came from (who made it, when), how people USE it (two or three real uses from the material, one short line each, with the account or the number), how big it got (the biggest number), and what the joke or the argument really is.
 - Point at the screen ("Look at the one on the left.", "That face is the whole joke."): a meme video that never points at the meme is a book report.
 - The last line is a VOTE: one question, two answers of ONE or TWO words each, taken from the meme's own argument (never "yes / no"). The line says "Comment one word." and both answers.
+- Every sentence is cut to its OWN picture. The material lists each picture and clip with who or what is in it: write sentences that NAME what the viewer is looking at, one thing per sentence. Open by naming the players, one short sentence each ("The boss. The agent. And the two players in the middle." is the shape, never the words).
+- One line is THE TWIST: the fact the viewer could not have guessed, announced in three words ("Here's the twist.", "One problem.").
 - Do NOT write the closing line that sends to the website; the machine adds it."""}
 
 VIEWER = """WHO IS WATCHING
 A 16-year-old scrolling with the sound on. They give the video two seconds, they have never heard of this story, and they leave the moment a sentence sounds like an article or a school report."""
 
 OPENING = """THE OPENING (line 1) decides everything
-- 2 or 3 short sentences, 10 to 30 words in all. The FIRST sentence has 10 words at most. It puts the strangest TRUE thing of the story in front of the viewer: a number, a name, or the thing they are looking at.
+- 2 to 5 short sentences (a fragment counts: "One problem."), 10 to 30 words in all. The FIRST sentence has 10 words at most. It puts the strangest TRUE thing of the story in front of the viewer: a number, a name, or the thing they are looking at.
 - It makes the viewer need the next sentence. It never explains, sums up or announces ("X, explained", "here is why", "a new trend is taking over").
 - It never starts with "The", "A new", "In", "On", "Recently", a date or an outlet's name. It never orders the viewer around before showing anything ("Pick...", "Guess...", "Watch...").
 - Five ways to build one. These are openings of OTHER stories: take the shape, never the facts.
@@ -117,26 +123,38 @@ VOICE = """THE VOICE (study the examples: this exact rhythm)
 - Tell the story, not our work: never mention GenZHype's checking, "we found", "unverified", "our page".
 - TRUTH: use only facts that are in the material. Anything disputed, or about wrongdoing, is said with who says it ("the agent says", "police say", "reportedly", "according to Kotaku"). A quote must be the source's real words (translated quotes: say "translated"). Never guess a person's gender: use the name or "they"."""
 
-SCREEN = """ON SCREEN, for each line
-- "show": what footage is under the line. {"asset":"clip0"} / {"asset":"photo1"} / {"asset":"meme2"} = a clip or picture the story already has (ids listed in the material). {"asset":"hunt1"} = footage you ask for in "hunts". "mode":"sharp" = the footage is the point (the opening, a person talking, the thing itself); "mode":"under" = blurred behind a card.
-  A line WITHOUT a card should be "sharp". A clip of a person may only be shown sharp on a line about THAT person (the clip's own post tells you who is in it).
-- "hunts": up to %(hunts)d footage requests for things the words describe but the material does not show: the game's gameplay or trailer, the event, the arena, the product. Each: {"id":"hunt1","query":"4 to 7 search words naming the exact thing","must_show":"what the picture must show","game":"only when the footage wanted is a video game: its exact title, nothing else"}. A hunt with "game" gets that game's official trailer (always found, always the right game); use one for every game the story is about. Ask for enough: every line needs footage, a video with one clip is refused. Hunt THINGS (the game, the event, the arena, the product, a trailer), not a named person's face: a search cannot promise who is in the picture. Never hunt a private person's home, a victim, a mugshot.
-- "overlays": the graphics, each with "on": ONE word of that line (exactly as written) on which it appears. Use few and big:
-  {"k":"stamp","t":"22.8M VIEWS"}          the one number or word of the line, huge (max 12 characters)
-  {"k":"chip","t":"KOTAKU · OCT 2"}        a small label (max 30 characters)
-  {"k":"sub","t":"BUILT IN HOURS"}         a second line under the stamp (max 22 characters)
-  {"k":"tag","name":"Jetpack Cat","role":"SUPPORT HERO · OVERWATCH"}   a name plate, the first time a person or character is shown or named
-  {"k":"rows","rows":[{"t":"MISSING BLOCKS","on":"Missing","tone":"red"},{"t":"INVISIBLE WALLS","on":"Invisible"}]}   2 to 4 short facts appearing one by one (max 26 characters each)
+SCREEN = """THE MONTAGE: ONE PICTURE PER SENTENCE
+The script is cut sentence by sentence. Each sentence has an id ("hook.1", "hook.2"...) and gets its OWN picture, chosen for what THAT sentence names. This is what makes a video feel directed instead of assembled:
+- What the words name is what is on screen at that moment. A sentence that names a character shows THAT character, close. A sentence about an action shows a clip of it moving. A sentence with a number shows the thing the number is about, with the number stamped on it.
+- "show", for a sentence: {"asset": the id of a clip or picture listed in the material, "move": how it is framed, "focus": ..., "to": ...}
+    "close"  a picture, close on ONE of its subjects. Each picture lists its subjects (s1, s2...) and where they are: "focus" is the one the sentence names. This is how things get named: who is who, what is what.
+    "pan"    a picture moving from subject "focus" to subject "to": for "from one to the other", "it spread", "he took it from her".
+    "two"    two subjects of one picture, one above the other, each in its own window: for "both", "each side", "versus", "this or that". "focus" = the top one, "to" = the bottom one. Give it a "labels" graphic.
+    "whole"  the whole picture.
+    "play"   a moving clip, sharp: for action, and to let the thing be seen as it is.
+    "under"  the clip or picture blurred, behind a big stamp or a card.
+- Open on close-ups that name the players (a "name" graphic on each), then let the action play. Never frame the same picture the same way for two sentences in a row unless the action simply goes on: go from one subject to another, or from a picture to the clip.
+- A clip of a person may only be shown sharp on a sentence about THAT person (the clip's own post tells you who is in it).
+- {"asset":"hunt1"} = footage you ask for in "hunts": up to %(hunts)d requests for things the words describe but the material does not show: the game's gameplay or trailer, the event, the arena, the product. Each: {"id":"hunt1","query":"4 to 7 search words naming the exact thing","must_show":"what the picture must show","game":"only when the footage wanted is a video game: its exact title, nothing else"}. A hunt with "game" gets that game's official trailer. Hunt THINGS, not a named person's face. Never hunt a private person's home, a victim, a mugshot.
+
+THE GRAPHICS ("gfx"), for a sentence: few and big. Each appears on ONE word of that sentence ("on", exactly as written) and leaves with the sentence's picture.
+  {"k":"name","t":"THE SHIP · IN THE GAME"}             who or what is on screen, the first time it is shown (max 34 characters): NAME · WHERE IT IS FROM. It sits low and never covers a face.
+  {"k":"stamp","t":"22.8M VIEWS","on":"million"}        the one number or the two key words of the sentence, huge (max 14 characters)
+  {"k":"sub","t":"IN ONE DAY","on":"day"}               a second line under the stamp (max 22 characters)
+  {"k":"chip","t":"KOTAKU · OCT 2","on":"Kotaku"}       a small label: a source, a date, an account (max 30 characters)
+  {"k":"tag","name":"Jetpack Cat","role":"SUPPORT HERO · OVERWATCH","on":"Jetpack"}   a name plate for a person or character
+  {"k":"rows","rows":[{"t":"FIRST LINE","on":"First"},{"t":"SECOND LINE","on":"Second"}]}   2 to 4 short lines appearing one by one (max 26 characters each): a lyric, a slogan or a list, word for word. It may run on into the next sentence.
   {"k":"quote","t":"real words of a source, max 90 characters","who":"NAME · VIA OUTLET","label":"WHAT THIS IS"}
   {"k":"receipt","post":"post1","mark":"exact words copied from that post, to highlight","translate":"English, only if the post is not in English"}   the post itself as a card
   {"k":"blocks","items":[{"label":"IN GACHA SPINS","big":"$50–$100","on":"fifty"},{"label":"TO BUY IT OUTRIGHT","big":"$700","on":"seven"}]}   two things compared
-  At most ONE of rows / quote / receipt / blocks per line, plus at most two of stamp / chip / sub, plus tags. All text in CAPITALS except quotes.
-- Line 1 always gets a "stamp": the key number or word of the opening.
-- Show the proof: every post that matters appears once as a "receipt"; the strongest quote appears as a "quote".
-- "caps": every number that is spoken in words in that line, with the digits the caption shows: {"say":"twenty-two million","show":"22 million"}."""
+  {"k":"labels","a":"2014 · THE ARTIST'S DESIGN","b":"IN THE GAME"}   the names of the two windows of a "two" sentence (max 30 characters each)
+  At most ONE of rows / quote / receipt / blocks on a sentence, plus at most two of stamp / chip / sub, plus one name or tag. Most sentences need ONE graphic or none: a picture that says it needs no text. All text in CAPITALS except quotes.
+- One sentence of the opening line gets a "stamp": its key number or its two key words.
+- Show the proof: every post that matters appears once as a "receipt"; the strongest real quote appears as a "quote"; a song or a slogan is shown word for word as "rows".
+- "caps": every number that is spoken in words, with the digits the caption shows."""
 
 SCREEN_MEME = """
-- THIS IS A MEME: every line shows one of the meme's own pictures ("meme0", "meme1"...). Choose the one whose description fits the words of that line, and change picture from line to line. Use at most TWO cards (rows / quote / blocks) in the whole video, so the meme stays visible; stamps and chips are fine. Hunts: only the meme's ORIGINAL video by its exact name, or the game, show or film it comes from."""
+- THIS IS A MEME: its own pictures and clips ("meme0", "gif5"...) carry the whole video. Close-ups to name who is in it, its clips for the action, its other versions when the words speak of them. Use at most THREE cards (rows / quote / blocks) in the whole video, so the meme stays visible. Hunts: only the meme's ORIGINAL video by its exact name, or the game, show or film it comes from."""
 
 OUT_WRITE = """OUTPUT: strict JSON, nothing around it. Write the five openings FIRST, then pick one, then write the script that follows it:
 {"angle":"the conflict in one sentence",
@@ -149,10 +167,16 @@ Every "say" is a list of 2 or 3 SENTENCES (the opening may have 4): ONE sentence
 ALL the lines together: %(wmin)d to %(wmax)d words, which is about 19 words a line. A script that runs longer gets sentences removed by a machine, so choose what matters yourself.
 "pick" is the number (1 to 5) of the strongest opening. The first line's id is "hook", the last line's id is "vote". You write only what is SPOKEN: no pictures, no graphics."""
 
-OUT_STAGE = """OUTPUT: strict JSON, nothing around it. One entry per line of the script, same ids, same order, WITHOUT the spoken text:
-{"lines":[{"id":"hook","show":{"asset":"clip0","mode":"sharp"},"overlays":[{"k":"stamp","t":"...","on":"word"}],"caps":[{"say":"...","show":"..."}]}],
+OUT_STAGE = """OUTPUT: strict JSON, nothing around it. One entry per SENTENCE of the script, same ids, same order, WITHOUT the spoken text:
+{"beats":[{"id":"hook.1","show":{"asset":"photo0","move":"close","focus":"s2"},"gfx":[{"k":"name","t":"THE SHIP · IN THE GAME"}]},
+           {"id":"hook.2","show":{"asset":"photo0","move":"close","focus":"s1"},"gfx":[{"k":"stamp","t":"$700","on":"seven"}]},
+           {"id":"hook.3","show":{"asset":"clip1","move":"play"},"gfx":[]},
+           {"id":"same.1","show":{"asset":"photo0","move":"two","focus":"s1","to":"s2"},"gfx":[{"k":"labels","a":"2014 · THE ARTIST'S DESIGN","b":"IN THE GAME"}]},
+           {"id":"post.1","show":{"asset":"hunt1","move":"under"},"gfx":[{"k":"receipt","post":"post0","mark":"words of the post"}]}],
+ "caps":[{"line":"hook","say":"seven hundred dollars","show":"$700"}],
  "hunts":[{"id":"hunt1","query":"","must_show":"","game":""}],"stock":"3 words for neutral background footage of this story's world",
- "post":{"caption":"max 150 characters, ends with the vote","hashtags":["8 to 11 lowercase tags without #"],"pinned":"the vote again, then: receipts on genzhype.com (link in bio)"}}"""
+ "post":{"caption":"max 150 characters, ends with the vote","hashtags":["8 to 11 lowercase tags without #"],"pinned":"the vote again, then: receipts on genzhype.com (link in bio)"}}
+The entries above only show the FORMAT (they come from another story). Give EVERY sentence of the script its entry."""
 
 OUT_FULL = """OUTPUT: strict JSON, nothing around it:
 {"angle":"the conflict in one sentence","lines":[{"id":"hook","text":"...","show":{"asset":"clip0","mode":"sharp"},"overlays":[{"k":"stamp","t":"...","on":"word"}],"caps":[{"say":"...","show":"..."}]}],
@@ -165,7 +189,8 @@ OUT_PATCH = """OUTPUT: strict JSON, nothing around it. You get a finished plan a
 {"lines":[{"id":"the id of a line you change","say":["its new spoken text,","one sentence per string"]}]}
 For a line, give only the fields you change: "say" (2 or 3 sentences, one per string), "overlays", "caps". A line you do not list stays exactly as it is. Add "vote" only if a fault is about the vote, "hunts" only if a fault is about them. Never return the whole plan."""
 
-STAGE_JOB = 'You get a FINISHED voice-over script. You decide what is on screen for each of its lines. You never change, add or drop a spoken word.'
+STAGE_JOB = ('You get a FINISHED voice-over script, sentence by sentence. You are its picture editor: for EACH sentence you choose the picture and how it is framed, and the graphic that lands on its word. '
+             'You never change, add or drop a spoken word.')
 JUDGE = 'You are a 16-year-old scrolling TikTok with the sound on. You get several openings written for the SAME video. You pick the one that would make you stop and watch. Strict JSON only.'
 
 
@@ -180,13 +205,20 @@ def system_for(job, m):
 
 
 def listing(m):
-    """The material's lists as the prompts print them: what can be shown, the posts, the outlets."""
+    """The material's lists as the prompts print them: what can be shown (with who or what is in each picture, and
+    where), the posts, the outlets."""
+    def place(sb):
+        return ('left' if sb['x'] < .38 else 'right' if sb['x'] > .62 else 'middle') + ', ' + ('top' if sb['y'] < .36 else 'bottom' if sb['y'] > .66 else 'centre')
+
     def one(k, v):
+        inside = '; '.join('%s = %s (%s)' % (sb['id'], sb['name'], place(sb)) for sb in v.get('subjects') or [])
+        inside = '. Its subjects: ' + inside if inside and v['kind'] == 'photo' else ''
         if v.get('whole'):                                     # one of the meme's own examples, with what the picture model saw in it
-            what = {'gif': 'a moving GIF from GIPHY', 'tiktok': 'the picture of a TikTok post', 'youtube': 'the picture of a YouTube video'}.get(v.get('from'), 'a picture')
-            return '  %s: %s by %s%s%s%s' % (k, what, v.get('by') or '?', ' (%s)' % v['date'] if v.get('date') else '',
-                                             ', posted with the words "%s"' % v['title'][:140] if v.get('title') and v.get('from') != 'gif' else '', '. It shows: %s' % v['seen'] if v.get('seen') else '')
-        return '  %s: %s%s. Its post says: "%s"' % (k, 'video, %ss' % v.get('seconds') if v['kind'] == 'clip' else 'picture', ' from ' + v['by'], v['about'][:200])
+            what = {'gif': 'a MOVING clip (a GIF, %s)' % ('upright' if v.get('h', 0) > v.get('w', 0) else 'wide'), 'tiktok': 'a still picture, the cover of a TikTok post',
+                    'youtube': 'a still picture, the cover of a YouTube video'}.get(v.get('from'), 'a picture')
+            return '  %s: %s by %s%s%s%s%s' % (k, what, v.get('by') or '?', ' (%s)' % v['date'] if v.get('date') else '',
+                                               ', posted with the words "%s"' % v['title'][:140] if v.get('title') and v.get('from') != 'gif' else '', '. It shows: %s' % v['seen'] if v.get('seen') else '', inside)
+        return '  %s: %s%s. Its post says: "%s"%s' % (k, 'a MOVING clip, %ss' % v.get('seconds') if v['kind'] == 'clip' else 'a still picture', ' from ' + v['by'], v['about'][:200], inside)
     alist = '\n'.join(one(k, v) for k, v in assets_of(m).items()) or '  (none: every line needs a hunt)'
     plist = '\n'.join('  post%d: %s (%s), %s, %s likes%s: "%s"' % (i, p['handle'], p['name'], p['date'], p['likes'], ', replying to @' + p['reply_to'] if p.get('reply_to') else '', p['text'][:500]) for i, p in enumerate(m.get('posts', []))) or '  (none)'
     slist = '\n\n'.join('OUTLET %s: "%s"\n%s' % (x['publisher'], x['title'], x['excerpt'][:2600]) for x in m.get('sources', []) if 'fonts.' not in x['publisher']) or '(none fetched)'
@@ -207,9 +239,11 @@ def story_user(m, ask):
 def stager_user(m, sc):
     alist, plist, _ = listing(m)
     v = sc.get('vote') if isinstance(sc.get('vote'), dict) else {}
-    return ('THE STORY: %s (%s)\n\nTHE SCRIPT (final; the id is in front of each line):\n%s\n\nTHE VOTE: %s | %s | %s\n\nTHE POSTS THE PAGE CITES (ids for receipts):\n%s\n\nWHAT THE VIDEO CAN SHOW (ids for "show"):\n%s\n\n'
-            'THE OUTLETS (for chips and for who said a quote): %s\nA quote card may only use words that the script itself quotes, or words of a post above.\n\nDecide what is on screen.'
-            % (m['title'], m['url'], '\n'.join('%s: %s' % (l['id'], l['text']) for l in sc['lines']), v.get('question', ''), (v.get('a') or {}).get('word', ''), (v.get('b') or {}).get('word', ''),
+    script = '\n'.join('%s.%d: %s' % (l['id'], k + 1, x) for l in sc['lines'] for k, x in enumerate(split_keep(l['text'])))
+    return ('THE STORY: %s (%s)\n\nTHE SCRIPT, SENTENCE BY SENTENCE (final; the id is in front of each sentence):\n%s\n\nTHE VOTE: %s | %s | %s   (the machine draws the vote and the closing itself: give their sentences a picture, no graphics)\n\n'
+            'THE POSTS THE PAGE CITES (ids for receipts):\n%s\n\nWHAT THE VIDEO CAN SHOW (ids for "show"):\n%s\n\n'
+            'THE OUTLETS (for chips and for who said a quote): %s\nA quote card may only use words that the script itself quotes, or words of a post above.\n\nChoose the picture and the graphics of every sentence.'
+            % (m['title'], m['url'], script, v.get('question', ''), (v.get('a') or {}).get('word', ''), (v.get('b') or {}).get('word', ''),
                plist, alist, ', '.join('%s ("%s")' % (x['publisher'], x['title'][:70]) for x in m.get('sources', [])) or 'none'))
 
 
@@ -236,8 +270,8 @@ def tidy_script(sc):
 def opening_faults(text):
     """The form of an opening, as code can read it."""
     out, ss, low = [], sentences(text), (text or '').lower().strip()
-    if not 2 <= len(ss) <= 4:
-        out.append('it has %d sentence%s: write 2 or 3 short ones' % (len(ss), '' if len(ss) == 1 else 's'))
+    if not 2 <= len(ss) <= 5:
+        out.append('it has %d sentence%s: write 2 to 5 short ones' % (len(ss), '' if len(ss) == 1 else 's'))
     if not 8 <= words(text) <= 34:
         out.append('it has %d words: write 10 to 30' % words(text))
     if ss and words(ss[0]) > 12:
@@ -313,13 +347,22 @@ def choose_opening(sc, m, log):
 
 
 def merge(sc, staged):
-    """The writer's words and the picture editor's screen, line by line. The words always win: the editor cannot change one."""
-    slines = [l for l in (staged.get('lines') or []) if isinstance(l, dict)]
-    by = {re.sub(r'[^a-z0-9]', '', str(l.get('id', '')).lower()): l for l in slines}
+    """The writer's words and the picture editor's screen, sentence by sentence. The words always win: the editor cannot
+    change one. Each line keeps its sentences as "beats" (what is shown) and its graphics, each with the beat it is on."""
+    ident = lambda v: re.sub(r'[^a-z0-9.]', '', str(v or '').lower())
+    by = {ident(b.get('id')): b for b in (staged.get('beats') or []) if isinstance(b, dict)}
+    caps = {}
+    for c in staged.get('caps') or []:
+        if isinstance(c, dict):
+            caps.setdefault(ident(c.get('line')), []).append({'say': c.get('say'), 'show': c.get('show')})
     lines = []
-    for i, l in enumerate(sc['lines']):
-        e = by.get(l['id']) or (slines[i] if len(slines) == len(sc['lines']) else {})
-        lines.append({'id': l['id'], 'text': l['text'], 'show': e.get('show'), 'overlays': e.get('overlays') or [], 'caps': e.get('caps') or l.get('caps') or []})
+    for l in sc['lines']:
+        bts, gfx = [], []
+        for k, x in enumerate(split_keep(l['text'])):
+            e = by.get('%s.%d' % (l['id'], k + 1)) or {}
+            bts.append({'say': x, 'show': e.get('show') if isinstance(e.get('show'), dict) else {}})
+            gfx += [dict(g, beat=k) for g in (e.get('gfx') or []) if isinstance(g, dict)]
+        lines.append({'id': l['id'], 'text': l['text'], 'beats': bts, 'overlays': gfx, 'caps': caps.get(l['id']) or l.get('caps') or []})
     return {'angle': sc.get('angle'), 'lines': lines, 'vote': sc.get('vote'), 'people': sc.get('people'), 'hunts': staged.get('hunts'), 'stock': staged.get('stock'), 'post': staged.get('post')}
 
 
@@ -381,7 +424,7 @@ def say_text(say):
 
 def apply_patch(base, patch):
     """A correction that came back as changed lines only, set into the plan it corrects. Returns (the plan, lines changed)."""
-    p = json.loads(json.dumps(story_for_repair(base)))
+    p = json.loads(json.dumps({k: base.get(k) for k in ('angle', 'lines', 'vote', 'people', 'hunts', 'stock', 'post')}))      # the whole plan, pictures included
     by, n = {l['id']: l for l in p['lines']}, 0
     for x in patch.get('lines') or []:
         l = by.get(re.sub(r'[^a-z0-9]', '', str(x.get('id', '')).lower())) if isinstance(x, dict) else None
@@ -404,7 +447,10 @@ def apply_patch(base, patch):
 
 
 def story_for_repair(p):
-    return {k: p.get(k) for k in ('angle', 'lines', 'vote', 'people', 'hunts', 'stock', 'post')}
+    """The plan as the corrector reads it: the words and the graphics of each line (which picture goes where is not its business)."""
+    lines = [{'id': l['id'], 'text': l['text'], 'overlays': [{k: v for k, v in o.items() if k not in ('beat', 'to', 'drop')} for o in l.get('overlays') or []], 'caps': l.get('caps') or []}
+             for l in p.get('lines') or []]
+    return {'angle': p.get('angle'), 'lines': lines, 'vote': p.get('vote'), 'people': p.get('people'), 'hunts': p.get('hunts'), 'stock': p.get('stock'), 'post': p.get('post')}
 
 
 def fix_and_check(p, m):
@@ -452,33 +498,83 @@ def fix_and_check(p, m):
             digits = re.search(r'\S*\d\S*', t).group(0)
             soft.append('line %d says an account name with digits ("%s"): say "a TikToker" or "one account" instead, and show the name on a "chip"' % (i + 1, digits) if digits.startswith('@') else
                         'line %d has digits in the spoken text ("%s"): write numbers as spoken words and put the digits in "caps"' % (i + 1, digits))
-        show = l.get('show') if isinstance(l.get('show'), dict) else {}
-        asset = str(show.get('asset') or 'auto')
-        if asset not in have and asset not in hunts:
-            asset = 'auto'
-        l['show'] = {'asset': asset, 'mode': 'under' if show.get('mode') == 'under' else 'sharp'}
-        ov, kept, card, light = [o for o in (l.get('overlays') or []) if isinstance(o, dict)], [], 0, 0
+        # THE MONTAGE: the line as its sentences ("beats"). Each keeps the picture chosen for it; a sentence that was cut
+        # or rewritten since takes its graphics along by the word they land on.
+        sents = split_keep(t)
+        stoks = [tokens(x) for x in sents]
+        old = [b for b in (l.get('beats') or []) if isinstance(b, dict)]
+        seat = {squash(str(b.get('say', ''))): n for n, b in enumerate(old)}
+        moved = {seat[squash(x)]: k for k, x in enumerate(sents) if squash(x) in seat}
+        line_show = l.get('show') if isinstance(l.get('show'), dict) else {}
+        bts = []
+        for k, x in enumerate(sents):
+            src = old[seat[squash(x)]] if squash(x) in seat else (old[k] if k < len(old) else {})
+            sh = src.get('show') if isinstance(src.get('show'), dict) else {}
+            asset = str(sh.get('asset') or line_show.get('asset') or 'auto')
+            if asset not in have and asset not in hunts:
+                asset = 'auto'
+            subs = {sb['id'] for sb in (have.get(asset) or {}).get('subjects') or []}
+            focus = sh.get('focus') if sh.get('focus') in subs else None
+            to = sh.get('to') if sh.get('to') in subs and sh.get('to') != focus else None
+            move = sh.get('move') if sh.get('move') in beats.MOVES else 'auto'
+            if move in ('pan', 'two') and not (focus and to):
+                move = 'close' if focus else 'auto'
+            if move == 'close' and not focus:
+                move = 'auto'
+            bts.append({'say': x, 'show': {kk: vv for kk, vv in (('asset', asset), ('move', move), ('focus', focus), ('to', to)) if vv}})
+        l['beats'] = bts
+        l['show'] = {'asset': bts[0]['show']['asset'], 'mode': 'sharp'}
+
+        def beat_of(o):
+            """The sentence a graphic is on: the one it was given, if that sentence is still there and says its word; else the first that says it."""
+            on = (tokens(str(o.get('on') or ''))[:1] or [''])[0]
+            b = o.get('beat') if isinstance(o.get('beat'), int) else None
+            if b is not None and old:
+                b = moved.get(b)
+            if b is not None and 0 <= b < len(sents) and (not on or on in stoks[b]):
+                return b
+            return next((n for n, tk in enumerate(stoks) if on and on in tk), b if b is not None and 0 <= b < len(sents) else None if old else 0)
+
+        def later(word, b):
+            """A word of a card that runs on: the sentence, from b on, that says it."""
+            w = (tokens(str(word or ''))[:1] or [''])[0]
+            return next((n for n in range(b, len(sents)) if w and w in stoks[n]), None), w
+
+        ov, kept = [o for o in (l.get('overlays') or []) if isinstance(o, dict)], []
+        light, named, held, card = {}, set(), -1, 0
         for o in ov:
             k = o.get('k')
             shown = json.dumps(o, ensure_ascii=False).lower()
             if any(b in shown for b in ('our page', 'our read', 'unverified', 'primary source', 'gen z hype', 'genzhype', 'gen-z hype')):
                 continue                                       # a graphic about our own checking is not part of the story: it is not drawn
+            b = beat_of(o)
+            if b is None:
+                continue                                       # its sentence was cut and no other says its word: the graphic goes with it
+            o['beat'] = b
+            o.pop('to', None)
             on = tokens(str(o.get('on') or ''))[:1]
-            o['on'] = on[0] if on and on[0] in toks else ''
-            if k in LIGHT and str(o.get('t', '')).strip() and light < 2:
+            o['on'] = on[0] if on and on[0] in stoks[b] else ''
+            if k in LIGHT and str(o.get('t', '')).strip() and light.get(b, 0) < 2:
                 o['t'] = str(o['t']).strip().upper()[:34]
-                light += 1; kept.append(o)
-            elif k == 'tag' and str(o.get('name', '')).strip():
+                light[b] = light.get(b, 0) + 1; kept.append(o)
+            elif k == 'name' and str(o.get('t', '')).strip() and b not in named:
+                o['t'] = str(o['t']).strip().upper()[:38]
+                named.add(b); kept.append(o)
+            elif k == 'labels' and bts[b]['show'].get('move') == 'two' and str(o.get('a', '')).strip() and str(o.get('b', '')).strip():
+                o['a'], o['b'] = str(o['a']).strip().upper()[:34], str(o['b']).strip().upper()[:34]
+                kept.append(o)
+            elif k == 'tag' and str(o.get('name', '')).strip() and b not in named:
                 if norm(o['name']) in cor:
                     o['role'] = str(o.get('role', '')).upper()[:40]
-                    kept.append(o)
-            elif k in CARDS and not card and not (meme and cards >= 2):      # a meme stays visible: two cards in the whole video
+                    named.add(b); kept.append(o)
+            elif k in CARDS and b > held and not (meme and cards >= 3):      # a meme stays visible: three cards in the whole video
+                last = b
                 if k == 'rows':
                     rows = [r for r in (o.get('rows') or []) if isinstance(r, dict) and str(r.get('t', '')).strip()][:4]
                     for r in rows:
                         r['t'] = str(r['t']).strip().upper()[:30]
-                        ron = tokens(str(r.get('on') or ''))[:1]
-                        r['on'] = ron[0] if ron and ron[0] in toks else ''
+                        n, w = later(r.get('on'), b)
+                        r['on'], last = (w if n is not None else ''), max(last, n if n is not None else b)
                     if len(rows) < 2:
                         continue
                     o['rows'] = rows
@@ -499,8 +595,8 @@ def fix_and_check(p, m):
                     if mark and mark not in ptxt:                 # keep the longest run of its words that the post really has
                         ws, best = mark.split(), ''
                         for a in range(len(ws)):
-                            for b in range(len(ws), a + 2, -1):
-                                cand = ' '.join(ws[a:b])
+                            for e in range(len(ws), a + 2, -1):
+                                cand = ' '.join(ws[a:e])
                                 if cand in ptxt and len(cand) > len(best):
                                     best = cand
                         mark = best
@@ -509,21 +605,24 @@ def fix_and_check(p, m):
                     items = [x for x in (o.get('items') or []) if isinstance(x, dict) and str(x.get('big', '')).strip()][:2]
                     for x in items:
                         x['big'] = str(x['big']).strip().upper()[:9]; x['label'] = str(x.get('label', '')).upper()[:30]
-                        xon = tokens(str(x.get('on') or ''))[:1]
-                        x['on'] = xon[0] if xon and xon[0] in toks else ''
+                        n, w = later(x.get('on'), b)
+                        x['on'], last = (w if n is not None else ''), max(last, n if n is not None else b)
                     if len(items) < 2:
                         continue
                     o['items'] = items
+                if last > b:
+                    o['to'] = last                              # the card runs on into a later sentence and keeps its picture
+                held = last
                 card += 1; cards += 1; kept.append(o)
         l['overlays'] = kept
-        l['show']['mode'] = 'under' if card else 'sharp'      # decided here, not by the AI: footage is sharp unless a card needs to be read over it
+        l['show']['mode'] = 'under' if card else 'sharp'
         caps = []
         for c in l.get('caps') or []:
             if isinstance(c, dict) and str(c.get('say', '')).strip() and str(c.get('show', '')).strip() and norm(c['say']) in norm(t):
                 caps.append({'say': str(c['say']).strip(), 'show': str(c['show']).strip()[:14]})
         l['caps'] = caps
     if not any(o.get('k') == 'stamp' for o in lines[0]['overlays']):
-        soft.append('line 1 needs a "stamp": the key number or word of the hook')
+        soft.append('line 1 needs a "stamp" on one of its sentences: the key number or the two key words of the opening')
     if sum(1 for l in lines for o in l['overlays'] if o.get('k') in ('receipt', 'quote')) == 0 and (m.get('posts') or not meme):
         soft.append('no proof on screen: show at least one post as a "receipt" or one real quote as a "quote"')
     soft += ['line 1 (the opening): ' + x for x in opening_faults(lines[0]['text'])] + voice_faults(lines)
@@ -799,7 +898,7 @@ def labels_causes(plan, m):
 def unsupported(plan, m):
     """A second, adversarial reading: every spoken sentence and on-screen text against the material. Returns the reasons to fix."""
     def screen(o):
-        return ' '.join([str(o.get('t') or o.get('name') or '')] + [r.get('t', '') for r in o.get('rows', [])] + [x.get('label', '') + ' ' + x.get('big', '') for x in o.get('items', [])]).strip()
+        return ' '.join([str(o.get('t') or o.get('name') or ' / '.join(str(o.get(x) or '') for x in ('a', 'b') if o.get(x)))] + [r.get('t', '') for r in o.get('rows', [])] + [x.get('label', '') + ' ' + x.get('big', '') for x in o.get('items', [])]).strip()
     script = '\n'.join('%d. %s  [on screen: %s]' % (i + 1, l['text'], ' / '.join(screen(o) for o in l['overlays'])) for i, l in enumerate(plan['lines']))
     mat = 'OUR PAGE:\n%s\n\nPOSTS:\n%s\n\nOUTLETS:\n%s' % (m['page_text'][:6500], '\n'.join('%s: %s' % (p['handle'], p['text'][:500]) for p in m.get('posts', [])), '\n\n'.join(s['excerpt'][:2600] for s in m.get('sources', [])))
     shown = ['%s by %s%s%s' % (v.get('from'), v.get('by'), ', posted with the words "%s"' % v['title'][:160] if v.get('title') else '', '. A picture model saw in it: %s' % v['seen'] if v.get('seen') else '')
