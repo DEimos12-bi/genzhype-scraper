@@ -120,8 +120,12 @@ def chat(system, user, images=(), kind=None, temperature=0.5, timeout=120, max_t
     content = user if not images else [{'type': 'text', 'text': user}] + [_image_part(p) for p in images]
     messages = [{'role': 'system', 'content': system}, {'role': 'user', 'content': content}]
     last = 'no AI key in the environment for: ' + ', '.join(models(kind))
+    slow = set()
     for provider, model in available(kind):
         if (only and provider not in only) or provider + '/' + model in skip:
+            continue
+        if (provider[:6], model) in slow:                      # it just timed out on a sister account: it is as slow on this one
+            strikes(add=provider + '/' + model, why='timed out on a sister account')
             continue
         for again in (False, True):
             t, pause = time.time(), 0
@@ -150,6 +154,8 @@ def chat(system, user, images=(), kind=None, temperature=0.5, timeout=120, max_t
                             if m2 == model and p2[:6] == provider[:6]:
                                 strikes(add=p2 + '/' + m2, why='too slow for the time limit of the run')
                     raise OutOfTime('the time limit of this run was reached while %s/%s was answering' % (provider, model))
+                if 'timed out' in str(e).lower():
+                    slow.add((provider[:6], model))
             note({'model': provider + '/' + model, 'kind': kind, 's': round(time.time() - t, 1), 'ok': False, 'why': last[-330:]})
             if 0 < pause <= 50:
                 time.sleep(pause)                              # the per-minute limit of the strong writer: worth one wait
@@ -157,6 +163,35 @@ def chat(system, user, images=(), kind=None, temperature=0.5, timeout=120, max_t
             strikes(add=provider + '/' + model, why=last)
             break
     raise AIError(last)
+
+
+def _loads(s):
+    """A comma left before a closing bracket is the commonest slip in a model's JSON: it is dropped (never inside a
+    string) and the reply is read again, instead of the whole answer being thrown away."""
+    try:
+        return json.loads(s)
+    except ValueError:
+        out, instr, esc = [], False, False
+        for c in s:
+            if instr:
+                out.append(c)
+                if esc:
+                    esc = False
+                elif c == '\\':
+                    esc = True
+                elif c == '"':
+                    instr = False
+                continue
+            if c == '"':
+                instr = True
+            elif c in '}]':
+                k = len(out) - 1
+                while k >= 0 and out[k] in ' \t\r\n':
+                    k -= 1
+                if k >= 0 and out[k] == ',':
+                    del out[k]
+            out.append(c)
+        return json.loads(''.join(out))
 
 
 def parse_json(text):
@@ -182,8 +217,8 @@ def parse_json(text):
         elif c == '}':
             depth -= 1
             if depth == 0:
-                return json.loads(text[a:i + 1])
-    return json.loads(text[a:])
+                return _loads(text[a:i + 1])
+    return _loads(text[a:])
 
 
 def ask_json(system, user, images=(), tries=2, **kw):
@@ -201,4 +236,6 @@ def ask_json(system, user, images=(), tries=2, **kw):
             return parse_json(text), model
         except Exception as e:  # noqa: BLE001
             last = str(e)[:120]
+            note({'model': model, 'kind': kw.get('kind') or ('vision' if images else 'text'), 's': 0, 'ok': False,
+                  'why': 'its reply was not valid JSON (%s); %d chars, ending: %s' % (last, len(text), text[-120:].replace('\n', ' '))})
     raise AIError('no valid JSON after %d tries: %s' % (tries, last))
