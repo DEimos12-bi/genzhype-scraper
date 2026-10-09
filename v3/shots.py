@@ -312,6 +312,8 @@ def main(work, log=lambda *a: print(*a, flush=True)):
     tl = json.load(open(os.path.join(work, 'timeline.json'), encoding='utf-8'))
     slang = plan.get('format') == 'slang'
     shots, end = slang_shots(plan, tl) if slang else plan_shots(plan, tl, log)
+    if not slang:                                              # what the cut took off (a name written for footage that is not there, the labels of two windows that became one
+        json.dump(plan, open(os.path.join(work, 'plan.json'), 'w', encoding='utf-8'), ensure_ascii=False, indent=1)      # picture) and the time of every sentence stay with the plan: the layout repair reads it from there, and had put them back
     receipts = {}
     rdir = os.path.join(work, 'receipts')
     for f in sorted(os.listdir(rdir)) if os.path.isdir(rdir) else []:

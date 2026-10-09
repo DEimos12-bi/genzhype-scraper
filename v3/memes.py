@@ -153,23 +153,17 @@ def sort_topic(assets, m, log=print):
             'One whose picture and words fit NOTHING described above goes in "off": say what it shows instead.\n'
             'JSON: {"on_topic":["meme0"],"off":[{"id":"meme9","why":"it is about ..., max 8 words"}]}' % (m.get('title', ''), about, rows))
     try:
-        j, model = ai.ask_json('You sort the pictures of a short video about one internet meme. Strict JSON only.', user, kind='reader', temperature=0.1, timeout=60, max_tokens=2500)
+        j, model = ai.ask_json('You sort the pictures of a short video about one internet meme. Strict JSON only.', user, kind='text', temperature=0.1, timeout=80, max_tokens=4000)      # a judgement: the writing models (the light ones change their mind from one try to the next)
     except ai.AIError as e:
         log('  no reader sorted the examples (%s): all %d stay' % (str(e)[-70:], len(cand)))
         return assets
     # the meme's own name (the long words of the page title) in an example's words or in its picture settles it: it stays
     names = [w for w in re.findall(r'[a-z]{5,}', re.sub(r"'s\b", '', m.get('title', '').lower())) if w not in COMMON]
-    # ...and so does the account name of one of the page's OWN examples written in the picture (a repost of that very example)
-    flat = lambda s: re.sub(r'[^a-z0-9]', '', str(s).lower())
-    own = [flat(a.get('by')) for a in assets.values() if not a.get('found') and len(flat(a.get('by'))) >= 6]
     for x in j.get('off') or []:
         k = x.get('id') if isinstance(x, dict) else x
         # (what is SEEN in it, not the words it was filed under: a search for the meme's name returns its name in every title)
         if k in cand and any(n in cand[k].get('seen', '').lower() for n in names):
             log('  %s: the reader called it off topic, but the meme\'s name is in the picture: it stays' % k)
-            continue
-        if k in cand and any(o in flat(cand[k].get('title', '') + ' ' + cand[k].get('seen', '')) for o in own):
-            log('  %s: the reader called it off topic, but it carries the account name of one of the page\'s own examples: it stays' % k)
             continue
         if k in cand and k not in (j.get('on_topic') or []):
             assets[k]['usable'] = False
