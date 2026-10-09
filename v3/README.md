@@ -13,8 +13,8 @@ python v3/auto.py --max 2                                                    # t
 
 | step | file | what it does |
 |---|---|---|
-| material | `material.py` | reads the page: its text, the posts it cites (text, pictures, videos, through X's public embed data) and the outlets' text |
-| plan | `director.py` | the AI writes the script and what is on screen for each line; code checks every rule; a second AI reading checks every statement against the material; two repair rounds; a plan that still breaks a hard rule is refused |
+| material | `material.py` | reads the page: its text, the posts it cites (text, pictures, videos, through X's public embed data), the text of the outlets in its Sources list, and on a meme page the meme itself: the GIPHY GIFs and the TikTok / YouTube posts it links (their public embed data) |
+| plan | `director.py` (+ `memes.py`) | three small jobs instead of one: a WRITER writes five openings and the script (words only); a second reader, asked as the viewer, picks the opening; a PICTURE EDITOR says what is on screen for each line. On a meme page the meme's own pictures are fetched and looked at by the picture model first, so the words fit the pictures. Then code checks every rule, including how the script SOUNDS (long sentences, article words, no turn); a second AI reading checks every statement against the material; two repair rounds, the best version is kept; a plan that still breaks a hard rule is refused |
 | voice | `tts.py` | one take per line with word timings (edge-tts); everything is timed from the spoken words |
 | footage | `footage.py` | the posts' own videos and pictures and the page's own pictures (a meme's examples); a video game's official trailer from its Steam store page (exact name only); YouTube searches for the rest; neutral stock (blurred only) if that leaves too little |
 | eyes | `eyes.py` | a picture model looks at a sheet of every clip: what each moment shows, how good it is, where the subject sits, whether it is on topic |
@@ -29,7 +29,11 @@ python v3/auto.py --max 2                                                    # t
 
 ## Two formats
 
-- **Story** (`/gaming/`, `/drama/`, `/meme/` pages): footage under every second, the proof on screen, a vote.
+- **Story** (`/gaming/`, `/drama/` pages): footage under every second, the proof on screen, a vote.
+- **Meme** (`/meme/` pages): the story format, but the video shows the meme itself the whole time. Its examples (GIFs
+  as looping clips, posts as their preview pictures) carry every line, shown whole (never cropped), a new one about
+  every three seconds; at most two cards, no stock footage. An example that shows something else, or a real person as
+  its subject, is not used (`"memes": {"real_people": false}` in `config.json`; a GIF of a stranger is never used).
 - **Slang** (`/slang/` pages): a game in motion graphics with no footage, modelled on the hand-made glaze video
   (`slang.js`, `check_slang` in `director.py`): three texts to pick from with a 3-2-1 and the reveal, the meaning on a
   dictionary card, the forms, a quick round with a meter, the origin on a timeline, a real quote, a final one-word
@@ -46,7 +50,8 @@ python v3/auto.py --max 2                                                    # t
 
 ## Settings: `config.json`
 
-The AI models and their order (`ai.text`, `ai.vision`), the voice, the length, how much footage is enough, the layout
+The AI models and their order (`ai.text` writes, `ai.reader` checks what was written and picks the opening, `ai.vision`
+looks at pictures), the voice, the length, how much footage is enough, the layout
 limits. Keys come from the environment: `GEMINI_API_KEY`, `GROQ_API_KEY`, `NVIDIA_API_KEY` (or `AI_PROBE_NVIDIA`),
 `OPENROUTER_API_KEY`, `PEXELS_API_KEY`; also `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` if a stronger director is wanted
 (add e.g. `"anthropic/<model>"` at the front of `ai.text`). On the owner's PC `localenv.py` reads them from his local

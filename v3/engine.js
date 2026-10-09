@@ -55,7 +55,7 @@ let lastSrc = '';
 async function img(el, src) { if (el.dataset.src !== src) { el.src = src; el.dataset.src = src; try { await el.decode(); } catch (e) { window.ERR = (window.ERR || 0) + 1; } } }
 async function setBase(t) {
   const s = C.shots.find(s => t >= s.t0 && t < s.t1) || C.shots[C.shots.length - 1];
-  const p = clamp((t - s.t0) / (s.t1 - s.t0)), film = 'FBC'.includes(s.mode);
+  const p = clamp((t - s.t0) / (s.t1 - s.t0)), film = 'FBCW'.includes(s.mode);
   base.style.visibility = film ? 'visible' : 'hidden';
   still.style.display = s.mode === 'S' ? 'block' : 'none';
   dual.style.display = s.mode === 'D' ? 'block' : 'none';
@@ -76,7 +76,7 @@ async function setBase(t) {
 }
 const CUTS = C.shots.slice(1).map(s => s.t0), IMP = C.cues.impact;
 function camera(t, s) {
-  const p = (t - s.t0) / (s.t1 - s.t0), punch = 'FC'.includes(s.mode) ? .12 : s.mode === 'S' ? .05 : 0;
+  const p = (t - s.t0) / (s.t1 - s.t0), punch = 'FCW'.includes(s.mode) ? .12 : s.mode === 'S' ? .05 : 0;
   let sc = 1.04 + .04 * p + punch * (1 - outExpo(P(t, s.t0, .38))), dx = 0, dy = 0;
   if (s.mode === 'D') sc = 1;
   for (const [ta, size] of IMP) { const q = (t - ta) / .3; if (q >= 0 && q < 1) { const f = Math.round((t - ta) * 30), amp = 11 * size * (s.mode === 'D' ? .5 : 1); dx += Math.sin(f * 12.9898 + 1) * amp * (1 - q); dy += Math.cos(f * 78.233 + 2) * amp * (1 - q); } }

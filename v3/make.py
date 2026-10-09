@@ -109,7 +109,7 @@ def pack(work):
         % (os.path.basename(mp4), dur, plan['url'], post.get('caption', ''), ' '.join('#' + str(t).lstrip('#') for t in post.get('hashtags', [])), post.get('pinned', ''),
            '\n'.join(l['text'] for l in plan['lines']), proof or '- (none)', credits, plan.get('model', '?')))
     report = {'made': True, 'file': os.path.basename(mp4), 'seconds': round(dur, 1), 'words': plan.get('words'), 'shots': len(comp['shots']), 'assets_used': used,
-              'director_model': plan.get('model'), 'fact_checked': plan.get('fact_checked'), 'unsupported_left': plan.get('unsupported_left'), 'left_open': plan.get('left_open', []), 'sensitive': plan.get('sensitive'),
+              'director_model': plan.get('model'), 'opening': plan.get('opening'), 'fact_checked': plan.get('fact_checked'), 'unsupported_left': plan.get('unsupported_left'), 'left_open': plan.get('left_open', []), 'sensitive': plan.get('sensitive'),
               'ai_calls': [json.loads(x) for x in open(os.environ['V3_AI_LOG'], encoding='utf-8')] if os.path.isfile(os.environ.get('V3_AI_LOG', '')) else []}
     json.dump(report, open(os.path.join(out, 'report.json'), 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
     shutil.copy(os.path.join(work, 'plan.json'), os.path.join(out, 'plan.json'))

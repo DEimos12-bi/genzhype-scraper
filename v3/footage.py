@@ -178,8 +178,9 @@ def fetch_all(work, budget=None, log=lambda *a: print(*a, flush=True)):
     plan = json.load(open(os.path.join(work, 'plan.json'), encoding='utf-8'))
     adir = os.path.join(work, 'assets'); os.makedirs(adir, exist_ok=True)
     assets, more = plan['assets'], False
+    memes = [a for a in assets.values() if a.get('whole') and a.get('file') and a.get('usable', True)]      # a meme's own examples, fetched and looked at by the director (memes.py)
     mfile = os.path.join(work, 'material.json')                # the page's own pictures (a meme's examples, the cover) are footage too
-    for i, im in enumerate((json.load(open(mfile, encoding='utf-8')).get('images') or []) if os.path.isfile(mfile) else []):
+    for i, im in enumerate((json.load(open(mfile, encoding='utf-8')).get('images') or []) if os.path.isfile(mfile) and len(memes) < 3 else []):      # not when the examples themselves are there: these are their small copies
         assets.setdefault('page%d' % i, {'kind': 'photo', 'url': im['url'], 'credit': '', 'about': im.get('alt', ''), 'by': 'the page', 'page': plan.get('url', '')})
     over = lambda: budget is not None and time.time() - t0 > budget
     for aid, a in assets.items():                                 # 1. the story's own posts
@@ -236,7 +237,7 @@ def fetch_all(work, budget=None, log=lambda *a: print(*a, flush=True)):
             if not a['w']:
                 a.pop('file'); a['missing'] = 'unreadable file'
     clips = [a for a in assets.values() if a.get('file') and a['kind'] in ('clip', 'hunt')]
-    if not more and CFG.get('stock_fallback') and sum(a['dur'] for a in clips) < 45 and not any(a['kind'] == 'stock' for a in assets.values()):   # 3. too little: neutral stock, blurred only
+    if not more and CFG.get('stock_fallback') and sum(a['dur'] for a in clips) < 45 and len(memes) < 4 and not any(a['kind'] == 'stock' for a in assets.values()):   # 3. too little: neutral stock, blurred only (a meme with its own pictures needs none)
         log('little footage (%d clips, %.0f s): adding neutral stock, used blurred only' % (len(clips), sum(a['dur'] for a in clips)))
         stock(plan.get('stock') or '', adir, assets, log)
         for aid, a in assets.items():

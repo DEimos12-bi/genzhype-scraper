@@ -66,15 +66,21 @@ def strikes(add=None, why=''):
     d = {k: t for k, t in d.items() if t > time.time()}
     if add:
         low = why.lower()
-        hold = 10800 if ('quota' in low or 'per-day' in low or 'per day' in low) else 86400 if ('http 404' in low or 'http 410' in low or 'http 403' in low) else 120 if 'http 429' in low else 900
+        hold = 10800 if ('quota' in low or 'per-day' in low or 'per day' in low or 'daily' in low or 'neurons' in low or '(tpd)' in low) else 86400 if ('http 404' in low or 'http 410' in low or 'http 403' in low) else 120 if 'http 429' in low else 900
         d[add] = time.time() + hold
         if path:
             json.dump(d, open(path, 'w', encoding='utf-8'))
     return d
 
 
+def models(kind):
+    """The order of models for one kind of call: 'text' writes, 'vision' looks at pictures, 'reader' checks what was
+    written (other models first, so that the writer's small free allowance is kept for writing)."""
+    return CONFIG['ai'].get(kind) or CONFIG['ai']['text']
+
+
 def available(kind='text'):
-    out, bad = [(p, m) for p, m in (x.split('/', 1) for x in CONFIG['ai'][kind]) if key(p)], strikes()
+    out, bad = [(p, m) for p, m in (x.split('/', 1) for x in models(kind)) if key(p)], strikes()
     return [x for x in out if '/'.join(x) not in bad] + [x for x in out if '/'.join(x) in bad]
 
 
@@ -99,27 +105,38 @@ def _post(provider, model, messages, temperature, timeout, max_tokens, effort):
     return text.strip()
 
 
-def chat(system, user, images=(), kind=None, temperature=0.5, timeout=120, max_tokens=8000, only=None, skip=(), effort=None):
+def chat(system, user, images=(), kind=None, temperature=0.5, timeout=120, max_tokens=8000, only=None, skip=(), effort=None, patient=False):
+    """patient=True (the writing calls): a model that answers "too many requests, try again in N seconds" is waited for
+    once, up to 50 seconds, instead of handing the writing to a weaker model at once."""
     kind = kind or ('vision' if images else 'text')
     content = user if not images else [{'type': 'text', 'text': user}] + [_image_part(p) for p in images]
     messages = [{'role': 'system', 'content': system}, {'role': 'user', 'content': content}]
-    last = 'no AI key in the environment for: ' + ', '.join(CONFIG['ai'][kind])
+    last = 'no AI key in the environment for: ' + ', '.join(models(kind))
     for provider, model in available(kind):
         if (only and provider not in only) or provider + '/' + model in skip:
             continue
-        t = time.time()
-        try:
-            text = _post(provider, model, messages, temperature, timeout, max_tokens, effort or CONFIG['ai'].get('gemini_effort', 'low'))
-            if len(text) < 2:
-                raise AIError('empty reply')
-            note({'model': provider + '/' + model, 'kind': kind, 's': round(time.time() - t, 1), 'ok': True})
-            return text, provider + '/' + model
-        except urllib.error.HTTPError as e:
-            last = '%s/%s: HTTP %s %s' % (provider, model, e.code, e.read().decode('utf-8', 'replace')[:160].replace('\n', ' '))
-        except Exception as e:  # noqa: BLE001  (a timeout, a broken reply: the next model answers)
-            last = '%s/%s: %s' % (provider, model, str(e)[:160])
-        note({'model': provider + '/' + model, 'kind': kind, 's': round(time.time() - t, 1), 'ok': False, 'why': last[-170:]})
-        strikes(add=provider + '/' + model, why=last)
+        for again in (False, True):
+            t, pause = time.time(), 0
+            try:
+                text = _post(provider, model, messages, temperature, timeout, max_tokens, effort or CONFIG['ai'].get('gemini_effort', 'low'))
+                if len(text) < 2:
+                    raise AIError('empty reply')
+                note({'model': provider + '/' + model, 'kind': kind, 's': round(time.time() - t, 1), 'ok': True})
+                return text, provider + '/' + model
+            except urllib.error.HTTPError as e:
+                body = e.read().decode('utf-8', 'replace')
+                last = '%s/%s: HTTP %s %s' % (provider, model, e.code, body[:160].replace('\n', ' '))
+                wait = re.search(r'try again in (?:(\d+)m)?([\d.]+)s', body)
+                if patient and not again and e.code == 429 and wait and '(tpd)' not in body.lower() and 'per day' not in body.lower():
+                    pause = int(wait.group(1) or 0) * 60 + float(wait.group(2)) + 1
+            except Exception as e:  # noqa: BLE001  (a timeout, a broken reply: the next model answers)
+                last = '%s/%s: %s' % (provider, model, str(e)[:160])
+            note({'model': provider + '/' + model, 'kind': kind, 's': round(time.time() - t, 1), 'ok': False, 'why': last[-170:]})
+            if 0 < pause <= 50:
+                time.sleep(pause)                              # the per-minute limit of the strong writer: worth one wait
+                continue
+            strikes(add=provider + '/' + model, why=last)
+            break
     raise AIError(last)
 
 

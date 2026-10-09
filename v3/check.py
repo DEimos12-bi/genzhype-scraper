@@ -98,12 +98,12 @@ def gate(work, allow_sensitive=False):
         if plan.get('sensitive', {}).get('flag') and not allow_sensitive:
             why.append('WAITS FOR THE OWNER: the page mentions "%s" (run again with --approved once he has read the plan)' % plan['sensitive']['why'])
         return why
-    film = sum(s['t1'] - s['t0'] for s in comp['shots'] if s['mode'] in 'FBCS')
+    film = sum(s['t1'] - s['t0'] for s in comp['shots'] if s['mode'] in 'FBCWS')
     if film / comp['end'] < CFG['footage']['min_share']:
         why.append('footage under only %.0f%% of the video' % (100 * film / comp['end']))
-    if comp['shots'][0]['mode'] not in 'FCS':
+    if comp['shots'][0]['mode'] not in 'FCWS':
         why.append('the first shot is not sharp footage')
-    sharp = sum(s['t1'] - s['t0'] for s in comp['shots'] if s['mode'] in 'FC' or (s['mode'] == 'S' and s.get('dim', 0) < 0.2))
+    sharp = sum(s['t1'] - s['t0'] for s in comp['shots'] if s['mode'] in 'FCW' or (s['mode'] == 'S' and s.get('dim', 0) < 0.2))
     if sharp < 12:
         why.append('only %.0f s of sharp footage: the story has too little to show' % sharp)
     if len({s['asset'] for s in comp['shots']}) < 2:

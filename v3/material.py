@@ -8,10 +8,13 @@ import json
 import os
 import re
 import sys
+import time
+import urllib.parse
 import urllib.request
 
-UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36'
+UA ='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36'
 SOCIAL = re.compile(r'(?:x\.com|twitter\.com|tiktok\.com|reddit\.com|instagram\.com|youtube\.com|youtu\.be|facebook\.com|threads\.net|bsky\.app|twitch\.tv|kick\.com)', re.I)
+NOT_OUTLETS = re.compile(r'//(?:[^/]+\.)?(?:googleapis\.com|gstatic\.com|giphy\.com|tenor\.com|vsfagency\.tech)(?:/|$)', re.I)      # fonts, GIF hosts, the site's builder: nothing to read there
 
 
 def get(url, timeout=25):
@@ -50,6 +53,48 @@ def x_post(tid):
             'reply_to': ((j.get('parent') or {}).get('user') or {}).get('screen_name', ''), 'media': media}
 
 
+def examples_of(main):
+    """The meme itself, as the page links it: GIPHY GIFs and the TikTok / YouTube posts that use it. For each one, where
+    its picture is (GIPHY's own mp4; the public embed data of TikTok and YouTube) and the words posted with it."""
+    said = {}                                                  # link -> (the name, the date) the page prints next to it
+    for fig in re.findall(r'(?is)<figure[^>]*>.*?</figure>', main):
+        href = re.search(r'href="(https?://[^"#]+)"', fig)
+        if href:
+            name = text_of((re.search(r'(?is)class="rc-who"[^>]*>(.*?)</', fig) or [None, ''])[1]) or (re.search(r'\((@[^)]+)\)', text_of(fig)) or [None, ''])[1]
+            said[html.unescape(href.group(1))] = (name.strip(), (re.search(r'datetime="([^"]+)"', fig) or [None, ''])[1])
+    for href, label in re.findall(r'(?is)<a[^>]+href="(https?://[^"#]+)"[^>]*>(.*?)</a>', main):      # a credit link outside a figure: "Via GIPHY (@name)"
+        who = re.search(r'\((@[^)]+)\)', text_of(label))
+        if who:
+            said.setdefault(html.unescape(href), (who.group(1), ''))
+    out = []
+    for u in dict.fromkeys(html.unescape(h) for h in re.findall(r'href="(https?://[^"#]+)', main)):
+        name, date = said.get(u, ('', ''))
+        g = re.search(r'giphy\.com/gifs/(?:[^/?]*-)?([A-Za-z0-9]{8,})/?(?:\?|$)', u)
+        t = re.search(r'tiktok\.com/@([^/?]+)/video/(\d+)', u)
+        y = re.search(r'(?:youtube\.com/(?:watch\?v=|shorts/)|youtu\.be/)([A-Za-z0-9_-]{11})', u)
+        ex = None
+        if g:
+            ex = {'kind': 'gif', 'id': g.group(1), 'by': name or 'GIPHY', 'title': ' '.join(u.rstrip('/').split('/')[-1].split('-')[:-1]), 'video': 'https://media.giphy.com/media/%s/giphy.mp4' % g.group(1)}
+        elif t or y:
+            j = None
+            for _ in range(2):                                 # the embed data answers "busy" now and then: asked twice
+                try:
+                    j = json.loads(get(('https://www.tiktok.com/oembed?url=' if t else 'https://www.youtube.com/oembed?format=json&url=') + urllib.parse.quote(u, safe=''), 15))
+                    break
+                except Exception:  # noqa: BLE001
+                    time.sleep(1.5)
+            if not isinstance(j, dict):
+                continue
+            ex = {'kind': 'tiktok' if t else 'youtube', 'id': t.group(2) if t else y.group(1), 'by': '@' + t.group(1) if t else str(j.get('author_name') or name), 'title': re.sub(r'\s+', ' ', str(j.get('title') or '')).strip()[:300]}
+            if t and j.get('thumbnail_url'):
+                ex['image'] = j['thumbnail_url']
+            elif t:
+                continue
+        if ex:
+            out.append(dict(ex, page=u, date=date))
+    return out[:10]
+
+
 def from_url(url):
     page = get(url)
     m = re.search(r'(?is)<main[^>]*>(.*?)</main>', page)
@@ -74,7 +119,9 @@ def from_url(url):
                 for x in node.get(k) or [] if isinstance(node.get(k), list) else [node.get(k)] if node.get(k) else []:
                     if isinstance(x, dict) and x.get('name') and x.get('@type') in ('Person', 'Organization', 'Thing', None):
                         people.append(str(x['name']))
-    links = list(dict.fromkeys(html.unescape(h) for h in re.findall(r'href="(https?://[^"#]+)', main)))
+    # the page's own "Sources" list comes first: on meme and word pages it sits below the "read next" block, after the cut above
+    declared = [html.unescape(h) for blk in re.findall(r'(?is)<ol[^>]+class="sources"[^>]*>(.*?)</ol>', page) for h in re.findall(r'href="(https?://[^"#]+)', blk)]
+    links = list(dict.fromkeys(declared + [html.unescape(h) for h in re.findall(r'href="(https?://[^"#]+)', main)]))
     images = []                                                # the page's own content pictures: a meme's examples first, then the cover
     for tag in re.findall(r'(?is)<img[^>]+>', main):
         src, alt = re.search(r'src="([^"]+)"', tag), re.search(r'alt="([^"]*)"', tag)
@@ -86,7 +133,7 @@ def from_url(url):
     posts = [p for p in (x_post(t) for t in post_ids[:8]) if p]
     sources = []
     for u in links:
-        if 'genzhype.com' in u or SOCIAL.search(u) or re.search(r'\.(png|jpe?g|webp|gif|svg|css|js)(\?|$)', u):
+        if 'genzhype.com' in u or SOCIAL.search(u) or NOT_OUTLETS.search(u) or re.search(r'\.(png|jpe?g|webp|gif|svg|css|js)(\?|$)', u):
             continue
         if len(sources) >= 4:
             break
@@ -94,11 +141,17 @@ def from_url(url):
             art = get(u, 20)
         except Exception:  # noqa: BLE001
             continue
-        body = re.search(r'(?is)<article[^>]*>(.*?)</article>', art)
-        t = text_of((re.search(r'(?is)<h1[^>]*>(.*?)</h1>', art) or [None, ''])[1]) or text_of((re.search(r'(?is)<title[^>]*>(.*?)</title>', art) or [None, ''])[1])
-        sources.append({'url': u, 'publisher': re.sub(r'^www\.', '', u.split('/')[2]), 'title': t[:200], 'excerpt': text_of(body.group(1) if body else art)[:5000]})
+        bodies = sorted((text_of(b) for _, b in re.findall(r'(?is)<(article|main)[^>]*>(.*?)</\1>', art)), key=len)
+        body = bodies[-1] if bodies and len(bodies[-1]) >= 400 else text_of(art)      # an empty <article> shell: the whole page is read instead
+        h1 = text_of((re.search(r'(?is)<h1[^>]*>(.*?)</h1>', art) or [None, ''])[1])
+        if len(h1.split()) >= 4 and 0 < body.find(h1) < len(body) * 0.4:
+            body = body[body.find(h1):]                         # what stands above a real headline is the site's menu (a short h1 is the site's logo)
+        if len(body) < 200:
+            continue                                           # nothing to read: it does not take the place of an outlet that answers
+        t = (h1 if len(h1.split()) >= 4 else '') or text_of((re.search(r'(?is)<title[^>]*>(.*?)</title>', art) or [None, ''])[1]) or h1
+        sources.append({'url': u, 'publisher': re.sub(r'^www\.', '', u.split('/')[2]), 'title': t[:200], 'excerpt': body[:5000]})
     return {'url': url, 'title': title, 'summary': desc, 'published': published, 'people': list(dict.fromkeys(people))[:12], 'page_text': text_of(main)[:9000],
-            'posts': posts, 'sources': sources, 'images': images}
+            'posts': posts, 'sources': sources, 'images': images, 'examples': examples_of(main) if '/meme/' in url else []}
 
 
 if __name__ == '__main__':
@@ -106,6 +159,7 @@ if __name__ == '__main__':
     mat = from_url(sys.argv[1])
     os.makedirs(sys.argv[2], exist_ok=True)
     json.dump(mat, open(os.path.join(sys.argv[2], 'material.json'), 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
-    print('material: "%s" | page text %d chars | %d posts (%d with video, %d with a picture) | %d outlet texts | people: %s' % (
+    print('material: "%s" | page text %d chars | %d posts (%d with video, %d with a picture) | %d outlet texts (%s) | %d examples of the meme (%s) | people: %s' % (
         mat['title'][:60], len(mat['page_text']), len(mat['posts']), sum(any(m['type'] == 'video' for m in p['media']) for p in mat['posts']),
-        sum(any(m['type'] == 'photo' for m in p['media']) for p in mat['posts']), len(mat['sources']), ', '.join(mat['people'][:8]) or '(none listed)'))
+        sum(any(m['type'] == 'photo' for m in p['media']) for p in mat['posts']), len(mat['sources']), ', '.join(s['publisher'] for s in mat['sources']) or 'none',
+        len(mat['examples']), ', '.join('%s by %s' % (e['kind'], e['by']) for e in mat['examples']) or 'none', ', '.join(mat['people'][:8]) or '(none listed)'))

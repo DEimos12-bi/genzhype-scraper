@@ -14,6 +14,16 @@
    "nvidia_director/nvidia/nemotron-3-super-120b-a12b",
    "nvidia/nvidia/nemotron-3-super-120b-a12b"
   ],
+  "reader": [
+   "cloudflare/@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+   "groq/qwen/qwen3.8-27b",
+   "cloudflare/@cf/meta/llama-4-scout-17b-16e-instruct",
+   "groq/openai/gpt-oss-120b",
+   "cloudflare/@cf/qwen/qwen3-30b-a3b-fp8",
+   "nvidia/z-ai/glm-5.3",
+   "nvidia_b/nvidia/nemotron-3-super-120b-a12b",
+   "nvidia/nvidia/nemotron-3-ultra-550b-a55b"
+  ],
   "vision": [
    "cloudflare/@cf/meta/llama-4-scout-17b-16e-instruct",
    "cloudflare/@cf/google/gemma-4-26b-a4b-it",
@@ -55,5 +65,8 @@
  "_local": "A file config.local.json next to this one (never committed) may override any setting on one machine: local_browser_python = the Python that has a working headless browser, local_site_config = the site config the keys are read from.",
  "_note_ai": "The videos share the site brain's keys, so they stay OFF the brain's own Gemini models (gemini-2.5-flash, gemma-4-31b-it, the flash-lite models): on 2026-10-07 video tests used up that daily quota. Groq and Cloudflare answer in seconds; the NVIDIA accounts are the slow reserve. `python v3/probe.py` shows what answers right now.",
  "youtube": true,
- "_youtube": "false = no YouTube searches (set it in config.local.json on a machine where YouTube has become slow or refuses; GitHub never asks it)"
+ "_youtube": "false = no YouTube searches (set it in config.local.json on a machine where YouTube has become slow or refuses; GitHub never asks it)",
+ "memes": {
+  "real_people": false
+ }
 }

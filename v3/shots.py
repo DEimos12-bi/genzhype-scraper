@@ -58,7 +58,7 @@ class Supply:
     """Hands out moments of the fetched footage, best first, none twice."""
 
     def __init__(self, assets):
-        self.a = {k: v for k, v in assets.items() if v.get('file')}
+        self.a = {k: v for k, v in assets.items() if v.get('file') and not (v.get('whole') and not v.get('usable', True))}      # a meme example that shows something else is not footage
         self.used = {k: [] for k in self.a}
         self.uses = {k: 0 for k in self.a}                    # lines that showed it: the least shown comes first
 
@@ -91,6 +91,12 @@ def plan_shots(plan, tl, log):
         raise SystemExit('NO FOOTAGE: nothing was fetched for this story; no video is made')
     people = [norm(p.get('name', '')) for p in plan.get('people', []) if p.get('name')]
     shots, ids = [], [l['id'] for l in plan['lines']]
+    # A MEME VIDEO SHOWS THE MEME: its own examples (and a searched clip the eyes found to be exactly it) carry every line,
+    # shown whole, a new one every three seconds, the least shown first.
+    pool = lambda: sorted([k for k, v in sup.a.items() if v.get('usable', True) and (v.get('whole') or (v['kind'] == 'hunt' and v.get('eyes', {}).get('exact')))],
+                          key=lambda k: (sup.uses[k], -sup.a[k].get('score', 3), k))
+    meme = plan.get('kind') == 'meme' and len(pool()) >= 2
+    nxt = lambda last: ([k for k in pool() if k != last] or pool())[0]
     for i, pl in enumerate(plan['lines']):
         ln = lines[pl['id']]
         t0 = 0.0 if i == 0 else round(max(0.0, ln['s'] - 0.08), 3)
@@ -101,6 +107,8 @@ def plan_shots(plan, tl, log):
         asset = want if want in sup.a else None
         if asset and sharp and sup.a[asset]['kind'] != 'photo' and (sup.a[asset]['kind'] == 'stock' or not sup.a[asset].get('usable', True)):
             asset = None                                       # refused by the eyes: not shown sharp
+        if meme and (asset not in pool() or (shots and shots[-1]['asset'] == asset)):
+            asset = nxt(shots[-1]['asset'] if shots else None)
         if not asset:
             # the footage this line asked for is not there. The story's OWN material (its posts' clips and pictures, the page's
             # pictures) may stand in sharp, the opening included: it is the story. Footage that was searched for something
@@ -138,14 +146,20 @@ def plan_shots(plan, tl, log):
         parts = max(1, math.ceil(dur / (MAX_SHARP if sharp else MAX_UNDER)))
         if a['kind'] == 'photo':
             parts = max(1, math.ceil(dur / 5.0))
+        if meme:
+            parts = max(1, math.ceil(dur / (3.2 if sharp else 5.0)))
         cuts = [t0] + split_times(ln, t0, t1, parts) + [t1]
         for k in range(len(cuts) - 1):
+            if meme and k:                                     # the next part of the line: the next picture of the meme
+                asset = nxt(asset)
+                a = sup.a[asset]
+                sup.uses[asset] += 1
             s = {'id': '%s_%d' % (pl['id'], k), 'line': pl['id'], 't0': cuts[k], 't1': cuts[k + 1], 'asset': asset, 'credit': a.get('credit', ''), 'dim': 0.08 if sharp else 0.22}
             d = s['t1'] - s['t0']
             if a['kind'] == 'photo':
                 w, h = a['w'], a['h']
                 n = sum(1 for x in shots if x['asset'] == asset)
-                if sharp and n % 3 != 2 and min(w, h) >= 800:  # fills the screen, a slow move across the picture (a small picture is never blown up: it is shown whole)
+                if sharp and n % 3 != 2 and min(w, h) >= (700 if a.get('whole') and h >= w * 1.5 else 800):  # fills the screen, a slow move across the picture (a small picture is never blown up: it is shown whole)
                     z = max(1920 / h, 1080 / w) * 1.02
                     span = max(0.0, w - 1080 / z)
                     x0, x1 = (w / 2 - span * 0.42, w / 2 + span * 0.42) if n % 2 == 0 else (w / 2 + span * 0.42, w / 2 - span * 0.42)
@@ -156,7 +170,8 @@ def plan_shots(plan, tl, log):
             else:
                 ss, x = sup.moment(asset, d)
                 small = a['w'] > a['h'] and a['h'] < 700
-                s.update(mode=('C' if small else 'F') if sharp else 'B', src='assets/' + a['file'], ss=round(ss, 2), x=x, w=a['w'], h=a['h'])
+                whole = a.get('whole') or meme                 # a meme is never cropped: its sides and its text are the joke
+                s.update(mode=('W' if whole else 'C' if small else 'F') if sharp else 'B', src='assets/' + a['file'], ss=round(ss, 2), x=x, w=a['w'], h=a['h'])
                 if not sharp:
                     s['credit'] = ''
             shots.append(s)
@@ -245,6 +260,11 @@ def fit(mode, w, h, x):
         win = 'crop=ih*9/16:ih:(iw-ih*9/16)*%.3f:0,scale=1080:1920:flags=lanczos' % x
     else:
         win = 'scale=1080:-2:flags=lanczos,crop=1080:1920'
+    if mode == 'W':                                            # the WHOLE picture, as wide as the screen allows, on a blurred and darkened copy of itself
+        k = min(1080 / w, 1150 / h)
+        fw, fh = int(w * k) // 2 * 2, int(h * k) // 2 * 2
+        return ['-filter_complex', '[0:v]fps=%d,split[a][b];[a]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,gblur=sigma=28,eq=brightness=-0.2:saturation=0.9[bg];'
+                '[b]scale=%d:%d:flags=lanczos,unsharp=5:5:0.4[fg];[bg][fg]overlay=%d:%d' % (FPS, fw, fh, (1080 - fw) // 2, max(120, 700 - fh // 2))]
     if mode == 'F':
         return ['-vf', 'fps=%d,%s,unsharp=5:5:0.5' % (FPS, win)]
     if mode == 'B':
@@ -287,7 +307,7 @@ def main(work, log=lambda *a: print(*a, flush=True)):
     open(os.path.join(work, 'comp.js'), 'w', encoding='utf-8').write('window.COMP = ' + json.dumps(comp, ensure_ascii=False) + ';')
     film = sum(s['t1'] - s['t0'] for s in shots)
     log('cut: %d shots over %.1f s, footage under %.0f%% of it | sharp %d, blurred %d, pictures %d | assets used: %s' % (
-        len(shots), end, 100 * film / end, sum(s['mode'] in 'FC' for s in shots), sum(s['mode'] == 'B' for s in shots), sum(s['mode'] == 'S' for s in shots), ', '.join(sorted({s['asset'] for s in shots}))))
+        len(shots), end, 100 * film / end, sum(s['mode'] in 'FCW' for s in shots), sum(s['mode'] == 'B' for s in shots), sum(s['mode'] == 'S' for s in shots), ', '.join(sorted({s['asset'] for s in shots}))))
     return comp
 
 
