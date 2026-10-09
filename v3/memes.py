@@ -83,7 +83,7 @@ def look(assets, m, work, log=print, tick=None):
                         '-vf', 'scale=768:768:force_original_aspect_ratio=decrease', '-q:v', '3', tile], timeout=40)
         # The picture is described BLIND: told what the meme is, a weak picture model repeats that for pictures that show something else.
         user = ('Describe this ONE picture for someone who cannot see it. Only what is VISIBLE: do not guess what it is from, do not guess names.\n'
-                '"what": what it shows, in at most 24 words. Be exact: the figures, their colours and shapes, what each one is DOING ("two blocky figures pull a round yellow face in opposite directions");\n'
+                '"what": what it shows, in at most 24 words. Be exact: the figures, their colours and shapes, what each one is DOING ("a brown dog jumps over a low wooden fence");\n'
                 '"text": the words written in the picture, exactly as written (at most 12 words; "" if there are none);\n'
                 '"photo": true if it is a photograph or a frame of real-world video, false if it is an animation, a cartoon, a drawing, a video game or a 3D render;\n'
                 '"person": "real" if a real human being (photographed or filmed) is the main subject, "drawn" if its figures are drawn, animated, 3D-rendered or game characters, "none" if nobody is in it;\n'
