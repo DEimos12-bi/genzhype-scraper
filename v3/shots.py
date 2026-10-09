@@ -100,8 +100,16 @@ def plan_shots(plan, tl, log):
     meme = plan.get('kind') == 'meme' and len(meme_pool()) >= 2
     nxt = lambda last: ([k for k in meme_pool() if k != last] or meme_pool())[0]
 
+    asked = [(b.get('show') or {}).get('asset') for l in plan['lines'] for b in l.get('beats') or []]
+    asked = [k for k in asked if k in sup.a and sup.a[k]['kind'] == 'clip' and sup.a[k].get('usable', True)]
+    main = max(sorted(set(asked)), key=asked.count) if asked else None
+
     def pick(last):
-        """A picture for a sentence whose own choice does not exist: a meme's least shown picture, else the story's own."""
+        """A picture for a sentence whose own choice does not exist (footage that was asked for and not found): the clip
+        the plan itself shows most, so the story stays on screen; else a meme's least shown picture, else the story's own.
+        (It used to take the least shown picture, and showed the twist's own picture three lines too early.)"""
+        if main:
+            return main
         if meme:
             return nxt(last)
         own = sorted([k for k in sup.a if sup.a[k]['kind'] in ('clip', 'photo') and sup.a[k].get('usable', True)], key=lambda k: (k == last, sup.uses[k]))

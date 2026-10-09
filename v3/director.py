@@ -938,6 +938,50 @@ def unsupported(plan, m):
             for p in j.get('problems', []) if isinstance(p, dict) and str(p.get('line')).strip() != vote][:8]
 
 
+def picture_check(p, m, log):
+    """THE SECOND LOOK AT THE MONTAGE. Whoever cuts by hand checks every cut against the words. A reader gets each
+    sentence with the description of the picture chosen for it, and names the sentences whose picture shows something
+    else than what they talk about. Those get the main clip (the one the plan shows most) instead: a repeated picture
+    is better than a wrong one. Without a reader nothing is changed. -> how many sentences were changed"""
+    A = m.get('meme_assets') or {}
+    rows, where = [], {}
+    for l in p['lines']:
+        for n, b in enumerate(l.get('beats') or [] if l['id'] not in ('vote', 'site') else []):
+            k = (b.get('show') or {}).get('asset')
+            if (A.get(k) or {}).get('seen'):
+                where['%s.%d' % (l['id'], n + 1)] = (l, n, b)
+                rows.append('%s.%d | "%s" | %s' % (l['id'], n + 1, b['say'], A[k]['seen'][:170]))
+    clips = [b['show']['asset'] for _, _, b in where.values() if A[b['show']['asset']].get('kind') == 'clip']
+    if len(rows) < 4 or not clips:
+        return 0
+    main = max(sorted(set(clips)), key=clips.count)
+    user = ('THE SUBJECT: %s\n\nEach row is one sentence of a short video about it and the picture on screen while it is said. The pictures were described by a model that was NOT told the subject '
+            'and cannot name its characters (it writes "a blocky figure", "a yellow face").\nrow id | the sentence | the picture\n%s\n\n'
+            'Answer for EVERY row. "about": the one thing the sentence talks about, in 2 to 5 words. "fits":\n'
+            '  true  when the picture shows that thing; or when the sentence is general (the subject as a whole, its characters, the fight, the joke) and the picture shows its characters or its scene;\n'
+            '  false when the sentence is about something SPECIFIC that the picture does not show: a certain remix or edit (a lip dub, a slowed version, an AI voice), another creator\'s video, '
+            'another person, a place, another use of it, or a number that belongs to a video other than the one shown.\n'
+            'JSON: {"rows":[{"id":"row id","about":"","fits":true}]}' % (m.get('title', ''), '\n'.join(rows)))
+    try:
+        j, model = ai.ask_json('You check the cut of a short video against its words. Strict JSON only.', user, kind='reader', temperature=0.1, timeout=60, max_tokens=2500)
+    except ai.AIError as e:
+        log('director: no reader checked the pictures against the words (%s)' % str(e)[-70:])
+        return 0
+    done = 0
+    wrong = [x for x in j.get('rows') or [] if isinstance(x, dict) and x.get('fits') is False]
+    for x in wrong[:max(1, len(rows) // 3)]:                       # at most a third: a reader that refuses everything is not followed
+        rid = x.get('id')
+        if rid not in where or where[rid][2]['show'].get('asset') == main:
+            continue
+        l, n, b = where[rid]
+        log('  %s "%s": its picture (%s) does not show %s; the main clip %s plays instead' % (rid, b['say'][:44], b['show']['asset'], str(x.get('about') or 'it')[:40], main))
+        b['show'] = {'asset': main, 'move': 'play'}
+        l['overlays'] = [o for o in l.get('overlays', []) if not (o.get('beat') == n and o.get('k') in ('name', 'tag', 'labels'))]      # they named what is no longer shown
+        done += 1
+    log('director: the pictures were checked against the words by %s: %d of %d sentences changed' % (model, done, len(rows)))
+    return done
+
+
 def direct(m, log=print, work=None, budget=None):
     """The plan: one draft, then up to two corrections (code checks + a fact check on every version). The draft of a story is
     made in three small jobs: the words (five openings, then the script), the pick of the opening, the pictures. A meme's own
@@ -1108,6 +1152,8 @@ def direct(m, log=print, work=None, budget=None):
         raise SystemExit('PLAN REFUSED: ' + '; '.join(hard))
     log('director: the plan used is the one by %s, %d words, %s' % (st['best']['model'], plan.get('words', 0),
         'fact check not run' if facts is None else '%d unsupported statements left' % len(facts) if facts else 'fact check clean'))
+    if not slang_page:
+        picture_check(plan, m, log)
     plan.update({'url': m['url'], 'title': m['title'], 'model': st['best']['model'], 'assets': {} if slang_page else assets_of(m), 'kind': 'slang' if slang_page else 'meme' if is_meme(m) and any(v.get('usable', True) for v in m['meme_assets'].values()) else 'story',
                  'opening': st.get('opening'), 'left_open': soft2 + (facts or []),
                  'fact_checked': facts is not None, 'unsupported_left': len(facts or [])})
