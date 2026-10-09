@@ -119,6 +119,10 @@ def for_line(pl, ln, t0, t1, sup, shots, pick, has_card, card_to, face_ok, log, 
         if not asset:
             asset = pick(prev)
             show = {'asset': asset, 'move': 'auto'}
+            named = [o for o in pl.get('overlays', []) if o.get('beat') in members and o.get('k') in ('name', 'tag', 'labels')]
+            if named:                                          # they named the picture that was asked for, not the one that plays instead
+                pl['overlays'] = [o for o in pl['overlays'] if o not in named]
+                log('  %s: the picture asked for is not there; "%s" is not written on the one that plays instead' % (pl['id'], str(named[0].get('t') or named[0].get('name') or named[0].get('a'))[:30]))
         A = sup.a[asset]
         still = A['kind'] == 'photo'
         move = show.get('move') if show.get('move') in MOVES else 'auto'

@@ -106,7 +106,7 @@ def plan_shots(plan, tl, log):
                 v['whole'] = True
     asked = [(b.get('show') or {}).get('asset') for l in plan['lines'] for b in l.get('beats') or []]
     asked = [k for k in asked if k in sup.a and sup.a[k]['kind'] == 'clip' and sup.a[k].get('usable', True)]
-    main = max(sorted(set(asked)), key=asked.count) if asked else None
+    main = max(sorted(set(asked)), key=lambda k: (asked.count(k), sup.a[k].get('w', 0) * sup.a[k].get('h', 0))) if asked else None      # shown as often: the larger one, which fills the screen
 
     def pick(last):
         """A picture for a sentence whose own choice does not exist (footage that was asked for and not found): the clip

@@ -950,23 +950,26 @@ def picture_check(p, m, log):
             k = (b.get('show') or {}).get('asset')
             if (A.get(k) or {}).get('seen'):
                 named = next((str(o.get('t') or o.get('name') or '') for o in l.get('overlays', []) if o.get('beat') == n and o.get('k') in ('name', 'tag')), '')
+                close = next((s.get('name', '') for s in A[k].get('subjects') or [] if s.get('id') == b['show'].get('focus')), '') if b['show'].get('move') in ('close', 'pan', 'two') else ''
                 where['%s.%d' % (l['id'], n + 1)] = (l, n, b)
-                rows.append('%s.%d | "%s" | %s%s' % (l['id'], n + 1, b['say'], A[k]['seen'][:170], ' | NAME WRITTEN ON SCREEN: "%s"' % named if named else ''))
+                posted = ' [posted by %s%s]' % (A[k].get('by') or '?', ' with the words "%s"' % A[k]['title'][:110] if A[k].get('title') else '')
+                rows.append('%s.%d | "%s" | %s%s%s%s' % (l['id'], n + 1, b['say'], A[k]['seen'][:280], posted, ' (the camera is close on: %s)' % close if close else '', ' | NAME WRITTEN ON SCREEN: "%s"' % named if named else ''))
     clips = [b['show']['asset'] for _, _, b in where.values() if A[b['show']['asset']].get('kind') == 'clip']
     if len(rows) < 4 or not clips:
         return 0
-    main = max(sorted(set(clips)), key=clips.count)
+    main = max(sorted(set(clips)), key=lambda k: (clips.count(k), A[k].get('w', 0) * A[k].get('h', 0)))      # shown as often: the larger one, which fills the screen
     user = ('THE SUBJECT: %s\nWHO AND WHAT IS IN IT, FROM THE PAGE: %s\n\nEach row is one sentence of a short video about it and the picture on screen while it is said. The pictures were described by a model that was NOT told the subject '
-            'and cannot name its characters (it writes "a blocky figure", "a yellow face").\nrow id | the sentence | the picture\n%s\n\n'
+            'and cannot name its characters (it writes "a blocky figure", "a yellow face"); the words written in a picture and the words it was posted with tell you which version it is.\n'
+            'row id | the sentence | the picture\n%s\n\n'
             'Answer for EVERY row. "about": the one thing the sentence talks about, in 2 to 5 words. "fits":\n'
             '  true  when the picture shows that thing; or when the sentence is general (the subject as a whole, its characters, the fight, the joke) and the picture shows its characters or its scene;\n'
             '  false when the sentence is about something SPECIFIC that the picture does not show: a certain remix or edit (a lip dub, a slowed version, an AI voice), another creator\'s video, '
             'another person, a place, another use of it, or a number that belongs to a video other than the one shown.\n'
-            '"name_ok" (only for a row with a NAME WRITTEN ON SCREEN): false when the picture cannot be showing who or what that name says: a real person\'s name on a picture of drawn or game characters, '
-            'or the name of one character on a picture of others. true when the picture can be that character or thing.\n'
+            '"name_ok" (only for a row with a NAME WRITTEN ON SCREEN): the names of the story\'s own characters are fine on any picture of its characters: answer true, and answer true whenever you are not sure. '
+            'Answer false ONLY when the name is a REAL PERSON (an actor, a singer, a creator, a public figure) and the picture shows drawn, animated or game characters instead of that person.\n'
             'JSON: {"rows":[{"id":"row id","about":"","fits":true,"name_ok":true}]}' % (m.get('title', ''), re.sub(r'\s+', ' ', m.get('page_text', ''))[:1400], '\n'.join(rows)))
     try:
-        j, model = ai.ask_json('You check the cut of a short video against its words. Strict JSON only.', user, kind='reader', temperature=0.1, timeout=60, max_tokens=2500)
+        j, model = ai.ask_json('You check the cut of a short video against its words. Strict JSON only.', user, kind='text', temperature=0.1, timeout=80, max_tokens=4000)      # a judgement: the writing models, not the light ones (they change their mind from one try to the next)
     except ai.AIError as e:
         log('director: no reader checked the pictures against the words (%s)' % str(e)[-70:])
         return 0
