@@ -1,0 +1,475 @@
+{
+ "made_at": "2026-10-09T11:23:45Z",
+ "answers": [
+  {
+   "kind": "term",
+   "ref_id": 17940,
+   "yes": true,
+   "confidence": 0.945,
+   "p_yes": 0.945
+  },
+  {
+   "kind": "term",
+   "ref_id": 17931,
+   "yes": false,
+   "confidence": 0.915,
+   "p_yes": 0.085
+  },
+  {
+   "kind": "term",
+   "ref_id": 17921,
+   "yes": false,
+   "confidence": 0.933,
+   "p_yes": 0.067
+  },
+  {
+   "kind": "term",
+   "ref_id": 17910,
+   "yes": false,
+   "confidence": 0.95,
+   "p_yes": 0.05
+  },
+  {
+   "kind": "story",
+   "ref_id": 17953,
+   "yes": true,
+   "confidence": 0.81,
+   "p_yes": 0.81
+  },
+  {
+   "kind": "story",
+   "ref_id": 17952,
+   "yes": true,
+   "confidence": 0.885,
+   "p_yes": 0.885
+  },
+  {
+   "kind": "story",
+   "ref_id": 17951,
+   "yes": true,
+   "confidence": 0.879,
+   "p_yes": 0.879
+  },
+  {
+   "kind": "story",
+   "ref_id": 17950,
+   "yes": true,
+   "confidence": 0.914,
+   "p_yes": 0.914
+  },
+  {
+   "kind": "story",
+   "ref_id": 17949,
+   "yes": true,
+   "confidence": 0.879,
+   "p_yes": 0.879
+  },
+  {
+   "kind": "story",
+   "ref_id": 17948,
+   "yes": true,
+   "confidence": 0.859,
+   "p_yes": 0.859
+  },
+  {
+   "kind": "story",
+   "ref_id": 17947,
+   "yes": true,
+   "confidence": 0.624,
+   "p_yes": 0.624
+  },
+  {
+   "kind": "story",
+   "ref_id": 17946,
+   "yes": true,
+   "confidence": 0.923,
+   "p_yes": 0.923
+  },
+  {
+   "kind": "story",
+   "ref_id": 17945,
+   "yes": true,
+   "confidence": 0.785,
+   "p_yes": 0.785
+  },
+  {
+   "kind": "story",
+   "ref_id": 17944,
+   "yes": true,
+   "confidence": 0.885,
+   "p_yes": 0.885
+  },
+  {
+   "kind": "story",
+   "ref_id": 17942,
+   "yes": true,
+   "confidence": 0.929,
+   "p_yes": 0.929
+  },
+  {
+   "kind": "story",
+   "ref_id": 17941,
+   "yes": false,
+   "confidence": 0.657,
+   "p_yes": 0.343
+  },
+  {
+   "kind": "story",
+   "ref_id": 17939,
+   "yes": true,
+   "confidence": 0.909,
+   "p_yes": 0.909
+  },
+  {
+   "kind": "story",
+   "ref_id": 17938,
+   "yes": true,
+   "confidence": 0.579,
+   "p_yes": 0.579
+  },
+  {
+   "kind": "story",
+   "ref_id": 17937,
+   "yes": true,
+   "confidence": 0.729,
+   "p_yes": 0.729
+  },
+  {
+   "kind": "story",
+   "ref_id": 17936,
+   "yes": true,
+   "confidence": 0.667,
+   "p_yes": 0.667
+  },
+  {
+   "kind": "story",
+   "ref_id": 17935,
+   "yes": true,
+   "confidence": 0.97,
+   "p_yes": 0.97
+  },
+  {
+   "kind": "story",
+   "ref_id": 17934,
+   "yes": true,
+   "confidence": 0.876,
+   "p_yes": 0.876
+  },
+  {
+   "kind": "story",
+   "ref_id": 17933,
+   "yes": true,
+   "confidence": 0.832,
+   "p_yes": 0.832
+  },
+  {
+   "kind": "story",
+   "ref_id": 17932,
+   "yes": true,
+   "confidence": 0.638,
+   "p_yes": 0.638
+  },
+  {
+   "kind": "story",
+   "ref_id": 17930,
+   "yes": true,
+   "confidence": 0.846,
+   "p_yes": 0.846
+  },
+  {
+   "kind": "story",
+   "ref_id": 17929,
+   "yes": true,
+   "confidence": 0.916,
+   "p_yes": 0.916
+  },
+  {
+   "kind": "story",
+   "ref_id": 17928,
+   "yes": true,
+   "confidence": 1.0,
+   "p_yes": 1.0
+  },
+  {
+   "kind": "story",
+   "ref_id": 17927,
+   "yes": false,
+   "confidence": 0.622,
+   "p_yes": 0.378
+  },
+  {
+   "kind": "story",
+   "ref_id": 17926,
+   "yes": true,
+   "confidence": 0.947,
+   "p_yes": 0.947
+  },
+  {
+   "kind": "story",
+   "ref_id": 17925,
+   "yes": true,
+   "confidence": 0.9,
+   "p_yes": 0.9
+  },
+  {
+   "kind": "story",
+   "ref_id": 17924,
+   "yes": true,
+   "confidence": 0.926,
+   "p_yes": 0.926
+  },
+  {
+   "kind": "story",
+   "ref_id": 17923,
+   "yes": true,
+   "confidence": 0.912,
+   "p_yes": 0.912
+  },
+  {
+   "kind": "story",
+   "ref_id": 17922,
+   "yes": true,
+   "confidence": 0.946,
+   "p_yes": 0.946
+  },
+  {
+   "kind": "story",
+   "ref_id": 17919,
+   "yes": false,
+   "confidence": 0.532,
+   "p_yes": 0.468
+  },
+  {
+   "kind": "story",
+   "ref_id": 17918,
+   "yes": true,
+   "confidence": 0.607,
+   "p_yes": 0.607
+  },
+  {
+   "kind": "story",
+   "ref_id": 17917,
+   "yes": true,
+   "confidence": 0.733,
+   "p_yes": 0.733
+  },
+  {
+   "kind": "story",
+   "ref_id": 17916,
+   "yes": true,
+   "confidence": 0.742,
+   "p_yes": 0.742
+  },
+  {
+   "kind": "story",
+   "ref_id": 17915,
+   "yes": false,
+   "confidence": 0.798,
+   "p_yes": 0.202
+  },
+  {
+   "kind": "story",
+   "ref_id": 17913,
+   "yes": true,
+   "confidence": 0.953,
+   "p_yes": 0.953
+  },
+  {
+   "kind": "story",
+   "ref_id": 17912,
+   "yes": true,
+   "confidence": 0.921,
+   "p_yes": 0.921
+  },
+  {
+   "kind": "story",
+   "ref_id": 17911,
+   "yes": true,
+   "confidence": 0.77,
+   "p_yes": 0.77
+  },
+  {
+   "kind": "story",
+   "ref_id": 17909,
+   "yes": true,
+   "confidence": 0.886,
+   "p_yes": 0.886
+  },
+  {
+   "kind": "story",
+   "ref_id": 17908,
+   "yes": true,
+   "confidence": 0.669,
+   "p_yes": 0.669
+  },
+  {
+   "kind": "story",
+   "ref_id": 17907,
+   "yes": true,
+   "confidence": 0.923,
+   "p_yes": 0.923
+  },
+  {
+   "kind": "story",
+   "ref_id": 17906,
+   "yes": true,
+   "confidence": 0.926,
+   "p_yes": 0.926
+  },
+  {
+   "kind": "story",
+   "ref_id": 17905,
+   "yes": true,
+   "confidence": 0.862,
+   "p_yes": 0.862
+  },
+  {
+   "kind": "story",
+   "ref_id": 17903,
+   "yes": true,
+   "confidence": 0.921,
+   "p_yes": 0.921
+  },
+  {
+   "kind": "story",
+   "ref_id": 17902,
+   "yes": true,
+   "confidence": 0.945,
+   "p_yes": 0.945
+  },
+  {
+   "kind": "story",
+   "ref_id": 17901,
+   "yes": true,
+   "confidence": 0.895,
+   "p_yes": 0.895
+  },
+  {
+   "kind": "story",
+   "ref_id": 17900,
+   "yes": true,
+   "confidence": 0.949,
+   "p_yes": 0.949
+  },
+  {
+   "kind": "story",
+   "ref_id": 17899,
+   "yes": true,
+   "confidence": 0.945,
+   "p_yes": 0.945
+  },
+  {
+   "kind": "story",
+   "ref_id": 17898,
+   "yes": true,
+   "confidence": 0.868,
+   "p_yes": 0.868
+  },
+  {
+   "kind": "story",
+   "ref_id": 17897,
+   "yes": true,
+   "confidence": 0.89,
+   "p_yes": 0.89
+  },
+  {
+   "kind": "story",
+   "ref_id": 17895,
+   "yes": true,
+   "confidence": 0.657,
+   "p_yes": 0.657
+  },
+  {
+   "kind": "story",
+   "ref_id": 17894,
+   "yes": true,
+   "confidence": 0.82,
+   "p_yes": 0.82
+  },
+  {
+   "kind": "story",
+   "ref_id": 17893,
+   "yes": true,
+   "confidence": 0.919,
+   "p_yes": 0.919
+  },
+  {
+   "kind": "story",
+   "ref_id": 17892,
+   "yes": true,
+   "confidence": 0.837,
+   "p_yes": 0.837
+  },
+  {
+   "kind": "story",
+   "ref_id": 17891,
+   "yes": true,
+   "confidence": 0.529,
+   "p_yes": 0.529
+  },
+  {
+   "kind": "story",
+   "ref_id": 17890,
+   "yes": true,
+   "confidence": 0.692,
+   "p_yes": 0.692
+  },
+  {
+   "kind": "story",
+   "ref_id": 17889,
+   "yes": true,
+   "confidence": 0.677,
+   "p_yes": 0.677
+  },
+  {
+   "kind": "story",
+   "ref_id": 17888,
+   "yes": true,
+   "confidence": 0.894,
+   "p_yes": 0.894
+  },
+  {
+   "kind": "story",
+   "ref_id": 17887,
+   "yes": true,
+   "confidence": 0.924,
+   "p_yes": 0.924
+  },
+  {
+   "kind": "story",
+   "ref_id": 17886,
+   "yes": true,
+   "confidence": 0.834,
+   "p_yes": 0.834
+  },
+  {
+   "kind": "story",
+   "ref_id": 17885,
+   "yes": true,
+   "confidence": 0.799,
+   "p_yes": 0.799
+  },
+  {
+   "kind": "story",
+   "ref_id": 17884,
+   "yes": true,
+   "confidence": 0.883,
+   "p_yes": 0.883
+  },
+  {
+   "kind": "story",
+   "ref_id": 17883,
+   "yes": true,
+   "confidence": 0.703,
+   "p_yes": 0.703
+  },
+  {
+   "kind": "story",
+   "ref_id": 17871,
+   "yes": true,
+   "confidence": 0.506,
+   "p_yes": 0.506
+  }
+ ],
+ "errors": []
+}
