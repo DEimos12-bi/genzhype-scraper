@@ -88,8 +88,8 @@ def look(assets, m, work, log=print, tick=None):
                 '"photo": true if it is a photograph or a frame of real-world video, false if it is an animation, a cartoon, a drawing, a video game or a 3D render;\n'
                 '"person": "real" if a real human being (photographed or filmed) is the main subject, "drawn" if its figures are drawn, animated, 3D-rendered or game characters, "none" if nobody is in it;\n'
                 '"score": 0 to 5, how clear and striking it is as a picture (0 = black, blank or unreadable);\n'
-                '"subjects": the separate things or figures in it that a camera could go close on, the most important first, at most 5. For each: "name" (what it is by its look, 3 to 7 words: '
-                '"pirate in a yellow coat"), "x" and "y" (where its CENTRE is, as numbers from 0 to 1: x 0 = left edge, 1 = right edge; y 0 = top, 1 = bottom), '
+                '"subjects": EVERY separate figure or thing in it that a camera could go close on, from LEFT to RIGHT, at most 6. Leave none out because it is small, at the edge, '
+                'or drawn in another style than the others. For each: "name" (what it is by its look, 3 to 7 words: "woman in a red raincoat"), "x" and "y" (where its CENTRE is, as numbers from 0 to 1: x 0 = left edge, 1 = right edge; y 0 = top, 1 = bottom), '
                 '"h" (how much of the picture\'s height it takes, from 0 to 1).\n'
                 'JSON: {"what":"","text":"","photo":false,"person":"none","score":3,"subjects":[{"name":"","x":0.5,"y":0.5,"h":0.4}]}')
         try:
@@ -112,7 +112,7 @@ def look(assets, m, work, log=print, tick=None):
                 continue
             if 0 <= x <= 1 and 0 <= y <= 1 and str(sb.get('name') or '').strip():
                 subjects.append({'id': 's%d' % (len(subjects) + 1), 'name': str(sb['name']).strip()[:60], 'x': round(x, 3), 'y': round(y, 3), 'h': round(min(1.0, max(0.08, hh)), 3)})
-        a['subjects'] = subjects[:5]
+        a['subjects'] = subjects[:6]
         a['seen'] = (what + (' (text in it: "%s")' % str(t['text']).strip()[:80] if str(t.get('text') or '').strip() else '')) if t else ''
         a['usable'], why = bool(t) and score >= 1, 'UNREADABLE' if t else 'NOBODY LOOKED AT IT'
         # A real person as the subject: a GIF of a stranger turned into a joke is never shown; somebody's own post only when
@@ -164,8 +164,9 @@ def sort_topic(assets, m, log=print):
     own = [flat(a.get('by')) for a in assets.values() if not a.get('found') and len(flat(a.get('by'))) >= 6]
     for x in j.get('off') or []:
         k = x.get('id') if isinstance(x, dict) else x
-        if k in cand and any(n in (cand[k].get('title', '') + ' ' + cand[k].get('seen', '')).lower() for n in names):
-            log('  %s: the reader called it off topic, but it names the meme: it stays' % k)
+        # (what is SEEN in it, not the words it was filed under: a search for the meme's name returns its name in every title)
+        if k in cand and any(n in cand[k].get('seen', '').lower() for n in names):
+            log('  %s: the reader called it off topic, but the meme\'s name is in the picture: it stays' % k)
             continue
         if k in cand and any(o in flat(cand[k].get('title', '') + ' ' + cand[k].get('seen', '')) for o in own):
             log('  %s: the reader called it off topic, but it carries the account name of one of the page\'s own examples: it stays' % k)

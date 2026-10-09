@@ -74,6 +74,16 @@ def window_on(a, s):
     return {'k0': out[0], 'k1': out[1]}
 
 
+def same_view(ka, kb):
+    """Two window framings [centre x, centre y, zoom] that show nearly the same part of the picture (three quarters of
+    one lies inside the other): one above the other they look like one picture printed twice. Two neighbours that
+    each fill their own window (two dogs side by side overlap by half) are still two views."""
+    wa, ha, wb, hb = 1080 / ka[2], 560 / ka[2], 1080 / kb[2], 560 / kb[2]
+    ox = max(0.0, min(ka[0] + wa / 2, kb[0] + wb / 2) - max(ka[0] - wa / 2, kb[0] - wb / 2))
+    oy = max(0.0, min(ka[1] + ha / 2, kb[1] + hb / 2) - max(ka[1] - ha / 2, kb[1] - hb / 2))
+    return ox * oy > 0.75 * min(wa * ha, wb * hb)
+
+
 def whole_still(a, nth, sharp=True):
     w, h = a['w'], a['h']
     if sharp and (h >= w * 1.3 or nth % 3 != 2) and min(w, h) >= (700 if h >= w * 1.3 else 800):      # fills the screen, a slow move across it (an upright picture always does)
@@ -136,6 +146,11 @@ def for_line(pl, ln, t0, t1, sup, shots, pick, has_card, card_to, face_ok, log, 
             move = 'whole'
         if move in ('pan', 'two') and (not subject(A, show.get('to')) or show.get('to') == show.get('focus')):
             move = 'close'
+        if move == 'two' and same_view(window_on(A, subject(A, show['focus']))['k0'], window_on(A, subject(A, show['to']))['k0']):
+            move = 'whole'                                     # two windows that would show the same part of the picture: the whole picture, once
+            gone = [o for o in pl.get('overlays', []) if o.get('beat') in members and o.get('k') == 'labels']
+            pl['overlays'] = [o for o in pl.get('overlays', []) if o not in gone]
+            log('  %s: the two windows asked for on %s would show the same part of it; shown whole' % (pl['id'], asset))
         if move == 'play' and not face_ok(asset, pl['text']):
             move = 'under'
             log('  %s: %s shows a person these words do not name; shown blurred' % (pl['id'], asset))

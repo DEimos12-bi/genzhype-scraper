@@ -950,7 +950,10 @@ def picture_check(p, m, log):
             k = (b.get('show') or {}).get('asset')
             if (A.get(k) or {}).get('seen'):
                 named = next((str(o.get('t') or o.get('name') or '') for o in l.get('overlays', []) if o.get('beat') == n and o.get('k') in ('name', 'tag')), '')
+                side = lambda s: 'left' if s.get('x', .5) < .4 else 'right' if s.get('x', .5) > .6 else 'centre'
                 close = next((s.get('name', '') for s in A[k].get('subjects') or [] if s.get('id') == b['show'].get('focus')), '') if b['show'].get('move') in ('close', 'pan', 'two') else ''
+                if close and b['show'].get('move') == 'close':  # the judge may move the close-up to the subject the sentence names
+                    close = '%s "%s"; the figures the picture model found in it: %s' % (b['show']['focus'], close, '; '.join('%s "%s" (%s)' % (s['id'], s.get('name', ''), side(s)) for s in A[k]['subjects']))
                 where['%s.%d' % (l['id'], n + 1)] = (l, n, b)
                 posted = ' [posted by %s%s]' % (A[k].get('by') or '?', ' with the words "%s"' % A[k]['title'][:110] if A[k].get('title') else '')
                 rows.append('%s.%d | "%s" | %s%s%s%s' % (l['id'], n + 1, b['say'], A[k]['seen'][:280], posted, ' (the camera is close on: %s)' % close if close else '', ' | NAME WRITTEN ON SCREEN: "%s"' % named if named else ''))
@@ -967,7 +970,9 @@ def picture_check(p, m, log):
             'another person, a place, another use of it, or a number that belongs to a video other than the one shown.\n'
             '"name_ok" (only for a row with a NAME WRITTEN ON SCREEN): the names of the story\'s own characters are fine on any picture of its characters: answer true, and answer true whenever you are not sure. '
             'Answer false ONLY when the name is a REAL PERSON (an actor, a singer, a creator, a public figure) and the picture shows drawn, animated or game characters instead of that person.\n'
-            'JSON: {"rows":[{"id":"row id","about":"","fits":true,"name_ok":true}]}' % (m.get('title', ''), re.sub(r'\s+', ' ', m.get('page_text', ''))[:1400], '\n'.join(rows)))
+            '"focus" (only for a row where the camera is close on a figure, and the figures found in the picture are listed): the id of the listed figure that the sentence, and the name on screen, '
+            'are really about (the page above says who looks like what). Answer "none" when the one it is about is NOT among the listed figures.\n'
+            'JSON: {"rows":[{"id":"row id","about":"","fits":true,"name_ok":true,"focus":"s1"}]}' % (m.get('title', ''), re.sub(r'\s+', ' ', m.get('page_text', ''))[:1400], '\n'.join(rows)))
     try:
         j, model = ai.ask_json('You check the cut of a short video against its words. Strict JSON only.', user, kind='text', temperature=0.1, timeout=80, max_tokens=4000)      # a judgement: the writing models, not the light ones (they change their mind from one try to the next)
     except ai.AIError as e:
@@ -981,6 +986,19 @@ def picture_check(p, m, log):
             if gone:
                 l['overlays'] = [o for o in l['overlays'] if o not in gone]
                 log('  %s "%s": the name on screen ("%s") is not who its picture shows; the name is taken off' % (x['id'], b['say'][:40], str(gone[0].get('t') or gone[0].get('name'))[:30]))
+    for x in j.get('rows') or []:                                  # a close-up on the wrong figure goes to the right one; when the right one was not found, the whole picture is shown
+        if not (isinstance(x, dict) and x.get('id') in where and x.get('fits') is not False):
+            continue
+        l, n, b = where[x['id']]
+        ids, f = [s['id'] for s in A[b['show']['asset']].get('subjects') or []], str(x.get('focus') or '').strip().lower()
+        if b['show'].get('move') != 'close' or not f or f == b['show'].get('focus'):
+            continue
+        if f in ids:
+            log('  %s "%s": the close-up was on %s; it goes to %s, the one the sentence names' % (x['id'], b['say'][:40], b['show'].get('focus'), f))
+            b['show']['focus'] = f
+        elif f == 'none':
+            log('  %s "%s": the one it names is not among the figures found in its picture; the whole picture is shown' % (x['id'], b['say'][:40]))
+            b['show'] = {'asset': b['show']['asset'], 'move': 'whole'}
     wrong = [x for x in j.get('rows') or [] if isinstance(x, dict) and x.get('fits') is False]
     for x in wrong[:max(1, len(rows) // 3)]:                       # at most a third: a reader that refuses everything is not followed
         rid = x.get('id')
