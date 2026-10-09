@@ -145,6 +145,10 @@ def chat(system, user, images=(), kind=None, temperature=0.5, timeout=120, max_t
                 last = '%s/%s: %s' % (provider, model, str(e)[:160])
                 if wait_for < timeout and time.time() - t >= wait_for - 1:      # cut short by the caller's limit, not by the model
                     note({'model': provider + '/' + model, 'kind': kind, 's': round(time.time() - t, 1), 'ok': False, 'why': 'stopped at the time limit of this run after %d s' % wait_for})
+                    if wait_for >= 60:                         # it had a fair wait and gave nothing: the next run asks the next model, not
+                        for p2, m2 in available(kind):         # this one again (the same model on a sister account is as slow)
+                            if m2 == model and p2[:6] == provider[:6]:
+                                strikes(add=p2 + '/' + m2, why='too slow for the time limit of the run')
                     raise OutOfTime('the time limit of this run was reached while %s/%s was answering' % (provider, model))
             note({'model': provider + '/' + model, 'kind': kind, 's': round(time.time() - t, 1), 'ok': False, 'why': last[-330:]})
             if 0 < pause <= 50:
