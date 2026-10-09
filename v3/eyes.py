@@ -54,6 +54,11 @@ def look(work, log=print):
         if not a.get('file') or a['kind'] == 'photo' or a.get('eyes'):
             continue
         n = int(min(16, max(6, a['dur'] // 4)))
+        # A MEME has one look. What a search brings under its name is often a remake (a rhythm game, another animation): the
+        # judge is told what the page's own pictures of it look like, and a remake does not count as the meme itself.
+        own = [v['eyes']['shows'] for v in plan['assets'].values() if v.get('whole') and v.get('usable', True) and (v.get('eyes') or {}).get('kind') == 'meme' and v['eyes'].get('shows')][:4]
+        look = ('\nTHE MEME\'S OWN PICTURES look like this (described by a model that cannot name its characters): %s\n"exact" is true only when this clip shows what was searched in THAT SAME FORM, the same drawing and the same scene. '
+                'A remake in another style (a rhythm game, a different animation, an edit with other characters) is "relevant" but NOT "exact".' % ' | '.join(own)) if plan.get('kind') == 'meme' and own and a['kind'] == 'hunt' and not a.get('game') else ''
         out = os.path.join(edir, aid + '.jpg')
         tiles, labelled = sheet(os.path.join(work, 'assets', a['file']), a['dur'], out, n)
         tsec = dict(tiles)
@@ -62,9 +67,9 @@ def look(work, log=print):
                 '1 = dull or unclear; 0 = black or very dark, a title or text screen, an ad, a logo, unrelated), "x" where the main subject sits from 0 (left edge) to 1 (right edge), '
                 '"text" true if big burned-in text, captions or a channel banner cover it, "face" true if a real person\'s face is the main subject.\n'
                 'Then for the whole clip: "kind" one of gameplay, trailer, event, stream, talking, other; "relevant" true if it shows the game, people, product or event of THIS story at all (false for a different game, a fan concept, an ad, an unrelated video); "exact" true if it shows exactly this: %s; "shows" one sentence.\n'
-                'JSON: {"tiles":[{"n":"A","what":"","score":0,"x":0.5,"text":false,"face":false}],"kind":"","relevant":true,"exact":true,"shows":""}'
+                '%s\nJSON: {"tiles":[{"n":"A","what":"","score":0,"x":0.5,"text":false,"face":false}],"kind":"","relevant":true,"exact":true,"shows":""}'
                 % (plan['title'], a.get('about', '')[:300], 'It was searched to show: ' + a['must_show'] if a.get('must_show') else '', len(tiles),
-                   ', each labelled with its letter and second' if labelled else ', unlabelled: letter them A, B, C... left to right, top to bottom', a.get('must_show') or 'something of this story'))
+                   ', each labelled with its letter and second' if labelled else ', unlabelled: letter them A, B, C... left to right, top to bottom', a.get('must_show') or 'something of this story', look))
         eyes = None
         if a['kind'] != 'stock':
             try:
@@ -89,6 +94,9 @@ def look(work, log=print):
         a['eyes'] = {'kind': str(eyes.get('kind', 'other')), 'relevant': bool(eyes.get('relevant', True)), 'exact': bool(eyes.get('exact', eyes.get('relevant', True))), 'shows': str(eyes.get('shows', ''))[:160], 'model': eyes.get('model', '')}
         a['windows'] = sorted([g for g in good if g['score'] >= 2.5], key=lambda g: (-g['score'], g['t']))
         a['usable'] = bool(a['windows']) and (a['eyes']['relevant'] or a['kind'] == 'stock')
+        if look and a['usable'] and not a['eyes']['exact']:
+            a['usable'] = False
+            log('%s: a remake of the meme, not the meme itself: not shown (the meme\'s own clip plays where it was asked for)' % aid)
         json.dump(plan, open(os.path.join(work, 'plan.json'), 'w', encoding='utf-8'), ensure_ascii=False, indent=1)      # kept clip by clip: a stopped run does not look twice
         log('%s: %s, %s, %d of %d moments usable: %s' % (aid, a['eyes']['kind'], ('shows exactly it' if a['eyes']['exact'] else 'on topic') if a['eyes']['relevant'] else 'OFF TOPIC', len(a['windows']), len(good), a['eyes']['shows'][:90]))
     json.dump(plan, open(os.path.join(work, 'plan.json'), 'w', encoding='utf-8'), ensure_ascii=False, indent=1)

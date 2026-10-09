@@ -23,7 +23,11 @@ for (const pl of PLAN.lines) for (const c of (pl.caps || [])) {
 }
 
 /* one unit: the graphics `ov` of line `pl`, shown between a and b; sharp = they sit on a picture that must stay readable */
-function place(pl, li, k, a, b, ov, sharp, from, to) {
+/* the box of a picture that is shown WHOLE and does not fill the screen: big words go under it, or over it, never across what is written in it */
+const boxOf = s => s.mode === 'W' ? (k => { const fh = Math.floor(s.h * k / 2) * 2, top = Math.max(120, 700 - Math.floor(fh / 2)); return {top, bottom: top + fh}; })(Math.min(1024 / s.w, 1150 / s.h))
+  : s.mode === 'S' && s.fy === 700 ? {top: 700 - s.k1[1] * s.k1[2], bottom: 700 + s.k1[1] * s.k1[2]} : null;
+
+function place(pl, li, k, a, b, ov, sharp, from, to, box) {
   const r = (li + k) % 2 ? 2 : -2;
   const W = (word, lead) => at(pl.id, word, lead, from, to);
   const idx = o => (pl.overlays || []).indexOf(o), key = j => ({key: 'L' + li + '.' + j});
@@ -43,7 +47,12 @@ function place(pl, li, k, a, b, ov, sharp, from, to) {
 
   if (!card) {                                                          // footage with one or two big words
     const ys = stamp && chip && sub ? [400, 600, 800] : stamp && (chip || sub) ? [chip ? 420 : 0, 610, sub ? 810 : 0] : [420, 620, 620];
-    const y0 = top ? 140 : 0;
+    let y0 = top ? 140 : 0;
+    if (box && light.length) {                                          // the group's own top and bottom, then where it has room
+      const hi = chip && stamp ? ys[0] - 45 : stamp ? ys[1] - 120 : chip ? 410 : 580, lo = sub ? (stamp ? ys[2] : 640) + 60 : stamp ? ys[1] + 120 : 530, floor = name ? 1130 : 1240;
+      const under = box.bottom + 24 - hi, over = box.top - 24 - lo;
+      y0 = lo + under <= floor ? under : hi + over >= 150 ? over : floor - lo;      // no room: on the picture's bottom edge, the least written part of a meme
+    }
     if (chip && !stamp && !sub) item(`<div class="sub" style="font-size:68px">${esc(chip.t)}</div>`, 520, 470 + y0, W(chip.on), b, 'pop', {r: -r, fit: 900, ...key(idx(chip))});
     else if (chip) item(`<div class="chip" style="font-size:34px">${esc(chip.t)}</div>`, 520, (stamp ? ys[0] : 440) + y0, W(chip.on), b, 'pop', {r: -r, fit: 900, ...key(idx(chip))});
     if (stamp) item(`<div class="stamp${(li + k) % 3 === 2 ? ' paper' : ''}" style="font-size:${stamp.t.length <= 6 ? 210 : stamp.t.length <= 9 ? 170 : 132}px">${esc(stamp.t)}</div>`, 520, ys[1] + y0, W(stamp.on, .04), b, 'slam', {r: r * 1.5, fit: 900, ...key(idx(stamp))});
@@ -108,7 +117,7 @@ PLAN.lines.forEach((pl, li) => {
     const lastBeat = Math.max(k, ...mine.map(o => o.to == null ? k : o.to)), tail = beatShots(pl.id, lastBeat);      // a card can run on into the next sentence
     const lb = pl.beats[lastBeat] || bt;
     const first = sh[0], end = (tail.length ? tail : sh)[(tail.length ? tail : sh).length - 1].t1, from = bt.t0 == null ? first.t0 : bt.t0, to = lb.t1 == null ? end : lb.t1;
-    place(pl, li, k, from, end, mine, 'SFWCD'.includes(first.mode) && first.move !== 'under' && (first.dim == null ? 0 : first.dim) < .3, from, to);
+    place(pl, li, k, from, end, mine, 'SFWCD'.includes(first.mode) && first.move !== 'under' && (first.dim == null ? 0 : first.dim) < .3, from, to, boxOf(first));
   });
 });
 

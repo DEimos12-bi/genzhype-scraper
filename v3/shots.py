@@ -100,6 +100,10 @@ def plan_shots(plan, tl, log):
     meme = plan.get('kind') == 'meme' and len(meme_pool()) >= 2
     nxt = lambda last: ([k for k in meme_pool() if k != last] or meme_pool())[0]
 
+    if plan.get('kind') == 'meme':                             # a found clip of the meme itself is shown like the meme's own examples: whole, never a window cut out of it
+        for v in sup.a.values():
+            if v['kind'] == 'hunt' and not v.get('game') and v.get('eyes', {}).get('exact'):
+                v['whole'] = True
     asked = [(b.get('show') or {}).get('asset') for l in plan['lines'] for b in l.get('beats') or []]
     asked = [k for k in asked if k in sup.a and sup.a[k]['kind'] == 'clip' and sup.a[k].get('usable', True)]
     main = max(sorted(set(asked)), key=asked.count) if asked else None

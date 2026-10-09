@@ -949,25 +949,35 @@ def picture_check(p, m, log):
         for n, b in enumerate(l.get('beats') or [] if l['id'] not in ('vote', 'site') else []):
             k = (b.get('show') or {}).get('asset')
             if (A.get(k) or {}).get('seen'):
+                named = next((str(o.get('t') or o.get('name') or '') for o in l.get('overlays', []) if o.get('beat') == n and o.get('k') in ('name', 'tag')), '')
                 where['%s.%d' % (l['id'], n + 1)] = (l, n, b)
-                rows.append('%s.%d | "%s" | %s' % (l['id'], n + 1, b['say'], A[k]['seen'][:170]))
+                rows.append('%s.%d | "%s" | %s%s' % (l['id'], n + 1, b['say'], A[k]['seen'][:170], ' | NAME WRITTEN ON SCREEN: "%s"' % named if named else ''))
     clips = [b['show']['asset'] for _, _, b in where.values() if A[b['show']['asset']].get('kind') == 'clip']
     if len(rows) < 4 or not clips:
         return 0
     main = max(sorted(set(clips)), key=clips.count)
-    user = ('THE SUBJECT: %s\n\nEach row is one sentence of a short video about it and the picture on screen while it is said. The pictures were described by a model that was NOT told the subject '
+    user = ('THE SUBJECT: %s\nWHO AND WHAT IS IN IT, FROM THE PAGE: %s\n\nEach row is one sentence of a short video about it and the picture on screen while it is said. The pictures were described by a model that was NOT told the subject '
             'and cannot name its characters (it writes "a blocky figure", "a yellow face").\nrow id | the sentence | the picture\n%s\n\n'
             'Answer for EVERY row. "about": the one thing the sentence talks about, in 2 to 5 words. "fits":\n'
             '  true  when the picture shows that thing; or when the sentence is general (the subject as a whole, its characters, the fight, the joke) and the picture shows its characters or its scene;\n'
             '  false when the sentence is about something SPECIFIC that the picture does not show: a certain remix or edit (a lip dub, a slowed version, an AI voice), another creator\'s video, '
             'another person, a place, another use of it, or a number that belongs to a video other than the one shown.\n'
-            'JSON: {"rows":[{"id":"row id","about":"","fits":true}]}' % (m.get('title', ''), '\n'.join(rows)))
+            '"name_ok" (only for a row with a NAME WRITTEN ON SCREEN): false when the picture cannot be showing who or what that name says: a real person\'s name on a picture of drawn or game characters, '
+            'or the name of one character on a picture of others. true when the picture can be that character or thing.\n'
+            'JSON: {"rows":[{"id":"row id","about":"","fits":true,"name_ok":true}]}' % (m.get('title', ''), re.sub(r'\s+', ' ', m.get('page_text', ''))[:1400], '\n'.join(rows)))
     try:
         j, model = ai.ask_json('You check the cut of a short video against its words. Strict JSON only.', user, kind='reader', temperature=0.1, timeout=60, max_tokens=2500)
     except ai.AIError as e:
         log('director: no reader checked the pictures against the words (%s)' % str(e)[-70:])
         return 0
     done = 0
+    for x in j.get('rows') or []:                                  # a name on a picture that does not show its owner is taken off; the picture stays
+        if isinstance(x, dict) and x.get('name_ok') is False and x.get('id') in where:
+            l, n, b = where[x['id']]
+            gone = [o for o in l.get('overlays', []) if o.get('beat') == n and o.get('k') in ('name', 'tag')]
+            if gone:
+                l['overlays'] = [o for o in l['overlays'] if o not in gone]
+                log('  %s "%s": the name on screen ("%s") is not who its picture shows; the name is taken off' % (x['id'], b['say'][:40], str(gone[0].get('t') or gone[0].get('name'))[:30]))
     wrong = [x for x in j.get('rows') or [] if isinstance(x, dict) and x.get('fits') is False]
     for x in wrong[:max(1, len(rows) // 3)]:                       # at most a third: a reader that refuses everything is not followed
         rid = x.get('id')
