@@ -127,7 +127,7 @@ def main():
     os.makedirs(work, exist_ok=True)
     localenv.load()
     os.environ['V3_AI_LOG'] = os.path.join(work, 'ai_log.jsonl')
-    os.environ['V3_AI_STRIKES'] = os.path.join(work, 'ai_strikes.json')
+    os.environ['V3_AI_STRIKES'] = os.path.join(os.path.dirname(os.path.abspath(work)), 'ai_strikes.json')   # one file for every run: a model that is out stays aside in the next run too
     steps = STEPS
     if opt('--steps'):
         steps = [s for s in STEPS if s in opt('--steps').split(',')]

@@ -118,56 +118,74 @@ def _post(provider, model, messages, temperature, timeout, max_tokens, effort):
 
 
 def chat(system, user, images=(), kind=None, temperature=0.5, timeout=120, max_tokens=8000, only=None, skip=(), effort=None, patient=False):
-    """patient=True (the writing calls): a model that answers "too many requests, try again in N seconds" is waited for
+    """The models of this kind of call are asked in their order. One that fails is put aside for a while (strikes) and
+    the next one answers; a model put aside is not asked again while another is free. When every model is put aside and
+    the first one is back within about a minute (a per-minute limit), it is waited for, up to three times; when all are
+    out for long, each is asked once more as a last resort. So a run only stops when nothing at all answers.
+    patient=True (the writing calls): a model that answers "too many requests, try again in N seconds" is waited for
     once, up to 50 seconds, instead of handing the writing to a weaker model at once."""
     kind = kind or ('vision' if images else 'text')
     content = user if not images else [{'type': 'text', 'text': user}] + [_image_part(p) for p in images]
     messages = [{'role': 'system', 'content': system}, {'role': 'user', 'content': content}]
     last = 'no AI key in the environment for: ' + ', '.join(models(kind))
-    slow = set()
-    for provider, model in available(kind):
-        if (only and provider not in only) or provider + '/' + model in skip:
-            continue
-        if (provider[:6], model) in slow:                      # it just timed out on a sister account: it is as slow on this one
-            strikes(add=provider + '/' + model, why='timed out on a sister account')
-            continue
-        for again in (False, True):
-            t, pause, short = time.time(), 0, 0
-            left = None if DEADLINE is None else DEADLINE - t
-            if left is not None and left < 12:
-                raise OutOfTime('the time limit of this run is reached before %s/%s could be asked' % (provider, model))
-            wait_for = timeout if left is None else min(timeout, left)
-            try:
-                text = _post(provider, model, messages, temperature, wait_for, max_tokens, effort or CONFIG['ai'].get('gemini_effort', 'low'))
-                if len(text) < 2:
-                    raise AIError('empty reply')
-                note({'model': provider + '/' + model, 'kind': kind, 's': round(time.time() - t, 1), 'ok': True})
-                return text, provider + '/' + model
-            except urllib.error.HTTPError as e:
-                body = e.read().decode('utf-8', 'replace')
-                last = '%s/%s: HTTP %s %s' % (provider, model, e.code, body[:420].replace('\n', ' '))
-                wait = re.search(r'(?:try again|retry) in (?:(\d+)m)?([\d.]+)s', body)
-                secs = int(wait.group(1) or 0) * 60 + float(wait.group(2)) + 1 if wait else 0
-                if e.code == 429 and 0 < secs <= 120 and '(tpd)' not in body.lower() and 'per day' not in body.lower():
-                    short = max(secs, 20)                      # a per-minute limit (its own words say when to come back): not a daily one
-                    if patient and not again:
-                        pause = secs
-            except Exception as e:  # noqa: BLE001  (a timeout, a broken reply: the next model answers)
-                last = '%s/%s: %s' % (provider, model, str(e)[:160])
-                if wait_for < timeout and time.time() - t >= wait_for - 1:      # cut short by the caller's limit, not by the model
-                    note({'model': provider + '/' + model, 'kind': kind, 's': round(time.time() - t, 1), 'ok': False, 'why': 'stopped at the time limit of this run after %d s' % wait_for})
-                    if wait_for >= 60:                         # it had a fair wait and gave nothing: the next run asks the next model, not
-                        for p2, m2 in available(kind):         # this one again (the same model on a sister account is as slow)
-                            if m2 == model and p2[:6] == provider[:6]:
-                                strikes(add=p2 + '/' + m2, why='too slow for the time limit of the run')
-                    raise OutOfTime('the time limit of this run was reached while %s/%s was answering' % (provider, model))
-                if 'timed out' in str(e).lower():
-                    slow.add((provider[:6], model))
-            note({'model': provider + '/' + model, 'kind': kind, 's': round(time.time() - t, 1), 'ok': False, 'why': last[-330:]})
-            if 0 < pause <= 50:
-                time.sleep(pause)                              # the per-minute limit of the strong writer: worth one wait
+    for lap in range(4):
+        bad = strikes()
+        todo = [x for x in available(kind) if not ((only and x[0] not in only) or '/'.join(x) in skip)]
+        free = [x for x in todo if '/'.join(x) not in bad]
+        if not free and todo:
+            soon = min(bad['/'.join(x)] for x in todo) - time.time()
+            if soon <= 75 and lap < 3:                         # a per-minute limit: the first model back is waited for
+                if DEADLINE is not None and time.time() + soon > DEADLINE - 12:
+                    raise OutOfTime('every model is at its per-minute limit and the time limit of this run comes first')
+                time.sleep(max(1, soon + 1))
                 continue
-            strikes(add=provider + '/' + model, why=last, hold=short or None)
+            if lap:                                            # they were all asked in this very call: nothing answers
+                break
+            free = todo                                        # all out for long before this call: each is asked once more
+        slow = set()
+        for provider, model in free:
+            if (provider[:6], model) in slow:                      # it just timed out on a sister account: it is as slow on this one
+                strikes(add=provider + '/' + model, why='timed out on a sister account')
+                continue
+            for again in (False, True):
+                t, pause, short = time.time(), 0, 0
+                left = None if DEADLINE is None else DEADLINE - t
+                if left is not None and left < 12:
+                    raise OutOfTime('the time limit of this run is reached before %s/%s could be asked' % (provider, model))
+                wait_for = timeout if left is None else min(timeout, left)
+                try:
+                    text = _post(provider, model, messages, temperature, wait_for, max_tokens, effort or CONFIG['ai'].get('gemini_effort', 'low'))
+                    if len(text) < 2:
+                        raise AIError('empty reply')
+                    note({'model': provider + '/' + model, 'kind': kind, 's': round(time.time() - t, 1), 'ok': True})
+                    return text, provider + '/' + model
+                except urllib.error.HTTPError as e:
+                    body = e.read().decode('utf-8', 'replace')
+                    last = '%s/%s: HTTP %s %s' % (provider, model, e.code, body[:420].replace('\n', ' '))
+                    wait = re.search(r'(?:try again|retry) in (?:(\d+)m)?([\d.]+)s', body)
+                    secs = int(wait.group(1) or 0) * 60 + float(wait.group(2)) + 1 if wait else 0
+                    if e.code == 429 and 0 < secs <= 120 and '(tpd)' not in body.lower() and 'per day' not in body.lower():
+                        short = max(secs, 20)                      # a per-minute limit (its own words say when to come back): not a daily one
+                        if patient and not again:
+                            pause = secs
+                except Exception as e:  # noqa: BLE001  (a timeout, a broken reply: the next model answers)
+                    last = '%s/%s: %s' % (provider, model, str(e)[:160])
+                    if wait_for < timeout and time.time() - t >= wait_for - 1:      # cut short by the caller's limit, not by the model
+                        note({'model': provider + '/' + model, 'kind': kind, 's': round(time.time() - t, 1), 'ok': False, 'why': 'stopped at the time limit of this run after %d s' % wait_for})
+                        if wait_for >= 60:                         # it had a fair wait and gave nothing: the next run asks the next model, not
+                            for p2, m2 in available(kind):         # this one again (the same model on a sister account is as slow)
+                                if m2 == model and p2[:6] == provider[:6]:
+                                    strikes(add=p2 + '/' + m2, why='too slow for the time limit of the run')
+                        raise OutOfTime('the time limit of this run was reached while %s/%s was answering' % (provider, model))
+                    if 'timed out' in str(e).lower():
+                        slow.add((provider[:6], model))
+                note({'model': provider + '/' + model, 'kind': kind, 's': round(time.time() - t, 1), 'ok': False, 'why': last[-330:]})
+                if 0 < pause <= 50:
+                    time.sleep(pause)                              # the per-minute limit of the strong writer: worth one wait
+                    continue
+                strikes(add=provider + '/' + model, why=last, hold=short or None)
+                break
+        if not todo:
             break
     raise AIError(last)
 
