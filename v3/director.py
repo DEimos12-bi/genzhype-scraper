@@ -161,6 +161,10 @@ OUT_FULL = """OUTPUT: strict JSON, nothing around it:
  "post":{"caption":"max 150 characters, ends with the vote","hashtags":["8 to 11 lowercase tags without #"],"pinned":"the vote again, then: receipts on genzhype.com (link in bio)"}}
 The last line's id must be "vote"."""
 
+OUT_PATCH = """OUTPUT: strict JSON, nothing around it. You get a finished plan and the faults a machine found in it. Return ONLY the lines you change:
+{"lines":[{"id":"the id of a line you change","say":["its new spoken text,","one sentence per string"]}]}
+For a line, give only the fields you change: "say" (2 or 3 sentences, one per string), "overlays", "caps". A line you do not list stays exactly as it is. Add "vote" only if a fault is about the vote, "hunts" only if a fault is about them. Never return the whole plan."""
+
 STAGE_JOB = 'You get a FINISHED voice-over script. You decide what is on screen for each of its lines. You never change, add or drop a spoken word.'
 JUDGE = 'You are a 16-year-old scrolling TikTok with the sound on. You get several openings written for the SAME video. You pick the one that would make you stop and watch. Strict JSON only.'
 
@@ -170,7 +174,8 @@ def system_for(job, m):
     'director' (both at once: used when a finished plan is sent back to be corrected)."""
     kind = 'meme' if is_meme(m) and any(v.get('whole') for v in assets_of(m).values()) else 'story'
     screen = SCREEN + (SCREEN_MEME if kind == 'meme' else '')
-    parts = {'writer': [SHAPE[kind], VIEWER, OPENING, VOICE, OUT_WRITE], 'picture editor': [STAGE_JOB, screen, OUT_STAGE], 'director': [SHAPE[kind], VIEWER, OPENING, VOICE, screen, OUT_FULL]}[job]
+    parts = {'writer': [SHAPE[kind], VIEWER, OPENING, VOICE, OUT_WRITE], 'picture editor': [STAGE_JOB, screen, OUT_STAGE], 'director': [SHAPE[kind], VIEWER, OPENING, VOICE, screen, OUT_FULL],
+             'corrector': [SHAPE[kind], VIEWER, OPENING, VOICE, screen, OUT_PATCH]}[job]
     return (HEAD % job) + '\n\n' + '\n\n'.join(parts) % {'wmin': CFG['length']['words_min'], 'wmax': CFG['length']['words_max'], 'hunts': 2 if kind == 'meme' else CFG['footage']['max_hunts']}
 
 
@@ -338,35 +343,64 @@ def trim_long(p, log):
     free = lambda i, k: 0 < i < len(lines) - 1 and k > 0 and not re.search(r'["“”]', sent[i][k])
     ids = {'%d.%d' % (i + 1, k + 1): (i, k) for i, ss in enumerate(sent) for k in range(len(ss))}
     rows = '\n'.join('%s%s %s' % (n, '' if free(i, k) else '*', sent[i][k]) for n, (i, k) in ids.items())
-    gone, by = set(), 'the length rule alone'
+    gone, by, wanted = set(), 'the length rule alone', []
     try:
         j, by = ai.ask_json('You shorten a voice-over by deleting whole sentences. You never rewrite a word. Strict JSON only.',
-                            'This voice-over has %d words. It may have %d at most. Choose whole sentences to DELETE, about %d words in all: asides, repeated ideas, the least needed details. '
-                            'Keep it understandable: never delete a sentence that the next one needs. Sentences marked * cannot be deleted.\n\n%s\n\nJSON: {"delete":["3.2","5.4"]}'
-                            % (before, hi, before - hi + 4, rows), kind='reader', temperature=0.2, timeout=60, max_tokens=500)
-        for n in j.get('delete') or []:
-            i, k = ids.get(str(n).strip().rstrip('*'), (-1, -1))
-            cut = sum(words(sent[a][b]) for a, b in gone | {(i, k)}) if i >= 0 else 0
-            if i >= 0 and free(i, k) and before - cut >= lo and before - sum(words(sent[a][b]) for a, b in gone) > hi:
-                gone.add((i, k))
+                            'This voice-over has %d words. It may have %d at most. List the sentences that can be DELETED, the least needed first, about %d words in all: asides, repeated ideas, small details. '
+                            'Take them from the LONGEST lines, and leave every line at least two sentences: a line must still say what it is about. Sentences marked * cannot be deleted.\n\n%s\n\nJSON: {"delete":["5.4","7.3"]}'
+                            % (before, hi, before - hi + 10, rows), kind='reader', temperature=0.2, timeout=60, max_tokens=500)
+        wanted = [ids[n] for n in (str(x).strip().rstrip('*') for x in j.get('delete') or []) if n in ids]
     except ai.AIError:
         pass
     left = lambda: before - sum(words(sent[a][b]) for a, b in gone)
-    while left() > hi + 6:                                     # still too long: the last free sentence of the longest line goes
-        cand = [(sum(words(x) for k, x in enumerate(ss) if (i, k) not in gone), i, max(k for k in range(len(ss)) if free(i, k) and (i, k) not in gone))
-                for i, ss in enumerate(sent) if any(free(i, k) and (i, k) not in gone for k in range(len(ss)))]
-        if not cand:
-            break
-        _, i, k = max(cand)
-        if left() - words(sent[i][k]) < lo:
-            break
-        gone.add((i, k))
+    rest = lambda i, k=-1: [x for kk, x in enumerate(sent[i]) if (i, kk) not in gone and kk != k]
+    may = lambda i, k, floor: free(i, k) and (i, k) not in gone and len(rest(i, k)) >= floor and words(' '.join(rest(i, k))) >= 7 * floor and left() - words(sent[i][k]) >= lo
+    by_length = lambda: sorted(((i, k) for i, ss in enumerate(sent) for k in range(len(ss))), key=lambda t: (-words(' '.join(rest(t[0]))), -t[1]))
+    # The reader's choice first, but no line is emptied: each keeps two sentences (the first cut by a reader left "This is
+    # Verity." as a whole line). Then, if it is still too long, the last sentences of the longest lines, and only at the
+    # very end a line may go down to one sentence.
+    for floor, order, goal in ((2, wanted, hi), (2, None, hi + 6), (1, None, hi + 6)):
+        while left() > goal:
+            pool = [t for t in (order if order is not None else by_length()) if may(t[0], t[1], floor)]
+            if not pool:
+                break
+            gone.add(pool[0])
     if not gone:
         return False
     for i, l in enumerate(lines):
         l['text'] = ' '.join(x for k, x in enumerate(sent[i]) if (i, k) not in gone)
     log('director: the script had %d words (%d at most): %d sentences were removed, chosen by %s, and nothing was rewritten: %d words now' % (before, hi, len(gone), by, left()))
     return True
+
+
+def say_text(say):
+    """A line given sentence by sentence, as one text."""
+    parts = [re.sub(r'\s+', ' ', str(x)).strip() for x in say if str(x).strip()]
+    return ' '.join(x if x[-1] in '.!?…"”' else x + '.' for x in parts)
+
+
+def apply_patch(base, patch):
+    """A correction that came back as changed lines only, set into the plan it corrects. Returns (the plan, lines changed)."""
+    p = json.loads(json.dumps(story_for_repair(base)))
+    by, n = {l['id']: l for l in p['lines']}, 0
+    for x in patch.get('lines') or []:
+        l = by.get(re.sub(r'[^a-z0-9]', '', str(x.get('id', '')).lower())) if isinstance(x, dict) else None
+        if not l:
+            continue
+        if isinstance(x.get('say'), list) and say_text(x['say']):
+            l['text'] = say_text(x['say'])
+        elif isinstance(x.get('text'), str) and x['text'].strip():
+            l['text'] = x['text'].strip()
+        for k in ('overlays', 'caps'):
+            if isinstance(x.get(k), list):
+                l[k] = x[k]
+        n += 1
+    v = patch.get('vote')
+    if isinstance(v, dict) and isinstance(v.get('a'), dict) and isinstance(v.get('b'), dict):
+        p['vote'] = v
+    if isinstance(patch.get('hunts'), list):
+        p['hunts'] = patch['hunts']
+    return p, n
 
 
 def story_for_repair(p):
@@ -415,7 +449,9 @@ def fix_and_check(p, m):
         if HEAVY.search(t) and not SAYS.search(t) and '"' not in t:
             soft.append('line %d states "%s" as a fact: say who says it' % (i + 1, HEAVY.search(t).group(0)))
         if re.search(r'\d', t):
-            soft.append('line %d has digits in the spoken text ("%s"): write numbers as spoken words and put the digits in "caps"' % (i + 1, re.search(r'\S*\d\S*', t).group(0)))
+            digits = re.search(r'\S*\d\S*', t).group(0)
+            soft.append('line %d says an account name with digits ("%s"): say "a TikToker" or "one account" instead, and show the name on a "chip"' % (i + 1, digits) if digits.startswith('@') else
+                        'line %d has digits in the spoken text ("%s"): write numbers as spoken words and put the digits in "caps"' % (i + 1, digits))
         show = l.get('show') if isinstance(l.get('show'), dict) else {}
         asset = str(show.get('asset') or 'auto')
         if asset not in have and asset not in hunts:
@@ -772,13 +808,15 @@ def unsupported(plan, m):
         mat += '\n\nTHE PICTURES THE VIDEO SHOWS (the meme itself, and posts that use it):\n' + '\n'.join(shown)
     sys_ = ('You are a strict fact checker. You get a short video script and the ONLY material it may use. List every statement in the script (spoken or on screen) that the material does not support: '
             'invented facts, numbers or names that differ, superlatives and predictions the material does not make ("the best in the world", "they will lose"), a claim about wrongdoing stated without who says it, '
-            'a guessed gender. A fair summary of what the material says is supported. Questions and the vote are not claims. Lines marked EXAMPLE are made-up everyday illustrations of how the word is used: judge only whether they fit the meaning the material gives. Strict JSON only: {"problems":[{"line":1,"text":"the words","why":"short"}]} (an empty list if all is supported).')
+            'a guessed gender. A fair summary of what the material says is supported, and so is the same thing said in plainer words: "each fandom claims him as its own" supports "Minecraft says he is theirs". '
+            'A statement about what the pictures show is supported by the list of pictures. Questions and the vote are not claims: never list the last line. Lines marked EXAMPLE are made-up everyday illustrations of how the word is used: judge only whether they fit the meaning the material gives. Strict JSON only: {"problems":[{"line":1,"text":"the words","why":"short"}]} (an empty list if all is supported).')
     try:
         j, _ = ai.ask_json(sys_, 'MATERIAL\n%s\n\nSCRIPT\n%s' % (mat, script), kind='reader', temperature=0.1, timeout=ai.CONFIG['ai'].get('timeout', 100), max_tokens=6000)
     except ai.AIError:
         return None                                           # no checker answered: said in the report, the plan is kept
+    vote = '' if plan.get('format') == 'slang' else str(len(plan['lines']))      # a story's last line is the vote: a question, by rule not a claim
     return ['line %s says "%s": not in the material (%s); say only what the material says, or cut it' % (p.get('line'), str(p.get('text', ''))[:70], str(p.get('why', ''))[:80])
-            for p in j.get('problems', []) if isinstance(p, dict)][:8]
+            for p in j.get('problems', []) if isinstance(p, dict) and str(p.get('line')).strip() != vote][:8]
 
 
 def direct(m, log=print, work=None, budget=None):
@@ -881,8 +919,21 @@ def direct(m, log=print, work=None, budget=None):
                'Change ONLY what is listed above. Keep every other line word for word. The plan has %d spoken words now: the corrected plan must have %d to %d, never fewer than now.'
                % (json.dumps(slang_for_repair(base) if slang_page else story_for_repair(base), ensure_ascii=False), '\n- '.join(todo), base.get('words', 0), max(lo, base.get('words', 0)), hi))
         try:
-            st['plan'], st['model'] = ai.ask_json(system, user + '\n\n' + fix, temperature=0.4, timeout=wait, max_tokens=12000, patient=True)
+            if slang_page:
+                st['plan'], st['model'] = ai.ask_json(system, user + '\n\n' + fix, temperature=0.4, timeout=wait, max_tokens=12000, patient=True)
+            else:
+                # A story is corrected LINE BY LINE: only the changed lines come back and are set into the best version. A whole
+                # plan sent back rewrote lines nobody had faulted, and took longer to write than a caller with a time limit waits.
+                fix = ('THE PLAN NOW:\n%s\n\nA machine checked it. Fix exactly these points:\n- %s\n\nReturn ONLY the lines you change. The plan has %d spoken words now and must end with %d to %d.'
+                       % (json.dumps(story_for_repair(base), ensure_ascii=False), '\n- '.join(todo), base.get('words', 0), lo, hi))
+                patch, st['model'] = ai.ask_json(system_for('corrector', m), story_user(m, 'Correct the plan below.') + '\n\n' + fix, temperature=0.4, timeout=wait, max_tokens=4000, patient=True)
+                st['plan'], changed = apply_patch(base, patch)
+                log('director: the correction changed %d line%s (%s)' % (changed, '' if changed == 1 else 's', st['model']))
         except ai.OutOfTime:
+            st['slow'] = st.get('slow', 0) + 1
+            if st['slow'] >= 3:                                     # a caller's limit this correction never fits in: it would be asked for ever
+                log('director: the correction did not fit in the time limit three times; the best version stands')
+                break
             st['fix_tries'] -= 1                                    # stopped by the caller's time limit: not a try the correction had
             if ck:
                 json.dump(st, open(ck, 'w', encoding='utf-8'), ensure_ascii=False)
