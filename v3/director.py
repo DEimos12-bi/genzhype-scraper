@@ -119,6 +119,7 @@ VOICE = """THE VOICE (study the examples: this exact rhythm)
 - Never sound like an article: no "explained", "phenomenon", "showcases", "garnered", "sparks debate", "amid", "users", "netizens", "widespread", "refers to", "various", "numerous", "moreover", "furthermore", "notably", "continues to". No filler, no hype words, no questions to "fans", no "official source". Present tense where possible.
 - %(wmin)d to %(wmax)d spoken words in total, in 8 to 9 lines of 12 to 32 words. Count them.
 - Numbers are written as spoken words ("three hundred thousand euros", "twenty-fourteen"), never in digits.
+- An account name with digits or symbols in it (@jay_4471, @mo.edits99) is NEVER spoken, not even spelled out in words: say "a TikTok creator", "one account", "the animator". The screen shows the name.
 - Do not hedge every sentence. Say who reports a claim ONCE, where it first appears ("Kotaku reports", "the patch notes say"), then tell it plainly. Never say "end quote".
 - Tell the story, not our work: never mention GenZHype's checking, "we found", "unverified", "our page".
 - TRUTH: use only facts that are in the material. Anything disputed, or about wrongdoing, is said with who says it ("the agent says", "police say", "reportedly", "according to Kotaku"). A quote must be the source's real words (translated quotes: say "translated"). Never guess a person's gender: use the name or "they"."""
@@ -126,6 +127,7 @@ VOICE = """THE VOICE (study the examples: this exact rhythm)
 SCREEN = """THE MONTAGE: ONE PICTURE PER SENTENCE
 The script is cut sentence by sentence. Each sentence has an id ("hook.1", "hook.2"...) and gets its OWN picture, chosen for what THAT sentence names. This is what makes a video feel directed instead of assembled:
 - What the words name is what is on screen at that moment. A sentence that names a character shows THAT character, close. A sentence about an action shows a clip of it moving. A sentence with a number shows the thing the number is about, with the number stamped on it.
+- When NOTHING in the material shows what a sentence names (a remix that is not listed, a person who is not pictured, a place), never put a picture of something else on it: keep the main clip of the story playing, or stay on the picture before. A wrong picture is worse than a repeated one.
 - "show", for a sentence: {"asset": the id of a clip or picture listed in the material, "move": how it is framed, "focus": ..., "to": ...}
     "close"  a picture, close on ONE of its subjects. Each picture lists its subjects (s1, s2...) and where they are: "focus" is the one the sentence names. This is how things get named: who is who, what is what.
     "pan"    a picture moving from subject "focus" to subject "to": for "from one to the other", "it spread", "he took it from her".
@@ -453,6 +455,22 @@ def story_for_repair(p):
     return {'angle': p.get('angle'), 'lines': lines, 'vote': p.get('vote'), 'people': p.get('people'), 'hunts': p.get('hunts'), 'stock': p.get('stock'), 'post': p.get('post')}
 
 
+NUMWORD = (r'(?:zero|oh|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|'
+           r'sixty|seventy|eighty|ninety|hundred|thousand)')
+
+
+def spelled_handle(text, m):
+    """An account name with digits that the script spells out in words ("web twenty-four five thirty-five" for @web24535):
+    a voice cannot say it and nobody can read it back. -> the name, or ''"""
+    names = [str(e.get('by') or '') for e in m.get('examples') or []] + [str(p.get('handle') or '') for p in m.get('posts') or []]
+    for name in names:
+        name = name.lstrip('@')
+        stem = re.match(r'[A-Za-z]{3,}', name)
+        if stem and re.search(r'\d', name) and re.search(r'\b%s[\s-]+%s\b' % (re.escape(stem.group(0)), NUMWORD), text, re.I):
+            return '@' + name
+    return ''
+
+
 def fix_and_check(p, m):
     """Returns (plan with every mechanical fix applied, [reasons the AI must fix], [hard reasons the plan is refused])."""
     soft, hard = [], []
@@ -498,6 +516,8 @@ def fix_and_check(p, m):
             digits = re.search(r'\S*\d\S*', t).group(0)
             soft.append('line %d says an account name with digits ("%s"): say "a TikToker" or "one account" instead, and show the name on a "chip"' % (i + 1, digits) if digits.startswith('@') else
                         'line %d has digits in the spoken text ("%s"): write numbers as spoken words and put the digits in "caps"' % (i + 1, digits))
+        if spelled_handle(t, m):
+            soft.append('line %d spells out the account name %s in words: do not say it at all, say "a TikTok creator" or "one account" instead (the screen shows the name on a "chip")' % (i + 1, spelled_handle(t, m)))
         # THE MONTAGE: the line as its sentences ("beats"). Each keeps the picture chosen for it; a sentence that was cut
         # or rewritten since takes its graphics along by the word they land on.
         sents = split_keep(t)

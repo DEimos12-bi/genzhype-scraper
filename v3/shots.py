@@ -283,7 +283,7 @@ def fit(mode, w, h, x):
     else:
         win = 'scale=1080:-2:flags=lanczos,crop=1080:1920'
     if mode == 'W':                                            # the WHOLE picture, as wide as the screen allows, on a blurred and darkened copy of itself
-        k = min(1080 / w, 1150 / h)
+        k = min(1024 / w, 1150 / h)                            # a little narrower than the screen: the camera's slow push and its shakes never cut its edges
         fw, fh = int(w * k) // 2 * 2, int(h * k) // 2 * 2
         return ['-filter_complex', '[0:v]fps=%d,split[a][b];[a]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,gblur=sigma=28,eq=brightness=-0.2:saturation=0.9[bg];'
                 '[b]scale=%d:%d:flags=lanczos,unsharp=5:5:0.4[fg];[bg][fg]overlay=%d:%d' % (FPS, fw, fh, (1080 - fw) // 2, max(120, 700 - fh // 2))]

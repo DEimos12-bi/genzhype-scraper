@@ -79,6 +79,7 @@ function camera(t, s) {
   const p = (t - s.t0) / (s.t1 - s.t0), punch = 'FCW'.includes(s.mode) ? .12 : s.mode === 'S' ? .05 : 0;
   let sc = 1.04 + .04 * p + punch * (1 - outExpo(P(t, s.t0, .38))), dx = 0, dy = 0;
   if (s.mode === 'D') sc = 1;
+  if (s.mode === 'W') sc = 1 + .02 * p + .02 * (1 - outExpo(P(t, s.t0, .38)));   // a picture shown WHOLE keeps its edges (and the words written in it): the camera never grows it past the screen
   for (const [ta, size] of IMP) { const q = (t - ta) / .3; if (q >= 0 && q < 1) { const f = Math.round((t - ta) * 30), amp = 11 * size * (s.mode === 'D' ? .5 : 1); dx += Math.sin(f * 12.9898 + 1) * amp * (1 - q); dy += Math.cos(f * 78.233 + 2) * amp * (1 - q); } }
   cam.style.transform = `translate(${dx.toFixed(2)}px,${dy.toFixed(2)}px) scale(${sc.toFixed(4)})`;
   $('dim').style.opacity = s.dim ?? (s.mode === 'B' ? .3 : .05);

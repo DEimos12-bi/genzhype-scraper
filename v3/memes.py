@@ -148,9 +148,9 @@ def sort_topic(assets, m, log=print):
     about = '\n'.join([m.get('page_text', '')[:2600]] + [x.get('excerpt', '')[:1500] for x in (m.get('sources') or [])[:1]])
     user = ('THE MEME: %s\nWHAT THE PAGE AND ITS FIRST SOURCE SAY ABOUT IT (where it comes from, who is in it, how people use it):\n%s\n\n'
             'A search for the meme brought these moving GIFs. A picture model, which was NOT told what the meme is and cannot name its characters, wrote what each one shows.\n%s\n\n'
-            'An example belongs to this meme when the picture can be ANY part of what is described above: the meme itself, its characters (described only by shape and colour), the earlier video or song it grew out of, '
-            'a remix, a template version, or when its title names it. A vague description is NOT a reason to remove one.\n'
-            'Put in "off" ONLY an example that is plainly about a different subject, and say which subject.\n'
+            'These come from a search, so some are about something else. One belongs to this meme when its picture or its words FIT what is described above: the meme itself, its characters '
+            '(described only by shape and colour), its scene, the earlier video or song it grew out of, a remix, a template version, or when its words name it.\n'
+            'One whose picture and words fit NOTHING described above goes in "off": say what it shows instead.\n'
             'JSON: {"on_topic":["meme0"],"off":[{"id":"meme9","why":"it is about ..., max 8 words"}]}' % (m.get('title', ''), about, rows))
     try:
         j, model = ai.ask_json('You sort the pictures of a short video about one internet meme. Strict JSON only.', user, kind='reader', temperature=0.1, timeout=60, max_tokens=2500)
@@ -159,10 +159,16 @@ def sort_topic(assets, m, log=print):
         return assets
     # the meme's own name (the long words of the page title) in an example's words or in its picture settles it: it stays
     names = [w for w in re.findall(r'[a-z]{5,}', re.sub(r"'s\b", '', m.get('title', '').lower())) if w not in COMMON]
+    # ...and so does the account name of one of the page's OWN examples written in the picture (a repost of that very example)
+    flat = lambda s: re.sub(r'[^a-z0-9]', '', str(s).lower())
+    own = [flat(a.get('by')) for a in assets.values() if not a.get('found') and len(flat(a.get('by'))) >= 6]
     for x in j.get('off') or []:
         k = x.get('id') if isinstance(x, dict) else x
         if k in cand and any(n in (cand[k].get('title', '') + ' ' + cand[k].get('seen', '')).lower() for n in names):
             log('  %s: the reader called it off topic, but it names the meme: it stays' % k)
+            continue
+        if k in cand and any(o in flat(cand[k].get('title', '') + ' ' + cand[k].get('seen', '')) for o in own):
+            log('  %s: the reader called it off topic, but it carries the account name of one of the page\'s own examples: it stays' % k)
             continue
         if k in cand and k not in (j.get('on_topic') or []):
             assets[k]['usable'] = False
