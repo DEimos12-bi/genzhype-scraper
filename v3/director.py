@@ -145,7 +145,8 @@ OUT_WRITE = """OUTPUT: strict JSON, nothing around it. Write the five openings F
  "lines":[{"id":"hook","say":["the opening you picked,","sentence by sentence"]},{"id":"who","say":["One short sentence.","Then another."]},{"id":"...","say":["",""]},{"id":"vote","say":["The question.","Comment one word.","This, or that."]}],
  "vote":{"question":"max 22 characters","a":{"word":"ONE WORD","sub":"that side in 3 words"},"b":{"word":"ONE WORD","sub":"that side in 3 words"}},
  "people":[{"name":"","role":""}]}
-Every "say" is a list of 2 to 4 SENTENCES: ONE sentence per string, each of 3 to 12 words (only a real quote may be longer). A string never holds two ideas.
+Every "say" is a list of 2 or 3 SENTENCES (the opening may have 4): ONE sentence per string, each of 3 to 12 words (only a real quote may be longer). A string never holds two ideas.
+ALL the lines together: %(wmin)d to %(wmax)d words, which is about 19 words a line. A script that runs longer gets sentences removed by a machine, so choose what matters yourself.
 "pick" is the number (1 to 5) of the strongest opening. The first line's id is "hook", the last line's id is "vote". You write only what is SPOKEN: no pictures, no graphics."""
 
 OUT_STAGE = """OUTPUT: strict JSON, nothing around it. One entry per line of the script, same ids, same order, WITHOUT the spoken text:
@@ -315,6 +316,57 @@ def merge(sc, staged):
         e = by.get(l['id']) or (slines[i] if len(slines) == len(sc['lines']) else {})
         lines.append({'id': l['id'], 'text': l['text'], 'show': e.get('show'), 'overlays': e.get('overlays') or [], 'caps': e.get('caps') or l.get('caps') or []})
     return {'angle': sc.get('angle'), 'lines': lines, 'vote': sc.get('vote'), 'people': sc.get('people'), 'hunts': staged.get('hunts'), 'stock': staged.get('stock'), 'post': staged.get('post')}
+
+
+def split_keep(t):
+    """A line as its sentences with nothing lost: joined with a space they give the line back."""
+    return [x.strip() for x in re.findall(r'.+?(?:[.!?…]+["”’\']*(?=\s|$)|$)', (t or '').strip(), flags=re.S) if x.strip()]
+
+
+def trim_long(p, log):
+    """A script that runs too long is cut by REMOVING whole sentences. Nothing is rewritten, so nothing new can be
+    claimed: when the writer was asked to shorten, it rewrote, and the fact check then refused the shorter versions.
+    A reader chooses the sentences; if none answers, or it leaves too much, the last sentences of the longest lines go.
+    Never removed: the opening, the vote, the first sentence of a line, a quote. Returns True when something was cut."""
+    lo, hi = CFG['length']['words_min'], CFG['length']['words_max']
+    lines = [l for l in (p.get('lines') or []) if isinstance(l, dict) and str(l.get('text', '')).strip() and l.get('id') != 'site']
+    total = lambda: sum(words(' '.join(x)) for x in sent)
+    sent = [split_keep(l['text']) for l in lines]
+    before = total()
+    if before <= hi + 12 or len(lines) < 4:
+        return False
+    free = lambda i, k: 0 < i < len(lines) - 1 and k > 0 and not re.search(r'["“”]', sent[i][k])
+    ids = {'%d.%d' % (i + 1, k + 1): (i, k) for i, ss in enumerate(sent) for k in range(len(ss))}
+    rows = '\n'.join('%s%s %s' % (n, '' if free(i, k) else '*', sent[i][k]) for n, (i, k) in ids.items())
+    gone, by = set(), 'the length rule alone'
+    try:
+        j, by = ai.ask_json('You shorten a voice-over by deleting whole sentences. You never rewrite a word. Strict JSON only.',
+                            'This voice-over has %d words. It may have %d at most. Choose whole sentences to DELETE, about %d words in all: asides, repeated ideas, the least needed details. '
+                            'Keep it understandable: never delete a sentence that the next one needs. Sentences marked * cannot be deleted.\n\n%s\n\nJSON: {"delete":["3.2","5.4"]}'
+                            % (before, hi, before - hi + 4, rows), kind='reader', temperature=0.2, timeout=60, max_tokens=500)
+        for n in j.get('delete') or []:
+            i, k = ids.get(str(n).strip().rstrip('*'), (-1, -1))
+            cut = sum(words(sent[a][b]) for a, b in gone | {(i, k)}) if i >= 0 else 0
+            if i >= 0 and free(i, k) and before - cut >= lo and before - sum(words(sent[a][b]) for a, b in gone) > hi:
+                gone.add((i, k))
+    except ai.AIError:
+        pass
+    left = lambda: before - sum(words(sent[a][b]) for a, b in gone)
+    while left() > hi + 6:                                     # still too long: the last free sentence of the longest line goes
+        cand = [(sum(words(x) for k, x in enumerate(ss) if (i, k) not in gone), i, max(k for k in range(len(ss)) if free(i, k) and (i, k) not in gone))
+                for i, ss in enumerate(sent) if any(free(i, k) and (i, k) not in gone for k in range(len(ss)))]
+        if not cand:
+            break
+        _, i, k = max(cand)
+        if left() - words(sent[i][k]) < lo:
+            break
+        gone.add((i, k))
+    if not gone:
+        return False
+    for i, l in enumerate(lines):
+        l['text'] = ' '.join(x for k, x in enumerate(sent[i]) if (i, k) not in gone)
+    log('director: the script had %d words (%d at most): %d sentences were removed, chosen by %s, and nothing was rewritten: %d words now' % (before, hi, len(gone), by, left()))
+    return True
 
 
 def story_for_repair(p):
@@ -798,6 +850,10 @@ def direct(m, log=print, work=None, budget=None):
         st['plan'] = merge(st['script'], staged)
         log('director: the words are by %s, the pictures by %s' % (st['model'], by))
         keep()
+    if not slang_page and st.get('best') is None and not st.get('trimmed'):      # a draft that runs long loses sentences before it is checked
+        trim_long(st['plan'], log)
+        st['trimmed'] = True
+        keep()
     while True:
         plan, soft, hard = check(st['plan'], m)
         if st['facts_for'] != st['round']:                        # every version is fact-checked, the last one included
@@ -835,6 +891,18 @@ def direct(m, log=print, work=None, budget=None):
             log('director: the correction got no answer (%s); the best version stands' % str(e)[:100])
             break
         st['round'] += 1
+        keep()
+    if not slang_page and not st.get('trimmed_end') and st['best']['plan'].get('words', 0) > hi + 12:
+        st['trimmed_end'] = True                                    # the best version still runs long (a correction added words): sentences are removed, never rewritten
+        cutp = copy(st['best']['plan'])
+        if trim_long(cutp, log):
+            g, gsoft, ghard = check(cutp, m)
+            gfacts = read(g, ghard)
+            gr = rank(g, gsoft, ghard, gfacts)
+            log('director: cut to %d words | fact check: %s | %s' % (g.get('words', 0), 'NOT RUN' if gfacts is None else '%d problems' % len(gfacts) if gfacts else 'clean',
+                'KEPT' if gr < st['best']['rank'] else 'not better: thrown away'))
+            if gr < st['best']['rank']:
+                st['best'] = {'plan': copy(g), 'model': st['best']['model'], 'rank': gr, 'facts': gfacts}
         keep()
     if slang_page and not st.get('topped') and st['best']['plan'].get('words', 0) < lo and not st['best']['plan'].get('incomplete'):
         st['topped'] = True                                         # a short script gets more quick-round lines: added, never rewritten

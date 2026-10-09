@@ -17,6 +17,8 @@ import sys
 import ai
 import footage
 
+COMMON = set('explained memes trend trends viral meaning origin where which about video videos games gaming internet tiktok challenge sound dance people their there these those while after '
+             'before being every other first funny really thing things youtube twitter reddit online social media story'.split())      # title words that name no meme
 HUMAN = re.compile(r'\b(man|woman|boy|girl|guy|person|people|teen\w*|kids?|child|children|lady|men|women|player|student|someone)\b', re.I)
 
 PREVIEWS = ('https://i.ytimg.com/vi/%s/oar2.jpg', 'https://i.ytimg.com/vi/%s/maxresdefault.jpg', 'https://i.ytimg.com/vi/%s/hqdefault.jpg')      # a Short's upright picture first
@@ -79,11 +81,12 @@ def look(assets, m, work, log=print, tick=None):
                         '-vf', 'scale=768:768:force_original_aspect_ratio=decrease', '-q:v', '3', tile], timeout=40)
         # The picture is described BLIND: told what the meme is, a weak picture model repeats that for pictures that show something else.
         user = ('Describe this ONE picture for someone who cannot see it. Only what is VISIBLE: do not guess what it is from, do not guess names.\n'
-                '"what": what it shows, in at most 16 words (who or what, doing what);\n'
+                '"what": what it shows, in at most 24 words. Be exact: the figures, their colours and shapes, what each one is DOING ("two blocky figures pull a round yellow face in opposite directions");\n'
                 '"text": the words written in the picture, exactly as written (at most 12 words; "" if there are none);\n'
+                '"photo": true if it is a photograph or a frame of real-world video, false if it is an animation, a cartoon, a drawing, a video game or a 3D render;\n'
                 '"person": "real" if a real human being (photographed or filmed) is the main subject, "drawn" if its figures are drawn, animated, 3D-rendered or game characters, "none" if nobody is in it;\n'
                 '"score": 0 to 5, how clear and striking it is as a picture (0 = black, blank or unreadable).\n'
-                'JSON: {"what":"","text":"","person":"none","score":3}')
+                'JSON: {"what":"","text":"","photo":false,"person":"none","score":3}')
         try:
             t, model = ai.ask_json('You look at ONE picture. Answer with strict JSON only.', user, images=[tile], tries=3, temperature=0.1, timeout=60, max_tokens=500)
         except ai.OutOfTime:
@@ -94,15 +97,18 @@ def look(assets, m, work, log=print, tick=None):
             score = float((t or {}).get('score', 3))
         except (TypeError, ValueError):
             score = 3.0
-        what, person = str((t or {}).get('what', '')).strip()[:110], str((t or {}).get('person', '')).lower()
+        what, person = str((t or {}).get('what', '')).strip()[:170], str((t or {}).get('person', '')).lower()
         a['looked'], a['score'] = model, score
         a['seen'] = (what + (' (text in it: "%s")' % str(t['text']).strip()[:80] if str(t.get('text') or '').strip() else '')) if t else ''
         a['usable'], why = bool(t) and score >= 1, 'UNREADABLE' if t else 'NOBODY LOOKED AT IT'
         # A real person as the subject: a GIF of a stranger turned into a joke is never shown; somebody's own post only when
         # the owner allows it ("memes": {"real_people": true} in config.json). Nobody watches these videos before they exist,
         # which is also why a picture that no model looked at is not used. A description that names a human being counts as
-        # a real person unless the model says the figures are drawn.
-        a['person'] = 'real' if person.startswith('real') or (not person.startswith('drawn') and HUMAN.search(what)) else 'drawn' if person.startswith('drawn') else 'none'
+        # a real person unless the model says the figures are drawn. An animation, a game or a drawing shows no real person:
+        # "two men" in a cartoon are its characters (that threw the meme's own animation out).
+        drawn = (t or {}).get('photo') is False or str((t or {}).get('photo')).lower() == 'false'
+        real = not drawn and (person.startswith('real') or (not person.startswith('drawn') and bool(HUMAN.search(what))))
+        a['person'] = 'real' if real else 'drawn' if drawn or person.startswith('drawn') else 'none'
         if a['usable'] and a['person'] == 'real' and (a['from'] == 'gif' or not ai.CONFIG.get('memes', {}).get('real_people')):
             a['usable'], why = False, 'A REAL PERSON IS ITS SUBJECT'
         if a['kind'] == 'clip':                                # a GIF needs no second look by the eyes step
@@ -122,16 +128,25 @@ def sort_topic(assets, m, log=print):
         return assets
     kinds = {'gif': 'a GIF', 'tiktok': 'a TikTok post', 'youtube': 'a YouTube video'}
     rows = '\n'.join('- %s (%s by %s%s): the picture shows: %s' % (k, kinds.get(a['from'], 'a picture'), a.get('by') or '?', ', posted with the words "%s"' % a['title'][:140] if a.get('title') else '', a.get('seen') or '?') for k, a in cand.items())
-    user = ('THE MEME: %s\nWHAT IT IS: %s\n\nA page about this meme links these as examples of it. A picture model, which was not told what the meme is, wrote what each picture shows.\n%s\n\n'
-            'Which of them are about THIS meme: the picture shows it, its characters or its subject, or the words posted with it name it? Put in "off" only what is clearly about something else.\n'
-            'JSON: {"on_topic":["meme0"],"off":[{"id":"meme9","why":"max 8 words"}]}' % (m.get('title', ''), (m.get('summary') or m.get('page_text', ''))[:700], rows))
+    about = '\n'.join([m.get('page_text', '')[:2600]] + [x.get('excerpt', '')[:1500] for x in (m.get('sources') or [])[:1]])
+    user = ('THE MEME: %s\nWHAT THE PAGE AND ITS FIRST SOURCE SAY ABOUT IT (where it comes from, who is in it, how people use it):\n%s\n\n'
+            'The page links these as examples of the meme. A picture model, which was NOT told what the meme is and cannot name its characters, wrote what each picture shows.\n%s\n\n'
+            'An example belongs to this meme when the picture can be ANY part of what is described above: the meme itself, its characters (described only by shape and colour), the earlier video or song it grew out of, '
+            'a remix, a template version, or when the words posted with it name it. A vague description is NOT a reason to remove one: the page chose them.\n'
+            'Put in "off" ONLY an example that is plainly about a different subject, and say which subject.\n'
+            'JSON: {"on_topic":["meme0"],"off":[{"id":"meme9","why":"it is about ..., max 8 words"}]}' % (m.get('title', ''), about, rows))
     try:
         j, model = ai.ask_json('You sort the pictures of a short video about one internet meme. Strict JSON only.', user, kind='reader', temperature=0.1, timeout=60, max_tokens=800)
     except ai.AIError as e:
         log('  no reader sorted the examples (%s): all %d stay' % (str(e)[-70:], len(cand)))
         return assets
+    # the meme's own name (the long words of the page title) in an example's words or in its picture settles it: it stays
+    names = [w for w in re.findall(r'[a-z]{5,}', re.sub(r"'s\b", '', m.get('title', '').lower())) if w not in COMMON]
     for x in j.get('off') or []:
         k = x.get('id') if isinstance(x, dict) else x
+        if k in cand and any(n in (cand[k].get('title', '') + ' ' + cand[k].get('seen', '')).lower() for n in names):
+            log('  %s: the reader called it off topic, but it names the meme: it stays' % k)
+            continue
         if k in cand and k not in (j.get('on_topic') or []):
             assets[k]['usable'] = False
             if assets[k]['kind'] == 'clip':
