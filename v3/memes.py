@@ -29,7 +29,7 @@ def collect(m, work, log=print):
     out = {}
     for i, ex in enumerate((m.get('examples') or [])[:12]):
         aid = 'meme%d' % i
-        a = {'whole': True, 'from': ex['kind'], 'by': ex.get('by', ''), 'page': ex.get('page', ''), 'title': ex.get('title', ''), 'date': ex.get('date', ''), 'about': ex.get('title', '')[:240]}
+        a = {'whole': True, 'found': ex.get('found', ''), 'from': ex['kind'], 'by': ex.get('by', ''), 'page': ex.get('page', ''), 'title': ex.get('title', ''), 'date': ex.get('date', ''), 'about': ex.get('title', '')[:240]}
         who = ''.join(c for c in ex.get('by', '').upper() if c.isalnum() or c in '@._- ')[:24].strip()
         try:
             if ex['kind'] == 'gif':
@@ -137,16 +137,19 @@ def look(assets, m, work, log=print, tick=None):
 def sort_topic(assets, m, log=print):
     """Which examples show THIS meme: decided by a text reader from the blind descriptions and the words posted with each
     one (a page's list of examples is not always clean). Without a reader they all stay."""
-    cand = {k: a for k, a in assets.items() if a.get('usable')}
-    if len(cand) < 2:
+    # Only what the SEARCH brought is sorted here. What the page itself links as its examples is the page's choice: a text
+    # reader that only has a blind description threw out the meme's own animation twice ("not about it").
+    cand = {k: a for k, a in assets.items() if a.get('usable') and a.get('found')}
+    if not cand:
+        log('meme pictures: %d of %d will be shown (the page\'s own examples; the search brought nothing to sort)' % (sum(1 for a in assets.values() if a.get('usable')), len(assets)))
         return assets
     kinds = {'gif': 'a GIF', 'tiktok': 'a TikTok post', 'youtube': 'a YouTube video'}
     rows = '\n'.join('- %s (%s by %s%s): the picture shows: %s' % (k, kinds.get(a['from'], 'a picture'), a.get('by') or '?', ', posted with the words "%s"' % a['title'][:140] if a.get('title') else '', a.get('seen') or '?') for k, a in cand.items())
     about = '\n'.join([m.get('page_text', '')[:2600]] + [x.get('excerpt', '')[:1500] for x in (m.get('sources') or [])[:1]])
     user = ('THE MEME: %s\nWHAT THE PAGE AND ITS FIRST SOURCE SAY ABOUT IT (where it comes from, who is in it, how people use it):\n%s\n\n'
-            'The page links these as examples of the meme. A picture model, which was NOT told what the meme is and cannot name its characters, wrote what each picture shows.\n%s\n\n'
+            'A search for the meme brought these moving GIFs. A picture model, which was NOT told what the meme is and cannot name its characters, wrote what each one shows.\n%s\n\n'
             'An example belongs to this meme when the picture can be ANY part of what is described above: the meme itself, its characters (described only by shape and colour), the earlier video or song it grew out of, '
-            'a remix, a template version, or when the words posted with it name it. A vague description is NOT a reason to remove one: the page chose them.\n'
+            'a remix, a template version, or when its title names it. A vague description is NOT a reason to remove one.\n'
             'Put in "off" ONLY an example that is plainly about a different subject, and say which subject.\n'
             'JSON: {"on_topic":["meme0"],"off":[{"id":"meme9","why":"it is about ..., max 8 words"}]}' % (m.get('title', ''), about, rows))
     try:
