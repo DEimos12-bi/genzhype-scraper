@@ -62,7 +62,7 @@ def key(provider):
     return ''
 
 
-def strikes(add=None, why=''):
+def strikes(add=None, why='', hold=None):
     """Models that failed, each with the time until which it is passed over, kept in a small file so that the next step and
     the next run do not wait on them again: a daily quota that ran out = 3 hours, a model that is gone = a day, a
     too-many-requests answer = 2 minutes, a timeout or an empty answer = 15 minutes. They stay as a last resort."""
@@ -74,7 +74,7 @@ def strikes(add=None, why=''):
     d = {k: t for k, t in d.items() if t > time.time()}
     if add:
         low = why.lower()
-        hold = 10800 if ('quota' in low or 'per-day' in low or 'per day' in low or 'daily' in low or 'neurons' in low or '(tpd)' in low) else 86400 if ('http 404' in low or 'http 410' in low or 'http 403' in low) else 120 if 'http 429' in low else 900
+        hold = hold or (10800 if ('quota' in low or 'per-day' in low or 'per day' in low or 'daily' in low or 'neurons' in low or '(tpd)' in low or 'workers paid' in low) else 86400 if ('http 404' in low or 'http 410' in low or 'http 403' in low) else 120 if 'http 429' in low else 900)
         d[add] = time.time() + hold
         if path:
             json.dump(d, open(path, 'w', encoding='utf-8'))
@@ -99,6 +99,10 @@ def _image_part(path, max_side=None):
 
 
 def _post(provider, model, messages, temperature, timeout, max_tokens, effort):
+    if provider == 'gemini' and model.startswith('gemma'):     # Gemma takes no system message there: it goes in front of the request
+        system, content = messages[0]['content'], messages[1]['content']
+        content = system + '\n\n' + content if isinstance(content, str) else [{'type': 'text', 'text': system}] + content
+        messages = [{'role': 'user', 'content': content}]
     body = {'model': model, 'messages': messages, 'temperature': temperature, 'max_tokens': min(max_tokens, {'cloudflare': 4096, 'groq': 8192}.get(provider, max_tokens))}
     if provider == 'gemini' and effort and model.startswith('gemini-'):                       # without a cap its thinking uses up the answer's room and the JSON arrives cut off
         body['reasoning_effort'] = effort
@@ -128,7 +132,7 @@ def chat(system, user, images=(), kind=None, temperature=0.5, timeout=120, max_t
             strikes(add=provider + '/' + model, why='timed out on a sister account')
             continue
         for again in (False, True):
-            t, pause = time.time(), 0
+            t, pause, short = time.time(), 0, 0
             left = None if DEADLINE is None else DEADLINE - t
             if left is not None and left < 12:
                 raise OutOfTime('the time limit of this run is reached before %s/%s could be asked' % (provider, model))
@@ -142,9 +146,12 @@ def chat(system, user, images=(), kind=None, temperature=0.5, timeout=120, max_t
             except urllib.error.HTTPError as e:
                 body = e.read().decode('utf-8', 'replace')
                 last = '%s/%s: HTTP %s %s' % (provider, model, e.code, body[:420].replace('\n', ' '))
-                wait = re.search(r'try again in (?:(\d+)m)?([\d.]+)s', body)
-                if patient and not again and e.code == 429 and wait and '(tpd)' not in body.lower() and 'per day' not in body.lower():
-                    pause = int(wait.group(1) or 0) * 60 + float(wait.group(2)) + 1
+                wait = re.search(r'(?:try again|retry) in (?:(\d+)m)?([\d.]+)s', body)
+                secs = int(wait.group(1) or 0) * 60 + float(wait.group(2)) + 1 if wait else 0
+                if e.code == 429 and 0 < secs <= 120 and '(tpd)' not in body.lower() and 'per day' not in body.lower():
+                    short = max(secs, 20)                      # a per-minute limit (its own words say when to come back): not a daily one
+                    if patient and not again:
+                        pause = secs
             except Exception as e:  # noqa: BLE001  (a timeout, a broken reply: the next model answers)
                 last = '%s/%s: %s' % (provider, model, str(e)[:160])
                 if wait_for < timeout and time.time() - t >= wait_for - 1:      # cut short by the caller's limit, not by the model
@@ -160,7 +167,7 @@ def chat(system, user, images=(), kind=None, temperature=0.5, timeout=120, max_t
             if 0 < pause <= 50:
                 time.sleep(pause)                              # the per-minute limit of the strong writer: worth one wait
                 continue
-            strikes(add=provider + '/' + model, why=last)
+            strikes(add=provider + '/' + model, why=last, hold=short or None)
             break
     raise AIError(last)
 

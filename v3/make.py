@@ -37,7 +37,11 @@ def browser_python():
 
 def py(script, *args, timeout=None):
     exe = browser_python() if script in ('render.py', 'receipts.py', 'site.py') else sys.executable
-    r = subprocess.run([exe, os.path.join(HERE, script)] + [str(a) for a in args], timeout=timeout)
+    try:
+        r = subprocess.run([exe, os.path.join(HERE, script)] + [str(a) for a in args], timeout=timeout)
+    except subprocess.TimeoutExpired:                          # what it had finished is saved: the same command goes on from there
+        print('%s did not finish in %d s and was stopped' % (script, timeout), flush=True)
+        return 3
     return r.returncode
 
 

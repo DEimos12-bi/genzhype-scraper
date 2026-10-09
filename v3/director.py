@@ -331,7 +331,7 @@ def choose_opening(sc, m, log):
             'JSON: {"scores":[{"n":1,"score":7},{"n":2,"score":4}],"why":"max 12 words about the best one"}'
             % (m.get('title', ''), (m.get('summary') or '')[:300], '\n'.join('%d. %s' % (i + 1, o) for i, o in enumerate(good))))
     try:
-        j, model = ai.ask_json(JUDGE, user, kind='reader', temperature=0.2, timeout=60, max_tokens=600)
+        j, model = ai.ask_json(JUDGE, user, kind='reader', temperature=0.2, timeout=60, max_tokens=2500)   # room for a model that thinks first
         got = {int(x['n']): float(x['score']) for x in j.get('scores') or [] if isinstance(x, dict) and 1 <= int(x.get('n', 0)) <= len(good)}
         if not got:
             raise ValueError('no scores')
@@ -391,7 +391,7 @@ def trim_long(p, log):
         j, by = ai.ask_json('You shorten a voice-over by deleting whole sentences. You never rewrite a word. Strict JSON only.',
                             'This voice-over has %d words. It may have %d at most. List the sentences that can be DELETED, the least needed first, about %d words in all: asides, repeated ideas, small details. '
                             'Take them from the LONGEST lines, and leave every line at least two sentences: a line must still say what it is about. Sentences marked * cannot be deleted.\n\n%s\n\nJSON: {"delete":["5.4","7.3"]}'
-                            % (before, hi, before - hi + 10, rows), kind='reader', temperature=0.2, timeout=60, max_tokens=500)
+                            % (before, hi, before - hi + 10, rows), kind='reader', temperature=0.2, timeout=60, max_tokens=2500)
         wanted = [ids[n] for n in (str(x).strip().rstrip('*') for x in j.get('delete') or []) if n in ids]
     except ai.AIError:
         pass

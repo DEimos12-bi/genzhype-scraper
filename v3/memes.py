@@ -153,7 +153,7 @@ def sort_topic(assets, m, log=print):
             'Put in "off" ONLY an example that is plainly about a different subject, and say which subject.\n'
             'JSON: {"on_topic":["meme0"],"off":[{"id":"meme9","why":"it is about ..., max 8 words"}]}' % (m.get('title', ''), about, rows))
     try:
-        j, model = ai.ask_json('You sort the pictures of a short video about one internet meme. Strict JSON only.', user, kind='reader', temperature=0.1, timeout=60, max_tokens=800)
+        j, model = ai.ask_json('You sort the pictures of a short video about one internet meme. Strict JSON only.', user, kind='reader', temperature=0.1, timeout=60, max_tokens=2500)
     except ai.AIError as e:
         log('  no reader sorted the examples (%s): all %d stay' % (str(e)[-70:], len(cand)))
         return assets
