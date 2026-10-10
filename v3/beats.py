@@ -195,6 +195,16 @@ def for_line(pl, ln, t0, t1, sup, shots, pick, has_card, card_to, face_ok, log, 
                 pl['overlays'] = [o for o in pl['overlays'] if o not in named]
                 log('  %s: the picture asked for is not there; "%s" is not written on the one that plays instead' % (pl['id'], str(named[0].get('t') or named[0].get('name') or named[0].get('a'))[:30]))
         A = sup.a[asset]
+        if A.get('proof_of') is not None:                      # a proof screenshot is a card: whole, never the opener, never a close-up, twice at most
+            if (first and not out) or sum(1 for x in shots + out if x['asset'] == asset) >= 2:
+                asset = pick(prev)
+                show, A = {'asset': asset, 'move': 'auto'}, sup.a[asset]
+            else:
+                show = dict(show, move='whole')
+                gone = [o for o in pl.get('overlays', []) if o.get('beat') in members and o.get('k') in ('name', 'tag', 'labels')]
+                if gone:
+                    pl['overlays'] = [o for o in pl['overlays'] if o not in gone]
+                    log('  %s: a name is not written on a proof screenshot (%s)' % (pl['id'], asset))
         still = A['kind'] == 'photo'
         move = show.get('move') if show.get('move') in MOVES else 'auto'
         if A['kind'] == 'stock' and not (first and not out):

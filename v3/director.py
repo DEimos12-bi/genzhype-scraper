@@ -122,6 +122,7 @@ VOICE = """THE VOICE (study the examples: this exact rhythm)
 - %(wmin)d to %(wmax)d spoken words in total, in 8 to 9 lines of 12 to 32 words. Count them.
 - Numbers are written as spoken words ("three hundred thousand euros", "twenty-fourteen"), never in digits.
 - An account name with digits or symbols in it (@jay_4471, @mo.edits99) is NEVER spoken, not even spelled out in words: say "a TikTok creator", "one account", "the animator". The screen shows the name.
+- An outlet is named the way people say it ("Dexerto", "IGN", "The Daily Game"), never as a web address: no "dot com", no "dot news", no ".com".
 - Do not hedge every sentence. Say who reports a claim ONCE, where it first appears ("Kotaku reports", "the patch notes say"), then tell it plainly. Never say "end quote".
 - Tell the story, not our work: never mention GenZHype's checking, "we found", "unverified", "our page".
 - TRUTH: use only facts that are in the material. Anything disputed, or about wrongdoing, is said with who says it ("the agent says", "police say", "reportedly", "according to Kotaku"). A quote must be the source's real words (translated quotes: say "translated"). Never guess a person's gender: use the name or "they"."""
@@ -520,6 +521,7 @@ def story_for_repair(p):
     return {'angle': p.get('angle'), 'lines': lines, 'vote': p.get('vote'), 'people': p.get('people'), 'hunts': p.get('hunts'), 'stock': p.get('stock'), 'post': p.get('post')}
 
 
+DOMAIN_SPOKEN = re.compile(r'(?i)(\S+\s+dot\s+(com|net|news|org|gg|tv|co|io)\b|\S+\.(com|net|news|org|gg|tv|io)\b)')
 NUMWORD = (r'(?:zero|oh|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|'
            r'sixty|seventy|eighty|ninety|hundred|thousand)')
 
@@ -583,6 +585,9 @@ def fix_and_check(p, m):
                         'line %d has digits in the spoken text ("%s"): write numbers as spoken words and put the digits in "caps"' % (i + 1, digits))
         if spelled_handle(t, m):
             soft.append('line %d spells out the account name %s in words: do not say it at all, say "a TikTok creator" or "one account" instead (the screen shows the name on a "chip")' % (i + 1, spelled_handle(t, m)))
+        dom = DOMAIN_SPOKEN.search(t)
+        if dom:
+            soft.append('line %d speaks a web address ("%s"): name the outlet the way people say it ("Dexerto", "The Daily Game"), never as a domain' % (i + 1, dom.group(0).strip()))
         # THE MONTAGE: the line as its sentences ("beats"). Each keeps the picture chosen for it; a sentence that was cut
         # or rewritten since takes its graphics along by the word they land on.
         sents = split_keep(t)
@@ -1158,11 +1163,12 @@ def ensure_receipts(p, m, casting=None, log=print):
     ids = [x for x in (casting or {}).get('proofs') or [] if isinstance(x, str) and x.startswith('post') and x[4:].isdigit() and int(x[4:]) < len(posts)]
     ids = list(dict.fromkeys(ids))[:2] or ['post0']
     words_of = lambda t: set(re.findall(r'[a-z0-9]{4,}', t.lower()))
-    said = re.compile(r'\b(posted|wrote|tweeted|announced|claims?|says?|said|post)\b')
+    said = re.compile(r'\b(posted|wrote|tweeted|announced|claims?|says?|said|post|proof)\b')
+    strong_of = lambda t: {w.lower() for w in re.findall(r'[A-Za-z0-9%]{2,}', t) if w.isdigit() or '%' in w or len(w) >= 6 or (w.isupper() and len(w) >= 3)}      # the words a claim is made of
     taken, done = set(), 0
     for pid in ids:
         post = posts[int(pid[4:])]
-        pw = words_of(post['text'])
+        pw, strong = words_of(post['text']), strong_of(post['text'])
         best, score = None, -1
         for l in p['lines']:
             if l['id'] in ('hook', 'vote', 'site'):
@@ -1170,9 +1176,12 @@ def ensure_receipts(p, m, casting=None, log=print):
             for n, b in enumerate(l.get('beats') or []):
                 if (l['id'], n) in taken or any(o.get('beat') == n and o.get('k') in CARDS for o in l.get('overlays', [])):
                     continue
-                sc = len(pw & words_of(b['say'])) + (3 if said.search(b['say'].lower()) else 0)
+                bw = words_of(b['say'])
+                sc = len(pw & bw) + 2 * len(strong & bw) + (4 if said.search(b['say'].lower()) else 0)
                 if sc > score:
                     best, score = (l, n), sc
+        if not best or score < 3:                             # no sentence carries the claim: the first sentence after the opening that is free
+            best = next(((l, n) for l in p['lines'][1:] if l['id'] not in ('vote', 'site') for n, b in enumerate(l.get('beats') or []) if (l['id'], n) not in taken and not any(o.get('beat') == n and o.get('k') in CARDS for o in l.get('overlays', []))), None)
         if not best:
             continue
         l, n = best
