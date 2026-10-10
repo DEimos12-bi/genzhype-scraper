@@ -1302,6 +1302,27 @@ def repair(work, log=lambda *a: print(*a, flush=True)):
     if not bad:
         log('repair: every hunt the script counted on is there')
         return 0
+    faces = {k: [w for w in tokens(str(a.get('face_of'))) if len(w) >= 3] for k, a in A.items() if a.get('face_of') and a.get('kind') == 'photo' and a.get('file') and a.get('usable', True)}
+    swapped = []
+    for l in p['lines']:                                       # footage that never came: a sentence that names a person we have a picture of shows that person
+        last = None
+        for n, b in enumerate(l.get('beats') or []):
+            if (b.get('show') or {}).get('asset') not in bad:
+                continue
+            tk = tokens(l['text'])
+            k = next((k for k, names in faces.items() if names and (all(w in tk for w in names) or names[-1] in tk) and k != last), None)
+            if k:
+                card = any(o.get('beat') == n and o.get('k') in CARDS for o in l.get('overlays', []))
+                subs = A[k].get('subjects') or []
+                b['show'] = {'asset': k, 'move': 'under'} if card else ({'asset': k, 'move': 'close', 'focus': subs[0]['id']} if subs else {'asset': k, 'move': 'whole'})
+                last = k
+                swapped.append('%s.%d -> %s' % (l['id'], n + 1, k))
+    if swapped:
+        json.dump(p, open(pfile, 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
+        log('repair: footage that never came; the person the line names is shown instead: %s' % ', '.join(swapped))
+        bad = {k for k in bad if any((b.get('show') or {}).get('asset') == k for l in p['lines'] for b in l.get('beats') or [])}
+        if not bad:
+            return 0
     lo, dropped, total = p.get('lo') or CFG['length']['words_min'], [], sum(words(l['text']) for l in p['lines'])
     for l in p['lines']:
         if l['id'] in ('hook', 'vote', 'site') or not l.get('beats'):
@@ -1350,7 +1371,7 @@ def ensure_receipts(p, m, casting=None, log=print):
         pw, strong = words_of(post['text']), strong_of(post['text'])
         best, score = None, -1
         for l in p['lines']:
-            if l['id'] in ('hook', 'vote', 'site'):
+            if l['id'] in ('hook', 'vote', 'site') or any(o.get('k') in CARDS for o in l.get('overlays', [])):      # one card a line: a line that already shows a proof keeps to it
                 continue
             for n, b in enumerate(l.get('beats') or []):
                 if (l['id'], n) in taken or any(o.get('beat') == n and o.get('k') in CARDS for o in l.get('overlays', [])):
@@ -1378,6 +1399,17 @@ def ensure_faces(p, m, log=print):
     the page's own photo of them) and the picture editor never used it: it goes on the first sentence that names them,
     close, with their name. A hand cut does this without thinking; a video about someone who is never seen is about nobody."""
     have, done = assets_of(m), 0
+    faces = {k: [w for w in tokens(str(a.get('face_of'))) if len(w) >= 3] for k, a in have.items() if a.get('face_of') and a.get('kind') == 'photo'}
+    for l in p['lines']:                                       # A NAME ONLY ON ITS OWNER: never "KAI CENAT" over the clip of someone else
+        for o in list(l.get('overlays', [])):
+            if o.get('k') not in ('name', 'tag'):
+                continue
+            text = tokens(str(o.get('t') or o.get('name') or ''))
+            owner = next((k for k, names in faces.items() if names and all(w in text for w in names)), None)
+            b = (l.get('beats') or [{}])[min(int(o.get('beat') or 0), max(0, len(l.get('beats') or []) - 1))] if l.get('beats') else {}
+            if owner and (b.get('show') or {}).get('asset') != owner:
+                l['overlays'].remove(o)
+                log('  %s: "%s" was written over a picture that is not theirs (%s); the name is taken off' % (l['id'], str(o.get('t') or o.get('name'))[:30], (b.get('show') or {}).get('asset')))
     shown = {(b.get('show') or {}).get('asset') for l in p['lines'] for b in l.get('beats') or []}
     for k, a in have.items():
         who = str(a.get('face_of') or '')
@@ -1507,8 +1539,8 @@ def direct(m, log=print, work=None, budget=None):
             keep()
         staged, by = ai.ask_json(system_for('picture editor', m), stager_user(m, st['script'], st.get('cast')), temperature=0.3, timeout=wait, max_tokens=14000)
         st['plan'] = merge(st['script'], staged)
-        ensure_receipts(st['plan'], m, st.get('cast'), log)
         ensure_proofs(st['plan'], m, log)
+        ensure_receipts(st['plan'], m, st.get('cast'), log)
         ensure_faces(st['plan'], m, log)
         log('director: the words are by %s, the pictures by %s' % (st['model'], by))
         keep()
@@ -1614,8 +1646,8 @@ def direct(m, log=print, work=None, budget=None):
     log('director: the plan used is the one by %s, %d words, %s' % (st['best']['model'], plan.get('words', 0),
         'fact check not run' if facts is None else '%d unsupported statements left' % len(facts) if facts else 'fact check clean'))
     if not slang_page:
-        ensure_receipts(plan, m, st.get('cast'), log)      # a correction may have rewritten the line that carried the proof
         ensure_proofs(plan, m, log)
+        ensure_receipts(plan, m, st.get('cast'), log)      # a correction may have rewritten the line that carried the proof
         ensure_faces(plan, m, log)
         picture_check(plan, m, log)
         for n in plan.get('notes') or []:
