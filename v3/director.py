@@ -1584,7 +1584,7 @@ def direct(m, log=print, work=None, budget=None):
                 # plan sent back rewrote lines nobody had faulted, and took longer to write than a caller with a time limit waits.
                 fix = ('THE PLAN NOW:\n%s\n\nA machine checked it. Fix exactly these points:\n- %s\n\nReturn ONLY the lines you change. The plan has %d spoken words now and must end with %d to %d.'
                        % (json.dumps(story_for_repair(base), ensure_ascii=False), '\n- '.join(todo), base.get('words', 0), base.get('lo', lo), base.get('hi', hi)))
-                patch, st['model'] = ai.ask_json(system_for('corrector', m), story_user(m, 'Correct the plan below.') + '\n\n' + fix, temperature=0.4, timeout=wait, max_tokens=4000, patient=True)
+                patch, st['model'] = ai.ask_json(system_for('corrector', m), story_user(m, 'Correct the plan below.') + '\n\n' + fix, temperature=0.4, timeout=wait, max_tokens=10000, patient=True)      # room for a model that thinks first
                 st['plan'], changed = apply_patch(base, patch)
                 log('director: the correction changed %d line%s (%s)' % (changed, '' if changed == 1 else 's', st['model']))
         except ai.OutOfTime:
