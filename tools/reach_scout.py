@@ -42,6 +42,8 @@ SUBS = [
     # GTA6 added 2026-08-31 (owner: "specially there is gta 6 coming off") -
     # the single biggest game community ahead of launch.
     "LivestreamFail", "GamingLeaksAndRumours", "youtubedrama", "GTA6",
+    # owner 2026-10-10: the jailbreak / homebrew / emulation scene (the PS5 jailbreak wave never reached the intake)
+    "ps5homebrew", "ps4homebrew", "emulation",
 ]
 X_QUERIES = ["new slang", "why is everyone saying", "what does it mean when someone says"]
 
