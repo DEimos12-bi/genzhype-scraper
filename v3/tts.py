@@ -7,6 +7,7 @@ import json
 import os
 import subprocess
 import sys
+import time
 import wave
 
 import numpy as np
@@ -43,6 +44,17 @@ def load(mp3):
     return np.frombuffer(raw, dtype=np.float32).copy()
 
 
+def have_take(takes, i, text, rate):
+    """A take spoken before, for the same words at the same rate, is kept (a stopped run does not speak twice)."""
+    tag = os.path.join(takes, '%02d.txt' % i)
+    ok = os.path.isfile(os.path.join(takes, '%02d.json' % i)) and (os.path.isfile(os.path.join(takes, '%02d.mp3' % i)) or os.path.isfile(os.path.join(takes, '%02d.wav' % i)))
+    return ok and os.path.isfile(tag) and open(tag, encoding='utf-8').read() == '%s|%s' % (rate, text)
+
+
+def mark_take(takes, i, text, rate):
+    open(os.path.join(takes, '%02d.txt' % i), 'w', encoding='utf-8').write('%s|%s' % (rate, text))
+
+
 def fallback_batch(takes, jobs):
     """The lines still to speak, by the local voice (kokoro_say.py in its own Python, the model loaded once): every video
     stopped on one free service's 403 otherwise. jobs: [(i, text, rate)]. -> the set of i that were spoken."""
@@ -66,16 +78,27 @@ def fallback_batch(takes, jobs):
     return {j['i'] for j in json.load(open(jfile, encoding='utf-8')) if j.get('words', 0) > 0 and os.path.isfile(j['json'])}
 
 
+BUDGET = {'t0': time.time(), 's': None}
+
+
+def over():
+    return BUDGET['s'] is not None and time.time() - BUDGET['t0'] > BUDGET['s']
+
+
 def speak(takes, lines):
-    spoken, refused = set(), []
+    spoken = {i for i, (lid, text, rate, _) in enumerate(lines) if have_take(takes, i, text, rate)}
+    refused = []
 
     async def synth():
         for i, (lid, text, rate, _) in enumerate(lines):
-            if refused:                                   # the service is refusing: the rest goes to the local voice in one go
+            if i in spoken:
+                continue
+            if refused or over():                         # the service is refusing: the rest goes to the local voice; or the time is up
                 break
             for attempt in range(3):                      # the free voice service drops a request now and then
                 try:
                     if await one(takes, i, text, '%+d%%' % rate, ai.CONFIG['voice']) > 0:
+                        mark_take(takes, i, text, rate)
                         spoken.add(i)
                         break
                 except Exception as e:  # noqa: BLE001
@@ -85,12 +108,24 @@ def speak(takes, lines):
                     await asyncio.sleep(2)
     asyncio.run(synth())
     left = [i for i in range(len(lines)) if i not in spoken]
+    if left and refused:
+        print('voice: the online voice refuses (%s); the local voice speaks %d line(s)' % (refused[0], len(left)), flush=True)
+    while left and refused:
+        if over():
+            break
+        chunk = left[:3]                                  # three lines at a time, so a time budget can stop between them
+        got = fallback_batch(takes, [(i, lines[i][1], lines[i][2]) for i in chunk])
+        if not got:
+            raise SystemExit('voice failed on line %s: %s' % (lines[chunk[0]][0], refused[0]))
+        for i in got:
+            mark_take(takes, i, lines[i][1], lines[i][2])
+        spoken |= got
+        left = [i for i in left if i not in got]
     if left:
-        print('voice: the online voice refuses (%s); the local voice speaks %d line(s)' % (refused[0] if refused else '?', len(left)), flush=True)
-        spoken |= fallback_batch(takes, [(i, lines[i][1], lines[i][2]) for i in left])
-        still = [lines[i][0] for i in range(len(lines)) if i not in spoken]
-        if still:
-            raise SystemExit('voice failed on line %s: %s' % (still[0], refused[0] if refused else 'no fallback voice on this machine'))
+        if over():
+            print('voice: stopped at the time budget with %d line(s) to speak; run again' % len(left), flush=True)
+            raise SystemExit(3)
+        raise SystemExit('voice failed on line %s: no fallback voice on this machine' % lines[left[0]][0])
     out, tl, t = [np.zeros(int(LEAD * SR), dtype=np.float32)], [], LEAD
     for i, (lid, text, rate, pause) in enumerate(lines):
         a = load(os.path.join(takes, '%02d.mp3' % i))
@@ -135,4 +170,6 @@ def main(work):
 
 if __name__ == '__main__':
     sys.stdout.reconfigure(encoding='utf-8')
+    if len(sys.argv) > 2:
+        BUDGET['s'] = float(sys.argv[2])
     main(sys.argv[1])

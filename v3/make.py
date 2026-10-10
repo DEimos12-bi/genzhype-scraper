@@ -170,7 +170,10 @@ def main():
                 why = os.path.join(work, 'plan_refused.txt')
                 refuse(work, open(why, encoding='utf-8').read() if os.path.isfile(why) else 'the director gave no usable plan (see the lines above)')
         elif step == 'voice':
-            if py('tts.py', work, timeout=400) != 0:
+            rc = py('tts.py', work, *([max(budget, 60)] if budget else []), timeout=900)
+            if rc == 3:
+                say('STOPPED at the time budget: run the same command again'); sys.exit(3)
+            if rc != 0:
                 refuse(work, 'the voice could not be made')
         elif step in ('footage', 'eyes', 'repair', 'receipts') and json.load(open(os.path.join(work, 'plan.json'), encoding='utf-8')).get('format') == 'slang':
             say('(the slang format is drawn: no footage, nothing to look at, no posts to photograph)'); mark(work, step)

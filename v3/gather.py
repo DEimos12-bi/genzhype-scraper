@@ -17,7 +17,7 @@ import time
 import eyes
 import footage
 import memes
-import stills
+import stills as cutstills      # (a local list below is called stills)
 
 OURS = re.compile(r'genzhype|genz hype|drama desk|the timeline|the receipts|not the gossip|live desk', re.I)
 
@@ -90,7 +90,7 @@ def main(work, budget=None, log=lambda *a: print(*a, flush=True)):
             a['usable'] = False
             log('  %s: our own cover card, not a picture of the story: not used' % k)
     # STILLS CUT OUT OF THE CLIPS: the best moments, a face, a different scene, each looked at like a picture of its own
-    new = stills.cut_from_clips(A, work, log)
+    new = cutstills.cut_from_clips(A, work, log)
     if new:
         keep()
         memes.look({k: A[k] for k in new}, m, work, log, keep, strangers=False)
