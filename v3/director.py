@@ -1358,7 +1358,7 @@ def ensure_receipts(p, m, casting=None, log=print):
     with the claim highlighted). When the picture editor put none, the posts the casting named as proofs (else the first
     post) go on the sentence that echoes them most: the one that says they posted, or shares the most words."""
     posts = m.get('posts') or []
-    if not posts or any(o.get('k') == 'receipt' for l in p['lines'] for o in l.get('overlays', [])):
+    if not posts or any(o.get('k') == 'receipt' and str(o.get('post', '')).startswith('post') for l in p['lines'] for o in l.get('overlays', [])):      # a post's card; a page's card is another proof
         return 0
     ids = [x for x in (casting or {}).get('proofs') or [] if isinstance(x, str) and x.startswith('post') and x[4:].isdigit() and int(x[4:]) < len(posts)]
     ids = list(dict.fromkeys(ids))[:2] or ['post0']
