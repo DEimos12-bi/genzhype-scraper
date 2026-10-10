@@ -1362,6 +1362,7 @@ def direct(m, log=print, work=None, budget=None):
     log('director: the plan used is the one by %s, %d words, %s' % (st['best']['model'], plan.get('words', 0),
         'fact check not run' if facts is None else '%d unsupported statements left' % len(facts) if facts else 'fact check clean'))
     if not slang_page:
+        ensure_receipts(plan, m, st.get('cast'), log)      # a correction may have rewritten the line that carried the proof
         picture_check(plan, m, log)
     plan.update({'url': m['url'], 'title': m['title'], 'model': st['best']['model'], 'assets': {} if slang_page else assets_of(m), 'kind': 'slang' if slang_page else 'meme' if is_meme(m) and any(v.get('usable', True) for v in m['meme_assets'].values()) else 'story',
                  'opening': st.get('opening'), 'left_open': soft2 + (facts or []),

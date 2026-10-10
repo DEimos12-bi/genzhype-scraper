@@ -155,15 +155,19 @@ def main(work):
         for l, r in zip(lines, json.load(open(rfile, encoding='utf-8'))):
             l[2] = r
     vo, tl, t = speak(takes, lines)
-    if t + 0.45 < need and not os.path.isfile(rfile):      # a little short: once more, slower by what is missing
+    passes = len(json.load(open(rfile + '.passes', encoding='utf-8'))) if os.path.isfile(rfile + '.passes') else 0
+    while t + 0.45 < need and passes < 2 and any(l[2] > SLOWEST for l in lines):      # short: once or twice more, slower by what is missing (a voice does not slow in proportion)
         silent = LEAD + sum(l[3] for l in lines)          # the pauses do not stretch: only the speech is slowed, by what the speech is missing
-        slower = [max(SLOWEST, int((100 + r) * (t - silent) / max(1.0, need - 0.45 - silent) - 100)) for _, _, r, _ in lines]
-        if slower != [l[2] for l in lines]:
-            print('voice: %.1f s is under the minimum; spoken again at %+d%% instead of %+d%%' % (t + 0.45, slower[0], lines[0][2]), flush=True)
-            json.dump(slower, open(rfile, 'w', encoding='utf-8'))
-            for l, r in zip(lines, slower):
-                l[2] = r
-            vo, tl, t = speak(takes, lines)
+        slower = [max(SLOWEST, int((100 + r) * (t - silent) / max(1.0, need + 0.5 - silent) - 100) - (1 if passes else 0)) for _, _, r, _ in lines]
+        if slower == [l[2] for l in lines]:
+            break
+        print('voice: %.1f s is under the minimum; spoken again at %+d%% instead of %+d%%' % (t + 0.45, slower[0], lines[0][2]), flush=True)
+        json.dump(slower, open(rfile, 'w', encoding='utf-8'))
+        passes += 1
+        json.dump([1] * passes, open(rfile + '.passes', 'w', encoding='utf-8'))
+        for l, r in zip(lines, slower):
+            l[2] = r
+        vo, tl, t = speak(takes, lines)
     vo = vo / (np.max(np.abs(vo)) + 1e-9) * 0.89
     with wave.open(os.path.join(work, 'vo.wav'), 'wb') as w:
         w.setnchannels(1); w.setsampwidth(2); w.setframerate(SR)
