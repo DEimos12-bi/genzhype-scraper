@@ -1248,14 +1248,14 @@ def direct(m, log=print, work=None, budget=None):
             st['cast'] = cast(m, log)
             keep()
         if st.get('script') is None:
-            sc, st['model'] = ai.ask_json(system_for('writer', m), story_user(m, 'Write the five openings, pick the strongest, then the script.', st.get('cast')), temperature=0.8, timeout=wait, max_tokens=6000,
+            sc, st['model'] = ai.ask_json(system_for('writer', m), story_user(m, 'Write the five openings, pick the strongest, then the script.', st.get('cast')), temperature=0.8, timeout=wait, max_tokens=14000,
                                           effort='medium', patient=True)
             st['script'] = tidy_script(sc)
             keep()
         if not st.get('opening'):
             st['opening'] = choose_opening(st['script'], m, log)
             keep()
-        staged, by = ai.ask_json(system_for('picture editor', m), stager_user(m, st['script'], st.get('cast')), temperature=0.3, timeout=wait, max_tokens=7000)
+        staged, by = ai.ask_json(system_for('picture editor', m), stager_user(m, st['script'], st.get('cast')), temperature=0.3, timeout=wait, max_tokens=14000)
         st['plan'] = merge(st['script'], staged)
         ensure_receipts(st['plan'], m, st.get('cast'), log)
         log('director: the words are by %s, the pictures by %s' % (st['model'], by))
