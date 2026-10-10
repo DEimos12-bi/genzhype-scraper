@@ -123,6 +123,26 @@ def giphy_search(text, have, limit=5):
     return out
 
 
+def events_of(main, base):
+    """The page's timeline: dated events, each with what happened, the outlet it rests on, the post it embeds and the
+    screenshot of the source the site already took (its proofs). This is the spine a story video follows."""
+    out = []
+    tl = re.search(r'(?is)<ol[^>]+class="timeline"[^>]*>(.*?)</ol>', main)
+    for li in re.findall(r'(?is)<li[^>]+class="event"[^>]*>(.*?)</li>', tl.group(1) if tl else ''):
+        date = (re.search(r'datetime="([^"]+)"', li) or [None, ''])[1][:10]
+        title = text_of((re.search(r'(?is)<h3[^>]*>(.*?)</h3>', li) or [None, ''])[1])
+        text = text_of((re.search(r'(?is)<p[^>]*>(.*?)</p>', li) or [None, ''])[1])
+        src = re.search(r'class="src"[^>]+title="Source:\s*([^"]+)"', li)
+        post = re.search(r'(?:x|twitter)\.com/[^/"\s]+/status/(\d+)', li)
+        proof = re.search(r'(?is)<figure[^>]+class="proof"[^>]*>.*?<img[^>]+src="([^"?]+)', li)
+        cap = text_of((re.search(r'(?is)<figcaption[^>]*>(.*?)</figcaption>', li) or [None, ''])[1])
+        if title or text:
+            out.append({'date': date, 'title': title[:160], 'text': re.sub(r'\s*\[\d+\]\s*$', '', text)[:600], 'source': html.unescape(src.group(1)).strip() if src else '',
+                        'post': post.group(1) if post else '', 'proof': (base + html.unescape(proof.group(1))) if proof and proof.group(1).startswith('/') else html.unescape(proof.group(1)) if proof else '',
+                        'proof_caption': re.sub(r'\s*Source \[\d+\]\s*$', '', cap)[:160]})
+    return out[:12]
+
+
 def from_url(url):
     page = get(url)
     m = re.search(r'(?is)<main[^>]*>(.*?)</main>', page)
@@ -178,11 +198,13 @@ def from_url(url):
             continue                                           # nothing to read: it does not take the place of an outlet that answers
         t = (h1 if len(h1.split()) >= 4 else '') or text_of((re.search(r'(?is)<title[^>]*>(.*?)</title>', art) or [None, ''])[1]) or h1
         sources.append({'url': u, 'publisher': re.sub(r'^www\.', '', u.split('/')[2]), 'title': t[:200], 'excerpt': body[:5000]})
+    base = url.split('/', 3)[0] + '//' + url.split('/')[2]
+    events = events_of(main, base)
     examples = examples_of(main) if '/meme/' in url else []
     if '/meme/' in url:                                         # the meme in motion, beyond what the page links
         examples += giphy_search(text_of(main), [e['id'] for e in examples if e['kind'] == 'gif'])
     return {'url': url, 'title': title, 'summary': desc, 'published': published, 'people': list(dict.fromkeys(people))[:12], 'page_text': text_of(main)[:9000],
-            'posts': posts, 'sources': sources, 'images': images, 'examples': examples}
+            'posts': posts, 'sources': sources, 'images': images, 'examples': examples, 'events': events}
 
 
 if __name__ == '__main__':
@@ -190,7 +212,8 @@ if __name__ == '__main__':
     mat = from_url(sys.argv[1])
     os.makedirs(sys.argv[2], exist_ok=True)
     json.dump(mat, open(os.path.join(sys.argv[2], 'material.json'), 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
-    print('material: "%s" | page text %d chars | %d posts (%d with video, %d with a picture) | %d outlet texts (%s) | %d examples of the meme (%s) | people: %s' % (
+    print('material: "%s" | page text %d chars | %d posts (%d with video, %d with a picture) | %d outlet texts (%s) | %d examples of the meme (%s) | people: %s | %d timeline events (%d with a proof screenshot) | %d page pictures' % (
         mat['title'][:60], len(mat['page_text']), len(mat['posts']), sum(any(m['type'] == 'video' for m in p['media']) for p in mat['posts']),
         sum(any(m['type'] == 'photo' for m in p['media']) for p in mat['posts']), len(mat['sources']), ', '.join(s['publisher'] for s in mat['sources']) or 'none',
-        len(mat['examples']), ', '.join('%s by %s' % (e['kind'], e['by']) for e in mat['examples']) or 'none', ', '.join(mat['people'][:8]) or '(none listed)'))
+        len(mat['examples']), ', '.join('%s by %s' % (e['kind'], e['by']) for e in mat['examples']) or 'none', ', '.join(mat['people'][:8]) or '(none listed)',
+        len(mat['events']), sum(1 for e in mat['events'] if e.get('proof')), len(mat['images'])))

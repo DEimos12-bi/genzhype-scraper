@@ -17,6 +17,7 @@ import time
 import eyes
 import footage
 import memes
+import people
 import stills as cutstills      # (a local list below is called stills)
 
 OURS = re.compile(r'genzhype|genz hype|drama desk|the timeline|the receipts|not the gossip|live desk', re.I)
@@ -46,8 +47,19 @@ def main(work, budget=None, log=lambda *a: print(*a, flush=True)):
                 A['clip%d' % i] = {'kind': 'clip', 'post': i, 'url': md['video'], 'seconds': md.get('seconds'), 'credit': 'CLIP · %s / X' % p['handle'].upper(), 'about': p['text'][:240], 'by': p['handle'], 'page': p['url']}
             elif md['type'] == 'photo' and md.get('image') and 'photo%d' % i not in A:
                 A['photo%d' % i] = {'kind': 'photo', 'post': i, 'url': md['image'], 'credit': 'IMAGE · %s / X' % p['handle'].upper(), 'about': p['text'][:240], 'by': p['handle'], 'page': p['url']}
+    for i, e in enumerate(m.get('events') or []):              # 2a. the site's own screenshots of the sources (the page's proofs)
+        if e.get('proof') and 'proof%d' % i not in A:
+            A['proof%d' % i] = {'kind': 'photo', 'url': e['proof'], 'credit': ('SCREENSHOT · %s' % (e.get('source') or 'the source')).upper()[:40], 'by': e.get('source') or 'the source',
+                                'about': e.get('proof_caption') or ('screenshot of %s: %s' % (e.get('source', 'the source'), e.get('title', ''))), 'page': m.get('url', ''), 'proof_of': i, 'date': e.get('date', '')}
+    if not m.get('faces_done'):                                # 2b. the faces of the people (X profile picture, Wikidata, YouTube)
+        people.find_faces(m, work, log)
+        m['faces_done'] = True
+        keep()
+    proofs = {e.get('proof', '').split('?')[0] for e in m.get('events') or [] if e.get('proof')}
     for i, im in enumerate(m.get('images') or []):             # 2. the page's own pictures
         if m.get('examples') and '/covers/' not in im['url']:  # a meme page's small pictures are copies of its examples, fetched themselves below
+            continue
+        if im['url'].split('?')[0] in proofs:                  # a proof screenshot is fetched above, with its event
             continue
         A.setdefault('page%d' % i, {'kind': 'photo', 'url': im['url'], 'credit': '', 'about': im.get('alt', ''), 'by': 'the page', 'page': m.get('url', '')})
     if m.get('examples') and not m.get('examples_collected'):  # 3. a meme's examples

@@ -151,6 +151,7 @@ THE GRAPHICS ("gfx"), for a sentence: few and big. Each appears on ONE word of t
   {"k":"rows","rows":[{"t":"FIRST LINE","on":"First"},{"t":"SECOND LINE","on":"Second"}]}   2 to 4 short lines appearing one by one (max 26 characters each): a lyric, a slogan or a list, word for word. It may run on into the next sentence.
   {"k":"quote","t":"real words of a source, max 90 characters","who":"NAME · VIA OUTLET","label":"WHAT THIS IS"}
   {"k":"receipt","post":"post1","mark":"exact words copied from that post, to highlight","translate":"English, only if the post is not in English"}   the post itself as a card
+  {"k":"receipt","post":"source2","mark":"a sentence copied from that outlet's text"}   an outlet's article as a card, that sentence highlighted (the outlets are numbered source0, source1... in the order listed)
   {"k":"blocks","items":[{"label":"IN GACHA SPINS","big":"$50–$100","on":"fifty"},{"label":"TO BUY IT OUTRIGHT","big":"$700","on":"seven"}]}   two things compared
   {"k":"labels","a":"2014 · THE ARTIST'S DESIGN","b":"IN THE GAME"}   the names of the two windows of a "two" sentence (max 30 characters each)
   At most ONE of rows / quote / receipt / blocks on a sentence, plus at most two of stamp / chip / sub, plus one name or tag. Most sentences need ONE graphic or none: a picture that says it needs no text. All text in CAPITALS except quotes.
@@ -230,6 +231,10 @@ def listing(m):
         seen = ('. It shows: %s' % v['seen']) if v.get('seen') else ('. It shows: %s' % v['eyes']['shows']) if v.get('eyes', {}).get('shows') else ''
         if v.get('from_clip'):
             seen = ' (a still cut out of %s at %d s)' % (v['from_clip'], int(v.get('at') or 0)) + seen
+        if v.get('face_of'):
+            seen = ' (THE FACE of %s: a close-up names them)' % v['face_of'] + seen
+        if v.get('proof_of') is not None:
+            seen = ' (the site\'s screenshot of the source of timeline event %d: shown whole, as proof)' % v['proof_of'] + seen
         return '  %s: %s%s%s. Its post says: "%s"%s' % (k, 'a MOVING clip, %ss' % (v.get('seconds') or int(v.get('dur') or 0)) if v['kind'] == 'clip' else 'a still picture', ' from ' + v['by'], seen, v['about'][:200], inside)
     alist = '\n'.join(one(k, v) for k, v in assets_of(m).items()) or '  (none: every line needs a hunt)'
     plist = '\n'.join('  post%d: %s (%s), %s, %s likes%s: "%s"' % (i, p['handle'], p['name'], p['date'], p['likes'], ', replying to @' + p['reply_to'] if p.get('reply_to') else '', p['text'][:500]) for i, p in enumerate(m.get('posts', []))) or '  (none)'
@@ -247,8 +252,8 @@ Rules: choose ONLY among the listed ids. The opener must be clear (a moving clip
 def cast(m, log=print):
     """The casting: decided from the material before writing. {} when no model answers (the writer then works as before)."""
     alist, plist, slist = listing(m)
-    user = ('THE STORY\nTitle: %s\nPage: %s\n\nOUR PAGE:\n%s\n\nTHE POSTS THE PAGE CITES:\n%s\n\nWHAT THE VIDEO CAN SHOW (ids):\n%s\n\nWHAT THE OUTLETS WROTE:\n%s\n\nCast this video.'
-            % (m['title'], m['url'], m['page_text'][:6000], plist, alist, slist[:5000]))
+    user = ('THE STORY\nTitle: %s\nPage: %s\n\n%sOUR PAGE:\n%s\n\nTHE POSTS THE PAGE CITES:\n%s\n\nWHAT THE VIDEO CAN SHOW (ids):\n%s\n\nWHAT THE OUTLETS WROTE:\n%s\n\nCast this video.'
+            % (m['title'], m['url'], timeline_block(m), m['page_text'][:6000], plist, alist, slist[:5000]))
     try:
         c, model = ai.ask_json(CAST_JOB, user, kind='text', temperature=0.4, timeout=ai.CONFIG['ai'].get('timeout', 100), max_tokens=3000, patient=True)
     except ai.AIError as e:
@@ -263,6 +268,14 @@ def cast(m, log=print):
     log('director: cast by %s: opens on %s (%s); players %s; twist on %s; shape: %s' % (model, c.get('opener') or '?', str(c.get('opener_why', ''))[:40],
         ', '.join('%s=%s' % (p['name'], p['asset']) for p in c['players']) or 'none', c.get('twist_asset') or '?', ' > '.join(str(x)[:28] for x in (c.get('shape') or [])[:8])))
     return c
+
+
+def timeline_block(m):
+    ev = m.get('events') or []
+    if not ev:
+        return ''
+    return 'THE TIMELINE (dated events of the page, each with its source; the shape of a story follows it):\n' + '\n'.join(
+        '- %s: %s. %s%s%s' % (e.get('date') or '?', e.get('title', ''), e.get('text', '')[:260], ' [%s]' % e['source'] if e.get('source') else '', ' (shown by proof%d)' % i if e.get('proof') else '') for i, e in enumerate(ev)) + '\n\n'
 
 
 def cast_block(c, m):
@@ -284,9 +297,9 @@ def story_user(m, ask, casting=None):
     ex = sorted(ex, key=lambda e: e.get('kind', 'story') != want)[:2]      # a meme studies the meme example first, a story the story ones
     examples = '\n\n'.join('EXAMPLE (%s). Vote: %s or %s.\n%s' % (e['about'], e['vote'][0], e['vote'][1], '\n'.join('%d. %s' % (i + 1, l) for i, l in enumerate(e['lines']))) for e in ex)
     alist, plist, slist = listing(m)
-    return ('%s\n\nTHE STORY\nTitle: %s\nPage: %s\nPublished: %s\n\nOUR PAGE (already fact-checked; its attributions are the safe wording):\n%s\n\nTHE POSTS THE PAGE CITES (ids for receipts):\n%s\n\n'
+    return ('%s\n\nTHE STORY\nTitle: %s\nPage: %s\nPublished: %s\n\n%sOUR PAGE (already fact-checked; its attributions are the safe wording):\n%s\n\nTHE POSTS THE PAGE CITES (ids for receipts):\n%s\n\n'
             'WHAT THE VIDEO CAN SHOW (ids for "show"):\n%s\n\nWHAT THE OUTLETS WROTE:\n%s\n\n%s%s'
-            % (examples, m['title'], m['url'], m.get('published', ''), m['page_text'][:6500], plist, alist, slist, cast_block(casting, m), ask))
+            % (examples, m['title'], m['url'], m.get('published', ''), timeline_block(m), m['page_text'][:6500], plist, alist, slist, cast_block(casting, m), ask))
 
 
 def stager_user(m, sc, casting=None):
@@ -659,6 +672,24 @@ def fix_and_check(p, m):
                         continue
                     o['t'] = str(o['t']).strip()[:110]
                 elif k == 'receipt':
+                    ms = re.fullmatch(r'source(\d+)', str(o.get('post', '')))
+                    if ms and int(ms.group(1)) < len(m.get('sources', [])):      # an outlet's article, a sentence of it highlighted
+                        ex = m['sources'][int(ms.group(1))].get('excerpt', '')
+                        mark = str(o.get('mark') or '').strip()
+                        if mark and mark not in ex:
+                            ws, best = mark.split(), ''
+                            for a in range(len(ws)):
+                                for e in range(len(ws), a + 2, -1):
+                                    if ' '.join(ws[a:e]) in ex and len(' '.join(ws[a:e])) > len(best):
+                                        best = ' '.join(ws[a:e])
+                            mark = best
+                        if not mark:
+                            soft.append('line %d shows %s as a receipt with words its article does not contain: copy a real sentence of it' % (i + 1, o['post']))
+                            continue
+                        o['mark'] = mark[:160]
+                        held = last
+                        card += 1; cards += 1; kept.append(o)
+                        continue
                     mm = re.fullmatch(r'post(\d+)', str(o.get('post', '')))
                     if not mm or int(mm.group(1)) >= len(m.get('posts', [])):
                         continue
