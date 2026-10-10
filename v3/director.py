@@ -16,7 +16,7 @@ import ai
 import beats
 import habits
 from beats import squash
-from investigate import outlets_of
+from investigate import names_of, outlets_of
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 CFG = ai.CONFIG
@@ -25,7 +25,7 @@ BANNED = ['official source', 'fans ask', 'fans are asking', 'in conclusion', 'st
           'the internet is', 'netizens', 'swipe up', 'smash that', 'in this video', 'welcome back',
           'our page', 'unverified', 'primary source', 'gen z hype', 'genzhype', 'gen-z hype']      # the video tells the story, never our own checking
 # words that state a crime, a lie or a death as fact: the line then has to say who says it
-HEAVY = re.compile(r'\b(stole|stolen|theft|thief|fraud|scam|scammed|lied|liar|arrested|guilty|convicted|assaulted|abuse[ds]?|groom\w*|rape\w*|murder\w*|died|'
+HEAVY = re.compile(r'\b(steal\w*|sabotag\w*|stole|stolen|theft|thief|fraud|scam|scammed|lied|liar|arrested|guilty|convicted|assaulted|abuse[ds]?|groom\w*|rape\w*|murder\w*|died|'
                    r'overdos\w*|suicide|racist|harass\w*|cheat(?:ed|er|ing)|plagiari\w*|embezzl\w*)\b', re.I)
 SAYS = re.compile(r'\b(says?|said|claims?|claimed|alleg\w*|reportedly|according|accus\w*|admit\w*|denie[sd]|deny|told|wrote|posted|quote|reports?|reported|police|court|'
                   r'lawsuit|filing|statement|apolog\w*|confirm\w*|call(?:s|ed)? it)\b', re.I)
@@ -36,6 +36,8 @@ SENSITIVE = re.compile(r'\b(died|dies|dead at|death of|passed away|found dead|mu
 
 
 # how an article sounds; a voice-over that uses these is sent back
+ANNOUNCE = re.compile(r"\b(here'?s the twist|here is the twist|one problem|but wait|plot twist|now it gets \w+|it gets (?:deeper|worse|crazier|wilder)|then came the \w+|here'?s (?:the thing|where it gets)|and that'?s not all|buckle up)\b", re.I)
+ALLEGED = re.compile(r'\b(alleg\w*|accus\w*|claims?|claimed|denie[sd]|rumou?r\w*|reportedly|unverified)\b', re.I)
 HEALTH = re.compile(r'\b(therap\w*|rehab\w*|drug use|drugs|addict\w*|sober|sobriety|overdos\w*|mental health|depress\w*|anxiety|diagnos\w*|medication|suicid\w*|self[- ]harm|eating disorder|relaps\w*)\b', re.I)
 ARTICLE = re.compile(r"(,\s*explained\b|\b(?:phenomenon|showcas\w*|garner\w*|amid|netizens|widespread|refers to|various|numerous|moreover|furthermore|additionally|notably|utiliz\w*|"
                      r"continues to|sparks? (?:a |fierce |heated )?debate|sparking|social media users|users|remains to be seen|taken the internet|in the world of)\b)", re.I)
@@ -71,7 +73,7 @@ def corpus(m):
                          + list(said_of(m).values()) + [e.get('quote', '') + ' ' + e.get('claim', '') for e in m.get('evidence') or []]))
 
 
-def find_bite(a, frm, to):
+def find_bite(a, frm, to, names=()):
     """The stretch of a clip between two runs of the words said in it. -> ({'ss', 'dur', 'text', 'words'}, '') or (None, why).
     Only the story's own clips (a post's video), only English, 2 to 7.5 seconds, and never an accusation of a crime in the
     speaker's own voice (we report that with who says it; we do not broadcast it)."""
@@ -90,11 +92,15 @@ def find_bite(a, frm, to):
             return None, 'that clip has no part "%s"%s' % (frm, ' to "%s"' % to if to else '')
         i0, i1 = pa['i0'], pb['i1']
         ss = max(0.0, ws[i0][1] - 0.08)
-        if ws[i1][2] - ss > 7.5:                                   # too long: it ends where the last whole thought that fits ends
-            fit = [p['i1'] for p in parts.values() if pa['i0'] <= p['i1'] <= i1 and ws[p['i1']][2] - ss <= 7.5]
-            if not fit:
-                return None, 'its first thought alone runs %.0f seconds (a bite is 2 to 7.5): choose another part' % (pa['e'] - pa['s'])
-            i1 = max(fit)
+        if ws[i1][2] - ss > 7.5:                                   # too long: the stretch of whole thoughts that NAMES the story (the claim itself), the longest that fits
+            inside = [p for p in parts.values() if pa['i0'] <= p['i0'] and p['i1'] <= pb['i1']]
+            runs = [(x, y) for n, x in enumerate(inside) for y in inside[n:] if 2.0 <= y['e'] - x['s'] + 0.2 <= 7.5]
+            if not runs:
+                return None, 'no whole thought of it fits (a bite is 2 to 7.5 seconds): choose other parts'
+            named = lambda x, y: sum(1 for w in ws[x['i0']:y['i1'] + 1] for t in bare(w[0]) if t in names)
+            x, y = max(runs, key=lambda r: (named(*r), r[1]['e'] - r[0]['s'], -r[0]['i0']))
+            i0, i1 = x['i0'], y['i1']
+            ss = max(0.0, ws[i0][1] - 0.08)
         end = min(ws[i1][2] + 0.14, ws[i1 + 1][1] + 0.04) if i1 + 1 < len(ws) else ws[i1][2] + 0.14
         dur = round(end - ss, 2)
         text = re.sub(r'\s+', ' ', ' '.join(w[0] for w in ws[i0:i1 + 1])).strip()
@@ -420,7 +426,8 @@ def tidy_script(sc):
     """The writer's lines made usable: only lines with words, one id each, "hook" first and "vote" last."""
     for l in (sc.get('lines') or []) + (sc.get('openings') or []):      # the writer gives each line sentence by sentence ("say"): joined here
         if isinstance(l, dict) and isinstance(l.get('say'), list):
-            parts = [re.sub(r'\s+', ' ', str(x)).strip() for x in l['say'] if str(x).strip()]
+            lift_bite(l, l['say'])
+            parts = [re.sub(r'\s+', ' ', x).strip() for x in l['say'] if isinstance(x, str) and x.strip() and not re.search(r"[{}\[\]]|'asset'|\"asset\"", x)]
             l['text'] = ' '.join(x if x[-1] in '.!?…"”' else x + '.' for x in parts)
     lines, seen = [l for l in (sc.get('lines') or []) if isinstance(l, dict) and str(l.get('text', '')).strip() and l.get('id') != 'site'], set()
     for i, l in enumerate(lines):
@@ -582,9 +589,17 @@ def trim_long(p, log):
     return True
 
 
+def lift_bite(line, say):
+    """A model sometimes puts the bite INSIDE the list of spoken sentences. It is never spoken: it becomes the line's bite."""
+    for x in say:
+        b = x.get('bite') if isinstance(x, dict) and isinstance(x.get('bite'), dict) else x if isinstance(x, dict) and x.get('asset') else None
+        if b and not isinstance(line.get('bite'), dict):
+            line['bite'] = b
+
+
 def say_text(say):
-    """A line given sentence by sentence, as one text."""
-    parts = [re.sub(r'\s+', ' ', str(x)).strip() for x in say if str(x).strip()]
+    """A line given sentence by sentence, as one text. Only text is ever spoken: an object or a bracket in the list is not a sentence."""
+    parts = [re.sub(r'\s+', ' ', x).strip() for x in say if isinstance(x, str) and x.strip() and not re.search(r"[{}\[\]]|'asset'|\"asset\"", x)]
     return ' '.join(x if x[-1] in '.!?…"”' else x + '.' for x in parts)
 
 
@@ -598,6 +613,9 @@ def apply_patch(base, patch):
             continue
         if isinstance(x.get('say'), list) and say_text(x['say']):
             l['text'] = say_text(x['say'])
+            lift_bite(l, x['say'])
+            if isinstance(x.get('bite'), dict):
+                l['bite'] = x['bite']
         elif isinstance(x.get('text'), str) and x['text'].strip():
             l['text'] = x['text'].strip()
         for k in ('overlays', 'caps'):
@@ -660,7 +678,7 @@ def fix_and_check(p, m):
         if not isinstance(b, dict):
             l.pop('bite', None)
             continue
-        got, why = (None, 'two bites at most, none on the vote') if l['id'] == 'vote' or sum(1 for x in lines[:i] if x.get('bite')) >= 2 else find_bite(have.get(str(b.get('asset'))) or {}, b.get('from') or '', b.get('to') or '')
+        got, why = (None, 'two bites at most, none on the vote') if l['id'] == 'vote' or sum(1 for x in lines[:i] if x.get('bite')) >= 2 else find_bite(have.get(str(b.get('asset'))) or {}, b.get('from') or '', b.get('to') or '', names_of(m))
         if got and bite_s + got['dur'] > 13:
             got, why = None, 'the bites together would run past 13 seconds'
         if not got:
@@ -701,6 +719,8 @@ def fix_and_check(p, m):
             digits = re.search(r'\S*\d\S*', t).group(0)
             soft.append('line %d says an account name with digits ("%s"): say "a TikToker" or "one account" instead, and show the name on a "chip"' % (i + 1, digits) if digits.startswith('@') else
                         'line %d has digits in the spoken text ("%s"): write numbers as spoken words and put the digits in "caps"' % (i + 1, digits))
+        if ANNOUNCE.search(t):                                 # the structure is never announced: the fact does the turning
+            soft.append('line %d announces instead of telling ("%s"): delete those words and say the fact itself' % (i + 1, ANNOUNCE.search(t).group(0)))
         if HEALTH.search(t) and not HEALTH.search(m.get('title', '') + ' ' + m.get('summary', '')):      # a person's health is not material unless it IS the story
             soft.append('line %d brings up a person\'s health or drug use ("%s"), which this story is not about: leave it out entirely' % (i + 1, HEALTH.search(t).group(0)))
         if spelled_handle(t, m):
@@ -871,6 +891,9 @@ def fix_and_check(p, m):
     if sum(1 for l in lines for o in l['overlays'] if o.get('k') in ('receipt', 'quote')) == 0 and (m.get('posts') or not meme):
         soft.append('no proof on screen: show at least one post as a "receipt" or one real quote as a "quote"')
     soft += ['line 1 (the opening): ' + x for x in opening_faults(lines[0]['text'])] + voice_faults(lines) + habits.faults(lines, m.get('url', ''))
+    first = (split_keep(lines[0]['text']) or [''])[0]
+    if ALLEGED.search(m.get('title', '') + ' ' + m.get('summary', '')) and not SAYS.search(first) and '?' not in first and len(names_of(m)) and any(n in tokens(first) for n in names_of(m)):
+        soft.append('line 1 states an ALLEGATION about a named person as a fact ("%s"): the same sentence must carry who says it ("He says ...", "X claims ...")' % first[:70])
     said_before = []                                           # A SENTENCE SAID TWICE: the same thing in two lines is a script that ran out of things to say
     for i, l in enumerate(lines[:-1]):
         for x in split_keep(l['text']):
