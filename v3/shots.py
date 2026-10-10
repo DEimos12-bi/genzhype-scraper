@@ -131,6 +131,9 @@ def plan_shots(plan, tl, log):
         if not (a.get('eyes', {}).get('kind') in ('stream', 'talking') or any(w.get('face') for w in a.get('windows', [])[:3])):
             return True
         own = norm(a.get('title', '')) if a['kind'] == 'hunt' else norm(a.get('about', '') + ' ' + a.get('by', ''))
+        stem = re.sub(r'[^a-z]', '', str(a.get('by') or '').lower())[:9]       # the story's own subject (their post, their name in the title) may be seen under any of its sentences
+        if a['kind'] != 'hunt' and len(stem) >= 5 and stem in norm(plan.get('title', '')).replace(' ', ''):
+            return True
         spoken = {w.lower() for w in re.findall(r'\b[A-Z][A-Za-zÀ-ÿ]{3,}\b', text)} - {'then', 'this', 'that', 'they', 'their', 'when', 'what', 'will', 'with', 'same', 'some'}
         return any(p and p in own and p in norm(text) for p in people) or any(w in own.split() for w in spoken)
     for i, pl in enumerate(plan['lines']):

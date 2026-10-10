@@ -227,7 +227,9 @@ def listing(m):
                     'youtube': 'a still picture, the cover of a YouTube video'}.get(v.get('from'), 'a picture')
             return '  %s: %s by %s%s%s%s%s' % (k, what, v.get('by') or '?', ' (%s)' % v['date'] if v.get('date') else '',
                                                ', posted with the words "%s"' % v['title'][:140] if v.get('title') and v.get('from') != 'gif' else '', '. It shows: %s' % v['seen'] if v.get('seen') else '', inside)
-        seen = ('. It shows: %s' % v['eyes']['shows']) if v.get('eyes', {}).get('shows') else ('. It shows: %s' % v['seen']) if v.get('seen') else ''
+        seen = ('. It shows: %s' % v['seen']) if v.get('seen') else ('. It shows: %s' % v['eyes']['shows']) if v.get('eyes', {}).get('shows') else ''
+        if v.get('from_clip'):
+            seen = ' (a still cut out of %s at %d s)' % (v['from_clip'], int(v.get('at') or 0)) + seen
         return '  %s: %s%s%s. Its post says: "%s"%s' % (k, 'a MOVING clip, %ss' % (v.get('seconds') or int(v.get('dur') or 0)) if v['kind'] == 'clip' else 'a still picture', ' from ' + v['by'], seen, v['about'][:200], inside)
     alist = '\n'.join(one(k, v) for k, v in assets_of(m).items()) or '  (none: every line needs a hunt)'
     plist = '\n'.join('  post%d: %s (%s), %s, %s likes%s: "%s"' % (i, p['handle'], p['name'], p['date'], p['likes'], ', replying to @' + p['reply_to'] if p.get('reply_to') else '', p['text'][:500]) for i, p in enumerate(m.get('posts', []))) or '  (none)'
@@ -1115,6 +1117,43 @@ def repair(work, log=lambda *a: print(*a, flush=True)):
     return len(dropped)
 
 
+def ensure_receipts(p, m, casting=None, log=print):
+    """THE PROOF ON SCREEN. A story's own post is shown as a receipt at least once (the way a person cuts to the post
+    with the claim highlighted). When the picture editor put none, the posts the casting named as proofs (else the first
+    post) go on the sentence that echoes them most: the one that says they posted, or shares the most words."""
+    posts = m.get('posts') or []
+    if not posts or any(o.get('k') == 'receipt' for l in p['lines'] for o in l.get('overlays', [])):
+        return 0
+    ids = [x for x in (casting or {}).get('proofs') or [] if isinstance(x, str) and x.startswith('post') and x[4:].isdigit() and int(x[4:]) < len(posts)]
+    ids = list(dict.fromkeys(ids))[:2] or ['post0']
+    words_of = lambda t: set(re.findall(r'[a-z0-9]{4,}', t.lower()))
+    said = re.compile(r'\b(posted|wrote|tweeted|announced|claims?|says?|said|post)\b')
+    taken, done = set(), 0
+    for pid in ids:
+        post = posts[int(pid[4:])]
+        pw = words_of(post['text'])
+        best, score = None, -1
+        for l in p['lines']:
+            if l['id'] in ('hook', 'vote', 'site'):
+                continue
+            for n, b in enumerate(l.get('beats') or []):
+                if (l['id'], n) in taken or any(o.get('beat') == n and o.get('k') in CARDS for o in l.get('overlays', [])):
+                    continue
+                sc = len(pw & words_of(b['say'])) + (3 if said.search(b['say'].lower()) else 0)
+                if sc > score:
+                    best, score = (l, n), sc
+        if not best:
+            continue
+        l, n = best
+        sents = [x.strip() for x in re.split(r'(?<=[.!?])\s+', post['text'].replace(chr(10), ' ')) if 12 <= len(x.strip()) <= 90]
+        sw = words_of(' '.join(x['say'] for ln in p['lines'] for x in ln.get('beats') or []))
+        mark = max(sents, key=lambda x: len(sw & words_of(x))) if sents else post['text'][:70]
+        l.setdefault('overlays', []).append({'k': 'receipt', 'post': pid, 'mark': mark, 'beat': n})
+        taken.add((l['id'], n)); done += 1
+        log('  %s.%d "%s": the post %s goes on screen as a receipt (the picture editor gave none)' % (l['id'], n + 1, l['beats'][n]['say'][:40], pid))
+    return done
+
+
 def direct(m, log=print, work=None, budget=None):
     """The plan: one draft, then up to two corrections (code checks + a fact check on every version). The draft of a story is
     made in three small jobs: the words (five openings, then the script), the pick of the opening, the pictures. A meme's own
@@ -1187,6 +1226,7 @@ def direct(m, log=print, work=None, budget=None):
             keep()
         staged, by = ai.ask_json(system_for('picture editor', m), stager_user(m, st['script'], st.get('cast')), temperature=0.3, timeout=wait, max_tokens=7000)
         st['plan'] = merge(st['script'], staged)
+        ensure_receipts(st['plan'], m, st.get('cast'), log)
         log('director: the words are by %s, the pictures by %s' % (st['model'], by))
         keep()
     if not slang_page and st.get('best') is None and not st.get('trimmed'):      # a draft that runs long loses sentences before it is checked

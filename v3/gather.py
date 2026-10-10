@@ -10,12 +10,16 @@ Everything lands in material.json["assets"] (the same ids the director uses) and
 stopped at a time budget and run again: what is fetched and looked at is kept.  usage: gather.py <work> [seconds]"""
 import json
 import os
+import re
 import sys
 import time
 
 import eyes
 import footage
 import memes
+import stills
+
+OURS = re.compile(r'genzhype|genz hype|drama desk|the timeline|the receipts|not the gossip|live desk', re.I)
 
 
 def main(work, budget=None, log=lambda *a: print(*a, flush=True)):
@@ -79,6 +83,17 @@ def main(work, budget=None, log=lambda *a: print(*a, flush=True)):
     clips = {k for k, a in A.items() if a.get('file') and a['kind'] == 'clip' and not a.get('whole') and not a.get('eyes')}
     if clips:
         eyes.look_assets(A, m.get('title', ''), 'meme' if m.get('examples') else 'story', work, log, save=keep, only=clips)
+    # OUR OWN CARDS ARE NEVER MATERIAL: the page's branded cover (our wordmark, "the timeline", "the receipts") is a card
+    # about the story, not a picture of it. A video that shows it has nothing to show.
+    for k, a in A.items():
+        if a.get('kind') == 'photo' and a.get('by') == 'the page' and a.get('usable', True) and OURS.search(a.get('seen', '')):
+            a['usable'] = False
+            log('  %s: our own cover card, not a picture of the story: not used' % k)
+    # STILLS CUT OUT OF THE CLIPS: the best moments, a face, a different scene, each looked at like a picture of its own
+    new = stills.cut_from_clips(A, work, log)
+    if new:
+        keep()
+        memes.look({k: A[k] for k in new}, m, work, log, keep, strangers=False)
     m['gathered'] = True
     keep()
     have = [k for k, a in A.items() if a.get('file') and a.get('usable', True)]
