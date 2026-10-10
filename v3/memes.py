@@ -79,7 +79,7 @@ def collect(m, work, log=print):
     return out
 
 
-def look(assets, m, work, log=print, tick=None):
+def look(assets, m, work, log=print, tick=None, strangers=True):
     """Every example is looked at on its own (on a shared sheet the picture model mixes pictures up). Sets "seen" (what
     it shows), "usable" and, for a GIF, what the cut needs. tick() is called after each one: the caller keeps the
     progress there, and may stop the run at its time budget (the next run goes on with the next picture)."""
@@ -139,12 +139,12 @@ def look(assets, m, work, log=print, tick=None):
         drawn = (t or {}).get('photo') is False or str((t or {}).get('photo')).lower() == 'false'
         real = not drawn and (person.startswith('real') or (not person.startswith('drawn') and bool(HUMAN.search(what))))
         a['person'] = 'real' if real else 'drawn' if drawn or person.startswith('drawn') else 'none'
-        if a['usable'] and a['person'] == 'real' and (a['from'] == 'gif' or not ai.CONFIG.get('memes', {}).get('real_people')):
+        if a['usable'] and a['person'] == 'real' and (strangers(a) if callable(strangers) else strangers) and (a.get('from') == 'gif' or not ai.CONFIG.get('memes', {}).get('real_people')):
             a['usable'], why = False, 'A REAL PERSON IS ITS SUBJECT'
         if a['kind'] == 'clip':                                # a GIF needs no second look by the eyes step
             a['eyes'] = {'kind': 'meme', 'relevant': a['usable'], 'exact': a['usable'], 'shows': a['seen'][:160], 'model': model}
             a['windows'] = [{'t': 0.0, 'score': 4.0, 'x': 0.5, 'face': False, 'what': a['seen'][:70]}] if a['usable'] else []
-        log('  %s (%s by %s): %s%s' % (k, a['from'], a['by'], a['seen'] or 'not looked at', '' if a['usable'] else '  -> %s: not used' % why))
+        log('  %s (%s by %s): %s%s' % (k, a.get('from') or a['kind'], a.get('by', '?'), a['seen'] or 'not looked at', '' if a['usable'] else '  -> %s: not used' % why))
         if tick:
             tick()
     return assets

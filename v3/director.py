@@ -64,6 +64,8 @@ def corpus(m):
 
 def assets_of(m):
     """What can be put on screen before any search: the videos and pictures of the story's own posts."""
+    if m.get('gathered'):                                      # gather.py fetched and looked at everything before this (the order a person works in)
+        return {k: v for k, v in (m.get('assets') or {}).items() if v.get('file') and v.get('usable', True)}
     out = {}
     for i, p in enumerate(m.get('posts', [])):
         for md in p['media']:
@@ -220,37 +222,81 @@ def listing(m):
             ([' words are written across its %s (a close-up must not land there)' % v['caption']] if v.get('caption') else [])
         inside += ' (%s)' % ';'.join(poor).strip() if poor else ''
         if v.get('whole'):                                     # one of the meme's own examples, with what the picture model saw in it
-            what = {'gif': 'a MOVING clip (a GIF, %s)' % ('upright' if v.get('h', 0) > v.get('w', 0) else 'wide'), 'tiktok': 'a still picture, the cover of a TikTok post',
+            what = {'gif': 'a MOVING clip (a GIF, %s)' % ('upright' if v.get('h', 0) > v.get('w', 0) else 'wide'),
+                    'tiktok': 'a MOVING clip (the TikTok video itself, %ds)' % v.get('dur', 0) if v['kind'] == 'clip' else 'a still picture, the cover of a TikTok post',
                     'youtube': 'a still picture, the cover of a YouTube video'}.get(v.get('from'), 'a picture')
             return '  %s: %s by %s%s%s%s%s' % (k, what, v.get('by') or '?', ' (%s)' % v['date'] if v.get('date') else '',
                                                ', posted with the words "%s"' % v['title'][:140] if v.get('title') and v.get('from') != 'gif' else '', '. It shows: %s' % v['seen'] if v.get('seen') else '', inside)
-        return '  %s: %s%s. Its post says: "%s"%s' % (k, 'a MOVING clip, %ss' % v.get('seconds') if v['kind'] == 'clip' else 'a still picture', ' from ' + v['by'], v['about'][:200], inside)
+        seen = ('. It shows: %s' % v['eyes']['shows']) if v.get('eyes', {}).get('shows') else ('. It shows: %s' % v['seen']) if v.get('seen') else ''
+        return '  %s: %s%s%s. Its post says: "%s"%s' % (k, 'a MOVING clip, %ss' % (v.get('seconds') or int(v.get('dur') or 0)) if v['kind'] == 'clip' else 'a still picture', ' from ' + v['by'], seen, v['about'][:200], inside)
     alist = '\n'.join(one(k, v) for k, v in assets_of(m).items()) or '  (none: every line needs a hunt)'
     plist = '\n'.join('  post%d: %s (%s), %s, %s likes%s: "%s"' % (i, p['handle'], p['name'], p['date'], p['likes'], ', replying to @' + p['reply_to'] if p.get('reply_to') else '', p['text'][:500]) for i, p in enumerate(m.get('posts', []))) or '  (none)'
     slist = '\n\n'.join('OUTLET %s: "%s"\n%s' % (x['publisher'], x['title'], x['excerpt'][:2600]) for x in m.get('sources', []) if 'fonts.' not in x['publisher']) or '(none fetched)'
     return alist, plist, slist
 
 
-def story_user(m, ask):
+CAST_JOB = """You are the editor who CASTS GenZHype's TikTok videos (vertical, about a minute, footage under everything). Before a word of the script is written, you decide, from the material alone, what this video is built on. A person doing this by hand looks at everything first, then decides: what the strongest picture is, what the twist is and which picture shows it, who the players are and where each one is seen, which proofs go on screen, which numbers hit. The writer then writes TO this casting, and the picture editor follows it.
+Rules: choose ONLY among the listed ids. The opener must be clear (a moving clip of the thing itself, or a sharp close-up of a player: never a dark picture, never one with words written across it). A player is only cast when a listed picture shows them (give its id and the subject id, "s2"). The twist is the fact that turns the story, and twist_asset the listed picture that shows what the twist is about. Proofs are posts or pictures that prove a claim. Numbers only from the material, with the digits the caption shows. The shape is the order of the video in 5 to 8 steps, each tied to what is shown. Strict JSON only:
+{"angle":"the story in one sentence","opener":"id","opener_why":"what it shows, 8 words","players":[{"name":"","from":"where they are from","asset":"id","focus":"s1"}],
+ "twist":"the fact, one sentence","twist_asset":"id","proofs":["post1","id"],"numbers":[{"say":"sixty-three million views","show":"63M VIEWS","about":"what the number is about"}],
+ "shape":["open on the players, named","the action clip","who it is","the twist","the numbers","the vote"],"vote":{"question":"max 22 characters","a":"ONE WORD","b":"ONE WORD"}}"""
+
+
+def cast(m, log=print):
+    """The casting: decided from the material before writing. {} when no model answers (the writer then works as before)."""
+    alist, plist, slist = listing(m)
+    user = ('THE STORY\nTitle: %s\nPage: %s\n\nOUR PAGE:\n%s\n\nTHE POSTS THE PAGE CITES:\n%s\n\nWHAT THE VIDEO CAN SHOW (ids):\n%s\n\nWHAT THE OUTLETS WROTE:\n%s\n\nCast this video.'
+            % (m['title'], m['url'], m['page_text'][:6000], plist, alist, slist[:5000]))
+    try:
+        c, model = ai.ask_json(CAST_JOB, user, kind='text', temperature=0.4, timeout=ai.CONFIG['ai'].get('timeout', 100), max_tokens=3000, patient=True)
+    except ai.AIError as e:
+        log('director: nobody cast the video (%s): the writer works from the material alone' % str(e)[-70:])
+        return {}
+    have = assets_of(m)
+    for key in ('opener', 'twist_asset'):                     # only listed pictures; a wrong id is dropped, not trusted
+        if c.get(key) not in have:
+            c[key] = ''
+    c['players'] = [p for p in (c.get('players') or []) if isinstance(p, dict) and p.get('name') and p.get('asset') in have][:4]
+    c['model'] = model
+    log('director: cast by %s: opens on %s (%s); players %s; twist on %s; shape: %s' % (model, c.get('opener') or '?', str(c.get('opener_why', ''))[:40],
+        ', '.join('%s=%s' % (p['name'], p['asset']) for p in c['players']) or 'none', c.get('twist_asset') or '?', ' > '.join(str(x)[:28] for x in (c.get('shape') or [])[:8])))
+    return c
+
+
+def cast_block(c, m):
+    if not c:
+        return ''
+    have = assets_of(m)
+    show = lambda k: '%s (%s)' % (k, (have.get(k, {}).get('seen') or have.get(k, {}).get('eyes', {}).get('shows') or have.get(k, {}).get('about') or '')[:90]) if k else '(none cast)'
+    return ('THE CASTING (decided from the material before writing; the script and the pictures FOLLOW it):\n- the angle: %s\n- open on: %s\n- the players, and where each is seen: %s\n- the twist: %s, shown by %s\n- proofs to put on screen: %s\n- the numbers to say: %s\n- the shape, in order: %s\n'
+            'Every line is about something the casting shows; a line about a thing no listed picture shows is not written. The vote: %s.\n\n'
+            % (c.get('angle', ''), show(c.get('opener')), '; '.join('%s = %s %s (%s)' % (p['name'], p['asset'], p.get('focus', ''), p.get('from', '')) for p in c.get('players') or []) or 'none',
+               c.get('twist', ''), show(c.get('twist_asset')), ', '.join(str(x) for x in c.get('proofs') or []) or 'none',
+               '; '.join('%s (%s)' % (n.get('say', ''), n.get('about', '')) for n in c.get('numbers') or [] if isinstance(n, dict)) or 'none',
+               ' > '.join(str(x) for x in c.get('shape') or []) or 'as the examples', json.dumps(c.get('vote') or {}, ensure_ascii=False)))
+
+
+def story_user(m, ask, casting=None):
     slug, want = m['url'].rstrip('/').split('/')[-1], 'meme' if is_meme(m) else 'story'
     ex = [e for e in json.load(open(os.path.join(HERE, 'examples.json'), encoding='utf-8')) if e['slug'] != slug]
     ex = sorted(ex, key=lambda e: e.get('kind', 'story') != want)[:2]      # a meme studies the meme example first, a story the story ones
     examples = '\n\n'.join('EXAMPLE (%s). Vote: %s or %s.\n%s' % (e['about'], e['vote'][0], e['vote'][1], '\n'.join('%d. %s' % (i + 1, l) for i, l in enumerate(e['lines']))) for e in ex)
     alist, plist, slist = listing(m)
     return ('%s\n\nTHE STORY\nTitle: %s\nPage: %s\nPublished: %s\n\nOUR PAGE (already fact-checked; its attributions are the safe wording):\n%s\n\nTHE POSTS THE PAGE CITES (ids for receipts):\n%s\n\n'
-            'WHAT THE VIDEO CAN SHOW (ids for "show"):\n%s\n\nWHAT THE OUTLETS WROTE:\n%s\n\n%s'
-            % (examples, m['title'], m['url'], m.get('published', ''), m['page_text'][:6500], plist, alist, slist, ask))
+            'WHAT THE VIDEO CAN SHOW (ids for "show"):\n%s\n\nWHAT THE OUTLETS WROTE:\n%s\n\n%s%s'
+            % (examples, m['title'], m['url'], m.get('published', ''), m['page_text'][:6500], plist, alist, slist, cast_block(casting, m), ask))
 
 
-def stager_user(m, sc):
+def stager_user(m, sc, casting=None):
     alist, plist, _ = listing(m)
     v = sc.get('vote') if isinstance(sc.get('vote'), dict) else {}
     script = '\n'.join('%s.%d: %s' % (l['id'], k + 1, x) for l in sc['lines'] for k, x in enumerate(split_keep(l['text'])))
     return ('THE STORY: %s (%s)\n\nTHE SCRIPT, SENTENCE BY SENTENCE (final; the id is in front of each sentence):\n%s\n\nTHE VOTE: %s | %s | %s   (the machine draws the vote and the closing itself: give their sentences a picture, no graphics)\n\n'
             'THE POSTS THE PAGE CITES (ids for receipts):\n%s\n\nWHAT THE VIDEO CAN SHOW (ids for "show"):\n%s\n\n'
-            'THE OUTLETS (for chips and for who said a quote): %s\nA quote card may only use words that the script itself quotes, or words of a post above.\n\nChoose the picture and the graphics of every sentence.'
+            'THE OUTLETS (for chips and for who said a quote): %s\nA quote card may only use words that the script itself quotes, or words of a post above.\n\n%sChoose the picture and the graphics of every sentence.'
             % (m['title'], m['url'], script, v.get('question', ''), (v.get('a') or {}).get('word', ''), (v.get('b') or {}).get('word', ''),
-               plist, alist, ', '.join('%s ("%s")' % (x['publisher'], x['title'][:70]) for x in m.get('sources', [])) or 'none'))
+               plist, alist, ', '.join('%s ("%s")' % (x['publisher'], x['title'][:70]) for x in m.get('sources', [])) or 'none',
+               cast_block(casting, m).replace('the script and the pictures FOLLOW it', 'hook.1 shows the opener, each player is named on the picture cast for them, the twist line shows the twist picture')))
 
 
 def prompt_for(m):
@@ -1025,6 +1071,50 @@ def picture_check(p, m, log):
     return done
 
 
+def repair(work, log=lambda *a: print(*a, flush=True)):
+    """After the hunts: a sentence written for footage that is not there (not found, refused, off topic) is DROPPED when its
+    line keeps two sentences and the script keeps its length; otherwise it stays and the cut shows the main clip under
+    it. The way a person rewrites a line when the clip never came, instead of covering it with something else."""
+    pfile = os.path.join(work, 'plan.json')
+    p = json.load(open(pfile, encoding='utf-8'))
+    m = json.load(open(os.path.join(work, 'material.json'), encoding='utf-8'))
+    if p.get('format') == 'slang' or not p.get('lines'):
+        return 0
+    A = p.get('assets') or {}
+    bad = {k for k, a in A.items() if a.get('kind') == 'hunt' and (not a.get('file') or not a.get('usable', True) or (a.get('eyes') and not a['eyes'].get('relevant', True)))}
+    if not bad:
+        log('repair: every hunt the script counted on is there')
+        return 0
+    lo, dropped, total = CFG['length']['words_min'], [], sum(words(l['text']) for l in p['lines'])
+    for l in p['lines']:
+        if l['id'] in ('hook', 'vote', 'site') or not l.get('beats'):
+            continue
+        gone = [n for n, b in enumerate(l['beats']) if (b.get('show') or {}).get('asset') in bad]
+        if not gone or len(l['beats']) - len(gone) < 2:
+            continue
+        cut = sum(words(l['beats'][n]['say']) for n in gone)
+        if total - cut < lo - 25:
+            continue
+        keep_idx = [n for n in range(len(l['beats'])) if n not in gone]
+        l['overlays'] = [dict(o, beat=keep_idx.index(o.get('beat', 0)), **({'to': keep_idx.index(min(o['to'], keep_idx[-1]))} if 'to' in o and o['to'] in keep_idx else {}))
+                         for o in l.get('overlays', []) if o.get('beat', 0) in keep_idx]
+        for n in gone:
+            dropped.append('%s.%d "%s" (%s)' % (l['id'], n + 1, l['beats'][n]['say'][:50], l['beats'][n]['show'].get('asset')))
+        l['beats'] = [l['beats'][n] for n in keep_idx]
+        l['text'] = ' '.join(b['say'] for b in l['beats'])
+        total -= cut
+    if dropped:
+        p, soft, hard = fix_and_check(p, m)
+        if not any(l['id'] == 'site' for l in p['lines']):     # the checks work on the spoken lines; the closing is put back
+            p = add_site_line(p)
+        p['repaired'] = dropped
+        json.dump(p, open(pfile, 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
+        log('repair: %d sentence(s) written for footage that never came are dropped: %s | %d words left' % (len(dropped), '; '.join(dropped), p.get('words', total)))
+    else:
+        log('repair: the sentences written for missing footage (%s) cannot be dropped without shortening the video too much: the main clip plays under them' % ', '.join(sorted(bad)))
+    return len(dropped)
+
+
 def direct(m, log=print, work=None, budget=None):
     """The plan: one draft, then up to two corrections (code checks + a fact check on every version). The draft of a story is
     made in three small jobs: the words (five openings, then the script), the pick of the opening, the pictures. A meme's own
@@ -1065,7 +1155,9 @@ def direct(m, log=print, work=None, budget=None):
         w = plan.get('words', 0)
         return [len(hard) + (1 if plan.get('incomplete') else 0), 0 if w >= lo - 25 else 1, len(facts or []), -(-max(0, lo - w) // 10), len(soft), -min(w, hi)]
 
-    if is_meme(m) and work:                                    # a meme's own pictures: fetched and looked at, one by one, before a word is written
+    if m.get('gathered'):                                      # gather.py fetched and looked at everything (a meme's examples among them) before this step
+        st['memes'] = {k: a for k, a in (m.get('assets') or {}).items() if a.get('whole')}
+    elif is_meme(m) and work:                                  # a meme's own pictures: fetched and looked at, one by one, before a word is written
         import memes
         if st.get('memes') is None:
             st['memes'] = memes.collect(m, work, log)
@@ -1081,16 +1173,19 @@ def direct(m, log=print, work=None, budget=None):
     if st['plan'] is None and slang_page:
         st['plan'], st['model'] = ai.ask_json(system, user, temperature=0.7, timeout=wait, max_tokens=12000, effort='medium', patient=True)
         keep()
-    elif st['plan'] is None:                                    # a story: the words, then the opening is picked, then the pictures
+    elif st['plan'] is None:                                    # a story: the casting, the words, then the opening is picked, then the pictures
+        if st.get('cast') is None:
+            st['cast'] = cast(m, log)
+            keep()
         if st.get('script') is None:
-            sc, st['model'] = ai.ask_json(system_for('writer', m), story_user(m, 'Write the five openings, pick the strongest, then the script.'), temperature=0.8, timeout=wait, max_tokens=6000,
+            sc, st['model'] = ai.ask_json(system_for('writer', m), story_user(m, 'Write the five openings, pick the strongest, then the script.', st.get('cast')), temperature=0.8, timeout=wait, max_tokens=6000,
                                           effort='medium', patient=True)
             st['script'] = tidy_script(sc)
             keep()
         if not st.get('opening'):
             st['opening'] = choose_opening(st['script'], m, log)
             keep()
-        staged, by = ai.ask_json(system_for('picture editor', m), stager_user(m, st['script']), temperature=0.3, timeout=wait, max_tokens=7000)
+        staged, by = ai.ask_json(system_for('picture editor', m), stager_user(m, st['script'], st.get('cast')), temperature=0.3, timeout=wait, max_tokens=7000)
         st['plan'] = merge(st['script'], staged)
         log('director: the words are by %s, the pictures by %s' % (st['model'], by))
         keep()

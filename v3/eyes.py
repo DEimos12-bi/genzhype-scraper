@@ -49,16 +49,21 @@ def sheet(clip, dur, out, n):
 
 def look(work, log=print):
     plan = json.load(open(os.path.join(work, 'plan.json'), encoding='utf-8'))
+    look_assets(plan['assets'], plan['title'], plan.get('kind'), work, log, save=lambda: json.dump(plan, open(os.path.join(work, 'plan.json'), 'w', encoding='utf-8'), ensure_ascii=False, indent=1))
+
+
+def look_assets(assets, title, kind, work, log=print, save=None, only=None):
+    """The clips of `assets` that nobody looked at yet (or just the ids in `only`); save() is called after each one."""
     edir = os.path.join(work, 'eyes'); os.makedirs(edir, exist_ok=True)
-    for aid, a in plan['assets'].items():
-        if not a.get('file') or a['kind'] == 'photo' or a.get('eyes'):
+    for aid, a in assets.items():
+        if not a.get('file') or a['kind'] == 'photo' or a.get('eyes') or (only is not None and aid not in only):
             continue
         n = int(min(16, max(6, a['dur'] // 4)))
         # A MEME has one look. What a search brings under its name is often a remake (a rhythm game, another animation): the
         # judge is told what the page's own pictures of it look like, and a remake does not count as the meme itself.
-        own = [v['eyes']['shows'] for v in plan['assets'].values() if v.get('whole') and v.get('usable', True) and (v.get('eyes') or {}).get('kind') == 'meme' and v['eyes'].get('shows')][:4]
+        own = [v['eyes']['shows'] for v in assets.values() if v.get('whole') and v.get('usable', True) and (v.get('eyes') or {}).get('kind') == 'meme' and v['eyes'].get('shows')][:4]
         look = ('\nTHE MEME\'S OWN PICTURES look like this (described by a model that cannot name its characters): %s\n"exact" is true only when this clip shows what was searched in THAT SAME FORM, the same drawing and the same scene. '
-                'A remake in another style (a rhythm game, a different animation, an edit with other characters) is "relevant" but NOT "exact".' % ' | '.join(own)) if plan.get('kind') == 'meme' and own and a['kind'] == 'hunt' and not a.get('game') else ''
+                'A remake in another style (a rhythm game, a different animation, an edit with other characters) is "relevant" but NOT "exact".' % ' | '.join(own)) if kind == 'meme' and own and a['kind'] == 'hunt' and not a.get('game') else ''
         out = os.path.join(edir, aid + '.jpg')
         tiles, labelled = sheet(os.path.join(work, 'assets', a['file']), a['dur'], out, n)
         tsec = dict(tiles)
@@ -68,7 +73,7 @@ def look(work, log=print):
                 '"text" true if big burned-in text, captions or a channel banner cover it, "face" true if a real person\'s face is the main subject.\n'
                 'Then for the whole clip: "kind" one of gameplay, trailer, event, stream, talking, other; "relevant" true if it shows the game, people, product or event of THIS story at all (false for a different game, a fan concept, an ad, an unrelated video); "exact" true if it shows exactly this: %s; "shows" one sentence.\n'
                 '%s\nJSON: {"tiles":[{"n":"A","what":"","score":0,"x":0.5,"text":false,"face":false}],"kind":"","relevant":true,"exact":true,"shows":""}'
-                % (plan['title'], a.get('about', '')[:300], 'It was searched to show: ' + a['must_show'] if a.get('must_show') else '', len(tiles),
+                % (title, a.get('about', '')[:300], 'It was searched to show: ' + a['must_show'] if a.get('must_show') else '', len(tiles),
                    ', each labelled with its letter and second' if labelled else ', unlabelled: letter them A, B, C... left to right, top to bottom', a.get('must_show') or 'something of this story', look))
         eyes = None
         if a['kind'] != 'stock':
@@ -97,9 +102,11 @@ def look(work, log=print):
         if look and a['usable'] and not a['eyes']['exact']:
             a['usable'] = False
             log('%s: a remake of the meme, not the meme itself: not shown (the meme\'s own clip plays where it was asked for)' % aid)
-        json.dump(plan, open(os.path.join(work, 'plan.json'), 'w', encoding='utf-8'), ensure_ascii=False, indent=1)      # kept clip by clip: a stopped run does not look twice
+        if save:
+            save()                                             # kept clip by clip: a stopped run does not look twice
         log('%s: %s, %s, %d of %d moments usable: %s' % (aid, a['eyes']['kind'], ('shows exactly it' if a['eyes']['exact'] else 'on topic') if a['eyes']['relevant'] else 'OFF TOPIC', len(a['windows']), len(good), a['eyes']['shows'][:90]))
-    json.dump(plan, open(os.path.join(work, 'plan.json'), 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
+    if save:
+        save()
 
 
 if __name__ == '__main__':

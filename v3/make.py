@@ -2,7 +2,8 @@
     python make.py <work folder> --url https://genzhype.com/...      (the owner's PC: reads the public page)
     python make.py <work folder>                                     (a material.json is already in the folder: the server feed)
 Steps, each one a file in this folder; a run can be stopped and started again, finished steps are kept:
-    material -> plan (director.py) -> voice (tts.py) -> footage (footage.py) -> eyes (eyes.py) -> receipts (receipts.py)
+    material -> gather (gather.py: every piece the page gives, fetched and looked at BEFORE a word is written) -> plan (director.py: the casting, the
+    script, the pictures) -> footage (footage.py: the hunts) -> eyes (eyes.py) -> repair (a sentence whose footage never came is dropped) -> voice (tts.py) -> receipts (receipts.py)
     -> site (site.py: the page on a PC, a tablet and a phone, for the closing) -> cut (shots.py) -> layout (render.py + check.py, repaired) -> gate (check.py) -> frames (render.py, in batches)
     -> sound (audio.py) -> pack (mp4, cover.jpg, post.txt, report.json in <work>/out)
 Options: --steps a,b,c  only these steps      --from STEP  this step and the ones after it      --approved  the owner read
@@ -21,7 +22,7 @@ sys.path.insert(0, HERE)
 import ai          # noqa: E402
 import localenv    # noqa: E402
 
-STEPS = ['material', 'plan', 'voice', 'footage', 'eyes', 'receipts', 'site', 'cut', 'layout', 'gate', 'frames', 'sound', 'pack']
+STEPS = ['material', 'gather', 'plan', 'footage', 'eyes', 'repair', 'voice', 'receipts', 'site', 'cut', 'layout', 'gate', 'frames', 'sound', 'pack']
 BATCH = 450
 
 
@@ -154,6 +155,13 @@ def main():
                     refuse(work, 'no material.json in the folder and no --url given')
                 if py('material.py', opt('--url'), work, timeout=180) != 0:
                     refuse(work, 'the page could not be read')
+        elif step == 'gather':
+            rc = py('gather.py', work, *([budget] if budget else []), timeout=900)
+            if rc == 3:
+                say('STOPPED at the time budget: run the same command again'); sys.exit(3)
+            if rc != 0:
+                refuse(work, 'the material could not be gathered (see the lines above)')
+            mark(work, step)
         elif step == 'plan':
             rc = py('director.py', work, *([budget] if budget else []), timeout=900)
             if rc == 3:
@@ -164,7 +172,7 @@ def main():
         elif step == 'voice':
             if py('tts.py', work, timeout=400) != 0:
                 refuse(work, 'the voice could not be made')
-        elif step in ('footage', 'eyes', 'receipts') and json.load(open(os.path.join(work, 'plan.json'), encoding='utf-8')).get('format') == 'slang':
+        elif step in ('footage', 'eyes', 'repair', 'receipts') and json.load(open(os.path.join(work, 'plan.json'), encoding='utf-8')).get('format') == 'slang':
             say('(the slang format is drawn: no footage, nothing to look at, no posts to photograph)'); mark(work, step)
         elif step == 'footage':
             rc = py('footage.py', work, *([max(budget, 75)] if budget else []))      # a download needs room: under 40 s left it would never start one
@@ -173,6 +181,8 @@ def main():
             mark(work, step)
         elif step == 'eyes':
             py('eyes.py', work, timeout=900); mark(work, step)
+        elif step == 'repair':
+            py('repair.py', work, timeout=300); mark(work, step)
         elif step == 'receipts':
             py('receipts.py', work, timeout=400); mark(work, step)
         elif step == 'site':
