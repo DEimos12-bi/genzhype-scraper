@@ -1013,7 +1013,7 @@ def unsupported(plan, m):
             'a guessed gender. A fair summary of what the material says is supported, and so is the same thing said in plainer words: "each fandom claims him as its own" supports "Minecraft says he is theirs". '
             'A statement about what the pictures show is supported by the list of pictures. Questions and the vote are not claims: never list the last line. Lines marked EXAMPLE are made-up everyday illustrations of how the word is used: judge only whether they fit the meaning the material gives. Strict JSON only: {"problems":[{"line":1,"text":"the words","why":"short"}]} (an empty list if all is supported).')
     try:
-        j, _ = ai.ask_json(sys_, 'MATERIAL\n%s\n\nSCRIPT\n%s' % (mat, script), kind='reader', temperature=0.1, timeout=ai.CONFIG['ai'].get('timeout', 100), max_tokens=6000)
+        j, _ = ai.ask_json(sys_, 'MATERIAL\n%s\n\nSCRIPT\n%s' % (mat, script), kind='text', temperature=0.1, timeout=ai.CONFIG['ai'].get('timeout', 100), max_tokens=6000)      # a judgement: the writing models (a light one refused faithful paraphrases)
     except ai.AIError:
         return None                                           # no checker answered: said in the report, the plan is kept
     vote = '' if plan.get('format') == 'slang' else str(len(plan['lines']))      # a story's last line is the vote: a question, by rule not a claim
