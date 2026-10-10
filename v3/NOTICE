@@ -1,0 +1,10 @@
+Third-party code in this folder
+
+engine.js — the fragment shaders of the shot transitions (whip-pan, flash-through-white, chromatic-split,
+cinematic-zoom, glitch, light-leak) and the shared GLSL header are ported from HyperFrames,
+packages/shader-transitions (https://github.com/heygen-com/hyperframes), Copyright HeyGen,
+licensed under the Apache License, Version 2.0 (http://www.apache.org/licenses/LICENSE-2.0).
+The caption grouping, timing and entry-move rules follow the HyperFrames embedded-captions skill
+(caption-grouping.md, motion-vocabulary.md, rail.md) of the same repository and licence.
+Modifications: the shaders run on a WebGL canvas fed by 2D-canvas paintings of two shots of this engine;
+the easing curves of the caption moves are approximated by this engine's own easing functions.

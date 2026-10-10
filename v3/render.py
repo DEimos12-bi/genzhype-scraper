@@ -3,10 +3,13 @@ usage: render.py <work> stills T1 T2 ...   -> stills/sNN.jpg at those seconds
        render.py <work> frames FIRST LAST  -> frames/f00000.jpg ... (LAST not included)
        render.py <work> layout             -> layout.json: where every graphic sits at each moment it is on screen
 The browser is CloakBrowser where it is installed (the owner's PC), Playwright's Chromium elsewhere (GitHub)."""
+import functools
 import json
 import os
 import sys
+import threading
 import time
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
 FPS = 30
 
@@ -21,16 +24,38 @@ def open_browser():
         return pw.chromium.launch(headless=True), pw
 
 
+class Quiet(SimpleHTTPRequestHandler):
+    def log_message(self, *a):
+        pass
+
+    def do_GET(self):
+        if self.path == '/favicon.ico':
+            self.send_response(204); self.end_headers(); return
+        super().do_GET()
+
+
+def serve(work):
+    """The work folder on a local port for the page: pictures from file:// taint a canvas, and the shader transitions
+    read the picture back."""
+    srv = ThreadingHTTPServer(('127.0.0.1', 0), functools.partial(Quiet, directory=work))
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    return srv
+
+
 def main():
     work, mode = os.path.abspath(sys.argv[1]), sys.argv[2]
+    srv = serve(work)
     browser, pw = open_browser()
     page = browser.new_context(viewport={'width': 1080, 'height': 1920}, device_scale_factor=1).new_page()
     errors = []
     page.on('pageerror', lambda e: errors.append(str(e)[:200]))
     page.on('console', lambda m: errors.append('console: ' + m.text[:200]) if m.type == 'error' else None)
-    page.goto('file:///' + os.path.join(work, 'comp.html').replace('\\', '/'))
+    page.goto('http://127.0.0.1:%d/comp.html' % srv.server_address[1])
     page.evaluate('window.READY')
     page.wait_for_timeout(250)
+    if mode in ('stills', 'layout'):
+        xf = page.evaluate('typeof transitions === "function" ? transitions() : []')
+        print('transitions: %s' % (', '.join('%.2f %s (%s > %s)' % (a, n, f, t) for a, d, n, f, t in xf) or 'none' + (' (%s)' % page.evaluate('window.XF_OFF || ""') if page.evaluate('window.XF_OFF || ""') else '')), flush=True)
     t0 = time.time()
     if mode == 'stills':
         out = os.path.join(work, 'stills'); os.makedirs(out, exist_ok=True)
@@ -63,6 +88,7 @@ def main():
     bad = page.evaluate('window.ERR || 0')
     print('picture errors: %s | page errors: %s' % (bad, errors[:4] or 'none'), flush=True)
     browser.close()
+    srv.shutdown()
     if pw:
         pw.stop()
     if errors or bad:

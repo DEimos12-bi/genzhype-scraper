@@ -55,6 +55,8 @@ html,body{background:#000;overflow:hidden}
 #capline{white-space:nowrap;font:800 96px/1 Spartan;text-transform:uppercase;color:#fff;transform-origin:50% 50%}
 #capline span{display:inline-block;margin:0 9px;padding:22px 15px 2px;border-radius:12px}
 #capline span.on{background:var(--red);box-shadow:7px 7px 0 var(--ink)}
+#capline span.em{color:var(--yellow)}
+#xf{position:absolute;left:0;top:0;width:1080px;height:1920px;display:none}
 #credit{position:absolute;right:40px;top:1236px;font:500 20px Mono;letter-spacing:.05em;background:rgba(10,9,8,.6);color:#fff;padding:7px 10px 6px;border-radius:3px;white-space:nowrap}
 #flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none}
 #grain{position:absolute;inset:-64px;opacity:.09;mix-blend-mode:overlay;pointer-events:none;background-size:540px 960px}
