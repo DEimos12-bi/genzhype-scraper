@@ -85,6 +85,15 @@ def over():
     return BUDGET['s'] is not None and time.time() - BUDGET['t0'] > BUDGET['s']
 
 
+def chunk_size():
+    """How many lines the next local-voice batch may take: about 12 s to load the model and 18 s a line, and the step may
+    run one minute past its budget at most (a call is cut at two minutes from outside)."""
+    if BUDGET['s'] is None:
+        return 3
+    room = BUDGET['s'] + 60 - (time.time() - BUDGET['t0'])
+    return max(1, min(3, int((room - 12) / 18)))
+
+
 def speak(takes, lines):
     spoken = {i for i, (lid, text, rate, _) in enumerate(lines) if have_take(takes, i, text, rate)}
     refused = []
@@ -113,7 +122,7 @@ def speak(takes, lines):
     while left and refused:
         if over():
             break
-        chunk = left[:3]                                  # three lines at a time, so a time budget can stop between them
+        chunk = left[:chunk_size()]                       # up to three lines at a time, fewer near the end of the budget, so a call ends in time
         got = fallback_batch(takes, [(i, lines[i][1], lines[i][2]) for i in chunk])
         if not got:
             raise SystemExit('voice failed on line %s: %s' % (lines[chunk[0]][0], refused[0]))
