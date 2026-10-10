@@ -88,10 +88,12 @@ def look(assets, m, work, log=print, tick=None):
                 '"photo": true if it is a photograph or a frame of real-world video, false if it is an animation, a cartoon, a drawing, a video game or a 3D render;\n'
                 '"person": "real" if a real human being (photographed or filmed) is the main subject, "drawn" if its figures are drawn, animated, 3D-rendered or game characters, "none" if nobody is in it;\n'
                 '"score": 0 to 5, how clear and striking it is as a picture (0 = black, blank or unreadable);\n'
+                '"caption": where words are written ACROSS the picture (a caption, a subtitle, a title laid over the scene): "top", "middle" or "bottom"; "none" when there are none '
+                '(a small watermark, an account name or a logo in a corner does not count);\n'
                 '"subjects": EVERY separate figure or thing in it that a camera could go close on, from LEFT to RIGHT, at most 6. Leave none out because it is small, at the edge, '
                 'or drawn in another style than the others. For each: "name" (what it is by its look, 3 to 7 words: "woman in a red raincoat"), "x" and "y" (where its CENTRE is, as numbers from 0 to 1: x 0 = left edge, 1 = right edge; y 0 = top, 1 = bottom), '
                 '"h" (how much of the picture\'s height it takes, from 0 to 1).\n'
-                'JSON: {"what":"","text":"","photo":false,"person":"none","score":3,"subjects":[{"name":"","x":0.5,"y":0.5,"h":0.4}]}')
+                'JSON: {"what":"","text":"","photo":false,"person":"none","score":3,"caption":"none","subjects":[{"name":"","x":0.5,"y":0.5,"h":0.4}]}')
         try:
             t, model = ai.ask_json('You look at ONE picture. Answer with strict JSON only.', user, images=[tile], tries=3, temperature=0.1, timeout=60, max_tokens=1100)
         except ai.OutOfTime:
@@ -114,6 +116,11 @@ def look(assets, m, work, log=print, tick=None):
                 subjects.append({'id': 's%d' % (len(subjects) + 1), 'name': str(sb['name']).strip()[:60], 'x': round(x, 3), 'y': round(y, 3), 'h': round(min(1.0, max(0.08, hh)), 3)})
         a['subjects'] = subjects[:6]
         a['seen'] = (what + (' (text in it: "%s")' % str(t['text']).strip()[:80] if str(t.get('text') or '').strip() else '')) if t else ''
+        # what a close-up must know about a still: where words lie across it (the cut never goes close into them) and how
+        # light it is (of two pictures of the same figure, the clearer one is used)
+        cap = str((t or {}).get('caption') or '').strip().lower()
+        a['caption'] = cap if a['kind'] == 'photo' and cap in ('top', 'middle', 'bottom') else ''
+        a['light'] = brightness(tile) if a['kind'] == 'photo' else None
         a['usable'], why = bool(t) and score >= 1, 'UNREADABLE' if t else 'NOBODY LOOKED AT IT'
         # A real person as the subject: a GIF of a stranger turned into a joke is never shown; somebody's own post only when
         # the owner allows it ("memes": {"real_people": true} in config.json). Nobody watches these videos before they exist,
@@ -132,6 +139,15 @@ def look(assets, m, work, log=print, tick=None):
         if tick:
             tick()
     return assets
+
+
+def brightness(path):
+    """How light a picture is, from 0 (black) to 1 (white): the mean of a small grey copy. None when it cannot be read."""
+    try:
+        r = subprocess.run(['ffmpeg', '-v', 'error', '-i', path, '-frames:v', '1', '-vf', 'scale=48:48,format=gray', '-f', 'rawvideo', '-'], capture_output=True, timeout=30)
+        return round(sum(r.stdout) / (255.0 * len(r.stdout)), 3) if r.stdout else None
+    except Exception:  # noqa: BLE001
+        return None
 
 
 def sort_topic(assets, m, log=print):

@@ -135,6 +135,7 @@ The script is cut sentence by sentence. Each sentence has an id ("hook.1", "hook
     "whole"  the whole picture.
     "play"   a moving clip, sharp: for action, and to let the thing be seen as it is.
     "under"  the clip or picture blurred, behind a big stamp or a card.
+- Of two pictures of the same scene, go close on the clearer one: not the dark one, not the one with words written across it (a remix's cover is usually both; the original's cover is clean).
 - Open on close-ups that name the players (a "name" graphic on each), then let the action play. Never frame the same picture the same way for two sentences in a row unless the action simply goes on: go from one subject to another, or from a picture to the clip.
 - A clip of a person may only be shown sharp on a sentence about THAT person (the clip's own post tells you who is in it).
 - {"asset":"hunt1"} = footage you ask for in "hunts": up to %(hunts)d requests for things the words describe but the material does not show: the game's gameplay or trailer, the event, the arena, the product. Each: {"id":"hunt1","query":"4 to 7 search words naming the exact thing","must_show":"what the picture must show","game":"only when the footage wanted is a video game: its exact title, nothing else"}. A hunt with "game" gets that game's official trailer. Hunt THINGS, not a named person's face. Never hunt a private person's home, a victim, a mugshot.
@@ -215,6 +216,9 @@ def listing(m):
     def one(k, v):
         inside = '; '.join('%s = %s (%s)' % (sb['id'], sb['name'], place(sb)) for sb in v.get('subjects') or [])
         inside = '. Its subjects: ' + inside if inside and v['kind'] == 'photo' else ''
+        poor = ([' it is DARK'] if v['kind'] == 'photo' and v.get('light') is not None and v['light'] < 0.35 else []) + \
+            ([' words are written across its %s (a close-up must not land there)' % v['caption']] if v.get('caption') else [])
+        inside += ' (%s)' % ';'.join(poor).strip() if poor else ''
         if v.get('whole'):                                     # one of the meme's own examples, with what the picture model saw in it
             what = {'gif': 'a MOVING clip (a GIF, %s)' % ('upright' if v.get('h', 0) > v.get('w', 0) else 'wide'), 'tiktok': 'a still picture, the cover of a TikTok post',
                     'youtube': 'a still picture, the cover of a YouTube video'}.get(v.get('from'), 'a picture')
@@ -960,7 +964,14 @@ def picture_check(p, m, log):
     clips = [b['show']['asset'] for _, _, b in where.values() if A[b['show']['asset']].get('kind') == 'clip']
     if len(rows) < 4 or not clips:
         return 0
-    main = max(sorted(set(clips)), key=lambda k: (clips.count(k), A[k].get('w', 0) * A[k].get('h', 0)))      # shown as often: the larger one, which fills the screen
+    ranked = sorted(set(clips), key=lambda k: (-clips.count(k), -A[k].get('w', 0) * A[k].get('h', 0), k))      # most shown first; as often: the larger one, which fills the screen
+    main, second = ranked[0], (ranked[1] if len(ranked) > 1 else None)
+    order = [b for l in p['lines'] for b in l.get('beats') or []]
+
+    def stand_in(b):
+        """The clip that plays instead: the main one, or the second most shown when the sentence before already shows the main one."""
+        i = next((i for i, x in enumerate(order) if x is b), 0)
+        return second if second and i and (order[i - 1].get('show') or {}).get('asset') == main else main
     user = ('THE SUBJECT: %s\nWHO AND WHAT IS IN IT, FROM THE PAGE: %s\n\nEach row is one sentence of a short video about it and the picture on screen while it is said. The pictures were described by a model that was NOT told the subject '
             'and cannot name its characters (it writes "a blocky figure", "a yellow face"); the words written in a picture and the words it was posted with tell you which version it is.\n'
             'row id | the sentence | the picture\n%s\n\n'
@@ -1005,8 +1016,9 @@ def picture_check(p, m, log):
         if rid not in where or where[rid][2]['show'].get('asset') == main:
             continue
         l, n, b = where[rid]
-        log('  %s "%s": its picture (%s) does not show %s; the main clip %s plays instead' % (rid, b['say'][:44], b['show']['asset'], str(x.get('about') or 'it')[:40], main))
-        b['show'] = {'asset': main, 'move': 'play'}
+        use = stand_in(b)
+        log('  %s "%s": its picture (%s) does not show %s; the clip %s plays instead' % (rid, b['say'][:44], b['show']['asset'], str(x.get('about') or 'it')[:40], use))
+        b['show'] = {'asset': use, 'move': 'play'}
         l['overlays'] = [o for o in l.get('overlays', []) if not (o.get('beat') == n and o.get('k') in ('name', 'tag', 'labels'))]      # they named what is no longer shown
         done += 1
     log('director: the pictures were checked against the words by %s: %d of %d sentences changed' % (model, done, len(rows)))

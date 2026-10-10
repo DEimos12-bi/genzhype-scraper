@@ -14,6 +14,8 @@ import re
 
 MIN_BEAT, SHARP_MAX, UNDER_MAX = 0.8, 4.6, 6.0
 MOVES = ('close', 'pan', 'two', 'whole', 'play', 'under')
+BANDS = {'top': (0.0, 0.3), 'middle': (0.33, 0.67), 'bottom': (0.7, 1.0)}      # where words lie across a picture (memes.look: "caption")
+GENERIC = set('figure figures character characters standing holding wearing with small large cartoon drawn image picture background front side face head body hand hands person people'.split())
 
 
 def split_keep(text):
@@ -59,6 +61,9 @@ def close_on(a, s, fy=960, tighter=1.0):
         cx = _inside(float(s['x']) * w, 540 / zz, w)
         top, bottom = fy / zz, (1920 - fy) / zz
         cy = h / 2 if h <= top + bottom else min(h - bottom, max(top, float(s['y']) * h))
+        cy = clear_cy(a, s, cy, zz, fy, 1920 - fy)
+        if cy is None:                                         # it cannot keep out of the words written across the picture
+            return None
         out.append([round(cx, 1), round(cy, 1), round(zz, 4)])
     return out
 
@@ -70,7 +75,10 @@ def window_on(a, s):
     z = min(fill * 3.2, max(fill, 0.86 * 560 / (max(0.1, float(s.get('h', 0.4))) * h)))
     out = []
     for zz in (z, z * 1.1):
-        out.append([round(_inside(float(s['x']) * w, 540 / zz, w), 1), round(_inside(float(s['y']) * h, 280 / zz, h), 1), round(zz, 4)])
+        cy = clear_cy(a, s, _inside(float(s['y']) * h, 280 / zz, h), zz, 280, 280)
+        if cy is None:
+            return None
+        out.append([round(_inside(float(s['x']) * w, 540 / zz, w), 1), round(cy, 1), round(zz, 4)])
     return {'k0': out[0], 'k1': out[1]}
 
 
@@ -82,6 +90,59 @@ def same_view(ka, kb):
     ox = max(0.0, min(ka[0] + wa / 2, kb[0] + wb / 2) - max(ka[0] - wa / 2, kb[0] - wb / 2))
     oy = max(0.0, min(ka[1] + ha / 2, kb[1] + hb / 2) - max(ka[1] - ha / 2, kb[1] - hb / 2))
     return ox * oy > 0.75 * min(wa * ha, wb * hb)
+
+
+def clear_cy(a, s, cy, zz, above, below):
+    """The centre y of a view (above px of screen above it, below px under it, at zoom zz) kept out of the band where
+    words are written across the picture, with the subject still inside the view. None when that is not possible."""
+    band = BANDS.get(a.get('caption') or '')
+    if not band:
+        return cy
+    h = a['h']
+    y0, y1, top, bottom = band[0] * h, band[1] * h, above / zz, below / zz
+    lo, hi = top, h - bottom                                   # the view stays inside the picture
+    opts = []
+    if y0 - bottom >= lo:                                      # the view entirely above the band
+        opts.append(max(lo, min(cy, y0 - bottom)))
+    if y1 + top <= hi:                                         # or entirely below it
+        opts.append(min(hi, max(cy, y1 + top)))
+    sy = float(s['y']) * h
+    opts = [c for c in opts if abs(c - sy) <= 0.3 * (top + bottom)]      # the subject stays in the middle part of the view
+    return min(opts, key=lambda c: abs(c - cy)) if opts else None
+
+
+def key_words(name):
+    return {w for w in re.findall(r'[a-z]+', (name or '').lower()) if len(w) >= 4 and w not in GENERIC}
+
+
+def clarity(a):
+    """How fit a still is for a close-up: no words across it first, then how light it is (memes.look)."""
+    return (0 if a.get('caption') else 1, a['light'] if a.get('light') is not None else 0.5)
+
+
+def clearer(assets, asset, sid, to=None):
+    """Of two stills of the same figure, the clearer one: without words across it, lighter. The figure is matched by the
+    words of its description (the picture model names it the same way in both). -> (asset, focus, to) or None"""
+    a, s = assets[asset], subject(assets[asset], sid)
+    if not s or (not a.get('caption') and (a.get('light') is None or a['light'] >= 0.35)):
+        return None
+    want = key_words(s['name'])
+    want_to = key_words(subject(a, to)['name']) if to and subject(a, to) else set()
+    best = None
+    for k, b in assets.items():
+        if k == asset or b.get('kind') != 'photo' or not b.get('usable', True) or not b.get('subjects'):
+            continue
+        cb, ca = clarity(b), clarity(a)
+        if not (cb[0] > ca[0] and cb[1] >= ca[1] - 0.05 or cb[0] == ca[0] and cb[1] >= ca[1] + 0.08):
+            continue
+        hits = sorted(((len(key_words(t['name']) & want), t['id']) for t in b['subjects']), reverse=True)
+        if not hits or hits[0][0] == 0:
+            continue
+        t2 = sorted(((len(key_words(t['name']) & want_to), t['id']) for t in b['subjects'] if t['id'] != hits[0][1]), reverse=True) if want_to else []
+        cand = (hits[0][0], cb, k, hits[0][1], t2[0][1] if t2 and t2[0][0] else None)
+        if best is None or cand[:2] > best[:2]:
+            best = cand
+    return best[2:] if best else None
 
 
 def whole_still(a, nth, sharp=True):
@@ -146,11 +207,21 @@ def for_line(pl, ln, t0, t1, sup, shots, pick, has_card, card_to, face_ok, log, 
             move = 'whole'
         if move in ('pan', 'two') and (not subject(A, show.get('to')) or show.get('to') == show.get('focus')):
             move = 'close'
-        if move == 'two' and same_view(window_on(A, subject(A, show['focus']))['k0'], window_on(A, subject(A, show['to']))['k0']):
-            move = 'whole'                                     # two windows that would show the same part of the picture: the whole picture, once
-            gone = [o for o in pl.get('overlays', []) if o.get('beat') in members and o.get('k') == 'labels']
-            pl['overlays'] = [o for o in pl.get('overlays', []) if o not in gone]
-            log('  %s: the two windows asked for on %s would show the same part of it; shown whole' % (pl['id'], asset))
+        if still and move in ('close', 'pan', 'two'):         # of two pictures of the same figure, the close-up takes the clearer one
+            tw = clearer(sup.a, asset, show.get('focus'), show.get('to') if move in ('pan', 'two') else None)
+            if tw:
+                log('  %s: %s is %s; the close-up goes to %s, a clearer picture of the same figure' % (pl['id'], asset, 'written across' if A.get('caption') else 'dark', tw[0]))
+                asset, show = tw[0], dict(show, asset=tw[0], focus=tw[1], to=tw[2])
+                A = sup.a[asset]
+                if move in ('pan', 'two') and not tw[2]:
+                    move = 'close'
+        if move == 'two':
+            wa, wb = window_on(A, subject(A, show['focus'])), window_on(A, subject(A, show['to']))
+            if not (wa and wb) or same_view(wa['k0'], wb['k0']):
+                move = 'whole'                                 # two windows that would show the same part of the picture, or land on its words: the whole picture, once
+                gone = [o for o in pl.get('overlays', []) if o.get('beat') in members and o.get('k') == 'labels']
+                pl['overlays'] = [o for o in pl.get('overlays', []) if o not in gone]
+                log('  %s: the two windows asked for on %s would %s; shown whole' % (pl['id'], asset, 'show the same part of it' if wa and wb else 'land on the words written across it'))
         if move == 'play' and not face_ok(asset, pl['text']):
             move = 'under'
             log('  %s: %s shows a person these words do not name; shown blurred' % (pl['id'], asset))
@@ -172,22 +243,34 @@ def for_line(pl, ln, t0, t1, sup, shots, pick, has_card, card_to, face_ok, log, 
                 img, same = 'assets/' + A['file'], sum(1 for x in shots + out if x['asset'] == asset)
                 fy = 560 if card else 960                      # a card sits low on a sharp picture: the subject is kept above it
                 m = move if p == 0 else ('whole' if move in ('close', 'pan') else 'close')      # a long sentence: a second framing
+                framed, crossed = None, False
                 if m == 'two':
-                    s.update(mode='D', img=img, a=window_on(A, subject(A, show['focus'])), b=window_on(A, subject(A, show['to'])), dim=0.0)
+                    wa, wb = window_on(A, subject(A, show['focus'])), window_on(A, subject(A, show['to']))
+                    if wa and wb:
+                        framed = dict(mode='D', img=img, a=wa, b=wb, dim=0.0)
+                    crossed = not framed
                 elif m == 'pan':
-                    k0, k1 = close_on(A, subject(A, show['focus']), fy, 0.9)[0], close_on(A, subject(A, show['to']), fy, 0.9)[0]
-                    k1[2] = k0[2]
-                    s.update(mode='S', img=img, k0=k0, k1=k1, fy=fy)
+                    ka, kb = close_on(A, subject(A, show['focus']), fy, 0.9), close_on(A, subject(A, show['to']), fy, 0.9)
+                    if ka and kb:
+                        k0, k1 = ka[0], kb[0]
+                        k1[2] = k0[2]
+                        framed = dict(mode='S', img=img, k0=k0, k1=k1, fy=fy)
+                    crossed = not framed
                 elif m == 'close' and subject(A, show.get('focus')):
-                    k0, k1 = close_on(A, subject(A, show['focus']), fy, 0.82 if card else 1.0)
-                    s.update(mode='S', img=img, k0=k0, k1=k1, fy=fy)
+                    ks = close_on(A, subject(A, show['focus']), fy, 0.82 if card else 1.0)
+                    if ks:
+                        framed = dict(mode='S', img=img, k0=ks[0], k1=ks[1], fy=fy)
+                    crossed = not framed
                 elif m == 'under':
-                    s.update(mode='S', img=img, **whole_still(A, same, sharp=False))
+                    framed = dict(mode='S', img=img, **whole_still(A, same, sharp=False))
                     s['credit'] = ''
-                else:
-                    s.update(mode='S', img=img, **whole_still(A, same))
+                if framed is None:                             # the whole picture (also when a close-up cannot keep off the words written across it)
+                    if crossed:
+                        log('  %s: a close-up into %s would land on the words written across it; shown whole' % (pl['id'], asset))
+                    framed = dict(mode='S', img=img, **whole_still(A, same))
                     if single:
                         s['dim'] = 0.5
+                s.update(framed)
                 if card and s['mode'] == 'S' and m != 'under':
                     s['dim'] = max(s.get('dim', 0.0), 0.14)
             else:

@@ -106,13 +106,19 @@ def plan_shots(plan, tl, log):
                 v['whole'] = True
     asked = [(b.get('show') or {}).get('asset') for l in plan['lines'] for b in l.get('beats') or []]
     asked = [k for k in asked if k in sup.a and sup.a[k]['kind'] == 'clip' and sup.a[k].get('usable', True)]
-    main = max(sorted(set(asked)), key=lambda k: (asked.count(k), sup.a[k].get('w', 0) * sup.a[k].get('h', 0))) if asked else None      # shown as often: the larger one, which fills the screen
+    ranked = sorted(set(asked), key=lambda k: (-asked.count(k), -sup.a[k].get('w', 0) * sup.a[k].get('h', 0), k))      # most shown first; as often: the larger one, which fills the screen
+    main, second = (ranked[0] if ranked else None), (ranked[1] if len(ranked) > 1 else None)
 
     def pick(last):
         """A picture for a sentence whose own choice does not exist (footage that was asked for and not found): the clip
-        the plan itself shows most, so the story stays on screen; else a meme's least shown picture, else the story's own.
-        (It used to take the least shown picture, and showed the twist's own picture three lines too early.)"""
+        the plan itself shows most, so the story stays on screen; when that one is already playing, the second most shown,
+        so that the fallback is never the same clip three sentences in a row; else a meme's least shown picture, else the
+        story's own. (It used to take the least shown picture, and showed the twist's own picture three lines too early.)"""
         if main:
+            if last == main:
+                other = second or (nxt(last) if meme else None)
+                if other and other != main:
+                    return other
             return main
         if meme:
             return nxt(last)
