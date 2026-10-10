@@ -212,6 +212,22 @@ def fetch_all(work, budget=None, log=lambda *a: print(*a, flush=True)):
                 log('%s: got the trailer "%s" of %s from Steam' % (aid, st['trailer'][:50], clean))
             else:
                 log('%s: no trailer of "%s" on Steam; searching YouTube' % (aid, game))
+        if not got:                                            # the site's own hunt: TikTok, Twitch and Kick clips found by Exa's search, fetched by the site's routes (supply.py)
+            import supply
+            people = [p.get('name', '') for p in plan.get('people', []) if p.get('name')]
+            for f in supply.hunt(h['query'], people, have=[x.get('page', '') for x in assets.values()], maximum=3, max_seconds=60, log=log):
+                if f['url'] in h.setdefault('tried', []):
+                    continue
+                h['tried'].append(f['url'])
+                meta = supply.fetch(f['url'], os.path.join(adir, aid + '.mp4'), keep=CFG['clip_seconds'], log=log)
+                if meta:
+                    who = '@' + (meta.get('author') or f.get('author') or '').lstrip('@')
+                    got = {'kind': 'hunt', 'file': aid + '.mp4', 'credit': 'CLIP · %s / %s' % (re.sub(r'[^A-Za-z0-9@._-]', '', who).upper()[:24], f['platform'].upper()), 'title': f['title'],
+                           'about': '%s (searched: %s; must show: %s)' % (f['title'], h['query'], h.get('must_show', '')), 'page': f['url'], 'by': who, 'must_show': h.get('must_show', ''), 'src': 'hunt:exa'}
+                    log('%s: got "%s" by %s from %s' % (aid, f['title'][:60], who, f['platform']))
+                    break
+                if over():
+                    break
         if not got:
             log('%s: searching "%s"' % (aid, h['query'])) if ai.CONFIG.get('youtube', True) and not os.environ.get('GITHUB_ACTIONS') else None
         tube = ai.CONFIG.get('youtube', True) and not os.environ.get('GITHUB_ACTIONS')      # GitHub's machines are refused by YouTube: not even asked

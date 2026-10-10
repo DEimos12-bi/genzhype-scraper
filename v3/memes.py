@@ -16,6 +16,7 @@ import sys
 
 import ai
 import footage
+import supply
 
 COMMON = set('explained memes trend trends viral meaning origin where which about video videos games gaming internet tiktok challenge sound dance people their there these those while after '
              'before being every other first funny really thing things youtube twitter reddit online social media story'.split())      # title words that name no meme
@@ -47,6 +48,14 @@ def collect(m, work, log=print):
                 a.update(kind='clip', file=aid + '.mp4', credit='GIF · %s / GIPHY' % who if who and who != 'GIPHY' else 'GIF · GIPHY', loop=round(dur, 2))
                 a['w'], a['h'], a['dur'] = footage.probe(dest)
             else:
+                if ex['kind'] == 'tiktok':                     # the post's own VIDEO by the site's TikTok route (supply.py); its cover picture only when that is refused
+                    meta = supply.fetch(ex['page'], os.path.join(adir, aid + '.mp4'), keep=30, log=lambda s: None)
+                    if meta:
+                        a.update(kind='clip', file=aid + '.mp4', credit='TIKTOK · %s' % who, w=meta['w'], h=meta['h'], dur=meta['dur'], plays=meta.get('plays', 0))
+                        if meta.get('title') and not a.get('title'):
+                            a['title'] = a['about'] = meta['title'][:240]
+                        out[aid] = a
+                        continue
                 raw, dest = os.path.join(adir, aid + '.raw'), os.path.join(adir, aid + '.jpg')
                 for u in ([ex['image']] if ex.get('image') else [p % ex['id'] for p in PREVIEWS]):
                     try:
