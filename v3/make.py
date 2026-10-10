@@ -108,8 +108,21 @@ def pack(work):
     post, used = plan.get('post') or {}, sorted({s['asset'] for s in comp['shots']})
     credits = '\n'.join('- %s: %s  %s' % (k, plan['assets'][k].get('credit') or 'stock footage (Pexels), blurred', plan['assets'][k].get('page', '')) for k in used if k in plan['assets']) \
         or '- none: this video is drawn (motion graphics), no outside footage'
-    proof = '\n'.join('- %s' % (o.get('t') or 'the post of ' + json.load(open(os.path.join(work, 'material.json'), encoding='utf-8'))['posts'][int(o['post'][4:])]['url'])
-                      for l in plan['lines'] for o in l['overlays'] if o['k'] in ('quote', 'receipt') and not o.get('drop'))
+    mat = json.load(open(os.path.join(work, 'material.json'), encoding='utf-8'))
+
+    def shown(o):
+        if o.get('t'):
+            return str(o['t'])
+        ref = str(o.get('post', ''))
+        if ref.startswith('source') and ref[6:].isdigit() and int(ref[6:]) < len(mat.get('sources') or []):
+            src = mat['sources'][int(ref[6:])]
+            return 'the %s %s, the sentence "%s"' % ("subject's own page" if src.get('primary') else 'page of', src['url'], str(o.get('mark', ''))[:90])
+        if ref.startswith('post') and ref[4:].isdigit() and int(ref[4:]) < len(mat.get('posts') or []):
+            return 'the post ' + mat['posts'][int(ref[4:])]['url']
+        return ref or '?'
+    proof = '\n'.join(['- %s' % shown(o) for l in plan['lines'] for o in l['overlays'] if o['k'] in ('quote', 'receipt') and not o.get('drop')] +
+                      ['- in their own voice (%s, %.1f s): "%s"' % (l['bite']['asset'], l['bite']['dur'], l['bite']['text'][:120]) for l in plan['lines'] if l.get('bite')] +
+                      ['- verified by the researcher: %s [%s]' % (e['claim'][:140], e['url']) for e in mat.get('evidence') or []])
     open(os.path.join(out, 'post.txt'), 'w', encoding='utf-8').write(
         'VIDEO   %s   (%.1f s, 1080x1920)\nPAGE    %s\n\nCAPTION\n%s\n\nHASHTAGS\n%s\n\nPINNED COMMENT\n%s\n\nTHE SCRIPT\n%s\n\nPROOF SHOWN\n%s\n\nFOOTAGE\n%s\n\nVoice: edge-tts. Music and effects: made in code for this video.\nWritten by %s; clips looked at by the picture model before cutting. Nobody checked this video: watch it once before posting.\n'
         % (os.path.basename(mp4), dur, plan['url'], post.get('caption', ''), ' '.join('#' + str(t).lstrip('#') for t in post.get('hashtags', [])), post.get('pinned', ''),

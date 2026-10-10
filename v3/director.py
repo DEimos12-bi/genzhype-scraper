@@ -721,6 +721,8 @@ def fix_and_check(p, m):
                         'line %d has digits in the spoken text ("%s"): write numbers as spoken words and put the digits in "caps"' % (i + 1, digits))
         if ANNOUNCE.search(t):                                 # the structure is never announced: the fact does the turning
             soft.append('line %d announces instead of telling ("%s"): delete those words and say the fact itself' % (i + 1, ANNOUNCE.search(t).group(0)))
+        if re.search(r'(?i)(end quote|unquote|(?:^|[.!?] )quote[.:,])', t):      # the marks are for the screen, never read aloud
+            soft.append('line %d reads the quote marks aloud ("quote ... end quote"): introduce the words with who said them ("He said:"), then say them' % (i + 1))
         if HEALTH.search(t) and not HEALTH.search(m.get('title', '') + ' ' + m.get('summary', '')):      # a person's health is not material unless it IS the story
             soft.append('line %d brings up a person\'s health or drug use ("%s"), which this story is not about: leave it out entirely' % (i + 1, HEALTH.search(t).group(0)))
         if spelled_handle(t, m):
