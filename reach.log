@@ -1,0 +1,224 @@
+twitter-cli install exit=0
+rdt-cli install exit=0
+From https://github.com/DEimos12-bi/genzhype-scraper
+ * branch            video-feed -> FETCH_HEAD
+ * [new branch]      video-feed -> origin/video-feed
+video feed bytes=46926
+    -> 15 raw hit(s), 14 kept (dropped: 0 not-this-person, 1 off-topic)
+  page 3829: 14 candidate(s) from 1 search(es)
+    -> 4 raw hit(s), 4 kept (dropped: 0 not-this-person, 0 off-topic)
+  page 3771: 4 candidate(s) from 1 search(es)
+  page 406: grave story, skipped
+  search '"Jonathan Porter" Swatting Incidents': 0 hits, raw='{\n  "ok": true,\n  "schema_version": "1",\n  "data": []\n}\n'
+    -> 5 raw hit(s), 0 kept (dropped: 1 not-this-person, 4 off-topic)
+    -> 2 raw hit(s), 0 kept (dropped: 2 not-this-person, 0 off-topic)
+  page 786: 0 candidate(s) from 3 search(es)
+    -> 15 raw hit(s), 15 kept (dropped: 0 not-this-person, 0 off-topic)
+  page 800: 15 candidate(s) from 1 search(es)
+  page 793: grave story, skipped
+x-pages: 4 page(s), 6 search(es) used
+x-pages exit=0 bytes=6616
+From https://github.com/DEimos12-bi/genzhype-scraper
+ * branch            reach-feed -> FETCH_HEAD
+ * [new branch]      reach-feed -> origin/reach-feed
+terms feed bytes=1101
+terms wanted: 12
+  game ruined: x=10 reddit=10
+  the dudes: x=10 reddit=10
+  sooooooo: x=10 reddit=10
+  insane how: x=10 reddit=10
+  gen zers: x=10 reddit=10
+  gta 6 vs real life: x=10 reddit=10
+  tsa roleplay meme: x=0 reddit=10
+  wawario wawaluigi: x=10 reddit=10
+  wasted: x=10 reddit=10
+  minecraft arg character verity: x=0 reddit=10
+  tire popping praise: x=0 reddit=10
+  caseoh mating call: x=0 reddit=10
+wrote drop/term-usage.json
+term-usage exit=0 bytes=66261
+  r/teenagers: 25 posts
+  r/GenZ: 25 posts
+  r/OutOfTheLoop: 25 posts
+  r/memes: 25 posts
+  r/dankmemes: 25 posts
+  r/me_irl: 25 posts
+  r/MemeEconomy: 25 posts
+  r/gaming: 25 posts
+  r/pcgaming: 25 posts
+  r/Games: 25 posts
+  r/leagueoflegends: 25 posts
+  r/VALORANT: 25 posts
+  r/2007scape: 25 posts
+  r/LivestreamFail: 25 posts
+  r/GamingLeaksAndRumours: 25 posts
+  r/youtubedrama: 25 posts
+  r/GTA6: 25 posts
+  r/ps5homebrew: 25 posts
+  r/ps4homebrew: 25 posts
+  r/emulation: 25 posts
+  x 'new slang': 20 posts
+  x 'why is everyone saying': 20 posts
+  x 'what does it mean when someone says': 20 posts
+scout harvest: 560 posts -> drop/scout-posts.json
+scout exit=0 bytes=224578
+A api anon: 200, tags=0
+B page anon: 200, 21168 bytes, tags=0
+C api cookies: 200, tags=0
+Exception in callback SyncBase._sync.<locals>.<lambda>(<Task finishe...1917760021"}'>) at /opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/playwright/_impl/_sync_base.py:111
+handle: <Handle SyncBase._sync.<locals>.<lambda>(<Task finishe...1917760021"}'>) at /opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/playwright/_impl/_sync_base.py:111>
+Traceback (most recent call last):
+  File "/home/runner/work/genzhype-scraper/genzhype-scraper/tools/reach_tiktok.py", line 79, in on_resp
+    api_seen.append(f"{r.status} {r.url.split('tiktok.com')[1][:150]} | {len(t)} bytes | {t[:90]}")
+                                  ~~~~~~~~~~~~~~~~~~~~~~~~~^^^
+IndexError: list index out of range
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/asyncio/events.py", line 88, in _run
+    self._context.run(self._callback, *self._args)
+  File "/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/playwright/_impl/_sync_base.py", line 111, in <lambda>
+    task.add_done_callback(lambda _: g_self.switch())
+                                     ^^^^^^^^^^^^^^^
+  File "/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/playwright/_impl/_connection.py", line 548, in _listener_with_error_handler_attached
+    potential_future = listener(params)
+                       ^^^^^^^^^^^^^^^^
+  File "/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/playwright/_impl/_browser_context.py", line 201, in <lambda>
+    lambda params: self._on_response(
+                   ^^^^^^^^^^^^^^^^^^
+  File "/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/playwright/_impl/_browser_context.py", line 731, in _on_response
+    page.emit(Page.Events.Response, response)
+  File "/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/pyee/asyncio.py", line 70, in emit
+    return super().emit(event, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/pyee/base.py", line 220, in emit
+    handled = self._call_handlers(event, args, kwargs)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/pyee/base.py", line 196, in _call_handlers
+    self._emit_run(f, args, kwargs)
+  File "/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/pyee/asyncio.py", line 81, in _emit_run
+    self.emit("error", exc)
+  File "/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/pyee/asyncio.py", line 70, in emit
+    return super().emit(event, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/pyee/base.py", line 223, in emit
+    self._emit_handle_potential_error(event, args[0] if args else None)
+  File "/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/pyee/base.py", line 181, in _emit_handle_potential_error
+    raise error
+  File "/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/pyee/asyncio.py", line 79, in _emit_run
+    coro: Any = f(*args, **kwargs)
+                ^^^^^^^^^^^^^^^^^^
+  File "/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/playwright/_impl/_impl_to_api_mapping.py", line 139, in wrapper_func
+    return handler(
+           ^^^^^^^^
+  File "/home/runner/work/genzhype-scraper/genzhype-scraper/tools/reach_tiktok.py", line 81, in on_resp
+    api_seen.append(f"{r.status} {r.url.split('tiktok.com')[1][:150]}")
+                                  ~~~~~~~~~~~~~~~~~~~~~~~~~^^^
+IndexError: list index out of range
+Exception in callback SyncBase._sync.<locals>.<lambda>(<Task finishe...04> result=''>) at /opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/playwright/_impl/_sync_base.py:111
+handle: <Handle SyncBase._sync.<locals>.<lambda>(<Task finishe...04> result=''>) at /opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/playwright/_impl/_sync_base.py:111>
+Traceback (most recent call last):
+  File "/home/runner/work/genzhype-scraper/genzhype-scraper/tools/reach_tiktok.py", line 79, in on_resp
+    api_seen.append(f"{r.status} {r.url.split('tiktok.com')[1][:150]} | {len(t)} bytes | {t[:90]}")
+                                  ~~~~~~~~~~~~~~~~~~~~~~~~~^^^
+IndexError: list index out of range
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/asyncio/events.py", line 88, in _run
+    self._context.run(self._callback, *self._args)
+  File "/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/playwright/_impl/_sync_base.py", line 111, in <lambda>
+    task.add_done_callback(lambda _: g_self.switch())
+                                     ^^^^^^^^^^^^^^^
+  File "/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/playwright/_impl/_connection.py", line 548, in _listener_with_error_handler_attached
+    potential_future = listener(params)
+                       ^^^^^^^^^^^^^^^^
+  File "/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/playwright/_impl/_browser_context.py", line 201, in <lambda>
+    lambda params: self._on_response(
+                   ^^^^^^^^^^^^^^^^^^
+  File "/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/playwright/_impl/_browser_context.py", line 731, in _on_response
+    page.emit(Page.Events.Response, response)
+  File "/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/pyee/asyncio.py", line 70, in emit
+    return super().emit(event, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/pyee/base.py", line 220, in emit
+    handled = self._call_handlers(event, args, kwargs)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/pyee/base.py", line 196, in _call_handlers
+    self._emit_run(f, args, kwargs)
+  File "/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/pyee/asyncio.py", line 81, in _emit_run
+    self.emit("error", exc)
+  File "/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/pyee/asyncio.py", line 70, in emit
+    return super().emit(event, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/pyee/base.py", line 223, in emit
+    self._emit_handle_potential_error(event, args[0] if args else None)
+  File "/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/pyee/base.py", line 181, in _emit_handle_potential_error
+    raise error
+  File "/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/pyee/asyncio.py", line 79, in _emit_run
+    coro: Any = f(*args, **kwargs)
+                ^^^^^^^^^^^^^^^^^^
+  File "/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/playwright/_impl/_impl_to_api_mapping.py", line 139, in wrapper_func
+    return handler(
+           ^^^^^^^^
+  File "/home/runner/work/genzhype-scraper/genzhype-scraper/tools/reach_tiktok.py", line 81, in on_resp
+    api_seen.append(f"{r.status} {r.url.split('tiktok.com')[1][:150]}")
+                                  ~~~~~~~~~~~~~~~~~~~~~~~~~^^^
+IndexError: list index out of range
+Exception in callback SyncBase._sync.<locals>.<lambda>(<Task finishe...c":1,"tc":1}'>) at /opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/playwright/_impl/_sync_base.py:111
+handle: <Handle SyncBase._sync.<locals>.<lambda>(<Task finishe...c":1,"tc":1}'>) at /opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/playwright/_impl/_sync_base.py:111>
+Traceback (most recent call last):
+  File "/home/runner/work/genzhype-scraper/genzhype-scraper/tools/reach_tiktok.py", line 79, in on_resp
+    api_seen.append(f"{r.status} {r.url.split('tiktok.com')[1][:150]} | {len(t)} bytes | {t[:90]}")
+                                  ~~~~~~~~~~~~~~~~~~~~~~~~~^^^
+IndexError: list index out of range
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/asyncio/events.py", line 88, in _run
+    self._context.run(self._callback, *self._args)
+  File "/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/playwright/_impl/_sync_base.py", line 111, in <lambda>
+    task.add_done_callback(lambda _: g_self.switch())
+                                     ^^^^^^^^^^^^^^^
+  File "/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/playwright/_impl/_connection.py", line 548, in _listener_with_error_handler_attached
+    potential_future = listener(params)
+                       ^^^^^^^^^^^^^^^^
+  File "/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/playwright/_impl/_browser_context.py", line 201, in <lambda>
+    lambda params: self._on_response(
+                   ^^^^^^^^^^^^^^^^^^
+  File "/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/playwright/_impl/_browser_context.py", line 731, in _on_response
+    page.emit(Page.Events.Response, response)
+  File "/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/pyee/asyncio.py", line 70, in emit
+    return super().emit(event, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/pyee/base.py", line 220, in emit
+    handled = self._call_handlers(event, args, kwargs)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/pyee/base.py", line 196, in _call_handlers
+    self._emit_run(f, args, kwargs)
+  File "/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/pyee/asyncio.py", line 81, in _emit_run
+    self.emit("error", exc)
+  File "/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/pyee/asyncio.py", line 70, in emit
+    return super().emit(event, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/pyee/base.py", line 223, in emit
+    self._emit_handle_potential_error(event, args[0] if args else None)
+  File "/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/pyee/base.py", line 181, in _emit_handle_potential_error
+    raise error
+  File "/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/pyee/asyncio.py", line 79, in _emit_run
+    coro: Any = f(*args, **kwargs)
+                ^^^^^^^^^^^^^^^^^^
+  File "/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/playwright/_impl/_impl_to_api_mapping.py", line 139, in wrapper_func
+    return handler(
+           ^^^^^^^^
+  File "/home/runner/work/genzhype-scraper/genzhype-scraper/tools/reach_tiktok.py", line 81, in on_resp
+    api_seen.append(f"{r.status} {r.url.split('tiktok.com')[1][:150]}")
+                                  ~~~~~~~~~~~~~~~~~~~~~~~~~^^^
+IndexError: list index out of range
+D browser note: {"url": "https://ads.tiktok.com/creative/creativeCenter/trends/hashtag?countryCode=US&period=7&region=US", "title": "TikTok One Creative Suite", "text_len": 994, "login_wall": false, "text_head": "Top Ads Trends Creative Tools Influencer marketing EN Log in Browse what's trending now in The United States Find what performs well on TikTok and better engage with your audience. Hashtag Discover new trends on TikTok through hashtags Creator Coming soon Video Rank Hashtag Posts & Views Trends Creator Action 1 #shopwithconfidence Apparel & Accessories Financial Services 92.1K Posts 68M Views See analytics 2 #october3rd News & Entertainment 23.2K Posts 37.4M Views See analytics 3 #firstofthemonth News & Entertainment 11.2K Posts 40.7M Views See analytics View more View more top hashtags on TikTok Log in or sign up \u2192 About us TikTok.com ByteDance.com TikTok careers Safety Products & Services TikTok One Ads Manager TikTok for Business Creative Exchange Help Center SoundOn TikTok for Business Creative Center Guidelines Ad Policies Ad Specifications Initiatives TikTok for Good TikTok for Developers \u00a9 2025 TikTok For Business Terms & policies Privacy & cookie policy Spark creativity", "api": ["200 /creative/creativeCenter/trends/hashtag?countryCode=US&period=7&__loader=creativeCenter%2Ftrends%2F%28tab%29%2Flayout&__ssrDirect=true | 49 bytes | {\"dehydratedState\":{\"mutations\":[],\"queries\":[]}}", "200 /creative/creativeCenter/trends/hashtag?countryCode=US&period=7&__loader=creativeCenter%2Ftrends%2F%28tab%29%2Fpage&__ssrDirect=true | 49 bytes | {\"dehydratedState\":{\"mutations\":[],\"queries\":[]}}", "200 /CreativeOne/KnowledgeAPI/GetHashtagList | 6337 bytes | {\"BaseResp\":{\"StatusCode\":0,\"StatusMessage\":\"\"},\"items\":[{\"hashtagID\":\"1654121783715845\",\"", "200 /creative/creativeCenter/trends/hashtag?countryCode=US&period=7&region=US&__loader=layout&__ssrDirect=true | 19 bytes | {\"deviceType\":\"pc\"}", "200 /creative/creativeCenter/trends/hashtag?countryCode=US&period=7&region=US&__loader=creativeCenter%2Ftrends%2F%28tab%29%2Fpage&__ssrDirect=true | 49 bytes | {\"dehydratedState\":{\"mutations\":[],\"queries\":[]}}", "200 /creative/creativeCenter/trends/hashtag?countryCode=US&period=7&region=US&__loader=creativeCenter%2Ftrends%2F%28tab%29%2Flayout&__ssrDirect=true | 49 bytes | {\"dehydratedState\":{\"mutations\":[],\"queries\":[]}}", "200 /creative/creativeCenter/trends/hashtag?countryCode=US&period=7&region=US&__loader=creativeCenter%2Flayout&__ssrDirect=true | 734 bytes | {\"deviceType\":\"pc\",\"dehydratedState\":{\"mutations\":[],\"queries\":[{\"state\":{\"data\":{\"tt4bUID"]}
+D browser: page 200, list responses=0, tags=3
+tiktok ear: method=browser hashtags=3
+tiktok exit=0 bytes=3174
