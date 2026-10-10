@@ -178,6 +178,8 @@ def main():
             rc = py('footage.py', work, *([max(budget, 75)] if budget else []))      # a download needs room: under 40 s left it would never start one
             if rc == 3:
                 say('STOPPED at the time budget: run the same command again'); sys.exit(3)
+            if rc != 0:                                        # a crash is not "done": it is said, and the step is run again next time
+                refuse(work, 'the footage step failed (exit %d): see the lines above' % rc)
             mark(work, step)
         elif step == 'eyes':
             py('eyes.py', work, timeout=900); mark(work, step)
