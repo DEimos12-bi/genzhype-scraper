@@ -73,5 +73,9 @@
  "_youtube": "false = no YouTube searches (set it in config.local.json on a machine where YouTube has become slow or refuses; GitHub never asks it)",
  "memes": {
   "real_people": false
- }
+ },
+ "voice_fallback": {
+  "voice": "am_michael"
+ },
+ "_voice_fallback": "The local voice (Kokoro, kokoro_say.py) that speaks when the online voice refuses; its Python is a machine setting: config.local.json voice_python (the model's packages need Python 3.11)."
 }

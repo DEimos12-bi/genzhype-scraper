@@ -37,22 +37,60 @@ async def one(takes, i, text, rate, voice):
 
 
 def load(mp3):
+    if not os.path.isfile(mp3) and os.path.isfile(mp3[:-4] + '.wav'):      # a take by the fallback voice
+        mp3 = mp3[:-4] + '.wav'
     raw = subprocess.run(['ffmpeg', '-v', 'error', '-i', mp3, '-f', 'f32le', '-ac', '1', '-ar', str(SR), '-'], capture_output=True).stdout
     return np.frombuffer(raw, dtype=np.float32).copy()
 
 
+def fallback_batch(takes, jobs):
+    """The lines still to speak, by the local voice (kokoro_say.py in its own Python, the model loaded once): every video
+    stopped on one free service's 403 otherwise. jobs: [(i, text, rate)]. -> the set of i that were spoken."""
+    fb = ai.CONFIG.get('voice_fallback') or {}
+    py = fb.get('python') or ai.CONFIG.get('voice_python', '')
+    if not py or not os.path.isfile(py) or not jobs:
+        return set()
+    batch = []
+    for i, text, rate in jobs:
+        wav, meta = os.path.join(takes, '%02d.wav' % i), os.path.join(takes, '%02d.json' % i)
+        for f in (wav, meta, os.path.join(takes, '%02d.mp3' % i)):
+            if os.path.exists(f):
+                os.remove(f)
+        batch.append({'i': i, 'text': text, 'wav': wav, 'json': meta, 'voice': fb.get('voice', 'am_michael'), 'speed': '%.3f' % (1 + rate / 100.0)})
+    jfile = os.path.join(takes, 'fallback_jobs.json')
+    json.dump(batch, open(jfile, 'w', encoding='utf-8'), ensure_ascii=False)
+    r = subprocess.run([py, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'kokoro_say.py'), jfile], capture_output=True, text=True, timeout=900)
+    if r.returncode != 0:
+        print('voice: the local voice failed: %s' % ' '.join(r.stderr.split())[-220:], flush=True)
+        return set()
+    return {j['i'] for j in json.load(open(jfile, encoding='utf-8')) if j.get('words', 0) > 0 and os.path.isfile(j['json'])}
+
+
 def speak(takes, lines):
+    spoken, refused = set(), []
+
     async def synth():
         for i, (lid, text, rate, _) in enumerate(lines):
+            if refused:                                   # the service is refusing: the rest goes to the local voice in one go
+                break
             for attempt in range(3):                      # the free voice service drops a request now and then
                 try:
                     if await one(takes, i, text, '%+d%%' % rate, ai.CONFIG['voice']) > 0:
+                        spoken.add(i)
                         break
                 except Exception as e:  # noqa: BLE001
                     if attempt == 2:
-                        raise SystemExit('voice failed on line %s: %s' % (lid, str(e)[:120]))
+                        refused.append(str(e)[:80])
+                        break
                     await asyncio.sleep(2)
     asyncio.run(synth())
+    left = [i for i in range(len(lines)) if i not in spoken]
+    if left:
+        print('voice: the online voice refuses (%s); the local voice speaks %d line(s)' % (refused[0] if refused else '?', len(left)), flush=True)
+        spoken |= fallback_batch(takes, [(i, lines[i][1], lines[i][2]) for i in left])
+        still = [lines[i][0] for i in range(len(lines)) if i not in spoken]
+        if still:
+            raise SystemExit('voice failed on line %s: %s' % (still[0], refused[0] if refused else 'no fallback voice on this machine'))
     out, tl, t = [np.zeros(int(LEAD * SR), dtype=np.float32)], [], LEAD
     for i, (lid, text, rate, pause) in enumerate(lines):
         a = load(os.path.join(takes, '%02d.mp3' % i))
