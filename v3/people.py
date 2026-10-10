@@ -84,6 +84,16 @@ def youtube_avatar(name):
         return None
 
 
+def commons_file(name, width=1600):
+    """The address of a Wikimedia Commons file at a size a video can use ('' when it does not answer)."""
+    try:
+        j = get('https://commons.wikimedia.org/w/api.php?action=query&titles=File:%s&prop=imageinfo&iiprop=url&iiurlwidth=%d&format=json' % (urllib.parse.quote(urllib.parse.unquote(name)), width))
+        info = list(j['query']['pages'].values())[0]['imageinfo'][0]
+        return info.get('thumburl') or info.get('url') or ''
+    except Exception:  # noqa: BLE001
+        return ''
+
+
 def find_faces(m, work, log=print):
     """Adds face assets to m['assets'] for the posts' authors and the page's people. -> the ids added."""
     A, adir, added = m.setdefault('assets', {}), os.path.join(work, 'assets'), []
@@ -91,6 +101,8 @@ def find_faces(m, work, log=print):
     seen = {k for k, a in A.items() if k.startswith('face_')}
     names = []                                                 # (name, handle, tweet id)
     for p in m.get('posts') or []:
+        if p.get('platform', 'x') != 'x':                      # a Reddit post is shared by a stranger in a forum: its poster is not a person of the story
+            continue
         names.append((str(p.get('name') or p.get('handle') or ''), str(p.get('handle') or ''), str(p.get('id') or '')))
     for n in m.get('people') or []:
         if not any(slug(n) == slug(x[0]) for x in names):

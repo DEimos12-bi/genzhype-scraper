@@ -85,6 +85,32 @@ class Supply:
         return s, 0.5
 
 
+def bite_shots(pl, bl, t0, t1, sup):
+    """The shots of a bite: the clip itself, each frame the one that was filmed while the word was said (ss follows the
+    time of the video), cut once at a breath when it runs long: wide (a wide clip as a card, sharper) then close."""
+    b, a = bl['bite'], sup.a[bl['bite']['asset']]
+    sync = lambda t: round(max(0.0, b['ss'] + t - b['at']), 3)
+    near = lambda t: min(a.get('windows') or [{'t': 0, 'x': 0.5}], key=lambda w: abs(w.get('t', 0) - sync(t))).get('x', 0.5)
+    cuts = [t0, t1]
+    if t1 - t0 > 3.8:
+        ws, mid, best, bs = bl['words'], (t0 + t1) / 2, None, 1e9
+        for i in range(1, len(ws)):
+            t = ws[i]['s'] - 0.06
+            if t0 + 1.5 <= t <= t1 - 1.3:
+                score = abs(t - mid) - min(0.6, (ws[i]['s'] - ws[i - 1]['e']) * 2)
+                if score < bs:
+                    best, bs = round(t, 3), score
+        if best:
+            cuts = [t0, best, t1]
+    wide = 'W' if a.get('whole') else 'C' if a['w'] > a['h'] else 'F'
+    out = []
+    for k in range(len(cuts) - 1):
+        out.append({'id': '%s_v%d' % (pl['id'], k), 'line': bl['id'], 'beats': [], 't0': cuts[k], 't1': cuts[k + 1], 'asset': b['asset'], 'credit': a.get('credit', ''), 'dim': 0.0, 'move': 'bite', 'focus': None,
+                    'card': False, 'mode': wide if k % 2 == 0 else 'F', 'src': 'assets/' + a['file'], 'ss': sync(cuts[k]), 'x': near(cuts[k]), 'w': a['w'], 'h': a['h']})
+    sup.uses[b['asset']] += 1
+    return out
+
+
 def plan_shots(plan, tl, log):
     lines = {l['id']: l for l in tl['lines']}
     end = round(tl['total'] + 0.45, 3)
@@ -142,7 +168,11 @@ def plan_shots(plan, tl, log):
         t1 = end if i == len(ids) - 1 else round(max(0.0, lines[ids[i + 1]]['s'] - 0.08), 3)
         if pl.get('beats'):                                    # the montage, sentence by sentence (beats.py)
             cards = {int(o.get('beat', 0)): int(o.get('to', o.get('beat', 0))) for o in pl.get('overlays', []) if o.get('k') in ('rows', 'quote', 'receipt', 'blocks') and not o.get('drop')}
-            shots += beats.for_line(pl, ln, t0, t1, sup, shots, pick, lambda b: b in cards, lambda b: cards.get(b, b), face_ok, log, first=(i == 0), single=pl['id'] in ('vote', 'site'))
+            bl = lines.get(pl['id'] + 'bite')                 # the line ends with the story's own clip speaking: its sentences stop where the clip starts
+            tb = round(bl['bite']['at'] - 0.1, 3) if bl and bl['bite']['asset'] in sup.a else None
+            shots += beats.for_line(pl, ln, t0, tb or t1, sup, shots, pick, lambda b: b in cards, lambda b: cards.get(b, b), face_ok, log, first=(i == 0), single=pl['id'] in ('vote', 'site'))
+            if tb:
+                shots += bite_shots(pl, bl, tb, t1, sup)
             continue
         want, sharp = pl['show']['asset'], pl['show']['mode'] == 'sharp'
         if i == 0:
@@ -212,7 +242,7 @@ def plan_shots(plan, tl, log):
                     s.update(mode='S', img='assets/' + a['file'], k0=[w / 2, h / 2, z * 0.96], k1=[w / 2, h / 2, z], fy=700, dim=0.0 if sharp else 0.4)
             else:
                 ss, x = sup.moment(asset, d)
-                small = a['w'] > a['h'] and a['h'] < 700
+                small = a['w'] > a['h'] and a['h'] <= 720
                 whole = a.get('whole') or meme                 # a meme is never cropped: its sides and its text are the joke
                 s.update(mode=('W' if whole else 'C' if small else 'F') if sharp else 'B', src='assets/' + a['file'], ss=round(ss, 2), x=x, w=a['w'], h=a['h'])
                 if not sharp:
@@ -257,6 +287,10 @@ def cues(plan, tl):
             riser.append([round(max(0, ln['s'] - 1.1), 3), round(ln['s'], 3)])
         if pl['id'] == 'site':
             imp.append([wt(ln, 'Gen'), 0.9, 0.5]); pop += [wt(ln, 'full'), wt(ln, 'every'), wt(ln, 'Link')]
+    for l in tl['lines']:                                    # a clip that speaks: the music steps back, one soft cue as it starts
+        if l.get('bite'):
+            sect.append([round(l['bite']['at'] - 0.2, 3), 'desk']); pop.append(round(l['bite']['at'], 3))
+    sect.sort(key=lambda x: x[0])
     imp = sorted([x for x in imp if x[0] >= 0], key=lambda x: x[0])
     return {'bpm': 120 + (len(plan['title']) % 3) * 4, 'transpose': len(plan['title']) % 5 - 2, 'sections': sect, 'impact': imp, 'pop': sorted(set(pop)), 'ding': ding, 'buzz': [], 'riser': riser, 'count': []}
 
@@ -298,22 +332,25 @@ def cues_slang(plan, tl):
             'riser': [[round(L['lock']['s'], 3), round(rev, 3)]], 'count': [[round(L['lock']['e'] + 0.02, 3), 3, round(gap, 3)]]}
 
 
-def fit(mode, w, h, x):
+def fit(mode, w, h, x, luma=None):
+    # A CLIP FILMED IN THE DARK IS LIFTED (measured in gather: the mean brightness of its pictures, 0 to 255): a little
+    # noise taken off, then the shadows opened. A hand cut does this before anything else; unlifted, a night clip is a black screen.
+    pre = 'hqdn3d=2:2:5:5,eq=gamma=%s:contrast=1.06:saturation=1.15,' % ('1.4' if luma < 45 else '1.2') if luma is not None and luma < 70 else ''
     if w * 16 > h * 9:                                         # wider than 9:16: a window of the picture
-        win = 'crop=ih*9/16:ih:(iw-ih*9/16)*%.3f:0,scale=1080:1920:flags=lanczos' % x
+        win = pre + 'crop=ih*9/16:ih:(iw-ih*9/16)*%.3f:0,scale=1080:1920:flags=lanczos' % x
     else:
-        win = 'scale=1080:-2:flags=lanczos,crop=1080:1920'
+        win = pre + 'scale=1080:-2:flags=lanczos,crop=1080:1920'
     if mode == 'W':                                            # the WHOLE picture, as wide as the screen allows, on a blurred and darkened copy of itself
         k = min(1024 / w, 1150 / h)                            # a little narrower than the screen: the camera's slow push and its shakes never cut its edges
         fw, fh = int(w * k) // 2 * 2, int(h * k) // 2 * 2
-        return ['-filter_complex', '[0:v]fps=%d,split[a][b];[a]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,gblur=sigma=28,eq=brightness=-0.2:saturation=0.9[bg];'
-                '[b]scale=%d:%d:flags=lanczos,unsharp=5:5:0.4[fg];[bg][fg]overlay=%d:%d' % (FPS, fw, fh, (1080 - fw) // 2, max(120, 700 - fh // 2))]
+        return ['-filter_complex', ('[0:v]fps=%d,' % FPS) + pre + 'split[a][b];[a]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,gblur=sigma=28,eq=brightness=-0.2:saturation=0.9[bg];'
+                '[b]scale=%d:%d:flags=lanczos,unsharp=5:5:0.4[fg];[bg][fg]overlay=%d:%d' % (fw, fh, (1080 - fw) // 2, max(120, 700 - fh // 2))]
     if mode == 'F':
         return ['-vf', 'fps=%d,%s,unsharp=5:5:0.5' % (FPS, win)]
     if mode == 'B':
         return ['-vf', 'fps=%d,%s,gblur=sigma=16,eq=brightness=-0.09:saturation=0.9' % (FPS, win)]
-    return ['-filter_complex', '[0:v]fps=%d,split[a][b];[a]crop=ih*9/16:ih:(iw-ih*9/16)*0.5:0,scale=1080:1920,gblur=sigma=26,eq=brightness=-0.2:saturation=0.85[bg];'
-            '[b]crop=ih*4/5:ih:(iw-ih*4/5)*%.3f:0,scale=1080:-2:flags=lanczos,unsharp=5:5:0.5[fg];[bg][fg]overlay=0:240' % (FPS, x)]
+    return ['-filter_complex', ('[0:v]fps=%d,' % FPS) + pre + 'split[a][b];[a]crop=ih*9/16:ih:(iw-ih*9/16)*0.5:0,scale=1080:1920,gblur=sigma=26,eq=brightness=-0.2:saturation=0.85[bg];'
+            '[b]crop=ih*4/5:ih:(iw-ih*4/5)*%.3f:0,scale=1080:-2:flags=lanczos,unsharp=5:5:0.7[fg];[bg][fg]overlay=0:240' % x]
 
 
 def main(work, log=lambda *a: print(*a, flush=True)):
@@ -337,7 +374,7 @@ def main(work, log=lambda *a: print(*a, flush=True)):
             continue
         folder = os.path.join(base, s['id']); os.makedirs(folder)
         d = s['t1'] - s['t0']
-        cmd = ['ffmpeg', '-y', '-v', 'error', '-ss', '%.3f' % s['ss'], '-t', '%.3f' % (d + 0.6), '-i', os.path.join(work, s['src'])] + fit(s['mode'], s['w'], s['h'], s['x']) + ['-frames:v', str(s['n']), '-q:v', '3', os.path.join(folder, '%04d.jpg')]
+        cmd = ['ffmpeg', '-y', '-v', 'error', '-ss', '%.3f' % s['ss'], '-t', '%.3f' % (d + 0.6), '-i', os.path.join(work, s['src'])] + fit(s['mode'], s['w'], s['h'], s['x'], (plan.get('assets') or {}).get(s['asset'], {}).get('luma')) + ['-frames:v', str(s['n']), '-q:v', '3', os.path.join(folder, '%04d.jpg')]
         subprocess.run(cmd, check=True, timeout=240)
         got = len(os.listdir(folder))
         if got == 0:

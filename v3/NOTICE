@@ -8,3 +8,12 @@ The caption grouping, timing and entry-move rules follow the HyperFrames embedde
 (caption-grouping.md, motion-vocabulary.md, rail.md) of the same repository and licence.
 Modifications: the shaders run on a WebGL canvas fed by 2D-canvas paintings of two shots of this engine;
 the easing curves of the caption moves are approximated by this engine's own easing functions.
+
+investigate.py — the agent loop (one tool call per step, the tool's result fed back as the next observation, errors
+as observations, a step limit) and its planning step (a survey of facts given / to look up, then a plan) follow
+huggingface/smolagents (https://github.com/huggingface/smolagents, src/smolagents/agents.py and
+prompts/toolcalling_agent.yaml); the check that stops an agent repeating the same tool call follows
+google-gemini/gemini-cli (packages/core/src/services/loopDetectionService.ts); the rule that search queries are plain
+language without operators, and the ranking of sources by who publishes them, follow assafelovic/gpt-researcher
+(gpt_researcher/prompts.py). All three are licensed under the Apache License, Version 2.0. No code was copied; the
+logic was written again for this pipeline (JSON steps through ai.py's model rotation, quotes verified in code).

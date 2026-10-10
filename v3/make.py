@@ -2,7 +2,8 @@
     python make.py <work folder> --url https://genzhype.com/...      (the owner's PC: reads the public page)
     python make.py <work folder>                                     (a material.json is already in the folder: the server feed)
 Steps, each one a file in this folder; a run can be stopped and started again, finished steps are kept:
-    material -> gather (gather.py: every piece the page gives, fetched and looked at BEFORE a word is written) -> plan (director.py: the casting, the
+    material -> investigate (investigate.py: an agent that searches, opens pages and keeps only facts it can quote: the primary source, the context)
+    -> gather (gather.py: every piece the page gives, fetched, looked at AND heard (ears.py) BEFORE a word is written) -> plan (director.py: the casting, the
     script, the pictures) -> footage (footage.py: the hunts) -> eyes (eyes.py) -> repair (a sentence whose footage never came is dropped) -> voice (tts.py) -> receipts (receipts.py)
     -> site (site.py: the page on a PC, a tablet and a phone, for the closing) -> cut (shots.py) -> layout (render.py + check.py, repaired) -> gate (check.py) -> frames (render.py, in batches)
     -> sound (audio.py) -> pack (mp4, cover.jpg, post.txt, report.json in <work>/out)
@@ -22,7 +23,7 @@ sys.path.insert(0, HERE)
 import ai          # noqa: E402
 import localenv    # noqa: E402
 
-STEPS = ['material', 'gather', 'plan', 'footage', 'eyes', 'repair', 'voice', 'receipts', 'site', 'cut', 'layout', 'gate', 'frames', 'sound', 'pack']
+STEPS = ['material', 'investigate', 'gather', 'plan', 'footage', 'eyes', 'repair', 'voice', 'receipts', 'site', 'cut', 'layout', 'gate', 'frames', 'sound', 'pack']
 BATCH = 450
 
 
@@ -155,6 +156,11 @@ def main():
                     refuse(work, 'no material.json in the folder and no --url given')
                 if py('material.py', opt('--url'), work, timeout=180) != 0:
                     refuse(work, 'the page could not be read')
+        elif step == 'investigate':
+            rc = py('investigate.py', work, *([max(budget, 40)] if budget else []), timeout=900)
+            if rc == 3:
+                say('STOPPED at the time budget: run the same command again'); sys.exit(3)
+            mark(work, step)                                   # whatever it found; a story it could not research is written from the page, as before
         elif step == 'gather':
             rc = py('gather.py', work, *([budget] if budget else []), timeout=900)
             if rc == 3:

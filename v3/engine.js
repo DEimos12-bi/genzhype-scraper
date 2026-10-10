@@ -212,7 +212,9 @@ function buildCaps() {
     for (const k of toks) {
       const len = cur.reduce((a, x) => a + x.t.length + 1, 0) + k.t.length;
       // a group is one breath: three words or 17 letters, a pause of half a second, or 2.5 s of speech end it (caption grouping as in HyperFrames)
-      if (cur.length && (cur.length >= 3 || len > 17 || k.s - cur[cur.length - 1].e >= .5 || k.e - cur[0].s > 2.5)) flush();
+      const prev = cur[cur.length - 1];
+      const name = prev && /^[A-Z]/.test(prev.raw) && /^[A-Z]/.test(k.raw) && !prev.p && cur.length > 1 && cur.length < 4 && len <= 24 && k.s - prev.e < .3;      // a name of two words stays in one group ("KAI CENAT")
+      if (cur.length && !name && (cur.length >= 3 || len > 17 || k.s - cur[cur.length - 1].e >= .5 || k.e - cur[0].s > 2.5)) flush();
       cur.push(k);
       if (/[.?!:,]/.test(k.p)) flush();
     }
@@ -255,6 +257,7 @@ function caps(t, s) {
   if (i !== capNow) {
     line.innerHTML = c.words.map(w => `<span>${w.t}${/[?!]/.test(w.p) ? w.p.replace(/[^?!]/g, '') : ''}</span>`).join('');
     line.style.transform = 'none'; line.style.opacity = 1; line.style.clipPath = 'none';
+    line.classList.toggle('bite', !!LN[c.line].bite);          // the story's own clip is speaking: its words are boxed in yellow, not red
     const w = line.scrollWidth; line.dataset.k = w > 836 ? (836 / w).toFixed(4) : 1;
     capNow = i;
   }

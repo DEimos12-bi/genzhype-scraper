@@ -345,6 +345,19 @@ def main():
     with wave.open(os.path.join(HERE, 'vo.wav')) as w:
         vo = np.frombuffer(w.readframes(w.getnframes()), dtype=np.int16).astype(np.float64) / 32768
     vo = np.pad(vo, (0, max(0, N - len(vo))))[:N]
+    ref = np.sqrt(np.mean(vo[np.abs(vo) > .02] ** 2))
+    for l in C['lines']:                                   # the story's own clip speaking (a bite): at the narrator's level; the music ducks under it the same way
+        b = l.get('bite')
+        if not b:
+            continue
+        x = clip(b['src'], b['ss'], b['dur'])
+        if len(x) < SR // 2:
+            print('bite %s: the clip gave no sound' % l['id']); continue
+        x *= ref / (np.sqrt(np.mean(x[np.abs(x) > .02] ** 2)) + 1e-9)
+        i = int(b['at'] * SR)
+        n = max(0, min(len(x), len(vo) - i))
+        vo[i:i + n] += x[:n]
+        print('bite %s at %.2f s: %.2f s of %s from its second %.2f' % (l['id'], b['at'], b['dur'], b['asset'], b['ss']))
     vo = filt(vo, 85, None, shelf=(3800, 3.0))
     e = env_follow(vo, .005, .12)
     vo *= np.where(e > .16, (.16 / np.maximum(e, 1e-6)) ** .45, 1.0)          # gentle levelling

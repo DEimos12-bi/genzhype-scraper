@@ -14,11 +14,20 @@ import re
 import sys
 import time
 
+import ears
 import eyes
 import footage
 import memes
 import people
 import stills as cutstills      # (a local list below is called stills)
+import supply
+
+def luma(path):
+    """How light a clip is: the mean brightness of a picture every two seconds (0 black, 255 white). None when unreadable."""
+    rc, out, err = footage.run(['ffmpeg', '-v', 'error', '-i', path, '-t', '40', '-vf', 'fps=1/2,scale=96:54,signalstats,metadata=print:key=lavfi.signalstats.YAVG:file=-', '-f', 'null', '-'], 60)
+    vals = [float(x) for x in re.findall(r'YAVG=([\d.]+)', (out or '') + (err or ''))]
+    return round(sum(vals) / len(vals), 1) if vals else None
+
 
 OURS = re.compile(r'genzhype|genz hype|drama desk|the timeline|the receipts|not the gossip|live desk', re.I)
 
@@ -44,10 +53,18 @@ def main(work, budget=None, log=lambda *a: print(*a, flush=True)):
     for i, p in enumerate(m.get('posts', [])):                 # 1. the posts' own media
         for md in p.get('media', []):
             if md['type'] == 'video' and md.get('video') and 'clip%d' % i not in A:
-                A['clip%d' % i] = {'kind': 'clip', 'post': i, 'url': md['video'], 'seconds': md.get('seconds'), 'credit': 'CLIP · %s / X' % p['handle'].upper(), 'about': p['text'][:240], 'by': p['handle'], 'page': p['url']}
+                where = 'VIA %s' % p['handle'].upper() if p.get('platform') == 'reddit' else '%s / X' % p['handle'].upper()
+                A['clip%d' % i] = {'kind': 'clip', 'post': i, 'url': md['video'], 'seconds': md.get('seconds'), 'credit': 'CLIP · ' + where, 'about': p['text'][:240], 'by': p['handle'], 'page': p['url'],
+                                   **({'via': 'supply'} if md.get('via') == 'supply' else {})}
             elif md['type'] == 'photo' and md.get('image') and 'photo%d' % i not in A:
                 A['photo%d' % i] = {'kind': 'photo', 'post': i, 'url': md['image'], 'credit': 'IMAGE · %s / X' % p['handle'].upper(), 'about': p['text'][:240], 'by': p['handle'], 'page': p['url']}
     for i, e in enumerate(m.get('events') or []):              # 2a. the site's own screenshots of the sources (the page's proofs)
+        src = (e.get('source') or '').strip()
+        if e.get('proof') and '.' in src and ' ' not in src and not re.search(r'(?:x|twitter|reddit|tiktok|youtube|twitch|kick|instagram)\.', src, re.I):
+            if not m.get('outlet_shots_said'):
+                log('gather: the page\'s screenshot of %s is another publisher\'s page: it is not a picture of this story and is left out (the subject\'s own posts, clips and pages are)' % src)
+            m['outlet_shots_said'] = True
+            continue
         if e.get('proof') and 'proof%d' % i not in A:
             A['proof%d' % i] = {'kind': 'photo', 'url': e['proof'], 'credit': ('SCREENSHOT · %s' % (e.get('source') or 'the source')).upper()[:40], 'by': e.get('source') or 'the source',
                                 'about': e.get('proof_caption') or ('screenshot of %s: %s' % (e.get('source', 'the source'), e.get('title', ''))), 'page': m.get('url', ''), 'proof_of': i, 'date': e.get('date', '')}
@@ -62,6 +79,13 @@ def main(work, budget=None, log=lambda *a: print(*a, flush=True)):
         if im['url'].split('?')[0] in proofs:                  # a proof screenshot is fetched above, with its event
             continue
         A.setdefault('page%d' % i, {'kind': 'photo', 'url': im['url'], 'credit': '', 'about': im.get('alt', ''), 'by': 'the page', 'page': m.get('url', '')})
+        a = A['page%d' % i]
+        if im.get('who') and 'face_of' not in a and not a.get('file'):      # the page's photo is a Commons picture of a person of the story: fetched whole (the page shows a crop), named, credited
+            names = [w for w in re.findall(r'[a-z0-9]+', im['who'].lower()) if len(w) >= 3]
+            if names and all(w in re.sub(r'[^a-z0-9 ]', ' ', (m.get('title', '') + ' ' + m.get('page_text', '')).lower()).split() for w in names):
+                full = people.commons_file(im['commons'])
+                a.update(face_of=im['who'], person=im['who'], by='Wikimedia Commons', about='%s, a photo by %s' % (im['who'], im.get('credit', '?')), credit=('PHOTO · ' + im.get('credit', 'WIKIMEDIA COMMONS')).upper()[:48], **({'url': full} if full else {}))
+                log("  page%d: the page's photo is %s (Wikimedia Commons, %s)%s" % (i, im['who'], im.get('credit', '?'), ': the whole picture is fetched' if full else ''))
     if m.get('examples') and not m.get('examples_collected'):  # 3. a meme's examples
         A.update(memes.collect(m, work, log))
         m['examples_collected'] = True
@@ -71,7 +95,14 @@ def main(work, budget=None, log=lambda *a: print(*a, flush=True)):
             continue
         name = aid + ('.mp4' if a['kind'] == 'clip' else '.jpg')
         try:
-            footage.save(a['url'] + ('?name=orig' if a['kind'] == 'photo' and 'twimg.com' in a['url'] and '?' not in a['url'] else ''), os.path.join(adir, name))
+            if a.get('via') == 'supply':                       # a post whose video has its own route (Reddit): fetched by it, with what is said in it
+                meta = supply.fetch(a['url'], os.path.join(adir, name), 0, 75, log)
+                if meta is None:
+                    raise RuntimeError(supply.LAST['err'] or 'no route')
+                if meta.get('said'):
+                    a['said'] = meta['said']
+            else:
+                footage.save(a['url'] + ('?name=orig' if a['kind'] == 'photo' and 'twimg.com' in a['url'] and '?' not in a['url'] else ''), os.path.join(adir, name))
             a['file'] = name
             log('%s: fetched from %s' % (aid, a.get('by', '?') if a.get('by') == 'the page' else 'the post of ' + a.get('by', '?')))
         except Exception as e:  # noqa: BLE001
@@ -83,6 +114,10 @@ def main(work, budget=None, log=lambda *a: print(*a, flush=True)):
             a['w'], a['h'], a['dur'] = footage.probe(os.path.join(adir, a['file'])) if a['kind'] != 'photo' else footage.probe(os.path.join(adir, a['file']))[:2] + (0.0,)
             if not a['w']:
                 a.pop('file'); a['missing'] = 'unreadable file'
+            elif a['kind'] == 'clip':
+                a['luma'] = luma(os.path.join(adir, a['file']))
+                if a['luma'] is not None and a['luma'] < 70:
+                    log('  %s: filmed in the dark (brightness %.0f of 255): it is lifted when shown' % (aid, a['luma']))
     # 4. the look: every still and every example one by one; the posts' clips on a contact sheet. A real person in a
     # meme's example is a stranger made into a joke and is left out; in a story's own post it is the story's subject.
     stills = {k: a for k, a in A.items() if a.get('file') and (a.get('whole') or a['kind'] == 'photo')}
@@ -95,6 +130,12 @@ def main(work, budget=None, log=lambda *a: print(*a, flush=True)):
     clips = {k for k, a in A.items() if a.get('file') and a['kind'] == 'clip' and not a.get('whole') and not a.get('eyes')}
     if clips:
         eyes.look_assets(A, m.get('title', ''), 'meme' if m.get('examples') else 'story', work, log, save=keep, only=clips)
+    # THE EARS: what is said in the story's own clips, word by word (a caption track that came with the clip, else the
+    # speech model of this machine). A clip where the subject says the claim can speak in the video.
+    if not m.get('heard'):
+        ears.listen(A, m, work, log, keep)
+        m['heard'] = True
+        keep()
     # OUR OWN CARDS ARE NEVER MATERIAL: the page's branded cover (our wordmark, "the timeline", "the receipts") is a card
     # about the story, not a picture of it. A video that shows it has nothing to show.
     for k, a in A.items():

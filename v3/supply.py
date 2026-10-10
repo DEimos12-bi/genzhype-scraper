@@ -10,6 +10,8 @@ YouTube 1/5208. So the routes are, in the order they are trusted:
   kick     clips only (kick.com/<ch>/clips/clip_<id>): the same, bounded (an unbounded Kick clip was 94 MB and 5 min).
   youtube  the Innertube player with the ANDROID_VR client, "a route, opportunistic, never relied upon".
   file     a direct .mp4 address.
+  reddit   a post through Reddit's own embed page (the JSON API refuses this machine, the embed answers): its packaged
+           mp4 with sound, its caption track (one cue per spoken word: what is SAID, with times), or the clip it links to.
 THE HUNT (clip_hunt_clips): Exa's keyless search honours "site:<platform> <topic>" (6 of 8 hits were real TikTok videos
 for the first story it was measured on). One search per platform this machine can download from; a hit must echo two
 distinctive words of the story, or one name of its people; every platform keeps its own finds and they are interleaved,
@@ -17,6 +19,7 @@ strongest match first, so no platform is ahead by code order.
 THE STORE: every fetched clip is kept in v3/store/clips/<md5 of the url>.mp4 with a .json beside it, so a clip is
 fetched once for every video that needs it (the site keeps 14 days; this machine keeps them)."""
 import hashlib
+import html
 import json
 import os
 import re
@@ -53,6 +56,8 @@ def platform(url):
         return 'twitch'
     if 'kick.com' in u:
         return 'kick'
+    if re.search(r'//(?:www\.|old\.|new\.)?reddit\.com/r/[^/]+/comments/', u):
+        return 'reddit'
     if re.search(r'\.(mp4|m4v|mov|webm)(\?|$)', u):
         return 'file'
     return 'other'
@@ -64,7 +69,7 @@ def fetchable(url):
     p = platform(url.split('#t=')[0])
     if p in ('twitch', 'kick'):
         return bool(SHAPES[p].match(url.split('#t=')[0]))
-    return p in ('tiktok', 'x', 'file')
+    return p in ('tiktok', 'x', 'file', 'reddit')
 
 
 def _get(url, headers=None, timeout=30, data=None):
@@ -151,6 +156,69 @@ def resolve_youtube(vid):
 
 
 # ---- download, bounded (clip_fetch.php cf_download / cf_ytdlp / cf_trim) ---------------------------------------------
+def vtt_words(text):
+    """A caption track as words with times: [[word, start, end]]. Reddit marks the spoken word of each cue (<u>word</u>);
+    a plain track gives each cue's words an even share of its time."""
+    stamp = lambda h, m, s: int(h or 0) * 3600 + int(m) * 60 + float(s)
+    out = []
+    for h1, m1, s1, h2, m2, s2, body in re.findall(r'(?:(\d+):)?(\d\d):(\d\d\.\d+)\s+-->\s+(?:(\d+):)?(\d\d):(\d\d\.\d+)[^\n]*\n(.*?)(?:\n\s*\n|\Z)', text or '', re.S):
+        a, b = stamp(h1, m1, s1), stamp(h2, m2, s2)
+        u = re.search(r'<u>(.*?)</u>', body, re.S)
+        if u:
+            out.append([html.unescape(re.sub(r'<[^>]+>', '', u.group(1))).strip(), round(a, 2), round(b, 2)])
+        else:
+            ws = html.unescape(re.sub(r'<[^>]+>', ' ', body)).split()
+            out += [[w, round(a + (b - a) * i / len(ws), 2), round(a + (b - a) * (i + 1) / len(ws), 2)] for i, w in enumerate(ws)]
+    out = [w for w in out if w[0]]
+    for i, w in enumerate(out):                                # a marked word lasts until the next one starts
+        nxt = out[i + 1][1] if i + 1 < len(out) else w[2]
+        w[2] = round(min(max(nxt, w[1] + 0.08), w[1] + 1.2), 2)
+    return out
+
+
+def resolve_reddit(url):
+    """A Reddit post, read from Reddit's own embed page: title, subreddit, author, date, comments; its own video (the
+    best packaged mp4, sound included) and its caption track, or the address the post links to. None when it does not answer."""
+    m = re.search(r'reddit\.com/r/([^/]+)/comments/([a-z0-9]+)(?:/([^/?#]*))?', url, re.I)
+    if not m:
+        return None
+    try:
+        _, _, raw = _get('https://embed.reddit.com/r/%s/comments/%s/%s/?embed=true&ref_source=embed&ref=share&showmedia=true&theme=light' % (m.group(1), m.group(2), m.group(3) or '_'), timeout=25)
+    except Exception as e:  # noqa: BLE001
+        LAST['err'] = 'reddit embed: %s' % str(e)[:80]
+        return None
+    out = {'id': m.group(2), 'sub': 'r/' + m.group(1), 'title': '', 'author': '', 'date': '', 'comments': 0, 'video': '', 'vtt': '', 'link': '', 'seconds': 0}
+    h1 = re.search(r'(?is)<h1[^>]*>(.*?)</h1>', raw)
+    out['title'] = re.sub(r'\s+', ' ', html.unescape(re.sub(r'<[^>]+>', ' ', h1.group(1)))).strip() if h1 else ''
+    who = re.search(r'reddit\.com/user/([^/"?&]+)', raw)
+    out['author'] = who.group(1) if who else ''
+    ts = re.search(r'faceplate-timeago ts="(\d{4}-\d\d-\d\d)', raw)
+    out['date'] = ts.group(1) if ts else ''
+    nc = re.search(r'View\s+([\d,.]+[kK]?)\s+comments', raw)
+    out['comments'] = nc.group(1) if nc else 0
+    ctx = re.search(r'data-faceplate-tracking-context="([^"]*&quot;post&quot;[^"]*)"', raw)
+    try:
+        post = (json.loads(html.unescape(ctx.group(1))) if ctx else {}).get('post') or {}
+    except Exception:  # noqa: BLE001
+        post = {}
+    link = str(post.get('url') or '')
+    pm = re.search(r'packaged-media-json="([^"]*)"', raw)
+    try:
+        mp4s = ((json.loads(html.unescape(pm.group(1))) if pm else {}).get('playbackMp4s') or {})
+    except Exception:  # noqa: BLE001
+        mp4s = {}
+    perms = [p.get('source') or {} for p in mp4s.get('permutations') or []]
+    perms = [p for p in perms if p.get('url') and (p.get('dimensions') or {}).get('height', 0) <= 1080]
+    if perms:
+        out['video'] = max(perms, key=lambda p: (p.get('dimensions') or {}).get('height', 0))['url']
+        out['seconds'] = int(mp4s.get('duration') or 0)
+        cap = re.search(r'caption-url="([^"]+)"', raw)
+        out['vtt'] = html.unescape(cap.group(1)) if cap else ''
+    elif link and 'redd.it' not in link and 'reddit.com' not in link:
+        out['link'] = link                                     # the post shares a clip that lives elsewhere
+    return out if out['title'] else None
+
+
 def _looks_like_video(path):
     try:
         size = os.path.getsize(path)
@@ -247,6 +315,25 @@ def fetch(url, dest, start=0, keep=25, log=print):
         ok = bool(media) and download(media, url, dest)
     elif plat == 'file':
         ok = download(url, url, dest)
+    elif plat == 'reddit':
+        r = resolve_reddit(url)
+        if r and r.get('video'):
+            ok = download(r['video'], url, dest)
+            meta = {'title': r['title'], 'author': r['author'], 'sub': r['sub'], 'date': r['date']}
+            if ok and r.get('vtt') and start <= 0:             # what is said in it, word by word (the times hold while the clip starts at its first second)
+                try:
+                    words = vtt_words(_get(r['vtt'], timeout=20)[2])
+                    if words:
+                        meta['said'] = {'by': 'the captions Reddit made for it', 'lang': 'en', 'words': [w for w in words if w[1] < keep]}
+                except Exception:  # noqa: BLE001
+                    pass
+        elif r and r.get('link') and fetchable(r['link']):
+            got = fetch(r['link'], dest, start, keep, log)
+            if got is not None:
+                got.update(sub=r['sub'], shared_as=r['title'])
+            return got
+        else:
+            LAST['err'] = LAST['err'] or 'the post has no video of its own and links to none this machine can fetch'
     else:
         LAST['err'] = 'no route for this platform'
     if not ok:

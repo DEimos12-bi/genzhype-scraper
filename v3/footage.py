@@ -184,6 +184,8 @@ def fetch_all(work, budget=None, log=lambda *a: print(*a, flush=True)):
     for i, im in enumerate(mat.get('images') or []):
         if mat.get('examples') and '/covers/' not in im['url']:      # a meme page's small pictures are copies of its examples, which were fetched and looked at themselves
             continue
+        if mat.get('gathered') and 'page%d' % i not in (mat.get('assets') or {}):      # gather decided what is material (a publisher's screenshot, our own card are not): nothing is added behind its back
+            continue
         assets.setdefault('page%d' % i, {'kind': 'photo', 'url': im['url'], 'credit': '', 'about': im.get('alt', ''), 'by': 'the page', 'page': plan.get('url', '')})
     over = lambda: budget is not None and time.time() - t0 > budget
     for aid, a in assets.items():                                 # 1. the story's own posts

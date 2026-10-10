@@ -5,6 +5,7 @@ more, a little slower (never slower than a natural pace), instead of losing the 
 import asyncio
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -17,6 +18,25 @@ import ai
 SR = 48000
 LEAD = 0.10          # silence before the first word
 SLOWEST = -4         # per cent: the slowest the voice may go
+BITE_LEAD, BITE_TAIL = 0.28, 0.22      # the silence before and after a clip that speaks for itself
+
+
+def place_bites(plan, tl):
+    """A line of the plan may end with a bite: seconds of a clip of the story, with their own sound. The voice left a
+    pause of that length after the line; here the bite becomes a line of the timeline (id <line>bite) with its own
+    words and times, so the captions, the cut and the sound all sit on it."""
+    out = []
+    for l in tl:
+        out.append(l)
+        b = next((p.get('bite') for p in plan['lines'] if p['id'] == l['id']), None)
+        if not b:
+            continue
+        at = round(l['e'] + BITE_LEAD, 3)                    # the second of the video where the clip second b['ss'] plays
+        clean = lambda w: re.sub(r"^[^\w@#$%]+|[^\w%'’]+$", '', w)
+        ws = [{'w': clean(w), 's': round(at + s - b['ss'], 3), 'e': round(at + e - b['ss'], 3)} for w, s, e in b['words'] if clean(w)]
+        out.append({'id': l['id'] + 'bite', 'text': b['text'], 's': ws[0]['s'] if ws else at, 'e': round(at + b['dur'], 3), 'words': ws,
+                    'bite': {'at': at, 'ss': b['ss'], 'dur': b['dur'], 'asset': b['asset'], 'src': 'assets/' + plan['assets'][b['asset']]['file'], 'of': l['id'], 'who': b.get('who', '')}})
+    return out
 
 
 async def one(takes, i, text, rate, voice):
@@ -158,6 +178,11 @@ def main(work):
     takes = os.path.join(work, 'takes'); os.makedirs(takes, exist_ok=True)
     lines = [[l['id'], l['text'], int(l.get('rate') or (10 if l['id'] in ('vote', 'site', 'final') else 12)),
               float(l.get('pause') or (0.5 if l['id'] == 'site' else 0.3 if l['id'] in ('vote', 'final') else 0.22))] for l in plan['lines']]
+    for l, row in zip(plan['lines'], lines):                 # a bite plays in the pause after its line
+        if l.get('bite') and l['bite'].get('asset') in (plan.get('assets') or {}):
+            row[3] = round(BITE_LEAD + l['bite']['dur'] + BITE_TAIL, 3)
+        else:
+            l.pop('bite', None)
     need = ai.CONFIG['length']['min_s'] + 1.0
     rfile = os.path.join(takes, 'rates.json')
     if os.path.isfile(rfile):                             # a slower pace was chosen in an earlier run of this step: spoken at it from the first line
@@ -181,8 +206,12 @@ def main(work):
     with wave.open(os.path.join(work, 'vo.wav'), 'wb') as w:
         w.setnchannels(1); w.setsampwidth(2); w.setframerate(SR)
         w.writeframes((vo * 32767).astype(np.int16).tobytes())
+    spoken = sum(len(l['words']) for l in tl)
+    tl = place_bites(plan, tl)
+    bites = [l for l in tl if l.get('bite')]
     json.dump({'total': round(t, 3), 'lines': tl}, open(os.path.join(work, 'timeline.json'), 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
-    print('voice: %.1f s, %d lines, %d words' % (t, len(tl), sum(len(l['words']) for l in tl)), flush=True)
+    print('voice: %.1f s, %d lines, %d words%s' % (t, len(tl) - len(bites), spoken, ' | %d bite(s) of the story\'s own clips, %.1f s: %s' % (
+        len(bites), sum(l['bite']['dur'] for l in bites), ' / '.join('"%s"' % l['text'][:60] for l in bites)) if bites else ''), flush=True)
     return t
 
 

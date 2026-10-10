@@ -56,6 +56,7 @@ def close_on(a, s, fy=960, tighter=1.0):
     w, h = a['w'], a['h']
     fill = max(1080 / w, 1920 / h)
     z = min(fill * 2.7, max(fill * 1.08, 0.62 * 1920 / (max(0.14, float(s.get('h', 0.5))) * h))) * tighter
+    z = min(z, max(fill * 1.08, 3.6))                          # never more than 3.6 times its own size: past that a face is mush, not a close-up
     out = []
     for zz in (z, z * 1.1):
         cx = _inside(float(s['x']) * w, 540 / zz, w)
@@ -286,7 +287,7 @@ def for_line(pl, ln, t0, t1, sup, shots, pick, has_card, card_to, face_ok, log, 
             else:
                 ss, x = sup.moment(asset, s1 - s0)
                 tall = A['h'] >= A['w'] * 1.3
-                small = A['w'] > A['h'] and A['h'] < 700
+                small = A['w'] > A['h'] and A['h'] <= 720
                 if move == 'under':
                     s.update(mode='B', dim=0.3, credit='')
                 else:

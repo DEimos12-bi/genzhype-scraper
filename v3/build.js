@@ -121,6 +121,10 @@ PLAN.lines.forEach((pl, li) => {
   });
 });
 
+/* a clip of the story that speaks for itself (a "bite"): said so above it, for as long as it speaks */
+for (const ln of C.lines) if (ln.bite) item(`<div class="chip" style="background:#FFD400;color:#1A1814;font-size:32px">▶ ${ln.bite.who ? esc(ln.bite.who) + '’S OWN WORDS' : 'THE CLIP · ITS OWN SOUND'}</div>`,
+  520, 196, ln.bite.at - .04, ln.e + .08, 'pop', {r: -1.5, fit: 900, key: 'bite'});
+
 /* text that is too wide for its place is made smaller, never cut */
 function fitItems() {
   for (const it of ITEMS) {

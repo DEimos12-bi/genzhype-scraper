@@ -13,7 +13,7 @@ import urllib.parse
 import urllib.request
 
 UA ='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36'
-SOCIAL = re.compile(r'(?:x\.com|twitter\.com|tiktok\.com|reddit\.com|instagram\.com|youtube\.com|youtu\.be|facebook\.com|threads\.net|bsky\.app|twitch\.tv|kick\.com)', re.I)
+SOCIAL = re.compile(r'(?:^|[/.@])(?:x\.com|twitter\.com|tiktok\.com|reddit\.com|instagram\.com|youtube\.com|youtu\.be|facebook\.com|threads\.net|bsky\.app|twitch\.tv|kick\.com)', re.I)
 NOT_OUTLETS = re.compile(r'//(?:[^/]+\.)?(?:googleapis\.com|gstatic\.com|giphy\.com|tenor\.com|vsfagency\.tech)(?:/|$)', re.I)      # fonts, GIF hosts, the site's builder: nothing to read there
 
 
@@ -51,6 +51,19 @@ def x_post(tid):
     return {'id': str(tid), 'url': 'https://x.com/%s/status/%s' % (user.get('screen_name', 'i'), tid), 'platform': 'x', 'handle': '@' + user.get('screen_name', '?'),
             'name': user.get('name', ''), 'text': re.sub(r'\s+', ' ', j['text']).strip(), 'date': (j.get('created_at') or '')[:10], 'likes': j.get('favorite_count') or 0,
             'reply_to': ((j.get('parent') or {}).get('user') or {}).get('screen_name', ''), 'media': media}
+
+
+def reddit_post(url):
+    """One public Reddit post through Reddit's own embed page (supply.resolve_reddit): what it says, where, by whom,
+    when; and whether it carries a video (its own, or a clip it shares) that the gather step can fetch."""
+    import supply
+    r = supply.resolve_reddit(url)
+    if not r:
+        return None
+    has = bool(r.get('video')) or bool(r.get('link') and supply.fetchable(r['link']))
+    return {'id': r['id'], 'url': url.split('?')[0], 'platform': 'reddit', 'handle': r['sub'], 'name': ('u/' + r['author']) if r.get('author') else '', 'text': r['title'], 'date': r.get('date', ''),
+            'likes': 0, 'comments': r.get('comments') or 0, 'reply_to': '', 'link': r.get('link', ''),
+            'media': [{'type': 'video', 'video': url.split('?')[0], 'seconds': r.get('seconds') or 0, 'via': 'supply'}] if has else []}
 
 
 def examples_of(main):
@@ -177,8 +190,19 @@ def from_url(url):
             u = html.unescape(src.group(1))
             images.append({'url': u if u.startswith('http') else url.split('/', 3)[0] + '//' + url.split('/')[2] + u, 'alt': html.unescape(alt.group(1)) if alt else ''})
     images = sorted({i['url']: i for i in images}.values(), key=lambda i: '/covers/' in i['url'])[:6]
+    cap = re.search(r'(?is)<p class="cap">\s*<a href="(https://commons\.wikimedia\.org/wiki/File:([^"]+))"[^>]*>\s*Photo:\s*(.*?)\s*,?\s*via Wikimedia Commons', main)
+    if cap:                                                    # the page's own photo is a Wikimedia Commons file: its name says who is in it, its line who made it
+        who = re.sub(r'\.\w+$', '', urllib.parse.unquote(cap.group(2)))
+        who = re.sub(r'\s+', ' ', re.sub(r'\(.*?\)|\b(?:19|20)\d\d\b|\d+|cropped', ' ', re.sub(r'[_\-]+', ' ', who))).strip()
+        for im in images:
+            if '/covers/' in im['url']:
+                im.update(commons=cap.group(2), who=who, credit=text_of(cap.group(3)))
     post_ids = list(dict.fromkeys(re.findall(r'(?:x|twitter)\.com/[^/"\s]+/status/(\d+)', main)))      # one post = one id, however it is linked
     posts = [p for p in (x_post(t) for t in post_ids[:8]) if p]
+    reddit = {}                                                # the Reddit posts the page embeds or links: often the clip the whole story is about
+    for u in re.findall(r'https?://(?:www\.|old\.)?reddit\.com/r/[^/"\s<>]+/comments/[a-z0-9]+(?:/[^/"\s?#<>]*)?', main):
+        reddit.setdefault(re.search(r'/comments/([a-z0-9]+)', u).group(1), html.unescape(u))
+    posts += [p for p in (reddit_post(u) for u in list(reddit.values())[:3]) if p]
     sources = []
     for u in links:
         if 'genzhype.com' in u or SOCIAL.search(u) or NOT_OUTLETS.search(u) or re.search(r'\.(png|jpe?g|webp|gif|svg|css|js)(\?|$)', u):
