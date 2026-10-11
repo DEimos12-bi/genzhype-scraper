@@ -537,7 +537,7 @@ def voice_faults(lines):
 
 
 FEELING = re.compile(r'\b(frustration|backlash|controversy|chaos|outrage|uproar|criticism|speculation|tensions?|concerns|drama|the situation)\b', re.I)
-VAGUE = re.compile(r"\b(brought (?:\\w+ ){1,3}to light|came to light|broke down (?:what|how|the)|behind closed doors|rolled out (?:major|new|several)|major updates|things (?:escalated|took a turn)|"
+VAGUE = re.compile(r"\b(brought (?:\w+ ){1,3}to light|came to light|broke down (?:what|how|the)|behind closed doors|rolled out (?:major|new|several)|major updates|things (?:escalated|took a turn)|"
                    r"the situation|raised (?:concerns|eyebrows|questions)|sparked (?:a|an|the|new|fresh|more)|took to (?:social media|twitter|x)\b|weighed in|made waves|sent shockwaves|came under fire|caused a stir|"
                    r"caught (?:the )?attention|has everyone talking|taken the internet|mixed reactions|a wave of|at the cent(?:er|re) of|in the spotlight)", re.I)
 TIED = re.compile(r"^(?:but|then|now|so|and|or|yet|because|since|until|still|same|that|that's|this|these|those|he|she|they|it|it's|his|her|their|its|him|them|why|how|what|who|where|when|while|once|if|one|both|all|each|every|"
