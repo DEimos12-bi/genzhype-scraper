@@ -64,6 +64,16 @@ def words(text):
     return len(text.split())
 
 
+def is_logo(a):
+    """A picture that IS its owner's name: the text read in it is the owner's name or initials (a company's profile picture)."""
+    who, text = str(a.get('face_of') or ''), re.search(r'\(text in it: "(.*?)"\)', str(a.get('seen') or ''))
+    if not who or not text:
+        return False
+    bare = lambda t: re.sub(r'[^a-z0-9]', '', t.lower())
+    t, w, initials = bare(text.group(1)), bare(who), bare(''.join(x[0] for x in who.split() if x))
+    return bool(t) and (t in w or w in t or (len(t) >= 2 and t == initials))
+
+
 def said_of(m):
     """What is SAID in the story's own clips (ears.py): {asset id: text}."""
     return {k: a['said']['text'] for k, a in (m.get('assets') or {}).items() if a.get('file') and a.get('usable', True) and (a.get('said') or {}).get('text')}
@@ -320,7 +330,7 @@ def listing(m):
         if v.get('from_clip'):
             seen = ' (a still cut out of %s at %d s)' % (v['from_clip'], int(v.get('at') or 0)) + seen
         if v.get('face_of'):
-            seen = ' (THE FACE of %s: a close-up names them)' % v['face_of'] + seen
+            seen = (' (THE LOGO of %s: shown WHOLE, never a close-up)' if is_logo(v) else ' (THE FACE of %s: a close-up names them)') % v['face_of'] + seen
         if v.get('proof_of') is not None:
             seen = ' (the site\'s screenshot of the source of timeline event %d: shown whole, as proof)' % v['proof_of'] + seen
         if (v.get('said') or {}).get('parts'):
@@ -761,6 +771,8 @@ def fix_and_check(p, m):
             focus = sh.get('focus') if sh.get('focus') in subs else None
             to = sh.get('to') if sh.get('to') in subs and sh.get('to') != focus else None
             move = sh.get('move') if sh.get('move') in beats.MOVES else 'auto'
+            if is_logo(have.get(asset) or {}) and move in ('close', 'pan', 'two', 'auto'):      # a logo is shown whole: a close-up is three giant letters cut off at the edges
+                move, focus, to = 'whole', None, None
             if move in ('pan', 'two') and not (focus and to):
                 move = 'close' if focus else 'auto'
             if move == 'close' and not focus:
@@ -1340,7 +1352,8 @@ def repair(work, log=lambda *a: print(*a, flush=True)):
     for l in p['lines']:
         if l['id'] in ('hook', 'vote', 'site') or not l.get('beats'):
             continue
-        gone = [n for n, b in enumerate(l['beats']) if (b.get('show') or {}).get('asset') in bad]
+        gone = [n for n, b in enumerate(l['beats']) if (b.get('show') or {}).get('asset') in bad and (b.get('show') or {}).get('move') in ('play', 'auto', None)      # only a sentence that was to SHOW it
+                and not any(o.get('beat') == n and o.get('k') in CARDS for o in l.get('overlays', []))]
         if not gone or len(l['beats']) - len(gone) < 2:
             continue
         cut = sum(words(l['beats'][n]['say']) for n in gone)
@@ -1444,7 +1457,7 @@ def ensure_faces(p, m, log=print):
             continue
         l, n, b = spot
         subs = a.get('subjects') or []
-        b['show'] = {'asset': k, 'move': 'close', 'focus': subs[0]['id']} if subs else {'asset': k, 'move': 'whole'}
+        b['show'] = {'asset': k, 'move': 'close', 'focus': subs[0]['id']} if subs and not is_logo(a) else {'asset': k, 'move': 'whole'}
         l['overlays'] = [o for o in l.get('overlays', []) if not (o.get('beat') == n and o.get('k') in ('name', 'tag', 'labels'))] + [{'k': 'name', 't': who.upper()[:34], 'beat': n, 'on': ''}]
         done += 1
         log('  %s.%d "%s": %s is named and never shown; their picture (%s) goes on this sentence' % (l['id'], n + 1, b['say'][:40], who, k))
