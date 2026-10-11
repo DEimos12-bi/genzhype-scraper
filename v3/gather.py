@@ -78,6 +78,11 @@ def main(work, budget=None, log=lambda *a: print(*a, flush=True)):
             continue
         if im['url'].split('?')[0] in proofs:                  # a proof screenshot is fetched above, with its event
             continue
+        if im.get('own_card'):                                 # the cover the site drew itself (no photo credit): our own card is never a picture of the story
+            if 'page%d' % i not in A and not m.get('own_card_said'):
+                log('gather: the page\'s cover is our own card (no photo credit): it is not material')
+                m['own_card_said'] = True
+            continue
         A.setdefault('page%d' % i, {'kind': 'photo', 'url': im['url'], 'credit': '', 'about': im.get('alt', ''), 'by': 'the page', 'page': m.get('url', '')})
         a = A['page%d' % i]
         if im.get('who') and 'face_of' not in a and not a.get('file'):      # the page's photo is a Commons picture of a person of the story: fetched whole (the page shows a crop), named, credited

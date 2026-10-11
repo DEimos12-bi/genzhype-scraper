@@ -191,6 +191,10 @@ def from_url(url):
             images.append({'url': u if u.startswith('http') else url.split('/', 3)[0] + '//' + url.split('/')[2] + u, 'alt': html.unescape(alt.group(1)) if alt else ''})
     images = sorted({i['url']: i for i in images}.values(), key=lambda i: '/covers/' in i['url'])[:6]
     cap = re.search(r'(?is)<p class="cap">\s*<a href="(https://commons\.wikimedia\.org/wiki/File:([^"]+))"[^>]*>\s*Photo:\s*(.*?)\s*,?\s*via Wikimedia Commons', main)
+    credited = bool(re.search(r'(?is)<p class="cap">\s*(?:<a[^>]*>)?\s*Photo\b', main))
+    for im in images:                                          # a cover with no photo credit is the card the site drew itself: never material
+        if '/covers/' in im['url'] and not credited:
+            im['own_card'] = True
     if cap:                                                    # the page's own photo is a Wikimedia Commons file: its name says who is in it, its line who made it
         who = re.sub(r'\.\w+$', '', urllib.parse.unquote(cap.group(2)))
         who = re.sub(r'\s+', ' ', re.sub(r'\(.*?\)|\b(?:19|20)\d\d\b|\d+|cropped', ' ', re.sub(r'[_\-]+', ' ', who))).strip()
