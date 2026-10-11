@@ -1445,6 +1445,29 @@ def ensure_faces(p, m, log=print):
     return done
 
 
+def cut_statements(p, facts):
+    """Removes the sentences the second reading named ('line 7 says "...": not in the material'). Never the first
+    sentence of the opening, never the vote. A line left with no sentence goes too. -> how many sentences were cut"""
+    gone = 0
+    for f in facts or []:
+        hit = re.match(r'line (\d+) says "(.*?)":', str(f))
+        if not hit or not 1 <= int(hit.group(1)) <= len(p['lines']):
+            continue
+        li, want = int(hit.group(1)) - 1, norm(hit.group(2))[:44]
+        l = p['lines'][li]
+        if l.get('id') in ('vote', 'site') or len(want) < 8:
+            continue
+        sents = split_keep(l['text'])
+        k = next((k for k, x in enumerate(sents) if want in norm(x) or norm(x)[:44] in norm(hit.group(2))), None)
+        if k is None or (li == 0 and k == 0):
+            continue
+        sents.pop(k)
+        l['text'] = ' '.join(sents)
+        gone += 1
+    p['lines'] = [l for l in p['lines'] if str(l.get('text', '')).strip() or l.get('id') in ('hook', 'vote')]
+    return gone
+
+
 def ensure_motion(p, m, log=print):
     """THE ACTION PLAYS. A story that has a clip of its own shows it MOVING under at least a third of its sentences. A
     picture editor that puts a still on every sentence makes a slideshow; a hand cut goes close on a still to name
@@ -1660,6 +1683,19 @@ def direct(m, log=print, work=None, budget=None):
             gr = rank(g, gsoft, ghard, gfacts)
             log('director: with the extra lines: %d words | fact check: %s | %s' % (g.get('words', 0), 'NOT RUN' if gfacts is None else '%d problems' % len(gfacts) if gfacts else 'clean',
                 'KEPT' if gr < st['best']['rank'] else 'not better: thrown away'))
+            if gr < st['best']['rank']:
+                st['best'] = {'plan': copy(g), 'model': st['best']['model'], 'rank': gr, 'facts': gfacts}
+        keep()
+    if not slang_page and st['best']['facts'] and not st.get('cut_refused'):
+        st['cut_refused'] = True                                    # what the corrections could not fix is cut, never rewritten
+        cutp = copy(st['best']['plan'])
+        n = cut_statements(cutp, st['best']['facts'])
+        if n:
+            g, gsoft, ghard = check(cutp, m)
+            gfacts = read(g, ghard)
+            gr = rank(g, gsoft, ghard, gfacts)
+            log('director: %d sentence(s) the second reading refused were CUT (nothing rewritten): %d words | fact check: %s | %s' % (n, g.get('words', 0),
+                'NOT RUN' if gfacts is None else '%d problems' % len(gfacts) if gfacts else 'clean', 'KEPT' if gr < st['best']['rank'] else 'not better: thrown away'))
             if gr < st['best']['rank']:
                 st['best'] = {'plan': copy(g), 'model': st['best']['model'], 'rank': gr, 'facts': gfacts}
         keep()
