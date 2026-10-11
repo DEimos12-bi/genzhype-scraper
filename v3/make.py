@@ -1,6 +1,7 @@
 """VIDEO SYSTEM v3: one story in, one finished TikTok video out, with nobody in the loop.
     python make.py <work folder> --url https://genzhype.com/...      (the owner's PC: reads the public page)
     python make.py <work folder>                                     (a material.json is already in the folder: the server feed)
+    python make.py <work folder> --topic "a few words"               (a story that has no page yet: topic.py searches, reads and lays it out)
 Steps, each one a file in this folder; a run can be stopped and started again, finished steps are kept:
     material -> investigate (investigate.py: an agent that searches, opens pages and keeps only facts it can quote: the primary source, the context)
     -> gather (gather.py: every piece the page gives, fetched, looked at AND heard (ears.py) BEFORE a word is written) -> plan (director.py: the casting, the
@@ -125,7 +126,7 @@ def pack(work):
                       ['- verified by the researcher: %s [%s]' % (e['claim'][:140], e['url']) for e in mat.get('evidence') or []])
     open(os.path.join(out, 'post.txt'), 'w', encoding='utf-8').write(
         'VIDEO   %s   (%.1f s, 1080x1920)\nPAGE    %s\n\nCAPTION\n%s\n\nHASHTAGS\n%s\n\nPINNED COMMENT\n%s\n\nTHE SCRIPT\n%s\n\nPROOF SHOWN\n%s\n\nFOOTAGE\n%s\n\nVoice: edge-tts. Music and effects: made in code for this video.\nWritten by %s; clips looked at by the picture model before cutting. Nobody checked this video: watch it once before posting.\n'
-        % (os.path.basename(mp4), dur, plan['url'], post.get('caption', ''), ' '.join('#' + str(t).lstrip('#') for t in post.get('hashtags', [])), post.get('pinned', ''),
+        % (os.path.basename(mp4), dur, plan['url'] if not plan.get('no_page') else '(no page on the site yet; made from the topic "%s")' % mat.get('topic', ''), post.get('caption', ''), ' '.join('#' + str(t).lstrip('#') for t in post.get('hashtags', [])), post.get('pinned', ''),
            '\n'.join(l['text'] for l in plan['lines']), proof or '- (none)', credits, plan.get('model', '?')))
     report = {'made': True, 'file': os.path.basename(mp4), 'seconds': round(dur, 1), 'words': plan.get('words'), 'shots': len(comp['shots']), 'assets_used': used,
               'director_model': plan.get('model'), 'opening': plan.get('opening'), 'fact_checked': plan.get('fact_checked'), 'unsupported_left': plan.get('unsupported_left'), 'left_open': plan.get('left_open', []), 'sensitive': plan.get('sensitive'),
@@ -164,7 +165,13 @@ def main():
         t = time.time()
         say('== %s' % step)
         if step == 'material':
-            if not os.path.isfile(os.path.join(work, 'material.json')):
+            if not os.path.isfile(os.path.join(work, 'material.json')) and opt('--topic'):      # a story with no page yet: the desk builds the material from a few words (topic.py)
+                rc = py('topic.py', opt('--topic'), work, *([max(budget, 60)] if budget else []), timeout=900)
+                if rc == 3:
+                    say('STOPPED at the time budget: run the same command again'); sys.exit(3)
+                if rc != 0:
+                    refuse(work, 'no story could be built from the topic (see the lines above)')
+            elif not os.path.isfile(os.path.join(work, 'material.json')):
                 if not opt('--url'):
                     refuse(work, 'no material.json in the folder and no --url given')
                 if py('material.py', opt('--url'), work, timeout=180) != 0:

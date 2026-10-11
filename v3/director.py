@@ -403,7 +403,9 @@ def story_user(m, ask, casting=None):
     alist, plist, slist = listing(m)
     return ('%s\n\nTHE STORY\nTitle: %s\nPage: %s\nPublished: %s\n\n%sOUR PAGE (already fact-checked; its attributions are the safe wording):\n%s\n\nTHE POSTS THE PAGE CITES (ids for receipts):\n%s\n\n'
             'WHAT THE VIDEO CAN SHOW (ids for "show"):\n%s\n\nWHAT WAS FOUND AND WHAT OTHERS WROTE:\n%s\n\n%s%s%s'
-            % (examples, m['title'], m['url'], m.get('published', ''), timeline_block(m), m['page_text'][:6500], plist, alist, slist, habits.block(m.get('url', '')), cast_block(casting, m), ask))
+            % (examples, m['title'], m['url'], m.get('published', ''), timeline_block(m), m['page_text'][:6500], plist, alist, slist, habits.block(m.get('url', '')), cast_block(casting, m), ask).replace(
+        'OUR PAGE (already fact-checked; its attributions are the safe wording):', "OUR DESK'S BRIEF (written from the pages below and NOT yet checked: where it differs from a page or a post, the page or the post is right):" if m.get('no_page') else
+        'OUR PAGE (already fact-checked; its attributions are the safe wording):'))
 
 
 def stager_user(m, sc, casting=None):
@@ -927,7 +929,8 @@ def fix_and_check(p, m):
 
 def add_site_line(p):
     spoken = CFG['brand']['spoken']
-    p['lines'].append({'id': 'site', 'text': 'The full timeline, and every receipt, is on %s. Link in bio.' % spoken, 'show': {'asset': 'auto', 'mode': 'under'}, 'overlays': [], 'caps': [{'say': spoken, 'show': spoken.replace(' ', '')}]})
+    text = 'The full timeline, and every receipt, is on %s. Link in bio.' if not p.get('no_page') else 'More stories like this one, with every receipt, are on %s. Link in bio.'      # no page yet: none is promised
+    p['lines'].append({'id': 'site', 'text': text % spoken, 'show': {'asset': 'auto', 'mode': 'under'}, 'overlays': [], 'caps': [{'say': spoken, 'show': spoken.replace(' ', '')}]})
     return p
 
 
@@ -1190,7 +1193,7 @@ def unsupported(plan, m):
     def screen(o):
         return ' '.join([str(o.get('t') or o.get('name') or ' / '.join(str(o.get(x) or '') for x in ('a', 'b') if o.get(x)))] + [r.get('t', '') for r in o.get('rows', [])] + [x.get('label', '') + ' ' + x.get('big', '') for x in o.get('items', [])]).strip()
     script = '\n'.join('%d. %s  [on screen: %s]' % (i + 1, l['text'], ' / '.join(screen(o) for o in l['overlays'])) for i, l in enumerate(plan['lines']))
-    mat = 'OUR PAGE:\n%s\n\nPOSTS:\n%s\n\nOUTLETS:\n%s' % (m['page_text'][:6500], '\n'.join('%s: %s' % (p['handle'], p['text'][:500]) for p in m.get('posts', [])), '\n\n'.join(s['excerpt'][:2600] for s in m.get('sources', [])))
+    mat = 'OUR PAGE:\n%s\n\nPOSTS:\n%s\n\nOUTLETS:\n%s' % (m['page_text'][:6500] if not m.get('no_page') else '(there is no page yet: only the posts and the pages below count)', '\n'.join('%s: %s' % (p['handle'], p['text'][:500]) for p in m.get('posts', [])), '\n\n'.join(s['excerpt'][:2600] for s in m.get('sources', [])))
     shown = ['%s by %s%s%s' % (v.get('from'), v.get('by'), ', posted with the words "%s"' % v['title'][:160] if v.get('title') else '', '. A picture model saw in it: %s' % v['seen'] if v.get('seen') else '')
              for v in (m.get('meme_assets') or {}).values() if v.get('usable', True)]
     if said_of(m):
@@ -1731,7 +1734,7 @@ def direct(m, log=print, work=None, budget=None):
         habits.learn(plan)
     if not slang_page:
         soft2 = check(copy(plan), m)[1]                       # read again: the proofs and the faces were put on screen after the last check
-    plan.update({'url': m['url'], 'title': m['title'], 'model': st['best']['model'], 'assets': {} if slang_page else assets_of(m), 'kind': 'slang' if slang_page else 'meme' if is_meme(m) and any(v.get('usable', True) for v in m['meme_assets'].values()) else 'story',
+    plan.update({'url': m['url'], 'title': m['title'], 'no_page': bool(m.get('no_page')), 'model': st['best']['model'], 'assets': {} if slang_page else assets_of(m), 'kind': 'slang' if slang_page else 'meme' if is_meme(m) and any(v.get('usable', True) for v in m['meme_assets'].values()) else 'story',
                  'opening': st.get('opening'), 'left_open': soft2 + (facts or []),
                  'fact_checked': facts is not None, 'unsupported_left': len(facts or [])})
     return add_site_line(plan)

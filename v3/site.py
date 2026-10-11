@@ -17,7 +17,8 @@ def main(work, log=lambda *a: print(*a, flush=True)):
     out = os.path.join(work, 'site')
     if os.path.isfile(os.path.join(out, 'site.json')):
         log('site: the three pictures are already there'); return
-    url = json.load(open(os.path.join(work, 'material.json'), encoding='utf-8'))['url']
+    mat = json.load(open(os.path.join(work, 'material.json'), encoding='utf-8'))
+    url = mat['url'] if not mat.get('no_page') else mat['url'].split('/topic/')[0] + '/'      # a story with no page yet: the site's front page
     os.makedirs(out, exist_ok=True)
     browser, pw = open_browser()
     sizes = {}

@@ -53,7 +53,7 @@ def main(work, budget=None, log=lambda *a: print(*a, flush=True)):
     for i, p in enumerate(m.get('posts', [])):                 # 1. the posts' own media
         for md in p.get('media', []):
             if md['type'] == 'video' and md.get('video') and 'clip%d' % i not in A:
-                where = 'VIA %s' % p['handle'].upper() if p.get('platform') == 'reddit' else '%s / X' % p['handle'].upper()
+                where = 'VIA %s' % p['handle'].upper() if p.get('platform') == 'reddit' else '%s / %s' % (p['handle'].upper(), 'TIKTOK' if p.get('platform') == 'tiktok' else 'X')
                 A['clip%d' % i] = {'kind': 'clip', 'post': i, 'url': md['video'], 'seconds': md.get('seconds'), 'credit': 'CLIP · ' + where, 'about': p['text'][:240], 'by': p['handle'], 'page': p['url'],
                                    **({'via': 'supply'} if md.get('via') == 'supply' else {})}
             elif md['type'] == 'photo' and md.get('image') and 'photo%d' % i not in A:
