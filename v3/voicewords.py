@@ -57,6 +57,8 @@ def known(word):
     plain = lambda x: any(y in d or y.lower() in d or y.capitalize() in d for y in stems(x))      # a regular ending is not an unknown word: the voice builds "blindfolded" itself
     if plain(w):
         return True
+    if w.islower() and any(w[:i] in d and w[i:] in d for i in range(3, len(w) - 2)):      # two known words written as one ("hardcore")
+        return True
     parts = [p for p in re.findall(r'[A-ZÀ-Ý]?[a-zà-ÿ]+|[A-ZÀ-Ý]+(?![a-zà-ÿ])', w)]      # a name written in one word with capitals inside
     return len(parts) > 1 and all(len(p) >= 2 and plain(p) for p in parts)
 

@@ -530,12 +530,16 @@ def voice_faults(lines):
         out.append('lines %s start cold, on a name or a thing the viewer has not heard yet, with nothing tying it to the line before ("%s ..."): start each from what was just said (a time: "Same night,"; '
                    'a pointer: "That\'s ...", "The club is ...", "His answer:"; a turn: "But", "Then", "So"; or the question the last line left open) and bring the new name in after it'
                    % (', '.join(str(i + 1) for i in cold), ' '.join(lines[cold[0]]['text'].split()[:4])))
+    hype = [x.group(0).lower() for l in lines for x in HYPE.finditer(l['text'])]
+    if len(hype) >= 3:                                         # a fact told with three "insane" and "massive" is not believed
+        out.append('the script leans on %d hype words (%s): cut every one, the fact is stronger without them' % (len(hype), ', '.join(dict.fromkeys(hype))))
     for i, l in enumerate(lines):
         if VAGUE.search(l['text']):
             out.append('line %d has words that fit any story ("%s"): say the fact itself, with its name, its number or the real words' % (i + 1, VAGUE.search(l['text']).group(0)))
     return out
 
 
+HYPE = re.compile(r"\b(absolute|absolutely|massive|insane|insanely|hardcore|chaotic|pure|literally|truly|incredibl[ey]|huge|crazy|wild|shocking|stunning|epic|ultimate|unbelievable|legendary|brutal|extreme|mind-blowing|jaw-dropping)\b", re.I)
 FEELING = re.compile(r'\b(frustration|backlash|controversy|chaos|outrage|uproar|criticism|speculation|tensions?|concerns|drama|the situation)\b', re.I)
 VAGUE = re.compile(r"\b(brought (?:\w+ ){1,3}to light|came to light|broke down (?:what|how|the)|behind closed doors|rolled out (?:major|new|several)|major updates|things (?:escalated|took a turn)|"
                    r"the situation|raised (?:concerns|eyebrows|questions)|sparked (?:a|an|the|new|fresh|more)|took to (?:social media|twitter|x)\b|weighed in|made waves|sent shockwaves|came under fire|caused a stir|"
