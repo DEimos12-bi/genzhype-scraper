@@ -14,6 +14,7 @@ import wave
 import numpy as np
 
 import ai
+import voicewords
 
 SR = 48000
 LEAD = 0.10          # silence before the first word
@@ -88,7 +89,7 @@ def fallback_batch(takes, jobs):
         for f in (wav, meta, os.path.join(takes, '%02d.mp3' % i)):
             if os.path.exists(f):
                 os.remove(f)
-        batch.append({'i': i, 'text': text, 'wav': wav, 'json': meta, 'voice': fb.get('voice', 'am_michael'), 'speed': '%.3f' % (1 + rate / 100.0)})
+        batch.append({'i': i, 'text': voicewords.mark(text, SAID or None), 'wav': wav, 'json': meta, 'voice': fb.get('voice', 'am_michael'), 'speed': '%.3f' % (1 + rate / 100.0)})      # the sound written next to a name the voice would guess
     jfile = os.path.join(takes, 'fallback_jobs.json')
     json.dump(batch, open(jfile, 'w', encoding='utf-8'), ensure_ascii=False)
     r = subprocess.run([py, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'kokoro_say.py'), jfile], capture_output=True, text=True, timeout=900)
@@ -99,6 +100,7 @@ def fallback_batch(takes, jobs):
 
 
 BUDGET = {'t0': time.time(), 's': None}
+SAID = {}                    # how this script's names are said (voicewords.py)
 
 
 def over():
@@ -186,6 +188,11 @@ def main(work):
             row[3] = round(BITE_LEAD + l['bite']['dur'] + BITE_TAIL, 3)
         else:
             l.pop('bite', None)
+    try:                                                  # the names the local voice does not know: looked up, or asked once and kept
+        SAID.update(voicewords.learn([l[1] for l in lines], plan.get('title', ''), lambda *a: print(*a, flush=True)))
+    except ai.OutOfTime as e:
+        print('voice: %s; run again' % e, flush=True)
+        raise SystemExit(3)
     need = ai.CONFIG['length']['min_s'] + 1.0
     rfile = os.path.join(takes, 'rates.json')
     if os.path.isfile(rfile):                             # a slower pace was chosen in an earlier run of this step: spoken at it from the first line

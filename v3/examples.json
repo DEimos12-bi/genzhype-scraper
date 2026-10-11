@@ -1,33 +1,99 @@
 [
- {"slug": "ai-video-game-merging-trend", "kind": "meme", "about": "a visual trend: AI-made clips of one game inside another",
-  "lines": ["Skateboarding, in Call of Duty. Minecraft, in Elden Ring. Tarkov, in Skyrim.",
-            "None of these games exist. An AI built them, in hours. And this one just hit twenty-two million views.",
-            "The guy who made it says it even runs on a Mac.",
-            "Now gamers are at war over it. Genius, or slop? Hold your vote.",
-            "Here's the trick. You hand an AI coding model a game, reports name Claude, and say: put this one, inside that one. Hours later, you've got a clip.",
-            "Then it became a race. Skate three, inside Modern Warfare two, inside Minecraft. Someone even mashed eight games into one.",
-            "Then a Kotaku writer actually played one. Minecraft, inside Skyrim. Missing blocks. Invisible walls. A metal gate that drops wood.",
-            "Her verdict: a sandbox built to make viral clips. And she asked what nobody posting these wants to hear. Does anyone actually want to play them?",
-            "So what is it? The future of modding, or thirty seconds of slop? Comment one word. Cool, or slop."],
-  "vote": ["COOL", "SLOP"]},
- {"slug": "karmine-corp-wage-dispute-vatira-and-atow-unpaid", "kind": "story", "about": "a money dispute between an esports club's boss and its players' agent",
-  "lines": ["This team packs arenas with tens of thousands of fans. Now its two star players are owed over three hundred thousand euros. That's their own agent talking.",
-            "The club is Karmine Corp. Monday night, on stream, co-founder Kameto admitted payments were missed. But he said it's settled, and that the club just cleared five million euros of debt.",
-            "Same night, a rival went live. Gotaga, co-founder of Gentle Mates, said the unpaid bill is over three hundred thousand.",
-            "Then the players' agent posted this. Several hundred thousand euros, still unpaid. No concrete plan to fix it. And not bonuses. Wages.",
-            "The players are Vatira and Atow, two of Rocket League's biggest names. Their contracts end in January.",
-            "Kameto says he offered twenty-three thousand euros a month, each. Gentle Mates reportedly offered around twenty-eight.",
-            "And the agent says payment problems were the main subject of the talks to stay.",
-            "So who do you believe? The boss, who says it's paid? Or the agent, who says it's not? Comment one word. Boss, or agent."],
-  "vote": ["BOSS", "AGENT"]},
- {"slug": "modern-warships-admits-copying-alex-jay-brady-s-aircraft-design", "kind": "story", "about": "a game studio admits it copied an artist's design",
-  "lines": ["This ship can cost seven hundred dollars in a video game. One problem. An artist designed it twelve years ago. And nobody asked.",
-            "The game is Modern Warships, published by Gaijin, the company behind War Thunder. The artist is Alex Jay Brady, who posted this design back in twenty-fourteen.",
-            "Now look at both. Same deck. Same engines. Same swing wings.",
-            "And here's the giveaway. Brady says the original had mistakes. Engines blasting across the deck. Planes taking off backward. The game cloned every one.",
-            "Brady's post wasn't even angry. She's looking great. If they'd just asked, and sent some money, zero issue.",
-            "Meanwhile, the price. I G N's math: fifty to a hundred dollars in gacha spins. Or up to seven hundred to buy it outright.",
-            "Then the studio replied, in public. Fair call. Your design was used as a reference, without proper clearance. We'll make this right.",
-            "So is sorry enough? Or should the artist get a cut of every sale? Comment one. Sorry, or pay up."],
-  "vote": ["SORRY", "PAY UP"]}
+ {
+  "slug": "ai-video-game-merging-trend",
+  "kind": "meme",
+  "about": "a visual trend: AI-made clips of one game inside another",
+  "lines": [
+   "Skateboarding, in Call of Duty. Minecraft, in Elden Ring. Tarkov, in Skyrim.",
+   "None of these games exist. An AI built them, in hours. And this one just hit twenty-two million views.",
+   "The guy who made it says it even runs on a Mac.",
+   "Now gamers are at war over it. Genius, or slop? Hold your vote.",
+   "Here's the trick. You hand an AI coding model a game, reports name Claude, and say: put this one, inside that one. Hours later, you've got a clip.",
+   "Then it became a race. Skate three, inside Modern Warfare two, inside Minecraft. Someone even mashed eight games into one.",
+   "Then a Kotaku writer actually played one. Minecraft, inside Skyrim. Missing blocks. Invisible walls. A metal gate that drops wood.",
+   "Her verdict: a sandbox built to make viral clips. And she asked what nobody posting these wants to hear. Does anyone actually want to play them?",
+   "So what is it? The future of modding, or thirty seconds of slop? Comment one word. Cool, or slop."
+  ],
+  "vote": [
+   "COOL",
+   "SLOP"
+  ]
+ },
+ {
+  "slug": "karmine-corp-wage-dispute-vatira-and-atow-unpaid",
+  "kind": "story",
+  "about": "a money dispute between an esports club's boss and its players' agent",
+  "lines": [
+   "This team packs arenas with tens of thousands of fans. Now its two star players are owed over three hundred thousand euros. That's their own agent talking.",
+   "The club is Karmine Corp. Monday night, on stream, co-founder Kameto admitted payments were missed. But he said it's settled, and that the club just cleared five million euros of debt.",
+   "Same night, a rival went live. Gotaga, co-founder of Gentle Mates, said the unpaid bill is over three hundred thousand.",
+   "Then the players' agent posted this. Several hundred thousand euros, still unpaid. No concrete plan to fix it. And not bonuses. Wages.",
+   "The players are Vatira and Atow, two of Rocket League's biggest names. Their contracts end in January.",
+   "Kameto says he offered twenty-three thousand euros a month, each. Gentle Mates reportedly offered around twenty-eight.",
+   "And the agent says payment problems were the main subject of the talks to stay.",
+   "So who do you believe? The boss, who says it's paid? Or the agent, who says it's not? Comment one word. Boss, or agent."
+  ],
+  "vote": [
+   "BOSS",
+   "AGENT"
+  ]
+ },
+ {
+  "slug": "modern-warships-admits-copying-alex-jay-brady-s-aircraft-design",
+  "kind": "story",
+  "about": "a game studio admits it copied an artist's design",
+  "lines": [
+   "This ship can cost seven hundred dollars in a video game. One problem. An artist designed it twelve years ago. And nobody asked.",
+   "The game is Modern Warships, published by Gaijin, the company behind War Thunder. The artist is Alex Jay Brady, who posted this design back in twenty-fourteen.",
+   "Now look at both. Same deck. Same engines. Same swing wings.",
+   "And here's the giveaway. Brady says the original had mistakes. Engines blasting across the deck. Planes taking off backward. The game cloned every one.",
+   "Brady's post wasn't even angry. She's looking great. If they'd just asked, and sent some money, zero issue.",
+   "Meanwhile, the price. I G N's math: fifty to a hundred dollars in gacha spins. Or up to seven hundred to buy it outright.",
+   "Then the studio replied, in public. Fair call. Your design was used as a reference, without proper clearance. We'll make this right.",
+   "So is sorry enough? Or should the artist get a cut of every sale? Comment one. Sorry, or pay up."
+  ],
+  "vote": [
+   "SORRY",
+   "PAY UP"
+  ]
+ },
+ {
+  "slug": "reggie-alleges-kai-cenat-manipulates-tvu-bandwidth-in-new-video",
+  "kind": "story",
+  "about": "a streamer accuses a bigger one with no proof shown; his own clip speaks twice (after \"His words:\" and after \"His comparison:\")",
+  "vote": [
+   "TRUTH",
+   "CAP"
+  ],
+  "lines": [
+   "He says Kai Cenat is taking other streamers' internet. His words:",
+   "That's Reggie. He's in a public feud with Kai Cenat and the Clover Boys.",
+   "His new claim is about TVU. The tech that sends live streams over mobile networks. And TVU says it powered Kai's Streamer University last year.",
+   "Reggie says the people at TVU give Kai the best connection, and make everyone else's worse. His comparison:",
+   "His proof? Not shown. He says he's saving it for court.",
+   "Because Kai Cenat says he's suing him. Reggie's answer: hurry up. I'm ready.",
+   "The comments want receipts. One reads: part twenty-five, still no evidence.",
+   "So right now, it's one man's word. Nothing shown. Nothing confirmed.",
+   "Is he onto something, or is it cap? Comment one word. Truth, or cap."
+  ]
+ },
+ {
+  "slug": "superbrine-climbs-tekken-8-to-god-of-destruction-blindfolded",
+  "kind": "story",
+  "about": "a player's record that part of his own scene doubts",
+  "vote": [
+   "SKILL",
+   "ALISA"
+  ],
+  "lines": [
+   "Beginner rank. A sleep mask. Seven live streams. And the top rank in Tekken 8.",
+   "This is SuperBrine. A Tekken 8 pro. On October fourth he posted: first person ever, Beginner to God of Destruction, one hundred percent blindfolded, live.",
+   "The run took him from June to October. Seven Twitch broadcasts. He couldn't see a thing. He played by ear: wall splats, hits, blocks. Each one sounds different.",
+   "Why do it? He told one interviewer: to take on a challenge most people call impossible, and prove he can.",
+   "But the fighting game crowd pushed back. His character is Alisa. Critics say she's one of the easiest in the game.",
+   "His answer: thousands of hours of game knowledge. And every second of it streamed live. No cuts.",
+   "One thing is still missing. The full video he promised. Until then, it's his word, and his Twitch highlights.",
+   "So. Real skill, or the character carrying him? Comment one word. Skill, or Alisa."
+  ]
+ }
 ]

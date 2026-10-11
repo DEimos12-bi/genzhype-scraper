@@ -188,8 +188,9 @@ SHAPE = {'story': """HOW THE VIDEO WORKS
 - Line 1 is THE OPENING (rules below). It plays on real footage, with its key number or word stamped on screen.
 - After the opening the video follows THE CASTING (given with the material): this story's own material decides the order, never a fixed plan. Say who or what this is in one breath, early. Every line brings its proof: a post, the subject's own words, a number.
 - THE SUBJECT'S OWN VOICE (a "bite"): when a clip lists what is SAID in it, and those words carry the claim, let the clip say it. A line may end with {"bite":{"asset":"clip0","from":"b3","to":"b4","who":"THE SPEAKER'S NAME"}} ("from" and "to" are the ids of the first and last part listed as SAID in that clip; one part alone: the same id twice): 2 to 7.5 seconds of that clip then play with their own sound, right after the line's sentences. The sentence before hands over in two or three words ("His words.", "Listen."). What the bite says is NOT said again by the voice-over. Two bites at most; each replaces about fifteen words of script. A story whose subject is heard saying the claim, and that never lets them say it, is a book report.
+- The line BEFORE the vote says where things stand right now: what is proven, what is still missing ("So right now, it's one man's word. Nothing shown. Nothing confirmed.", "One thing is still missing. The full video he promised."). The vote then asks the question that line leaves open.
 - The last line is a VOTE: one question, two answers of ONE or TWO words each, taken from the story's real conflict (never "yes / no"). The line says "Comment one word." and both answers.
-- Every sentence is cut to its OWN picture. The material lists each picture and clip with who or what is in it: write sentences that NAME what the viewer is looking at, one thing per sentence. Open by naming the players, one short sentence each ("The boss. The agent. And the two players in the middle." is the shape, never the words).
+- Every sentence is cut to its OWN picture. The material lists each picture and clip with who or what is in it: write sentences that NAME what the viewer is looking at, one thing per sentence. Bring each player in at the moment the story needs them, tied to what was just said ("That's Reggie.", "The club is Karmine Corp."): never a list of who is who.
 - One line is the turn: the fact the viewer could not have guessed. The FACT itself tells it. It is never announced: no "Here's the twist", "One problem", "Now it gets deeper", "Then came the debate", "But wait".
 - Do NOT write the closing line that sends to the website; the machine adds it.""",
          'meme': """THIS STORY IS A MEME. The video shows the meme itself from the first second to the last: its real pictures are listed in the material, each with what it shows.
@@ -197,7 +198,7 @@ SHAPE = {'story': """HOW THE VIDEO WORKS
 - Line 2 says what the meme is, in one breath, for someone who has never seen it. Then: where it came from (who made it, when), how people USE it (two or three real uses from the material, one short line each, with the account or the number), how big it got (the biggest number), and what the joke or the argument really is.
 - Point at the screen ("Look at the one on the left.", "That face is the whole joke."): a meme video that never points at the meme is a book report.
 - The last line is a VOTE: one question, two answers of ONE or TWO words each, taken from the meme's own argument (never "yes / no"). The line says "Comment one word." and both answers.
-- Every sentence is cut to its OWN picture. The material lists each picture and clip with who or what is in it: write sentences that NAME what the viewer is looking at, one thing per sentence. Open by naming the players, one short sentence each ("The boss. The agent. And the two players in the middle." is the shape, never the words).
+- Every sentence is cut to its OWN picture. The material lists each picture and clip with who or what is in it: write sentences that NAME what the viewer is looking at, one thing per sentence. Bring each player in at the moment the story needs them, tied to what was just said ("That's Reggie.", "The club is Karmine Corp."): never a list of who is who.
 - One line is the turn: the fact the viewer could not have guessed. The FACT itself tells it. It is never announced: no "Here's the twist", "One problem", "Now it gets deeper", "Then came the debate", "But wait".
 - Do NOT write the closing line that sends to the website; the machine adds it."""}
 
@@ -206,6 +207,7 @@ A 16-year-old scrolling with the sound on. They give the video two seconds, they
 
 OPENING = """THE OPENING (line 1) decides everything
 - 2 to 5 short sentences (a fragment counts: "One problem."), 10 to 30 words in all. The FIRST sentence has 10 words at most. It puts the strangest TRUE thing of the story in front of the viewer: a number, a name, or the thing they are looking at.
+- It shows a PERSON, a THING on screen or a NUMBER. Never a feeling or a category ("Extreme player frustration.", "Massive backlash.", "Total chaos."): nobody can see those. Say what happened to whom.
 - It makes the viewer need the next sentence. It never explains, sums up or announces ("X, explained", "here is why", "a new trend is taking over").
 - It never starts with "The", "A new", "In", "On", "Recently", a date or an outlet's name. It never orders the viewer around before showing anything ("Pick...", "Guess...", "Watch...").
 - Five ways to build one. These are openings of OTHER stories: take the shape, never the facts.
@@ -216,7 +218,7 @@ OPENING = """THE OPENING (line 1) decides everything
   fight:    "The boss says everyone got paid. The agent says three hundred thousand euros are missing. One of them is wrong." """
 
 VOICE = """THE VOICE (study the examples: this exact rhythm)
-- You are telling a friend who has not seen it. Short sentences, one idea each: most have 3 to 9 words, NONE has more than 16. A line is 2 to 4 of them. Fragments are good ("Not bonuses. Wages."). No semicolons, no dashes that join two ideas: a new idea is a new sentence.
+- You are telling a friend who has not seen it. Short sentences, one idea each: most have 3 to 10 words, none has more than 18. A line is 2 to 4 of them. Fragments are good ("Not bonuses. Wages."). No semicolons, no dashes that join two ideas: a new idea is a new sentence.
 - Every line brings ONE new thing, with its name, its number or its quote. One line in the middle is the turn and starts with "But", "Then", "Now", "Same night" or "Meanwhile".
 - Never sound like an article: no "explained", "phenomenon", "showcases", "garnered", "sparks debate", "amid", "users", "netizens", "widespread", "refers to", "various", "numerous", "moreover", "furthermore", "notably", "continues to". No filler, no hype words, no questions to "fans", no "official source". Present tense where possible.
 - %(wmin)d to %(wmax)d spoken words in total, in 8 to 9 lines of 12 to 32 words. Count them.
@@ -225,7 +227,16 @@ VOICE = """THE VOICE (study the examples: this exact rhythm)
 - A news outlet or a gossip site is NEVER named in the voice: it is another publisher, and the screen credits it once, small. Say "one report", "in an interview", "a gaming site". What IS named: the person's own post or clip ("his own post"), a company's own page ("its own press release"), a court, the police.
 - Do not hedge every sentence. Say where a claim comes from ONCE, where it first appears ("one report says", "the patch notes say", "in his own post"), then tell it plainly. Never say "end quote".
 - Tell the story, not our work: never mention GenZHype's checking, "we found", "unverified", "our page".
-- TRUTH: use only facts that are in the material. Anything disputed, or about wrongdoing, is said with who says it ("the agent says", "police say", "reportedly", "according to one report"). A quote must be the source's real words (translated quotes: say "translated"). Never guess a person's gender: use the name or "they"."""
+- TRUTH: use only facts that are in the material. Anything disputed, or about wrongdoing, is said with who says it ("the agent says", "police say", "reportedly", "according to one report"). A quote must be the source's real words (translated quotes: say "translated"). Never guess a person's gender: use the name or "they".
+THE FLOW (what keeps them watching; the examples do all of it)
+- EVERY LINE STARTS FROM WHAT THE VIEWER JUST HEARD, then brings the new thing. A new name never opens a line cold. Tie it to the line before with a time ("Same night,", "Four days later,"), a pointer ("That's Reggie.", "The club is Karmine Corp.", "His answer:"), a turn ("But", "Then", "So") or the question the last line left open ("His proof? Not shown.").
+    cold (wrong): "Streamer Gotaga brought the issue to light on stream."        tied (right): "Same night, a rival went live. Gotaga, co-founder of Gentle Mates, said the unpaid bill is over three hundred thousand."
+    cold (wrong): "Gaijin published Modern Warships. Artist Alex Jay Brady posted a design in twenty-fourteen."        tied (right): "The game is Modern Warships, published by Gaijin. The artist is Alex Jay Brady, who posted this design back in twenty-fourteen."
+- EVERY SENTENCE CARRIES SOMETHING THE VIEWER CAN SEE OR COUNT: a name, a number, a thing, real words. A sentence that would fit any story is cut ("brought the issue to light", "broke down what was happening", "rolled out major updates", "raised concerns", "sparked a debate", "behind closed doors", "the situation").
+    empty (wrong): "He broke down what was happening behind closed doors."        full (right): "He said the unpaid bill is over three hundred thousand."
+- POINT AT THE SCREEN. The viewer looks at a picture while you talk: "That's Reggie.", "This is SuperBrine.", "Then the players' agent posted this.", "Now look at both."
+- ASK WHAT THE VIEWER IS THINKING and answer at once, once or twice in a video: "His proof? Not shown.", "Why do it? To prove he can."
+- RHYTHM: two or three short sentences, then a longer one that carries the fact. Never five fragments in a row, never three sentences of the same length in a row."""
 
 SCREEN = """THE MONTAGE: ONE PICTURE PER SENTENCE
 The script is cut sentence by sentence. Each sentence has an id ("hook.1", "hook.2"...) and gets its OWN picture, chosen for what THAT sentence names. This is what makes a video feel directed instead of assembled:
@@ -271,7 +282,7 @@ OUT_WRITE = """OUTPUT: strict JSON, nothing around it. Write the five openings F
  "lines":[{"id":"hook","say":["the opening you picked,","sentence by sentence"]},{"id":"who","say":["One short sentence.","Then another."]},{"id":"claim","say":["What they claim.","His words."],"bite":{"asset":"clip0","from":"b3","to":"b4","who":"NAME"}},{"id":"...","say":["",""]},{"id":"vote","say":["The question.","Comment one word.","This, or that."]}],
  "vote":{"question":"max 22 characters","a":{"word":"ONE WORD","sub":"that side in 3 words"},"b":{"word":"ONE WORD","sub":"that side in 3 words"}},
  "people":[{"name":"","role":""}]}
-Every "say" is a list of 2 or 3 SENTENCES (the opening may have 4): ONE sentence per string, each of 3 to 12 words (only a real quote may be longer). A string never holds two ideas.
+Every "say" is a list of 2 or 3 SENTENCES (the opening may have 4): ONE sentence per string, each of 3 to 16 words (only a real quote may be longer). A string never holds two ideas.
 ALL the lines together: %(wmin)d to %(wmax)d words, which is about 19 words a line. A script that runs longer gets sentences removed by a machine, so choose what matters yourself.
 "pick" is the number (1 to 5) of the strongest opening. The first line's id is "hook", the last line's id is "vote". You write only what is SPOKEN: no pictures, no graphics. A "bite" is optional and only for a clip whose SAID parts are listed: "from" and "to" are part ids (b1, b2...). Choose the parts that say the claim in the fewest seconds, whole thoughts only."""
 
@@ -412,7 +423,10 @@ def cast_block(c, m):
 def story_user(m, ask, casting=None):
     slug, want = m['url'].rstrip('/').split('/')[-1], 'meme' if is_meme(m) else 'story'
     ex = [e for e in json.load(open(os.path.join(HERE, 'examples.json'), encoding='utf-8')) if e['slug'] != slug]
-    ex = sorted(ex, key=lambda e: e.get('kind', 'story') != want)[:2]      # a meme studies the meme example first, a story the story ones
+    ex = [e for e in ex if not any(len(w) >= 6 and w in m.get('title', '').lower() for w in e['slug'].split('-'))]      # (a topic about an example's own story has another address: its names give it away)
+    same = [e for e in ex if e.get('kind', 'story') == want]  # a meme studies the meme example first, a story the story ones
+    turn = sum(ord(c) for c in slug) % max(1, len(same))      # another pair of examples for another story: the voice is learned, a wording is not
+    ex = (same[turn:] + same[:turn] + [e for e in ex if e.get('kind', 'story') != want])[:2]
     examples = '\n\n'.join('EXAMPLE (%s). Vote: %s or %s.\n%s' % (e['about'], e['vote'][0], e['vote'][1], '\n'.join('%d. %s' % (i + 1, l) for i, l in enumerate(e['lines']))) for e in ex)
     alist, plist, slist = listing(m)
     out = ('%s\n\nTHE STORY\nTitle: %s\nPage: %s\nPublished: %s\n\n%sOUR PAGE (already fact-checked; its attributions are the safe wording):\n%s\n\nTHE POSTS THE PAGE CITES (ids for receipts):\n%s\n\n'
@@ -473,6 +487,8 @@ def opening_faults(text):
         out.append('it orders the viewer around before showing anything ("%s ..."): start with the thing itself' % low.split()[0].capitalize())
     if ARTICLE.search(text or ''):
         out.append('it sounds like an article ("%s")' % ARTICLE.search(text).group(0).strip(', '))
+    if FEELING.search(text or ''):
+        out.append('it names a feeling or a category ("%s") instead of the thing itself: say what happened, to whom, with its name or number' % FEELING.search(text).group(0))
     return out
 
 
@@ -498,7 +514,44 @@ def voice_faults(lines):
     turn = r'(but|then|now|same|meanwhile|until|except|and then|yet|still|instead|only|because|so far|one thing|except)\b'
     if len(lines) > 4 and not any(re.match(turn, l['text'].lower()) or re.match(r'[^.!?]{2,34}\?', l['text']) or l.get('bite') for l in lines[1:-1]):      # a turn word, a short question ("His proof?"), or the subject's own voice
         out.append('the script has no turn: one line in the middle must turn the story (a "But" or "Then", a short question like "The proof?", or the subject\'s own words)')
+    cold = cold_starts(lines)
+    if len(cold) >= 2:                                         # a news brief: every line a new subject. A told story: every line leans on the one before
+        out.append('lines %s start cold, on a name or a thing the viewer has not heard yet, with nothing tying it to the line before ("%s ..."): start each from what was just said (a time: "Same night,"; '
+                   'a pointer: "That\'s ...", "The club is ...", "His answer:"; a turn: "But", "Then", "So"; or the question the last line left open) and bring the new name in after it'
+                   % (', '.join(str(i + 1) for i in cold), ' '.join(lines[cold[0]]['text'].split()[:4])))
+    for i, l in enumerate(lines):
+        if VAGUE.search(l['text']):
+            out.append('line %d has words that fit any story ("%s"): say the fact itself, with its name, its number or the real words' % (i + 1, VAGUE.search(l['text']).group(0)))
     return out
+
+
+FEELING = re.compile(r'\b(frustration|backlash|controversy|chaos|outrage|uproar|criticism|speculation|tensions?|concerns|drama|the situation)\b', re.I)
+VAGUE = re.compile(r"\b(brought (?:the|this|that) (?:issue|matter|story|news) to light|came to light|broke down (?:what|how|the)|behind closed doors|rolled out (?:major|new|several)|major updates|things (?:escalated|took a turn)|"
+                   r"the situation|raised (?:concerns|eyebrows|questions)|sparked (?:a|an|the|new|fresh|more)|took to (?:social media|twitter|x)\b|weighed in|made waves|sent shockwaves|came under fire|caused a stir|"
+                   r"caught (?:the )?attention|has everyone talking|taken the internet|mixed reactions|a wave of|at the cent(?:er|re) of|in the spotlight)", re.I)
+TIED = re.compile(r"^(?:but|then|now|so|and|or|yet|because|since|until|still|same|that|that's|this|these|those|he|she|they|it|it's|his|her|their|its|him|them|why|how|what|who|where|when|while|once|if|one|both|all|each|every|"
+                  r"nobody|nothing|everyone|no|not|only|even|instead|except|meanwhile|before|after|later|earlier|first|finally|here|there|on|in|by|at|for|from|last|next|within|today|tonight|yesterday|"
+                  r"monday|tuesday|wednesday|thursday|friday|saturday|sunday|january|february|march|april|june|july|august|september|october|november|december|"
+                  r"two|three|four|five|six|seven|eight|nine|ten|days|hours|weeks|months|minutes|years)\b", re.I)
+
+
+def cold_starts(lines):
+    """The lines (not the first, not the vote) whose first sentence opens on a name or a thing the viewer has not heard
+    yet, with no time, pointer, turn or question tying it to the line before."""
+    names, heard, cold = set(), set(), []
+    for i, l in enumerate(lines):
+        ss = sentences(l['text'])
+        head = re.findall(r"[A-Za-zÀ-ÿ']+", ss[0])[:5] if ss else []
+        if i and l.get('id') not in ('vote', 'site', 'final') and head:
+            first = ss[0].strip(' "“')
+            tied = bool(TIED.match(first)) or any(w[:1].isupper() and w.lower()[:5] in names for w in head) or bool(re.match(r"(?i)the\s+\S+(?:\s+\S+)?\s+(?:is|are|was|were|who|that)\b", first)) \
+                or (head[0].lower() == 'the' and len(head) > 1 and head[1].lower()[:5] in heard)
+            if not tied:
+                cold.append(i)
+        found = re.findall(r"[A-Za-zÀ-ÿ']+", l['text'])
+        heard |= {w.lower()[:5] for w in found if len(w) >= 4}
+        names |= {w.lower()[:5] for w in found if w[:1].isupper() and len(w) >= 3}
+    return cold
 
 
 def choose_opening(sc, m, log):
@@ -519,7 +572,7 @@ def choose_opening(sc, m, log):
         return info
     user = ('THE VIDEO IS ABOUT: %s\n%s\n\nOPENINGS\n%s\n\nScore EACH opening from 1 to 10: how likely are you to keep watching after hearing it?\n'
             'HIGH: it puts something concrete in front of me that I can picture (a thing, a number, a name), it is strange or it starts a fight I have an opinion on, and it leaves a question open.\n'
-            'LOW: it is vague ("absurd", "chaos", "endless", "sparks memes"), it sums the story up, it tells me what to do before showing me anything, or it sounds like an article.\n'
+            'LOW: it is vague ("absurd", "chaos", "endless", "sparks memes"), it names a feeling instead of a thing ("frustration", "backlash"), it is a list of fragments with nobody in it, it sums the story up, it tells me what to do before showing me anything, or it sounds like an article.\n'
             'JSON: {"scores":[{"n":1,"score":7},{"n":2,"score":4}],"why":"max 12 words about the best one"}'
             % (m.get('title', ''), (m.get('summary') or '')[:300], '\n'.join('%d. %s' % (i + 1, o) for i, o in enumerate(good))))
     try:
