@@ -225,8 +225,10 @@ def main(work, budget=None, log=lambda *a: print(*a, flush=True)):
                 continue
             room(45, 'a clip')
             m['finds_tried'].append(f['url'])
-            if f['platform'] == 'tiktok' and (PUBLISHER.search(f.get('author', '')) or any(o in investigate.squash(f.get('author', '')) for o in outlets)):
-                log('found: the clip of @%s is another publisher\'s video: not taken' % f.get('author', ''))
+            au = investigate.squash(f.get('author', ''))
+            own = [x for x in [investigate.squash(s) for s in subjects(m)] + [investigate.squash(p.get('handle', '')) for p in m.get('posts') or []] if len(x) >= 5]
+            if f['platform'] == 'tiktok' and (PUBLISHER.search(f.get('author', '')) or any(o in au for o in outlets) or not any(x in au or au in x for x in own if au)):
+                log('found: the TikTok of @%s is somebody else\'s video about the story (a publisher\'s or another creator\'s): not taken' % f.get('author', ''))
                 continue
             aid = 'found%d' % (n + 1)
             meta = supply.fetch(f['url'], os.path.join(adir, aid + '.mp4'), keep=30, log=log)

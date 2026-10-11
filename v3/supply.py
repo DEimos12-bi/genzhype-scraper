@@ -491,7 +491,7 @@ def hunt(topic, people=(), have=(), maximum=4, max_seconds=90, log=print):
                 continue
             hay = (h['title'] + ' ' + h['text']).lower()
             hit = sum(1 for w in need if w in hay)
-            nm = sum(1 for w in names if w in hay)
+            nm = sum(1 for p in people if [w for w in p.lower().split() if len(w) >= 3] and all(w in hay for w in p.lower().split() if len(w) >= 3))      # a name counts only whole ("screen" alone is not "Screen Burn Interactive")
             if hit < 2 and nm < 1:                             # two distinctive words is the floor; a name opens the door by itself
                 continue
             seen.add(same(m.group(0)))
