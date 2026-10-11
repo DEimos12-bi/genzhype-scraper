@@ -33,7 +33,8 @@ def cut_from_clips(assets, work, log=print, want=3):
         if a.get('whole'):                                     # a meme's own clip (a GIF, a TikTok): one still at its clearest point
             moments = [{'t': round(dur * 0.45, 2), 'score': 4, 'x': 0.5, 'face': False, 'what': a.get('seen', '')}] if dur >= 1 else []
         else:
-            moments = pick_moments(a.get('windows') or [], dur, want)
+            n = want if 'post' in a else 1 if a.get('game') else 0      # a post's own clip gives three pictures; a trailer one (the game's screenshots are stills already); a found clip none
+            moments = pick_moments(a.get('windows') or [], dur, n)[:n] if n else []
         for k, w in enumerate(moments):
             sid, name = '%s_s%d' % (cid, k + 1), '%s_s%d.jpg' % (cid, k + 1)
             r = subprocess.run(['ffmpeg', '-y', '-v', 'error', '-ss', '%.2f' % w['t'], '-i', os.path.join(adir, a['file']), '-frames:v', '1', '-q:v', '2', os.path.join(adir, name)], capture_output=True, timeout=40)

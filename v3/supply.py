@@ -40,6 +40,7 @@ SHAPES = {                      # the URL shape a real clip has (clip_supply.php
     'tiktok': re.compile(r'^https?://(?:www\.)?tiktok\.com/@[^/]+/video/\d+', re.I),
     'twitch': re.compile(r'^https?://(?:(?:www\.)?clips\.twitch\.tv/[A-Za-z0-9_-]{6,}|(?:www\.|m\.)?twitch\.tv/[^/]+/clip/[A-Za-z0-9_-]{6,})', re.I),
     'kick': re.compile(r'^https?://(?:www\.)?kick\.com/[^/]+/clips/clip_[A-Za-z0-9]{6,}', re.I),
+    'reddit': re.compile(r'^https?://(?:www\.|old\.)?reddit\.com/r/[^/]+/comments/[a-z0-9]+(?:/[^/?#]*)?', re.I),
 }
 LAST = {'err': ''}
 
@@ -424,7 +425,37 @@ def exa_search(query, n=5):
 
 # ---- the hunt (clip_supply.php clip_hunt_legs / clip_hunt_clips) ----------------------------------------------------
 def hunt_legs(q):
-    return {'tiktok': ('site:tiktok.com ' + q, SHAPES['tiktok']), 'twitch': ('site:clips.twitch.tv ' + q, SHAPES['twitch']), 'kick': ('site:kick.com clips ' + q, SHAPES['kick'])}
+    return {'tiktok': ('site:tiktok.com ' + q, SHAPES['tiktok']), 'twitch': ('site:clips.twitch.tv ' + q, SHAPES['twitch']), 'kick': ('site:kick.com clips ' + q, SHAPES['kick']),
+            'reddit': ('site:reddit.com ' + q + ' clip video', SHAPES['reddit'])}      # a post with its own video, or one that shares a clip (fetch follows it)
+
+
+def same(url):
+    """One name for one clip or post, however its address is written."""
+    for pat in (r'reddit\.com/r/[^/]+/comments/([a-z0-9]+)', r'tiktok\.com/@[^/]+/video/(\d+)', r'/status/(\d+)', r'twitch\.tv/(?:[^/]+/clip/)?([A-Za-z0-9_-]{6,})', r'kick\.com/[^/]+/clips/(clip_[A-Za-z0-9]+)'):
+        m = re.search(pat, url or '', re.I)
+        if m:
+            return m.group(1).lower()
+    return (url or '').split('?')[0].rstrip('/').lower()
+
+
+def channel_clips(login, n=8, period='30d'):
+    """The most watched clips of a Twitch channel in a period, read from the channel's own clips page (yt-dlp lists it;
+    nothing is downloaded). -> [{url, title, dur, views}], most watched first; [] when there is no such channel or it has none."""
+    if not re.fullmatch(r'[a-z0-9_]{4,25}', login or ''):
+        return []
+    rc, out, _ = footage.run(['yt-dlp', '--flat-playlist', '--no-warnings', '--no-cache-dir', '--socket-timeout', '15', '--playlist-end', str(n), '--print', '%(url)s\t%(duration)s\t%(view_count)s\t%(title)s',
+                              'https://www.twitch.tv/%s/clips?filter=clips&range=%s' % (login, period)], 40)
+    clips = []
+    for line in (out or '').splitlines():
+        p = line.split('\t', 3)
+        m = SHAPES['twitch'].match(p[0]) if len(p) == 4 else None
+        if not m:
+            continue
+        try:
+            clips.append({'url': m.group(0), 'dur': float(p[1]), 'views': int(float(p[2])), 'title': p[3].strip()[:120]})
+        except ValueError:
+            continue
+    return sorted(clips, key=lambda c: -c['views'])
 
 
 def hunt(topic, people=(), have=(), maximum=4, max_seconds=90, log=print):
@@ -442,7 +473,7 @@ def hunt(topic, people=(), have=(), maximum=4, max_seconds=90, log=print):
         for w in re.split(r'\s+', p.lower()):
             if len(w) >= 3:
                 need[w], names[w] = 1, 1
-    seen, per_leg, notes, t0 = set(have), {}, [], time.time()
+    seen, per_leg, notes, t0 = {same(u) for u in have if u}, {}, [], time.time()
     for plat, (query, shape) in hunt_legs(q).items():
         if time.time() - t0 > max_seconds:
             notes.append(plat + '=skipped(time)')
@@ -452,15 +483,15 @@ def hunt(topic, people=(), have=(), maximum=4, max_seconds=90, log=print):
             if len(kept) >= maximum:
                 break
             m = shape.match(h['url'])
-            if not m or m.group(0) in seen:
+            if not m or same(m.group(0)) in seen:
                 continue
             hay = (h['title'] + ' ' + h['text']).lower()
             hit = sum(1 for w in need if w in hay)
             nm = sum(1 for w in names if w in hay)
             if hit < 2 and nm < 1:                             # two distinctive words is the floor; a name opens the door by itself
                 continue
-            seen.add(m.group(0))
-            author = re.search(r'tiktok\.com/@([^/]+)/', m.group(0)) or re.search(r'(?:twitch\.tv|kick\.com)/([^/]+)/', m.group(0))
+            seen.add(same(m.group(0)))
+            author = re.search(r'tiktok\.com/@([^/]+)/', m.group(0)) or re.search(r'(?:twitch\.tv|kick\.com)/([^/]+)/', m.group(0)) or re.search(r'reddit\.com/(r/[^/]+)/', m.group(0))
             kept.append({'platform': plat, 'url': m.group(0), 'title': h['title'][:120], 'published': h['published'], 'author': author.group(1) if author else '', 'hits': hit + 2 * nm, 'src': 'hunt:exa'})
         if kept:
             per_leg[plat] = kept

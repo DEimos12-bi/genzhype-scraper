@@ -63,6 +63,7 @@ class Supply:
         self.a = {k: v for k, v in assets.items() if v.get('file') and not (v.get('whole') and not v.get('usable', True))}      # a meme example that shows something else is not footage
         self.used = {k: [] for k in self.a}
         self.uses = {k: 0 for k in self.a}                    # lines that showed it: the least shown comes first
+        self.seen = {k: set() for k in self.a}                # the scenes of each clip that were shown
 
     def clips(self, sharp):
         out = [k for k, v in self.a.items() if v['kind'] in ('clip', 'hunt', 'stock') and (not sharp or (v['kind'] != 'stock' and v.get('usable', True)))]
@@ -71,18 +72,45 @@ class Supply:
     def photos(self):
         return sorted([k for k, v in self.a.items() if v['kind'] == 'photo'], key=lambda k: self.uses[k])
 
+    def spread(self, k):
+        """A clip asked for again when the story has another of the same thing (a game's second trailer, another clip of
+        the same channel) that was shown less: that one plays. The same subject, a new picture."""
+        v = self.a[k]
+        if not v.get('group') or v['kind'] != 'clip':
+            return k
+        same = [x for x, o in self.a.items() if o.get('group') == v['group'] and o['kind'] == 'clip' and o.get('usable', True) and (o.get('h', 0) > o.get('w', 0)) == (v.get('h', 0) > v.get('w', 0))]
+        best = min(same or [k], key=lambda x: (self.uses[x], x != k))
+        return best if self.uses[k] - self.uses[best] >= 2 else k
+
     def moment(self, k, dur):
+        """Where a shot of `dur` seconds starts in clip k, and where its subject sits. A scene that was not shown yet comes
+        first (the best rated first) and the shot stays inside it; then a good moment away from the ones shown; then the
+        place farthest from everything shown, never one the eyes rated dull (a black frame, a title, a logo)."""
         v = self.a[k]
         room = max(0.0, v.get('dur', 0) - dur - 0.3)
-        for w in v.get('windows', []):
-            s = min(room, max(0.0, w['t'] - 0.8))
-            if all(abs(s - u) >= min(3.5, dur) for u in self.used[k]):
-                self.used[k].append(s)
-                return s, w.get('x', 0.5)
-        n = len(self.used[k])                                  # every good moment used: walk through the clip
-        s = (n * 7.3 + 1.5) % room if room > 0 else 0.0
+
+        def start(w):
+            ss, se = w.get('ss'), w.get('se')
+            if ss is None or se is None:
+                return min(room, max(0.0, w['t'] - 0.8))
+            s = min(max(ss + 0.05, w['t'] - dur / 2), se - dur - 0.1) if se - ss >= dur + 0.2 else ss + 0.05
+            return min(room, max(0.0, s))
+        for fresh in (True, False):
+            for w in v.get('windows', []):
+                if fresh and (w.get('sc') is None or w['sc'] in self.seen[k]):
+                    continue
+                s = start(w)
+                if all(abs(s - u) >= min(2.0 if fresh else 3.5, dur) for u in self.used[k]):
+                    self.used[k].append(s)
+                    self.seen[k].add(w.get('sc'))
+                    return s, w.get('x', 0.5)
+        tiles = v.get('tiles') or []
+        near = lambda s: min(tiles, key=lambda t: abs(t['t'] - (s + dur / 2))) if tiles else None
+        spots = [i * 0.5 for i in range(int(room / 0.5) + 1)]
+        spots = [s for s in spots if near(s) is None or near(s)['score'] >= 2.5] or spots
+        s = max(spots, key=lambda s: min([abs(s - u) for u in self.used[k]] or [0.0]))
         self.used[k].append(s)
-        return s, 0.5
+        return s, (near(s) or {}).get('x', 0.5)
 
 
 def bite_shots(pl, bl, t0, t1, sup):

@@ -117,34 +117,83 @@ def yt_section(vid, dest, start, seconds, dur, log, limit=170):
     return False
 
 
-def steam_trailer(game, dest, seconds, log):
-    """An official trailer of a video game from Steam's public store data: no login, no robot check, and it answers
-    GitHub's machines too. Only the store entry whose name is exactly the game's name is used."""
+def steam_app(game, log):
+    """A video game's own store page on Steam (public store data: no login, no robot check, and it answers GitHub's
+    machines too). Only the entry whose name is exactly the game's name. -> {name, page, movies (a gameplay video
+    first), shots (the addresses of its official screenshots, full size)} or None."""
     def get(u):
         return json.loads(urllib.request.urlopen(urllib.request.Request(u, headers={'User-Agent': UA}), timeout=20).read().decode('utf-8', 'replace'))
-    want = set(re.findall(r'[a-z0-9]+', game.lower())) - {'the', 'of', 'and', 'a'}
+    small = {'the', 'of', 'and', 'a'}
+    want = set(re.findall(r'[a-z0-9]+', game.lower())) - small
     try:
         items = get('https://store.steampowered.com/api/storesearch/?l=english&cc=US&term=' + urllib.parse.quote(game)).get('items', [])
     except Exception as e:  # noqa: BLE001
         log('  steam: no answer (%s)' % str(e)[:70]); return None
     for it in items[:6]:
-        words = set(re.findall(r'[a-z0-9]+', it.get('name', '').lower()))
-        if not want or words - {'the', 'of', 'and', 'a'} != want:      # the same name, not a sequel, a spin-off or an add-on ("Minecraft" is not "Minecraft Dungeons II")
+        if not want or set(re.findall(r'[a-z0-9]+', it.get('name', '').lower())) - small != want:      # the same name, not a sequel, a spin-off or an add-on ("Minecraft" is not "Minecraft Dungeons II")
             continue
         try:
-            movies = ((get('https://store.steampowered.com/api/appdetails?l=english&cc=US&appids=%d' % it['id']).get(str(it['id'])) or {}).get('data') or {}).get('movies') or []
+            data = (get('https://store.steampowered.com/api/appdetails?l=english&cc=US&appids=%d' % it['id']).get(str(it['id'])) or {}).get('data') or {}
         except Exception:  # noqa: BLE001
             continue
-        movies = sorted(movies, key=lambda m: 'gameplay' not in m.get('name', '').lower())          # a gameplay trailer first
-        for m in movies[:2]:
-            url = m.get('hls_h264') or (m.get('mp4') or {}).get('max') or (m.get('webm') or {}).get('max')
-            if not url:
-                continue
-            run(['ffmpeg', '-y', '-v', 'error', '-ss', '3', '-i', url, '-t', str(seconds), '-map', '0:v:0', '-an', '-c', 'copy', dest], 100)
-            if os.path.isfile(dest) and os.path.getsize(dest) > 80000 and min(probe(dest)[:2]) >= 480:
-                return {'name': it['name'], 'trailer': m.get('name', 'trailer'), 'page': 'https://store.steampowered.com/app/%d/' % it['id']}
-            if os.path.exists(dest):
-                os.remove(dest)
+        movies = [{'name': m.get('name', 'trailer'), 'url': m.get('hls_h264') or (m.get('mp4') or {}).get('max') or (m.get('webm') or {}).get('max')} for m in data.get('movies') or []]
+        movies = sorted([m for m in movies if m['url']], key=lambda m: 'gameplay' not in m['name'].lower())      # a gameplay video first
+        shots = [x.get('path_full') for x in data.get('screenshots') or [] if x.get('path_full')]
+        if movies or shots:
+            return {'name': it['name'], 'page': 'https://store.steampowered.com/app/%d/' % it['id'], 'movies': movies, 'shots': shots}
+    return None
+
+
+def steam_passages(movie, dest, log, length=12):
+    """One official video of a game as a clip. A trailer is not its first minute (a logo, an age rating, a slow opening;
+    a "gameplay trailer" can run twenty minutes): passages are taken ACROSS its whole length and joined, so the clip
+    holds the video's different pictures. -> {name, passages, of (the video's length)} or None."""
+    url = movie.get('url')
+    if not url:
+        return None
+    rc, out, _ = run(['ffprobe', '-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', url], 40)
+    try:
+        dur = float(out.strip().splitlines()[0])
+    except (ValueError, IndexError):
+        dur = 0.0
+    if dur < 45:                                               # short, or its length is not told: one piece
+        spots, length = [2.0 if dur > 12 else 0.0], 40
+    else:
+        n = 3 if dur < 200 else 4
+        length = min(length, dur * 0.66 / n)
+        spots = [dur * (0.10 + 0.66 * i / (n - 1)) for i in range(n)]
+    parts = []
+    for i, at in enumerate(spots):
+        part = '%s.p%d.mp4' % (dest, i)
+        run(['ffmpeg', '-y', '-v', 'error', '-ss', '%.1f' % at, '-i', url, '-t', '%.1f' % length, '-map', '0:v:0', '-an', '-c', 'copy', '-avoid_negative_ts', 'make_zero', part], 70)
+        if os.path.isfile(part) and os.path.getsize(part) > 80000:
+            parts.append(part)
+        elif os.path.exists(part):
+            os.remove(part)
+    if len(parts) == 1:
+        os.replace(parts[0], dest)
+    elif parts:
+        lst = dest + '.txt'
+        with open(lst, 'w', encoding='utf-8') as f:
+            f.write(''.join("file '%s'\n" % os.path.abspath(p).replace('\\', '/') for p in parts))
+        run(['ffmpeg', '-y', '-v', 'error', '-f', 'concat', '-safe', '0', '-i', lst, '-c', 'copy', dest], 60)
+        os.remove(lst)
+        for p in parts:
+            os.remove(p)
+    if parts and os.path.isfile(dest) and os.path.getsize(dest) > 80000 and min(probe(dest)[:2]) >= 480:
+        return {'name': movie.get('name', 'trailer').replace('_', ' '), 'passages': len(parts), 'of': dur}
+    if os.path.exists(dest):
+        os.remove(dest)
+    return None
+
+
+def steam_trailer(game, dest, seconds, log, skip=0):
+    """An official video of a game for a search of the plan; the gathering already took the first `skip` of them."""
+    app = steam_app(game, log)
+    for mv in (app['movies'][skip:skip + 2] if app else []):
+        got = steam_passages(mv, dest, log)
+        if got:
+            return {'name': app['name'], 'trailer': got['name'], 'page': app['page']}
     return None
 
 
@@ -206,7 +255,7 @@ def fetch_all(work, budget=None, log=lambda *a: print(*a, flush=True)):
             more = True; break
         got, game = None, str(h.get('game') or '').strip()
         if game:                                               # a video game: its own trailer from its store page first
-            st = steam_trailer(game, os.path.join(adir, aid + '.mp4'), CFG['clip_seconds'], log)
+            st = steam_trailer(game, os.path.join(adir, aid + '.mp4'), CFG['clip_seconds'], log, skip=sum(1 for x in assets.values() if x.get('game') and x.get('file') and x.get('kind') in ('clip', 'hunt')))
             if st:
                 clean = re.sub(r'[^A-Za-z0-9 :&\-\.]', '', st['name']).strip()
                 got = {'kind': 'hunt', 'file': aid + '.mp4', 'credit': 'TRAILER · %s / STEAM' % clean.upper()[:30], 'title': '%s: %s' % (clean, st['trailer']),

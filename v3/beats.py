@@ -195,6 +195,9 @@ def for_line(pl, ln, t0, t1, sup, shots, pick, has_card, card_to, face_ok, log, 
             if named:                                          # they named the picture that was asked for, not the one that plays instead
                 pl['overlays'] = [o for o in pl['overlays'] if o not in named]
                 log('  %s: the picture asked for is not there; "%s" is not written on the one that plays instead' % (pl['id'], str(named[0].get('t') or named[0].get('name') or named[0].get('a'))[:30]))
+        other = sup.spread(asset)
+        if other != asset:                                     # the same subject from another clip that was shown less (shots.Supply.spread)
+            asset, show = other, dict(show, asset=other)
         A = sup.a[asset]
         if A.get('proof_of') is not None:                      # a proof screenshot is a card: whole, never the opener, never a close-up, twice at most
             if (first and not out) or sum(1 for x in shots + out if x['asset'] == asset) >= 2:

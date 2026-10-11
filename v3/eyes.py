@@ -10,14 +10,15 @@ import subprocess
 import sys
 
 import ai
+import scenes
 
 LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWX'
 SYSTEM = ('You check video footage for a short news video. You get ONE contact sheet: small pictures taken from one clip, in order, each labelled with a letter and its second. '
           'Answer with strict JSON only.')
 
 
-def sheet(clip, dur, out, n):
-    times = [round(dur * (0.04 + 0.92 * i / max(1, n - 1)), 2) for i in range(n)]
+def sheet(clip, dur, out, n, times=None):
+    times = times or [round(dur * (0.04 + 0.92 * i / max(1, n - 1)), 2) for i in range(n)]
     tiles = []
     for i, t in enumerate(times):
         f = '%s.t%02d.jpg' % (out, i)
@@ -58,15 +59,19 @@ def look_assets(assets, title, kind, work, log=print, save=None, only=None):
     for aid, a in assets.items():
         if not a.get('file') or a['kind'] == 'photo' or a.get('eyes') or (only is not None and aid not in only):
             continue
-        n = int(min(16, max(6, a['dur'] // 4)))
+        path = os.path.join(work, 'assets', a['file'])
+        if 'scenes' not in a:                                  # where the clip cuts (scenes.py): one picture of EVERY scene is looked at, not one every few seconds
+            a['scenes'] = scenes.of(path, a['dur']) if a['kind'] != 'stock' else [[0.0, round(a['dur'], 2)]]
+        picks = scenes.sample(a['scenes'], a['dur'])
         # A MEME has one look. What a search brings under its name is often a remake (a rhythm game, another animation): the
         # judge is told what the page's own pictures of it look like, and a remake does not count as the meme itself.
         own = [v['eyes']['shows'] for v in assets.values() if v.get('whole') and v.get('usable', True) and (v.get('eyes') or {}).get('kind') == 'meme' and v['eyes'].get('shows')][:4]
         look = ('\nTHE MEME\'S OWN PICTURES look like this (described by a model that cannot name its characters): %s\n"exact" is true only when this clip shows what was searched in THAT SAME FORM, the same drawing and the same scene. '
                 'A remake in another style (a rhythm game, a different animation, an edit with other characters) is "relevant" but NOT "exact".' % ' | '.join(own)) if kind == 'meme' and own and a['kind'] == 'hunt' and not a.get('game') else ''
         out = os.path.join(edir, aid + '.jpg')
-        tiles, labelled = sheet(os.path.join(work, 'assets', a['file']), a['dur'], out, n)
+        tiles, labelled = sheet(path, a['dur'], out, len(picks), [t for t, _ in picks])
         tsec = dict(tiles)
+        scene_of = {LETTERS[i]: sc for i, (_, sc) in enumerate(picks)}
         user = ('THE STORY: %s\nTHIS CLIP: %s\n%s\nThe sheet has %d pictures%s.\n'
                 'For each picture: "n" its letter, "what" it shows in at most 10 words, "score" 0 to 5 as footage for THIS story (5 = clear, lively, shows the subject; 3 = usable background; '
                 '1 = dull or unclear; 0 = black or very dark, a title or text screen, an ad, a logo, unrelated), "x" where the main subject sits from 0 (left edge) to 1 (right edge), '
@@ -95,16 +100,18 @@ def look_assets(assets, title, kind, work, log=print, save=None, only=None):
                 score, x = 0.0, 0.5
             if t.get('text'):
                 score -= 1.5
-            good.append({'t': sec, 'score': score, 'x': round(x, 2), 'face': bool(t.get('face')), 'what': str(t.get('what', ''))[:70]})
+            sc = scene_of.get(str(t.get('n', '')).strip().upper()[:1], 0)
+            good.append({'t': sec, 'score': score, 'x': round(x, 2), 'face': bool(t.get('face')), 'what': str(t.get('what', ''))[:70], 'sc': sc, 'ss': a['scenes'][sc][0], 'se': a['scenes'][sc][1]})
         a['eyes'] = {'kind': str(eyes.get('kind', 'other')), 'relevant': bool(eyes.get('relevant', True)), 'exact': bool(eyes.get('exact', eyes.get('relevant', True))), 'shows': str(eyes.get('shows', ''))[:160], 'model': eyes.get('model', '')}
         a['windows'] = sorted([g for g in good if g['score'] >= 2.5], key=lambda g: (-g['score'], g['t']))
+        a['tiles'] = [{'t': g['t'], 'score': g['score'], 'x': g['x']} for g in good]      # every moment that was looked at, the dull ones too: the cut keeps off them
         a['usable'] = bool(a['windows']) and (a['eyes']['relevant'] or a['kind'] == 'stock')
         if look and a['usable'] and not a['eyes']['exact']:
             a['usable'] = False
             log('%s: a remake of the meme, not the meme itself: not shown (the meme\'s own clip plays where it was asked for)' % aid)
         if save:
             save()                                             # kept clip by clip: a stopped run does not look twice
-        log('%s: %s, %s, %d of %d moments usable: %s' % (aid, a['eyes']['kind'], ('shows exactly it' if a['eyes']['exact'] else 'on topic') if a['eyes']['relevant'] else 'OFF TOPIC', len(a['windows']), len(good), a['eyes']['shows'][:90]))
+        log('%s: %s, %s, %d scene(s), %d of %d moments usable: %s' % (aid, a['eyes']['kind'], ('shows exactly it' if a['eyes']['exact'] else 'on topic') if a['eyes']['relevant'] else 'OFF TOPIC', len(a['scenes']), len(a['windows']), len(good), a['eyes']['shows'][:90]))
     if save:
         save()
 

@@ -17,3 +17,8 @@ google-gemini/gemini-cli (packages/core/src/services/loopDetectionService.ts); t
 language without operators, and the ranking of sources by who publishes them, follow assafelovic/gpt-researcher
 (gpt_researcher/prompts.py). All three are licensed under the Apache License, Version 2.0. No code was copied; the
 logic was written again for this pipeline (JSON steps through ai.py's model rotation, quotes verified in code).
+
+scenes.py / scenes_run.py — the cuts of a clip are found by PySceneDetect (https://github.com/Breakthrough/PySceneDetect,
+BSD 3-Clause License, Copyright (C) Brandon Castellano), used as an installed library in the tools' own Python
+(pip install scenedetect); none of its code is in this repository. The list of a channel's clips and the download of a
+clip are done by yt-dlp (https://github.com/yt-dlp/yt-dlp, The Unlicense), called as a program.

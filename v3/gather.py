@@ -14,9 +14,11 @@ import re
 import sys
 import time
 
+import ai
 import ears
 import eyes
 import footage
+import investigate
 import memes
 import people
 import stills as cutstills      # (a local list below is called stills)
@@ -30,6 +32,60 @@ def luma(path):
 
 
 OURS = re.compile(r'genzhype|genz hype|drama desk|the timeline|the receipts|not the gossip|live desk', re.I)
+PUBLISHER = re.compile(r'news|daily|drama|alert|update|report|media|press|times|buzz|gossip|shade|tea\b|dexerto|tmz|insider|esports', re.I)      # an account that is itself a publisher: its video is not ours to show
+
+
+def call_left():
+    """Seconds before the caller cuts this command (make.py --limit); None when there is no limit."""
+    end = os.environ.get('V3_CALL_END', '')
+    return float(end) - time.time() if end else None
+
+
+def subjects(m):
+    """Who or what a story is ABOUT, as the names are written (about_of, or the people of a topic's brief)."""
+    return [x for x in m.get('subjects') or [] if x]
+
+
+def logins(m):
+    """The channel names to try for a story's people, [(login, the person)]: a post author's handle when the title names
+    them; a name of two words or more written as one ("Kai Cenat" -> kaicenat); a one-word name written like a handle
+    (SuperBrine). A plain first name is nobody's channel for certain, and the story's game is not a person."""
+    bare = lambda t: re.sub(r'[^a-z0-9_]', '', (t or '').lower())
+    title, game, out = investigate.squash(m.get('title', '')), investigate.squash(m.get('game') or ''), {}
+    for p in m.get('posts') or []:
+        h = bare(str(p.get('handle', '')))
+        if p.get('platform', 'x') in ('x', 'tiktok') and len(h) >= 5 and (h.replace('_', '')[:7] in title or any(len(w) >= 5 and w in title for w in investigate.flat(p.get('name', '')).split())):
+            out.setdefault(h, re.sub(r'[^A-Za-z0-9 ._-]', '', p.get('name') or '').strip() or p['handle'])
+    for nm in subjects(m):
+        s = bare(nm.replace(' ', ''))
+        if game and s in game:
+            continue
+        if 6 <= len(s) <= 25 and (' ' in nm.strip() or re.search(r'[a-z][A-Z]|\d', nm)):
+            out.setdefault(s, nm)
+    return list(out.items())[:3]
+
+
+def about_of(m, log):
+    """(the one video game a story is about, as its store page writes it, or ''; the people, teams or companies it is
+    about, as the story writes them). One small question to a light model; every name must be in the story's own words."""
+    text = m.get('title', '') + '. ' + re.sub(r'\s+', ' ', m.get('page_text', ''))[:1800]
+    try:
+        j, _ = ai.ask_json('You read a short news story and answer two questions about it. Strict JSON only.',
+                           'THE STORY: %s\n\n1. "game": is ONE video game at the centre of this story (it is played, patched, released or competed in)? Its name as its store page writes it ("TEKKEN 8", "Fortnite"), '
+                           'or "" when the story is about no video game, or about several.\n2. "people": the streamers, creators, players, teams or companies this story is ABOUT, at most 4, each exactly as the story writes the name. '
+                           'Not journalists, not publications, not the game itself.\nJSON: {"game":"","people":[""]}' % text, kind='light', temperature=0.1, timeout=40, max_tokens=400)
+    except ai.OutOfTime:
+        raise
+    except Exception:  # noqa: BLE001
+        return '', []
+    hay = ' %s ' % investigate.flat(text)
+    told = lambda name: bool(investigate.flat(name)) and all(' %s ' % w in hay for w in investigate.flat(name).split() if w not in ('the', 'of', 'and', 'a'))
+    game = re.sub(r'\s+', ' ', str((j or {}).get('game') or '')).strip()[:60]
+    game = game if told(game) else ''
+    people = [re.sub(r'\s+', ' ', str(x)).strip()[:40] for x in (j or {}).get('people') or [] if isinstance(x, str)]
+    people = list(dict.fromkeys(x for x in people if told(x) and investigate.squash(x) != investigate.squash(game)))[:4]
+    log('gather: the story is about %s%s' % (', '.join(people) or 'nobody the page names', (' and the game "%s": its own videos and screenshots are material' % game) if game else ''))
+    return game, people
 
 
 def main(work, budget=None, log=lambda *a: print(*a, flush=True)):
@@ -43,6 +99,13 @@ def main(work, budget=None, log=lambda *a: print(*a, flush=True)):
         json.dump(m, open(mfile, 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
         if budget and time.time() - t0 > budget:
             log('gather: stopped at the time budget; run again')
+            raise SystemExit(3)
+
+    def room(seconds, what):
+        left = call_left()
+        if left is not None and left < seconds:               # a long fetch is not started in what is left of this call
+            json.dump(m, open(mfile, 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
+            log('gather: %d s of this call are left and %s needs about %d; run again' % (left, what, seconds))
             raise SystemExit(3)
 
     if '/slang/' in m.get('url', ''):                          # a word page is drawn: nothing to fetch
@@ -91,16 +154,92 @@ def main(work, budget=None, log=lambda *a: print(*a, flush=True)):
                 full = people.commons_file(im['commons'])
                 a.update(face_of=im['who'], person=im['who'], by='Wikimedia Commons', about='%s, a photo by %s' % (im['who'], im.get('credit', '?')), credit=('PHOTO · ' + im.get('credit', 'WIKIMEDIA COMMONS')).upper()[:48], **({'url': full} if full else {}))
                 log("  page%d: the page's photo is %s (Wikimedia Commons, %s)%s" % (i, im['who'], im.get('credit', '?'), ': the whole picture is fetched' if full else ''))
-    if m.get('game') and not m.get('trailer_tried'):           # 2c. the game the story is about: its official trailer (its Steam page), material like a post's clip
-        m['trailer_tried'] = True
-        st = footage.steam_trailer(m['game'], os.path.join(adir, 'trailer.mp4'), 75, log)
-        if st:
-            clean = re.sub(r'[^A-Za-z0-9 :&\-\.]', '', st['name']).strip()
-            A['trailer'] = {'kind': 'clip', 'file': 'trailer.mp4', 'credit': 'TRAILER · %s / STEAM' % clean.upper()[:30], 'about': '%s, the game itself: its official trailer "%s" from its Steam page' % (clean, st['trailer']),
-                            'by': clean, 'page': st['page'], 'game': True}
-            log('trailer: the official trailer "%s" of %s, from its Steam page' % (st['trailer'][:50], clean))
+    if 'subjects' not in m and not m.get('examples'):          # 2c. who and which game the story is about (a topic's brief says it; a page is asked)
+        brief = [str(x.get('name') if isinstance(x, dict) else x).strip() for x in m.get('people') or []]
+        if 'game' in m and brief:
+            m['subjects'] = brief
         else:
-            log('trailer: no trailer of "%s" on Steam' % m['game'])
+            game, m['subjects'] = about_of(m, log)
+            m.setdefault('game', game)
+        keep()
+    if m.get('game') and not m.get('steam_done'):              # ...and its own store page: two official videos, four official screenshots
+        app = m.get('steam') or footage.steam_app(m['game'], log)
+        if app:
+            m['steam'] = app
+            clean = re.sub(r'[^A-Za-z0-9 :&\-\.]', '', app['name']).strip()
+            for n, mv in enumerate(app['movies'][:2]):
+                aid = 'trailer' if n == 0 else 'trailer%d' % (n + 1)
+                if aid in A:
+                    continue
+                room(55, 'a trailer')
+                got = footage.steam_passages(mv, os.path.join(adir, aid + '.mp4'), log)
+                if got:
+                    A[aid] = {'kind': 'clip', 'file': aid + '.mp4', 'credit': 'TRAILER · %s / STEAM' % clean.upper()[:30], 'by': clean, 'page': app['page'], 'game': True, 'group': 'game',
+                              'about': '%s, the game itself: %d passages taken across its official video "%s" (%d s long) from its Steam page' % (clean, got['passages'], got['name'][:60], got['of'])}
+                    log('%s: %d passages across the official video "%s" (%d s) of %s, from its Steam page' % (aid, got['passages'], got['name'][:50], got['of'], clean))
+                else:
+                    A[aid] = {'kind': 'clip', 'missing': 'the video did not come', 'about': mv.get('name', ''), 'game': True}
+                    log('%s: the official video "%s" did not come' % (aid, mv.get('name', '')[:50]))
+                keep()
+            for n, url in enumerate(app['shots'][::max(1, len(app['shots']) // 4)][:4]):
+                A.setdefault('shot%d' % (n + 1), {'kind': 'photo', 'url': url, 'credit': 'SCREENSHOT · %s / STEAM' % clean.upper()[:28], 'by': clean, 'page': app['page'], 'game': True,
+                                                  'about': '%s, the game itself: an official screenshot from its Steam page' % clean})
+            log('steam: %d official video(s) and %d official screenshot(s) of %s' % (sum(1 for k, v in A.items() if k.startswith('trailer') and v.get('file')), min(4, len(app['shots'])), clean))
+        else:
+            log('steam: no store page named exactly "%s"' % m['game'])
+        m.pop('steam', None)
+        m['steam_done'] = True
+        keep()
+    if not m.get('channels_done') and not m.get('examples'):   # 2d. the people's own channels: their most watched clips of the month
+        n, pages = sum(1 for k in A if k.startswith('chan')), {supply.same(v.get('page', '')) for v in A.values()}
+        for login, who in logins(m):
+            if login in m.setdefault('channels_tried', []) or n >= 3:
+                continue
+            room(45, 'a channel')
+            clips = supply.channel_clips(login)
+            watched = len(clips) >= 2 and clips[0]['views'] >= 500      # a real channel of somebody watched, not a namesake's
+            if not watched:
+                log('channel: twitch.tv/%s has no watched clips this month; nothing is taken' % login)
+            for c in ([x for x in clips if 6 <= x['dur'] <= 60 and supply.same(x['url']) not in pages][:2] if watched else []):
+                aid = 'chan%d' % (n + 1)
+                meta = supply.fetch(c['url'], os.path.join(adir, aid + '.mp4'), keep=30, log=log)
+                pages.add(supply.same(c['url']))
+                if meta:
+                    n += 1
+                    A[aid] = {'kind': 'clip', 'file': aid + '.mp4', 'credit': 'CLIP · %s / TWITCH' % login.upper()[:24], 'title': c['title'], 'by': who, 'page': c['url'], 'found': True, 'group': 'chan:' + login,
+                              'about': '"%s": one of the most watched clips of %s\'s own Twitch channel this month (%d views). Taken from the channel, not cited by the page: it shows %s live, maybe at another moment than this story\'s' % (c['title'], who, c['views'], who)}
+                    log('%s: "%s" (%d views), from twitch.tv/%s' % (aid, c['title'][:50], c['views'], login))
+                    keep()
+            m['channels_tried'].append(login)
+            keep()
+        m['channels_done'] = True
+        keep()
+    if not m.get('hunted') and not m.get('examples'):          # 2e. clips of the story itself, on the platforms this machine can fetch from
+        if 'finds' not in m:
+            room(50, 'the search for clips')
+            m['finds'] = supply.hunt(m.get('title', ''), subjects(m)[:2], have=[v.get('page', '') for v in A.values()] + [p.get('url', '') for p in m.get('posts') or []], maximum=5, max_seconds=45, log=log)
+            keep()
+        outlets, n = set(investigate.outlets_of(m)), sum(1 for k in A if k.startswith('found'))
+        for f in m['finds']:
+            if n >= 2 or f['url'] in m.setdefault('finds_tried', []):
+                continue
+            room(45, 'a clip')
+            m['finds_tried'].append(f['url'])
+            if f['platform'] == 'tiktok' and (PUBLISHER.search(f.get('author', '')) or any(o in investigate.squash(f.get('author', '')) for o in outlets)):
+                log('found: the clip of @%s is another publisher\'s video: not taken' % f.get('author', ''))
+                continue
+            aid = 'found%d' % (n + 1)
+            meta = supply.fetch(f['url'], os.path.join(adir, aid + '.mp4'), keep=30, log=log)
+            if meta:
+                n += 1
+                who = (meta.get('sub') or f.get('author') or 'reddit') if f['platform'] == 'reddit' else '@' + (meta.get('author') or f.get('author') or '').lstrip('@')
+                title = (meta.get('title') or f['title'])[:140]
+                A[aid] = {'kind': 'clip', 'file': aid + '.mp4', 'title': title, 'by': who, 'page': f['url'], 'found': True,
+                          'credit': 'CLIP · VIA %s' % who.upper()[:24] if f['platform'] == 'reddit' else 'CLIP · %s / %s' % (re.sub(r'[^A-Za-z0-9@._-]', '', who).upper()[:24], f['platform'].upper()),
+                          'about': '"%s", posted by %s on %s. Found by searching for this story, not cited by the page' % (title, who, f['platform'])}
+                log('%s: "%s" by %s, found on %s' % (aid, title[:60], who, f['platform']))
+            keep()
+        m['hunted'] = True
         keep()
     if m.get('examples') and not m.get('examples_collected'):  # 3. a meme's examples
         A.update(memes.collect(m, work, log))
@@ -120,7 +259,7 @@ def main(work, budget=None, log=lambda *a: print(*a, flush=True)):
             else:
                 footage.save(a['url'] + ('?name=orig' if a['kind'] == 'photo' and 'twimg.com' in a['url'] and '?' not in a['url'] else ''), os.path.join(adir, name))
             a['file'] = name
-            log('%s: fetched from %s' % (aid, a.get('by', '?') if a.get('by') == 'the page' else 'the post of ' + a.get('by', '?')))
+            log('%s: fetched from %s' % (aid, 'its Steam page' if a.get('game') else a.get('by', '?') if a.get('by') == 'the page' else 'the post of ' + a.get('by', '?')))
         except Exception as e:  # noqa: BLE001
             a['missing'] = str(e)[:80]
             log('%s: not fetched (%s)' % (aid, a['missing']))
