@@ -160,7 +160,7 @@ def run(m, work, log, budget=None):
     story = story_block(m)
     if st['plan'] is None:
         try:
-            st['plan'], by = ai.ask_json(SYSTEM, story + '\n\n' + PLAN_ASK, kind='text', temperature=0.3, timeout=wait, max_tokens=2500, patient=True)
+            st['plan'], by = ai.ask_json(SYSTEM, story + '\n\n' + PLAN_ASK, kind='light', temperature=0.3, timeout=wait, max_tokens=2500, patient=True)
             look = [x for x in st['plan'].get('look_up') or [] if isinstance(x, dict)][:3]
             log('investigator (%s): to look up: %s' % (by, ' | '.join('%s (%s)' % (str(x.get('what', ''))[:70], str(x.get('where', ''))[:40]) for x in look) or 'nothing'))
         except ai.AIError as e:
@@ -231,7 +231,7 @@ def run(m, work, log, budget=None):
                 % (story, json.dumps({k: st['plan'].get(k) for k in ('look_up', 'plan')}, ensure_ascii=False)[:900], past, noted, n + 1, MAX_STEPS,
                    ' This is the last step: note what you have verified, or answer done.' if n + 1 >= MAX_STEPS - 1 else ''))
         try:
-            j, by = ai.ask_json(SYSTEM, user, kind='text', temperature=0.2, timeout=wait, max_tokens=1500)
+            j, by = ai.ask_json(SYSTEM, user, kind='light', temperature=0.2, timeout=wait, max_tokens=1500)      # a step is a small job: the code checks every quote, the model only chooses where to look
         except ai.AIError as e:
             log('investigator: no model answered step %d (%s); it stops with what it has' % (n + 1, str(e)[-70:]))
             st['done'] = 'no model answered'
@@ -291,7 +291,7 @@ def run(m, work, log, budget=None):
                        'Does this page document a REAL LINK between %s and a person of the story (a partnership, an event, a product used)? If yes, answer with a note: '
                        '{"tool":"note","args":{"claim":"the link, one plain sentence with the date if the page gives one","url":"%s","quote":"6 to 40 words copied EXACTLY from the page","source_is":"official"}}. '
                        'If it does not, answer {"tool":"done","args":{"summary":"no documented link"}}.' % (story, proper(first), title, hit['url'], text[:3600], proper(first), hit['url']))
-                j, by = ai.ask_json(SYSTEM, ask, kind='text', temperature=0.1, timeout=wait, max_tokens=1200)
+                j, by = ai.ask_json(SYSTEM, ask, kind='light', temperature=0.1, timeout=wait, max_tokens=1200)
                 if str(j.get('tool', '')).lower() == 'note' and isinstance(j.get('args'), dict):
                     obs = observe('note', dict(j['args'], url=hit['url']))
                     if obs.startswith('KEPT'):

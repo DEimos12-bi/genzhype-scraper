@@ -7,6 +7,7 @@ and on GitHub (where the keys are repository secrets). Two sources, set in confi
 Nothing is printed. On GitHub this file does nothing."""
 import json
 import os
+import re
 import shutil
 import subprocess
 
@@ -34,7 +35,8 @@ def own_keys(s=None):
         d = json.load(open(p, encoding='utf-8')) if p and os.path.isfile(p) else {}
     except Exception:  # noqa: BLE001
         d = {}
-    return {k: v.strip() for k, v in d.items() if k in NAMES and isinstance(v, str) and v.strip()}
+    more = re.compile(r'(GEMINI|NVIDIA)_API_KEY_\d+$')           # further keys of one provider: each takes its turn (ai.key)
+    return {k: v.strip() for k, v in d.items() if (k in NAMES or more.match(k)) and isinstance(v, str) and v.strip()}
 
 
 def load():
@@ -45,7 +47,7 @@ def load():
     if any(k in own for k in NAMES[:8]):                       # the videos' own AI keys: of the site's, only the search and stock keys are borrowed
         site = {k: v for k, v in site.items() if k not in NAMES[:8]}
     n = 0
-    for name in NAMES:
+    for name in list(NAMES) + sorted(k for k in own if k not in NAMES):
         v = own.get(name) or site.get(name)
         if isinstance(v, str) and v.strip() and not os.environ.get(name):
             os.environ[name] = v.strip()

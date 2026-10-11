@@ -60,7 +60,7 @@ def name_fix(said, m, log, who=''):
                                'Some names may be misheard (a person, a company, a game written as a nonsense word or as two wrong words). List ONLY those: the number of the first word, how many heard words the name covers (1 or 2), '
                                'and the right spelling from the story. Do not touch any other word. Then "ends": the numbers of the words that END a complete thought (a sentence someone could quote on its own; a speaker '
                                'who never stops still has four to eight of them in thirty seconds). JSON: {"fix":[{"at":12,"covers":1,"name":"Kai Cenat"}],"ends":[15,27,42]} (an empty "fix" when nothing is misheard).'
-                               % (m.get('title', ''), names, re.sub(r'\s+', ' ', m.get('page_text', ''))[:1200], numbered), kind='text', temperature=0.1, timeout=60, max_tokens=1500)
+                               % (m.get('title', ''), names, re.sub(r'\s+', ' ', m.get('page_text', ''))[:1200], numbered), kind='light', temperature=0.1, timeout=60, max_tokens=1500)
     except ai.AIError:
         return
     cor = re.sub(r'[^a-z0-9]', '', (m.get('title', '') + ' ' + m.get('page_text', '') + ' ' + ' '.join(m.get('people') or [])).lower())
@@ -101,7 +101,7 @@ def split_long(said, log, who=''):
         j, model = ai.ask_json('You cut a transcript into complete thoughts. Strict JSON only.',
                                'Each word below has its number and the second it starts (number:word@second). Cut each stretch into COMPLETE THOUGHTS of 2 to 7 seconds each: a thought is a sentence someone could quote on its own '
                                '("just like when the new phones come out the older ones get slower" is one). A thought never ends on "and", "the", "to", "because". '
-                               'Answer with the numbers of the LAST word of every thought. JSON: {"ends":[27,40,52]}\n\n' + rows, kind='text', temperature=0.1, timeout=60, max_tokens=1200)
+                               'Answer with the numbers of the LAST word of every thought. JSON: {"ends":[27,40,52]}\n\n' + rows, kind='light', temperature=0.1, timeout=60, max_tokens=1200)
     except ai.AIError:
         return
     more = {int(e) for e in j.get('ends') or [] if str(e).isdigit() and 0 <= int(e) < len(ws)}

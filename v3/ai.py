@@ -52,9 +52,18 @@ class OutOfTime(Exception):
 DEADLINE = None    # set by a step whose caller has a time limit (director.py with a budget): no answer is awaited past it
 
 
+def family(provider):
+    """The provider a numbered key belongs to: "gemini3" is a key of "gemini". Other names are their own family."""
+    m = re.fullmatch(r'(gemini|nvidia)(\d+)', provider)
+    return m.group(1) if m else provider
+
+
 def key(provider):
     if provider == 'cloudflare' and not os.environ.get('CF_ACCOUNT_ID', '').strip():
         return ''
+    m = re.fullmatch(r'(gemini|nvidia)(\d+)', provider)             # one more key of the same provider, kept on this machine as GEMINI_API_KEY_2 ...
+    if m:
+        return os.environ.get('%s_API_KEY_%s' % (m.group(1).upper(), m.group(2)), '').strip()
     for name in ENV.get(provider, []):
         v = os.environ.get(name, '').strip()
         if v:
@@ -84,6 +93,8 @@ def strikes(add=None, why='', hold=None):
 def models(kind):
     """The order of models for one kind of call: 'text' writes, 'vision' looks at pictures, 'reader' checks what was
     written (other models first, so that the writer's small free allowance is kept for writing)."""
+    if kind == 'light':                                        # the many small jobs: the light models first (their daily allowance is the largest)
+        return CONFIG['ai'].get('light') or CONFIG['ai'].get('reader') or CONFIG['ai']['text']
     return CONFIG['ai'].get(kind) or CONFIG['ai']['text']
 
 
@@ -99,14 +110,15 @@ def _image_part(path, max_side=None):
 
 
 def _post(provider, model, messages, temperature, timeout, max_tokens, effort):
-    if provider == 'gemini' and model.startswith('gemma'):     # Gemma takes no system message there: it goes in front of the request
+    fam = family(provider)
+    if fam == 'gemini' and model.startswith('gemma'):          # Gemma takes no system message there: it goes in front of the request
         system, content = messages[0]['content'], messages[1]['content']
         content = system + '\n\n' + content if isinstance(content, str) else [{'type': 'text', 'text': system}] + content
         messages = [{'role': 'user', 'content': content}]
     body = {'model': model, 'messages': messages, 'temperature': temperature, 'max_tokens': min(max_tokens, {'cloudflare': 4096, 'groq': 8192}.get(provider, max_tokens))}
-    if provider == 'gemini' and effort and model.startswith('gemini-'):                       # without a cap its thinking uses up the answer's room and the JSON arrives cut off
+    if fam == 'gemini' and effort and model.startswith('gemini-'):                       # without a cap its thinking uses up the answer's room and the JSON arrives cut off
         body['reasoning_effort'] = effort
-    url = URLS[provider] % os.environ['CF_ACCOUNT_ID'].strip() if provider == 'cloudflare' else URLS[provider]
+    url = URLS[provider] % os.environ['CF_ACCOUNT_ID'].strip() if provider == 'cloudflare' else URLS[fam]
     req = urllib.request.Request(url, data=json.dumps(body).encode(), method='POST',
                                  headers={'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key(provider), 'User-Agent': 'genzhype-video/3'})
     with urllib.request.urlopen(req, timeout=timeout) as r:
@@ -162,8 +174,10 @@ def chat(system, user, images=(), kind=None, temperature=0.5, timeout=120, max_t
                 except urllib.error.HTTPError as e:
                     body = e.read().decode('utf-8', 'replace')
                     last = '%s/%s: HTTP %s %s' % (provider, model, e.code, body[:420].replace('\n', ' '))
-                    wait = re.search(r'(?:try again|retry) in (?:(\d+)m)?([\d.]+)s', body)
-                    secs = int(wait.group(1) or 0) * 60 + float(wait.group(2)) + 1 if wait else 0
+                    wait = re.search(r'(?:try again|retry) in (?:(\d+)h)?(?:(\d+)m)?([\d.]+)s', body)
+                    secs = int(wait.group(1) or 0) * 3600 + int(wait.group(2) or 0) * 60 + float(wait.group(3)) + 1 if wait else 0
+                    if e.code == 429 and secs > 120:               # it says when its day starts again: believed, not asked again before
+                        short = min(secs, 86400)
                     if e.code == 429 and 0 < secs <= 120 and '(tpd)' not in body.lower() and 'per day' not in body.lower():
                         short = max(secs, 20)                      # a per-minute limit (its own words say when to come back): not a daily one
                         if patient and not again:
