@@ -30,6 +30,7 @@ BRIEF = """You are the desk editor of GenZHype ("the receipts, not the gossip": 
 {"title":"what happened, max 70 characters, no clickbait, no question",
  "summary":"two plain sentences",
  "people":["every person, company, studio, game or product this story is about, by its exact name as the sources write it"],
+ "game":"when the story is about ONE video game: its exact title as its store page writes it; otherwise an empty string",
  "events":[{"date":"YYYY-MM-DD","title":"max 90 characters","text":"two or three sentences: what happened, and who says it","source":"the publisher's address (example.com), or: X post by @handle"}],
  "background":"one paragraph for a newcomer: what the thing is, who makes it, why people care"}
 RULES
@@ -157,7 +158,7 @@ def run(topic, work, log, budget=None):
         if not str(j.get('title', '')).strip() or not ev:
             raise SystemExit('NO STORY: the desk could not lay out a timeline for "%s" from what was found' % topic)
         st['brief'] = {'title': re.sub(r'\s+', ' ', str(j['title'])).strip()[:90], 'summary': re.sub(r'\s+', ' ', str(j.get('summary', ''))).strip()[:400],
-                       'people': [re.sub(r'\s+', ' ', str(x)).strip() for x in j.get('people') or [] if str(x).strip()][:10], 'background': re.sub(r'\s+', ' ', str(j.get('background', ''))).strip()[:1200],
+                       'people': [re.sub(r'\s+', ' ', str(x)).strip() for x in j.get('people') or [] if str(x).strip()][:10], 'game': re.sub(r'\s+', ' ', str(j.get('game') or '')).strip()[:80], 'background': re.sub(r'\s+', ' ', str(j.get('background', ''))).strip()[:1200],
                        'events': [{'date': str(e.get('date', ''))[:10], 'title': str(e['title']).strip()[:160], 'text': re.sub(r'\s+', ' ', str(e.get('text', ''))).strip()[:600], 'source': str(e.get('source', '')).strip()[:60], 'post': '', 'proof': '', 'proof_caption': ''} for e in ev],
                        'by': by}
         log('desk (%s): "%s" | %d events | about: %s' % (by, st['brief']['title'], len(ev), ', '.join(st['brief']['people'][:6])))
@@ -185,7 +186,7 @@ def run(topic, work, log, budget=None):
         keep()
     posts_kept = [p for i, p in enumerate(st['posts']) if i in (st.get('about') or [])] if st['posts'] else []
     text = '%s\n%s\n\nBackground\n%s\n\nThe timeline\n%s' % (b['title'], b['summary'], b['background'], '\n'.join('%s  %s\n%s [%s]' % (e['date'], e['title'], e['text'], e['source']) for e in b['events']))
-    m = {'url': 'https://genzhype.com/topic/%s/' % slug_of(b['title']), 'no_page': True, 'topic': topic, 'title': b['title'], 'summary': b['summary'], 'published': today, 'people': b['people'], 'page_text': text,
+    m = {'url': 'https://genzhype.com/topic/%s/' % slug_of(b['title']), 'no_page': True, 'topic': topic, 'game': b.get('game', ''), 'title': b['title'], 'summary': b['summary'], 'published': today, 'people': b['people'], 'page_text': text,
          'posts': posts_kept, 'sources': [], 'images': [], 'examples': [], 'events': b['events']}
     if st.get('own') is None:                                  # the subject's own page is proof; another publisher's is a signpost: read from the page, not guessed from its address
         st['own'] = [bool(investigate.own_page(p['url'], p['title'], p['text'], b['people'] + [b['title']], log)) for p in st['pages'][:5]]

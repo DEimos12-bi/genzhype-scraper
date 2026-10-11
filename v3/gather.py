@@ -91,6 +91,17 @@ def main(work, budget=None, log=lambda *a: print(*a, flush=True)):
                 full = people.commons_file(im['commons'])
                 a.update(face_of=im['who'], person=im['who'], by='Wikimedia Commons', about='%s, a photo by %s' % (im['who'], im.get('credit', '?')), credit=('PHOTO · ' + im.get('credit', 'WIKIMEDIA COMMONS')).upper()[:48], **({'url': full} if full else {}))
                 log("  page%d: the page's photo is %s (Wikimedia Commons, %s)%s" % (i, im['who'], im.get('credit', '?'), ': the whole picture is fetched' if full else ''))
+    if m.get('game') and not m.get('trailer_tried'):           # 2c. the game the story is about: its official trailer (its Steam page), material like a post's clip
+        m['trailer_tried'] = True
+        st = footage.steam_trailer(m['game'], os.path.join(adir, 'trailer.mp4'), 75, log)
+        if st:
+            clean = re.sub(r'[^A-Za-z0-9 :&\-\.]', '', st['name']).strip()
+            A['trailer'] = {'kind': 'clip', 'file': 'trailer.mp4', 'credit': 'TRAILER · %s / STEAM' % clean.upper()[:30], 'about': '%s, the game itself: its official trailer "%s" from its Steam page' % (clean, st['trailer']),
+                            'by': clean, 'page': st['page'], 'game': True}
+            log('trailer: the official trailer "%s" of %s, from its Steam page' % (st['trailer'][:50], clean))
+        else:
+            log('trailer: no trailer of "%s" on Steam' % m['game'])
+        keep()
     if m.get('examples') and not m.get('examples_collected'):  # 3. a meme's examples
         A.update(memes.collect(m, work, log))
         m['examples_collected'] = True
