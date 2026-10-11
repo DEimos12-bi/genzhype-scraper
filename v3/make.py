@@ -153,6 +153,8 @@ def main():
             mark(work, s, False)
     budget = float(opt('--budget')) if opt('--budget') else None
     limit = float(opt('--limit')) if opt('--limit') else None      # the caller's hard limit for this one call of the command, in seconds
+    if limit:
+        os.environ['V3_CALL_END'] = '%.0f' % (time.time() + limit)      # every model call of every step knows it (ai.deadline)
     forced = bool(opt('--steps') or opt('--from'))
     for f in ('comp.html', 'engine.js', 'engine.css', 'build.js', 'slang.js'):
         shutil.copy(os.path.join(HERE, f), os.path.join(work, f))
@@ -215,7 +217,9 @@ def main():
                 refuse(work, 'the footage step failed (exit %d): see the lines above' % rc)
             mark(work, step)
         elif step == 'eyes':
-            py('eyes.py', work, timeout=900); mark(work, step)
+            if py('eyes.py', work, timeout=900) == 3:
+                say('STOPPED at the time limit of this call: run the same command again'); sys.exit(3)
+            mark(work, step)
         elif step == 'repair':
             py('repair.py', work, timeout=300); mark(work, step)
         elif step == 'receipts':

@@ -58,6 +58,14 @@ def family(provider):
     return m.group(1) if m else provider
 
 
+def deadline():
+    """The moment no answer is awaited past: the step's own (DEADLINE), or the caller's cut of the whole command
+    (V3_CALL_END, set by make.py --limit), whichever comes first. None when there is neither."""
+    end = os.environ.get('V3_CALL_END', '')
+    ends = [x for x in (DEADLINE, float(end) - 7 if end else None) if x is not None]
+    return min(ends) if ends else None
+
+
 def key(provider):
     if provider == 'cloudflare' and not os.environ.get('CF_ACCOUNT_ID', '').strip():
         return ''
@@ -147,7 +155,7 @@ def chat(system, user, images=(), kind=None, temperature=0.5, timeout=120, max_t
         if not free and todo:
             soon = min(bad['/'.join(x)] for x in todo) - time.time()
             if soon <= 75 and lap < 3:                         # a per-minute limit: the first model back is waited for
-                if DEADLINE is not None and time.time() + soon > DEADLINE - 12:
+                if deadline() is not None and time.time() + soon > deadline() - 12:
                     raise OutOfTime('every model is at its per-minute limit and the time limit of this run comes first')
                 time.sleep(max(1, soon + 1))
                 continue
@@ -161,7 +169,7 @@ def chat(system, user, images=(), kind=None, temperature=0.5, timeout=120, max_t
                 continue
             for again in (False, True):
                 t, pause, short = time.time(), 0, 0
-                left = None if DEADLINE is None else DEADLINE - t
+                left = None if deadline() is None else deadline() - t
                 if left is not None and left < 12:
                     raise OutOfTime('the time limit of this run is reached before %s/%s could be asked' % (provider, model))
                 wait_for = timeout if left is None else min(timeout, left)

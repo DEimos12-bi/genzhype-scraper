@@ -113,4 +113,8 @@ if __name__ == '__main__':
     sys.stdout.reconfigure(encoding='utf-8')
     import localenv
     localenv.load()
-    look(sys.argv[1])
+    try:
+        look(sys.argv[1])
+    except ai.OutOfTime as e:                                  # the caller's time for this call is up: what was looked at is kept
+        print('eyes: %s; run again' % e, flush=True)
+        sys.exit(3)
