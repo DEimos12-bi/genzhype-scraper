@@ -210,7 +210,11 @@ OPENING = """THE OPENING (line 1) decides everything
 - It shows a PERSON, a THING on screen or a NUMBER. Never a feeling or a category ("Extreme player frustration.", "Massive backlash.", "Total chaos."): nobody can see those. Say what happened to whom.
 - It makes the viewer need the next sentence. It never explains, sums up or announces ("X, explained", "here is why", "a new trend is taking over").
 - It never starts with "The", "A new", "In", "On", "Recently", a date or an outlet's name. It never orders the viewer around before showing anything ("Pick...", "Guess...", "Watch...").
-- Five ways to build one. These are openings of OTHER stories: take the shape, never the facts.
+- EVERYDAY WORDS: say it the way a teenager would tell it, never with the article's term. "Taking their internet", not "manipulating bandwidth". "Still not paid", not "a compensation dispute". "One grab kills you", not "an instant death mechanic".
+- The story's best-known NAME is in the first or second sentence. It is never hidden ("one man is behind all of it", "a famous streamer").
+- A list of fragments works only when each one is a THING a camera can show ("A sleep mask. Seven live streams."). Three abstract words in a row is the weakest opening there is ("Redirected bandwidth. Lagging connections. Slower streams.").
+- Six ways to build one. These are openings of OTHER stories: take the shape, never the facts.
+  plain:    "This game sells a ship for seven hundred dollars. The artist who drew it was never asked."   (the claim itself, said straight: the strongest way when the fact is strange enough)
   number:   "Twenty-two million views. For a game that does not exist."
   contrast: "This team packs arenas with tens of thousands of fans. Now its two star players are owed over three hundred thousand euros."
   picture:  "This ship can cost seven hundred dollars in a video game. One problem. An artist designed it twelve years ago."
@@ -277,7 +281,7 @@ SCREEN_MEME = """
 
 OUT_WRITE = """OUTPUT: strict JSON, nothing around it. Write the five openings FIRST, then pick one, then write the script that follows it:
 {"angle":"the conflict in one sentence",
- "openings":[{"how":"number","say":["",""]},{"how":"contrast","say":["",""]},{"how":"picture","say":["",""]},{"how":"list","say":["","",""]},{"how":"fight","say":["",""]}],
+ "openings":[{"how":"plain","say":["",""]},{"how":"plain","say":["",""]},{"how":"contrast","say":["",""]},{"how":"picture","say":["",""]},{"how":"number, fight or list","say":["",""]}],
  "pick":1,
  "lines":[{"id":"hook","say":["the opening you picked,","sentence by sentence"]},{"id":"who","say":["One short sentence.","Then another."]},{"id":"claim","say":["What they claim.","His words."],"bite":{"asset":"clip0","from":"b3","to":"b4","who":"NAME"}},{"id":"...","say":["",""]},{"id":"vote","say":["The question.","Comment one word.","This, or that."]}],
  "vote":{"question":"max 22 characters","a":{"word":"ONE WORD","sub":"that side in 3 words"},"b":{"word":"ONE WORD","sub":"that side in 3 words"}},
@@ -487,6 +491,13 @@ def opening_faults(text):
         out.append('it orders the viewer around before showing anything ("%s ..."): start with the thing itself' % low.split()[0].capitalize())
     if ARTICLE.search(text or ''):
         out.append('it sounds like an article ("%s")' % ARTICLE.search(text).group(0).strip(', '))
+    lead = []
+    for x in ss:                                               # the bare fragments it starts on
+        if words(x) > 3:
+            break
+        lead.append(x)
+    if len(lead) >= 3 and not any(re.search(r'\b(?:zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand|million|billion)\b', x, re.I) or re.search(r'[A-Z]', x[1:]) for x in lead):
+        out.append('it starts on %d bare fragments with no name and no number in them ("%s"): open on the claim itself, in everyday words, with the name of who it is about' % (len(lead), ' '.join(lead)))
     if FEELING.search(text or ''):
         out.append('it names a feeling or a category ("%s") instead of the thing itself: say what happened, to whom, with its name or number' % FEELING.search(text).group(0))
     return out
@@ -526,7 +537,7 @@ def voice_faults(lines):
 
 
 FEELING = re.compile(r'\b(frustration|backlash|controversy|chaos|outrage|uproar|criticism|speculation|tensions?|concerns|drama|the situation)\b', re.I)
-VAGUE = re.compile(r"\b(brought (?:the|this|that) (?:issue|matter|story|news) to light|came to light|broke down (?:what|how|the)|behind closed doors|rolled out (?:major|new|several)|major updates|things (?:escalated|took a turn)|"
+VAGUE = re.compile(r"\b(brought (?:\\w+ ){1,3}to light|came to light|broke down (?:what|how|the)|behind closed doors|rolled out (?:major|new|several)|major updates|things (?:escalated|took a turn)|"
                    r"the situation|raised (?:concerns|eyebrows|questions)|sparked (?:a|an|the|new|fresh|more)|took to (?:social media|twitter|x)\b|weighed in|made waves|sent shockwaves|came under fire|caused a stir|"
                    r"caught (?:the )?attention|has everyone talking|taken the internet|mixed reactions|a wave of|at the cent(?:er|re) of|in the spotlight)", re.I)
 TIED = re.compile(r"^(?:but|then|now|so|and|or|yet|because|since|until|still|same|that|that's|this|these|those|he|she|they|it|it's|his|her|their|its|him|them|why|how|what|who|where|when|while|once|if|one|both|all|each|every|"
@@ -571,12 +582,12 @@ def choose_opening(sc, m, log):
         log('director: %d openings written, %d keep the form: no choice to make; line 1 is "%s"' % (len(ops), len(good), lines[0]['text']))
         return info
     user = ('THE VIDEO IS ABOUT: %s\n%s\n\nOPENINGS\n%s\n\nScore EACH opening from 1 to 10: how likely are you to keep watching after hearing it?\n'
-            'HIGH: it puts something concrete in front of me that I can picture (a thing, a number, a name), it is strange or it starts a fight I have an opinion on, and it leaves a question open.\n'
-            'LOW: it is vague ("absurd", "chaos", "endless", "sparks memes"), it names a feeling instead of a thing ("frustration", "backlash"), it is a list of fragments with nobody in it, it sums the story up, it tells me what to do before showing me anything, or it sounds like an article.\n'
+            'HIGH: it says the strange thing straight, in the words I would use to tell a friend, and it names who it is about; it puts something concrete in front of me that I can picture (a thing, a number, a name), it is strange or it starts a fight I have an opinion on, and it leaves a question open.\n'
+            'LOW: it is vague ("absurd", "chaos", "endless", "sparks memes"), it names a feeling instead of a thing ("frustration", "backlash"), it is a list of abstract fragments, it hides who it is about ("one man", "a streamer"), it uses the term of an article where a plain word exists, it sums the story up, it tells me what to do before showing me anything, or it sounds like an article.\n'
             'JSON: {"scores":[{"n":1,"score":7},{"n":2,"score":4}],"why":"max 12 words about the best one"}'
             % (m.get('title', ''), (m.get('summary') or '')[:300], '\n'.join('%d. %s' % (i + 1, o) for i, o in enumerate(good))))
     try:
-        j, model = ai.ask_json(JUDGE, user, kind='reader', temperature=0.2, timeout=60, max_tokens=2500)   # room for a model that thinks first
+        j, model = ai.ask_json(JUDGE, user, kind='text', temperature=0.2, timeout=60, max_tokens=2500)   # the first two seconds decide the video: a strong reader chooses them
         got = {int(x['n']): float(x['score']) for x in j.get('scores') or [] if isinstance(x, dict) and 1 <= int(x.get('n', 0)) <= len(good)}
         if not got:
             raise ValueError('no scores')
