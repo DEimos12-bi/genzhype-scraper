@@ -160,7 +160,11 @@ def find_bite(a, frm, to, names=()):
 def assets_of(m):
     """What can be put on screen before any search: the videos and pictures of the story's own posts."""
     if m.get('gathered'):                                      # gather.py fetched and looked at everything before this (the order a person works in)
-        return {k: v for k, v in (m.get('assets') or {}).items() if v.get('file') and v.get('usable', True)}
+        out = {k: v for k, v in (m.get('assets') or {}).items() if v.get('file') and v.get('usable', True)}
+        for v in out.values():
+            if v.get('face_of') and 'logo' not in v:
+                v['logo'] = is_logo(v)                         # kept with the asset: the cut shows a logo whole
+        return out
     out = {}
     for i, p in enumerate(m.get('posts', [])):
         for md in p['media']:

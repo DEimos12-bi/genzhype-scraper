@@ -148,7 +148,7 @@ def clearer(assets, asset, sid, to=None):
 
 def whole_still(a, nth, sharp=True):
     w, h = a['w'], a['h']
-    if sharp and (h >= w * 1.3 or nth % 3 != 2) and min(w, h) >= (700 if h >= w * 1.3 else 800):      # fills the screen, a slow move across it (an upright picture always does)
+    if sharp and not a.get('logo') and (h >= w * 1.3 or nth % 3 != 2) and min(w, h) >= (700 if h >= w * 1.3 else 800):      # fills the screen (a logo never does: its letters would be cut), a slow move across it (an upright picture always does)
         z = max(1920 / h, 1080 / w) * 1.02
         span = max(0.0, w - 1080 / z)
         x0, x1 = (w / 2 - span * 0.42, w / 2 + span * 0.42) if nth % 2 == 0 else (w / 2 + span * 0.42, w / 2 - span * 0.42)
