@@ -345,7 +345,7 @@ def listing(m):
         return '  %s: %s%s%s. Its post says: "%s"%s' % (k, 'a MOVING clip, %ss' % (v.get('seconds') or int(v.get('dur') or 0)) if v['kind'] == 'clip' else 'a still picture', ' from ' + v['by'], seen, v['about'][:200], inside)
     alist = '\n'.join(one(k, v) for k, v in assets_of(m).items()) or '  (none: every line needs a hunt)'
     plist = '\n'.join('  post%d: %s (%s), %s, %s likes%s: "%s"' % (i, p['handle'], p['name'], p['date'], p['likes'], ', replying to @' + p['reply_to'] if p.get('reply_to') else '', p['text'][:500]) for i, p in enumerate(m.get('posts', []))) or '  (none)'
-    slist = '\n\n'.join('%s source%d, %s: "%s"\n%s' % ('PRIMARY PAGE (the subject\'s own site: the better proof)' if x.get('primary') else 'ANOTHER PUBLISHER (never named in the voice, never a picture)', i, x['publisher'], x['title'], x['excerpt'][:2600])
+    slist = '\n\n'.join('%s source%d, %s: "%s"\n%s' % ('PRIMARY PAGE (the subject\'s own site: the better proof)' if x.get('primary') else 'ANOTHER PUBLISHER (never named in the voice, never a picture)', i, x['publisher'], x['title'], x['excerpt'][:3300])
                          for i, x in enumerate(m.get('sources', [])) if 'fonts.' not in x['publisher']) or '(none fetched)'
     ev = m.get('evidence') or []
     if ev:                                                     # what the investigator went and verified, each with the page's own words

@@ -260,10 +260,12 @@ def ytdlp_clip(url, dest):
         LAST['err'] = 'not a clip url'
         return False
     tmp = dest + '.dl.mp4'
-    rc, _, err = footage.run(['yt-dlp', '--no-playlist', '--no-warnings', '--no-progress', '--no-part', '--no-cache-dir', '--socket-timeout', '20', '--retries', '2',
-                              '--max-filesize', YTDLP_MAXSIZE, '--download-sections', '*0-%d' % YTDLP_SECONDS, '-f', 'best[height<=720]/best', '-o', tmp, '--', url], YTDLP_TIMEOUT)
+    rc, out, err = footage.run(['yt-dlp', '--no-playlist', '--no-warnings', '--no-progress', '--no-part', '--no-cache-dir', '--socket-timeout', '20', '--retries', '2', '--no-simulate',
+                                '--print', 'after_move:%(uploader)s\t%(title)s', '--max-filesize', YTDLP_MAXSIZE, '--download-sections', '*0-%d' % YTDLP_SECONDS, '-f', 'best[height<=720]/best', '-o', tmp, '--', url], YTDLP_TIMEOUT)
     if rc == 0 and os.path.isfile(tmp) and _looks_like_video(tmp):
         os.replace(tmp, dest)
+        told = [x.split('\t', 1) for x in (out or '').splitlines() if '\t' in x][-1:]      # whose stream it is, and the clip's own title
+        LAST['meta'] = {'author': told[0][0].strip(), 'title': told[0][1].strip()[:140]} if told and told[0][0].strip() not in ('', 'NA') else {}
         return True
     LAST['err'] = 'yt-dlp: ' + (' '.join(err.split())[-150:] or 'rc=%d' % rc)
     if os.path.exists(tmp):
@@ -294,7 +296,8 @@ def fetch(url, dest, start=0, keep=25, log=print):
     LAST['err'] = ''
     url = url.split('#t=')[0]
     kept, meta_file = store_path(url), store_path(url)[:-4] + '.json'
-    if os.path.isfile(kept) and _looks_like_video(kept):
+    named = platform(url) not in ('twitch', 'kick') or '"author"' in (open(meta_file, encoding='utf-8').read() if os.path.isfile(meta_file) else '')
+    if os.path.isfile(kept) and _looks_like_video(kept) and named:      # (a stream clip kept before its channel was read is fetched once more, with it)
         import shutil
         shutil.copy(kept, dest)
         meta = json.load(open(meta_file, encoding='utf-8')) if os.path.isfile(meta_file) else {}
@@ -310,6 +313,7 @@ def fetch(url, dest, start=0, keep=25, log=print):
         ok = bool(media) and download(media, url, dest)
     elif plat in ('twitch', 'kick'):
         ok = ytdlp_clip(url, dest)
+        meta = dict(LAST.pop('meta', None) or {}) if ok else {}
     elif plat == 'youtube':
         m = re.search(r'(?:v=|/shorts/|youtu\.be/)([A-Za-z0-9_-]{11})', url)
         media = resolve_youtube(m.group(1)) if m else None

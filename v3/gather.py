@@ -232,10 +232,11 @@ def main(work, budget=None, log=lambda *a: print(*a, flush=True)):
             meta = supply.fetch(f['url'], os.path.join(adir, aid + '.mp4'), keep=30, log=log)
             if meta:
                 n += 1
-                who = (meta.get('sub') or f.get('author') or 'reddit') if f['platform'] == 'reddit' else '@' + (meta.get('author') or f.get('author') or '').lstrip('@')
+                name = re.sub(r'[^A-Za-z0-9@._-]', '', (meta.get('author') or f.get('author') or '').lstrip('@'))
+                who = (meta.get('sub') or f.get('author') or 'reddit') if f['platform'] == 'reddit' else ('@' + name) if name else 'a %s channel' % f['platform']
                 title = (meta.get('title') or f['title'])[:140]
                 A[aid] = {'kind': 'clip', 'file': aid + '.mp4', 'title': title, 'by': who, 'page': f['url'], 'found': True,
-                          'credit': 'CLIP · VIA %s' % who.upper()[:24] if f['platform'] == 'reddit' else 'CLIP · %s / %s' % (re.sub(r'[^A-Za-z0-9@._-]', '', who).upper()[:24], f['platform'].upper()),
+                          'credit': 'CLIP · VIA %s' % who.upper()[:24] if f['platform'] == 'reddit' else ('CLIP · %s / %s' % (who.upper()[:24], f['platform'].upper())) if name else 'CLIP · %s' % f['platform'].upper(),
                           'about': '"%s", posted by %s on %s. Found by searching for this story, not cited by the page' % (title, who, f['platform'])}
                 log('%s: "%s" by %s, found on %s' % (aid, title[:60], who, f['platform']))
             keep()
