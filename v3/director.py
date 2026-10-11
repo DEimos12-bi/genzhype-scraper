@@ -38,6 +38,7 @@ SENSITIVE = re.compile(r'\b(died|dies|dead at|death of|passed away|found dead|mu
 # how an article sounds; a voice-over that uses these is sent back
 ANNOUNCE = re.compile(r"\b(here'?s the twist|here is the twist|one problem|but wait|plot twist|now it gets \w+|it gets (?:deeper|worse|crazier|wilder)|then came the \w+|here'?s (?:the thing|where it gets)|and that'?s not all|buckle up)\b", re.I)
 ALLEGED = re.compile(r'\b(alleg\w*|accus\w*|claims?|claimed|denie[sd]|rumou?r\w*|reportedly|unverified)\b', re.I)
+HANDOVER = re.compile(r"^(listen|listen to (?:this|him|her|them)|(?:his|her|their) (?:own )?words|in (?:his|her|their) own words|hear (?:it|him|her|them)(?: out)?|here (?:he|she) is)[.!:…]*$", re.I)
 HEALTH = re.compile(r'\b(therap\w*|rehab\w*|drug use|drugs|addict\w*|sober|sobriety|overdos\w*|mental health|depress\w*|anxiety|diagnos\w*|medication|suicid\w*|self[- ]harm|eating disorder|relaps\w*)\b', re.I)
 ARTICLE = re.compile(r"(,\s*explained\b|\b(?:phenomenon|showcas\w*|garner\w*|amid|netizens|widespread|refers to|various|numerous|moreover|furthermore|additionally|notably|utiliz\w*|"
                      r"continues to|sparks? (?:a |fierce |heated )?debate|sparking|social media users|users|remains to be seen|taken the internet|in the world of)\b)", re.I)
@@ -732,6 +733,10 @@ def fix_and_check(p, m):
             soft.append('line %d speaks a web address ("%s"): never say an address; say "one report"' % (i + 1, dom.group(0).strip()))
         elif named_in(t):                                      # another publisher is not advertised in the voice
             soft.append('line %d names another publisher in the voice ("%s"): say "one report", "in an interview" or "a gaming site" instead (the screen credits it once, small)' % (i + 1, outlets[named_in(t)[0]]))
+        tail = split_keep(t)
+        if not l.get('bite') and len(tail) >= 2 and HANDOVER.match(tail[-1].strip()):      # "Listen." and nothing follows: the hand-over goes when no bite stands behind it
+            t = l['text'] = ' '.join(tail[:-1])
+            toks = tokens(t)
         # THE MONTAGE: the line as its sentences ("beats"). Each keeps the picture chosen for it; a sentence that was cut
         # or rewritten since takes its graphics along by the word they land on.
         sents = split_keep(t)
@@ -1440,6 +1445,34 @@ def ensure_faces(p, m, log=print):
     return done
 
 
+def ensure_motion(p, m, log=print):
+    """THE ACTION PLAYS. A story that has a clip of its own shows it MOVING under at least a third of its sentences. A
+    picture editor that puts a still on every sentence makes a slideshow; a hand cut goes close on a still to name
+    someone, then lets the clip run. Stills cut out of that very clip give way to it: never two in a row, never one
+    that carries a name, a tag or a card, never the opener."""
+    have = assets_of(m)
+    if not any(a.get('kind') == 'clip' and 'post' in a and not a.get('whole') for a in have.values()):
+        return 0
+    rows = [(l, n, b) for l in p['lines'] if l['id'] not in ('vote', 'site') for n, b in enumerate(l.get('beats') or [])]
+    moving = lambda b: (have.get((b.get('show') or {}).get('asset')) or {}).get('kind') == 'clip' and (b.get('show') or {}).get('move') in ('play', 'auto', None)
+    need = max(2, round(0.34 * len(rows))) - sum(1 for _, _, b in rows if moving(b))
+    done, last, changed = 0, -9, []
+    for i, (l, n, b) in enumerate(rows):
+        if done >= need:
+            break
+        src = (have.get((b.get('show') or {}).get('asset')) or {}).get('from_clip')
+        if i == 0 or not src or src not in have or i - last < 2 or (i and moving(rows[i - 1][2])):
+            continue
+        if any(o.get('beat') == n and o.get('k') in ('name', 'tag', 'labels') + CARDS for o in l.get('overlays', [])):
+            continue
+        b['show'] = {'asset': src, 'move': 'play'}
+        done, last = done + 1, i
+        changed.append('%s.%d' % (l['id'], n + 1))
+    if changed:
+        log('director: the story\'s own clip moved under too few sentences; it now plays under %s (the stills there were cut out of it)' % ', '.join(changed))
+    return done
+
+
 def ensure_proofs(p, m, log=print):
     """WHAT THE RESEARCHER VERIFIED IS SHOWN. A sentence that says a fact found on the subject's own page gets that
     page as a card, cut to the sentence and highlighted: the proof no other video of this story has."""
@@ -1544,6 +1577,7 @@ def direct(m, log=print, work=None, budget=None):
         ensure_proofs(st['plan'], m, log)
         ensure_receipts(st['plan'], m, st.get('cast'), log)
         ensure_faces(st['plan'], m, log)
+        ensure_motion(st['plan'], m, log)
         log('director: the words are by %s, the pictures by %s' % (st['model'], by))
         keep()
     if not slang_page and st.get('best') is None and not st.get('trimmed'):      # a draft that runs long loses sentences before it is checked
@@ -1651,6 +1685,7 @@ def direct(m, log=print, work=None, budget=None):
         ensure_proofs(plan, m, log)
         ensure_receipts(plan, m, st.get('cast'), log)      # a correction may have rewritten the line that carried the proof
         ensure_faces(plan, m, log)
+        ensure_motion(plan, m, log)
         picture_check(plan, m, log)
         for n in plan.get('notes') or []:
             log('director: ' + n)
