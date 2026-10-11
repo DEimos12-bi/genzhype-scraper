@@ -401,11 +401,13 @@ def story_user(m, ask, casting=None):
     ex = sorted(ex, key=lambda e: e.get('kind', 'story') != want)[:2]      # a meme studies the meme example first, a story the story ones
     examples = '\n\n'.join('EXAMPLE (%s). Vote: %s or %s.\n%s' % (e['about'], e['vote'][0], e['vote'][1], '\n'.join('%d. %s' % (i + 1, l) for i, l in enumerate(e['lines']))) for e in ex)
     alist, plist, slist = listing(m)
-    return ('%s\n\nTHE STORY\nTitle: %s\nPage: %s\nPublished: %s\n\n%sOUR PAGE (already fact-checked; its attributions are the safe wording):\n%s\n\nTHE POSTS THE PAGE CITES (ids for receipts):\n%s\n\n'
-            'WHAT THE VIDEO CAN SHOW (ids for "show"):\n%s\n\nWHAT WAS FOUND AND WHAT OTHERS WROTE:\n%s\n\n%s%s%s'
-            % (examples, m['title'], m['url'], m.get('published', ''), timeline_block(m), m['page_text'][:6500], plist, alist, slist, habits.block(m.get('url', '')), cast_block(casting, m), ask).replace(
-        'OUR PAGE (already fact-checked; its attributions are the safe wording):', "OUR DESK'S BRIEF (written from the pages below and NOT yet checked: where it differs from a page or a post, the page or the post is right):" if m.get('no_page') else
-        'OUR PAGE (already fact-checked; its attributions are the safe wording):'))
+    out = ('%s\n\nTHE STORY\nTitle: %s\nPage: %s\nPublished: %s\n\n%sOUR PAGE (already fact-checked; its attributions are the safe wording):\n%s\n\nTHE POSTS THE PAGE CITES (ids for receipts):\n%s\n\n'
+           'WHAT THE VIDEO CAN SHOW (ids for "show"):\n%s\n\nWHAT WAS FOUND AND WHAT OTHERS WROTE:\n%s\n\n%s%s%s'
+           % (examples, m['title'], m['url'], m.get('published', ''), timeline_block(m), m['page_text'][:6500], plist, alist, slist, habits.block(m.get('url', '')), cast_block(casting, m), ask))
+    if m.get('no_page'):                                       # a story made from a topic: what stands in for the page is the desk's brief, and it is said so
+        out = out.replace('OUR PAGE (already fact-checked; its attributions are the safe wording):',
+                          "OUR DESK'S BRIEF (written from the pages below and NOT yet checked: where it differs from a page or a post, the page or the post is right):").replace('\nPage: %s\n' % m['url'], '\nPage: (none yet)\n')
+    return out
 
 
 def stager_user(m, sc, casting=None):
