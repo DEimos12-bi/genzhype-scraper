@@ -25,7 +25,7 @@ BANNED = ['official source', 'fans ask', 'fans are asking', 'in conclusion', 'st
           'the internet is', 'netizens', 'swipe up', 'smash that', 'in this video', 'welcome back',
           'our page', 'unverified', 'primary source', 'gen z hype', 'genzhype', 'gen-z hype']      # the video tells the story, never our own checking
 # words that state a crime, a lie or a death as fact: the line then has to say who says it
-HEAVY = re.compile(r'\b(steal\w*|sabotag\w*|stole|stolen|theft|thief|fraud|scam|scammed|lied|liar|arrested|guilty|convicted|assaulted|abuse[ds]?|groom\w*|rape\w*|murder\w*|died|'
+HEAVY = re.compile(r'\b(steals?|stealing|sabotag\w*|stole|stolen|theft|thief|fraud|scam|scammed|lied|liar|arrested|guilty|convicted|assaulted|abuse[ds]?|groom\w*|rape\w*|murder\w*|died|'
                    r'overdos\w*|suicide|racist|harass\w*|cheat(?:ed|er|ing)|plagiari\w*|embezzl\w*)\b', re.I)
 SAYS = re.compile(r'\b(says?|said|claims?|claimed|alleg\w*|reportedly|according|accus\w*|admit\w*|denie[sd]|deny|told|wrote|posted|quote|reports?|reported|police|court|'
                   r'lawsuit|filing|statement|apolog\w*|confirm\w*|call(?:s|ed)? it)\b', re.I)
