@@ -102,7 +102,8 @@ BUDGET = {'t0': time.time(), 's': None}
 
 
 def over():
-    return BUDGET['s'] is not None and time.time() - BUDGET['t0'] > BUDGET['s']
+    spent = time.time() - BUDGET['t0']
+    return (BUDGET['s'] is not None and spent > BUDGET['s']) or (BUDGET.get('left') is not None and BUDGET['left'] - spent < 32)      # its own budget, or too little left of the caller's call for one more batch
 
 
 def chunk_size():
@@ -111,6 +112,8 @@ def chunk_size():
     if BUDGET['s'] is None:
         return 3
     room = BUDGET['s'] + 60 - (time.time() - BUDGET['t0'])
+    if BUDGET.get('left') is not None:                         # the caller cuts the whole command: the batch must end before that
+        room = min(room, BUDGET['left'] - (time.time() - BUDGET['t0']) - 14)
     return max(1, min(3, int((room - 12) / 18)))
 
 
@@ -219,4 +222,6 @@ if __name__ == '__main__':
     sys.stdout.reconfigure(encoding='utf-8')
     if len(sys.argv) > 2:
         BUDGET['s'] = float(sys.argv[2])
+    if len(sys.argv) > 3:
+        BUDGET['left'] = float(sys.argv[3])
     main(sys.argv[1])

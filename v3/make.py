@@ -9,7 +9,7 @@ Steps, each one a file in this folder; a run can be stopped and started again, f
     -> site (site.py: the page on a PC, a tablet and a phone, for the closing) -> cut (shots.py) -> layout (render.py + check.py, repaired) -> gate (check.py) -> frames (render.py, in batches)
     -> sound (audio.py) -> pack (mp4, cover.jpg, post.txt, report.json in <work>/out)
 Options: --steps a,b,c  only these steps      --from STEP  this step and the ones after it      --approved  the owner read
-the plan of a sensitive story      --budget N  seconds a step may spend before it stops to be run again (frames, footage)
+the plan of a sensitive story      --budget N  seconds a step may spend before it stops to be run again (frames, footage)      --limit N  the caller cuts ONE call of this command after N seconds: no step is started that cannot end in time
 Nothing is posted anywhere. Exit code 0 = video made, 2 = refused (the reason is printed and written to report.json),
 3 = a step stopped at its time budget: run the same command again."""
 import json
@@ -152,6 +152,7 @@ def main():
         for s in steps:
             mark(work, s, False)
     budget = float(opt('--budget')) if opt('--budget') else None
+    limit = float(opt('--limit')) if opt('--limit') else None      # the caller's hard limit for this one call of the command, in seconds
     forced = bool(opt('--steps') or opt('--from'))
     for f in ('comp.html', 'engine.js', 'engine.css', 'build.js', 'slang.js'):
         shutil.copy(os.path.join(HERE, f), os.path.join(work, f))
@@ -196,7 +197,10 @@ def main():
                 why = os.path.join(work, 'plan_refused.txt')
                 refuse(work, open(why, encoding='utf-8').read() if os.path.isfile(why) else 'the director gave no usable plan (see the lines above)')
         elif step == 'voice':
-            rc = py('tts.py', work, *([max(budget, 60)] if budget else []), timeout=900)
+            left = limit - (time.time() - began) if limit else None
+            if left is not None and left < 50:                 # a batch of the local voice needs its minute: not started in what is left of this call
+                say('STOPPED before "voice": %d s of this call are left; run the same command again' % left); sys.exit(3)
+            rc = py('tts.py', work, *([max(budget, 60)] if budget else [600] if left is not None else []), *([left] if left is not None else []), timeout=900)
             if rc == 3:
                 say('STOPPED at the time budget: run the same command again'); sys.exit(3)
             if rc != 0:
