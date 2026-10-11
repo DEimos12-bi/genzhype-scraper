@@ -695,7 +695,8 @@ def fix_and_check(p, m):
         bite_s += got['dur']
     lo, hi = max(90, lo - int(bite_s * 2.5)), max(100, hi - int(bite_s * 2.2))      # the clip speaks for those seconds: the script is that much shorter
     p['lo'], p['hi'], p['bite_s'], p['notes'] = lo, hi, round(bite_s, 1), notes
-    outlets, credited = outlets_of(m), set()
+    subject = re.sub(r'[^a-z0-9]', '', (m.get('title', '') + ' ' + ' '.join(str(x) for x in m.get('people') or [])).lower())
+    outlets, credited = {o: d for o, d in outlets_of(m).items() if o not in subject}, set()      # a site named after the subject: its name spoken is the subject's name
     named_in = lambda text: [o for o in outlets if (o in re.sub(r'[^a-z0-9]', '', text.lower()) if len(o) >= 6 else o in tokens(text))]
     if total < lo:
         soft.append('only %d spoken words: write %d to %d (add one more evidence beat from the material, do not pad)' % (total, lo, hi))
