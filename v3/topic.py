@@ -166,11 +166,11 @@ def run(topic, work, log, budget=None):
     text = '%s\n%s\n\nBackground\n%s\n\nThe timeline\n%s' % (b['title'], b['summary'], b['background'], '\n'.join('%s  %s\n%s [%s]' % (e['date'], e['title'], e['text'], e['source']) for e in b['events']))
     m = {'url': 'https://genzhype.com/topic/%s/' % slug_of(b['title']), 'no_page': True, 'topic': topic, 'title': b['title'], 'summary': b['summary'], 'published': today, 'people': b['people'], 'page_text': text,
          'posts': st['posts'], 'sources': [], 'images': [], 'examples': [], 'events': b['events']}
-    who = investigate.names_of(m)
-    for p in st['pages'][:5]:                                  # the subject's own page is proof; another publisher's is a signpost
-        lab = investigate.label(p['url'])
-        m['sources'].append({'url': p['url'], 'publisher': p['publisher'], 'title': p['title'][:200], 'excerpt': p['text'][:5000],
-                             **({'primary': True} if any(lab.startswith(n) or (len(lab) >= 4 and n.startswith(lab)) for n in who) else {})})
+    if st.get('own') is None:                                  # the subject's own page is proof; another publisher's is a signpost: read from the page, not guessed from its address
+        st['own'] = [bool(investigate.own_page(p['url'], p['title'], p['text'], b['people'] + [b['title']], log)) for p in st['pages'][:5]]
+        keep()
+    for p, own in zip(st['pages'][:5], st['own']):
+        m['sources'].append({'url': p['url'], 'publisher': p['publisher'], 'title': p['title'][:200], 'excerpt': p['text'][:5000], **({'primary': True} if own else {})})
     json.dump(m, open(os.path.join(work, 'material.json'), 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
     log('material (from a topic, no page yet): "%s" | %d posts (%d with video) | %d pages read (%s) | %d of them the subject\'s own | %d timeline events' % (
         m['title'][:60], len(m['posts']), sum(any(x['type'] == 'video' for x in p['media']) for p in m['posts']), len(m['sources']), ', '.join(s['publisher'] for s in m['sources']),

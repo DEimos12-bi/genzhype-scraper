@@ -111,6 +111,28 @@ def kind_of(url, m):
     return 'official' if any(lab.startswith(n) or (len(lab) >= 4 and n.startswith(lab)) for n in names_of(m)) else 'outlet'
 
 
+def own_page(url, title, text, about, log=None):
+    """Is this page published by the subject of the story itself? True only when a model that read it says so.
+    A fan site, a wiki, a news site or a blog ABOUT them is not, whatever its address; their own site, their own
+    announcement on a platform (a store page, a press release) is."""
+    if SOCIAL.search(url):
+        return False
+    try:
+        j, _ = ai.ask_json('You tell who publishes a web page. Strict JSON only.',
+                           'THE STORY IS ABOUT: %s\n\nA PAGE\nAddress: %s\nTitle: %s\nIts text starts: %s\n\n'
+                           'Who PUBLISHES this page? Answer "own" only when it is published by one of those people or companies THEMSELVES: their official site, their own announcement or patch notes (also when hosted on a '
+                           'platform where makers post their own news, like a game\'s announcements on Steam), their press release. It then speaks as the maker ("we released", "our team") or is signed by them. '
+                           'Answer "other" for a news site, a fan site, a wiki, a guide or a blog that writes ABOUT them ("the developers said", "the studio released"), even when its address carries their name.\n'
+                           'JSON: {"publisher":"who publishes it, 2 to 5 words","page":"own"}   or   {"publisher":"...","page":"other"}'
+                           % (', '.join(about)[:300], url, title[:160], re.sub(r'\s+', ' ', text)[:1100]), kind='light', temperature=0.1, timeout=40, max_tokens=400)
+    except ai.AIError:
+        return False
+    own = str(j.get('page', '')).strip().lower() == 'own'
+    if log:
+        log('  who publishes %s: %s -> %s' % (re.sub(r'^https?://(www\.)?', '', url).split('/')[0], str(j.get('publisher', '?'))[:50], 'the subject itself' if own else 'someone else'))
+    return own
+
+
 def read_page(url):
     """(title, text) of a page or a post. Raises on a page that does not answer."""
     plat = supply.platform(url)
@@ -192,8 +214,11 @@ def run(m, work, log, budget=None):
                 title, text = read_page(url)
             except Exception as e:  # noqa: BLE001
                 return 'The page did not open (%s). Try another result.' % str(e)[:90]
-            st['pages'][url] = {'title': title, 'text': text, 'kind': kind_of(url, m)}
-            return 'OPENED [%s] "%s" (%d characters). Its text:\n%s%s' % ({'official': 'OWN SITE of a name of the story', 'post': 'a social post', 'outlet': 'another publisher: a signpost, not a proof'}[kind_of(url, m)],
+            kind = kind_of(url, m)
+            if kind != 'post':                                 # the address is a guess; who publishes the page is read from the page
+                kind = 'official' if own_page(url, title, text, (m.get('people') or []) + [m.get('title', '')], log) else 'outlet'
+            st['pages'][url] = {'title': title, 'text': text, 'kind': kind}
+            return 'OPENED [%s] "%s" (%d characters). Its text:\n%s%s' % ({'official': 'THE SUBJECT\'S OWN PAGE: what it says is proof', 'post': 'a social post', 'outlet': 'another publisher: a signpost, not a proof'}[kind],
                                                                          title, len(text), text[:3200], ' [...]' if len(text) > 3200 else '')
         if tool == 'note':
             url, quote, claim = str(args.get('url', '')).strip(), re.sub(r'\s+', ' ', str(args.get('quote', ''))).strip(' "“”'), re.sub(r'\s+', ' ', str(args.get('claim', ''))).strip()
