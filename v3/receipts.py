@@ -48,7 +48,7 @@ def photograph_article(page, url, marks, dest_png, dest_json, log):
     with the boxes of the phrase relative to the shot."""
     page.goto(url, wait_until='domcontentloaded', timeout=45000)
     page.wait_for_timeout(2500)
-    page.evaluate("document.querySelectorAll('[class*=cookie],[id*=cookie],[class*=consent],[id*=consent],[class*=newsletter],[class*=popup],[class*=modal]').forEach(e => e.remove())")
+    page.evaluate("document.querySelectorAll('[class*=cookie],[id*=cookie],[class*=consent],[id*=consent],[class*=newsletter],[class*=popup],[class*=modal]').forEach(e => { if (e !== document.body && e !== document.documentElement && !e.matches('article, main') && !e.querySelector('article, main, h1')) e.remove(); })")      # a banner goes; never the page itself (a site whose <body> carries a class with "modal" in it lost its whole page here)
     info = page.evaluate(ARTICLE_JS, [m for m in marks if m])
     anchor = info['top'] if info['top'] is not None else info['h1y']
     y0 = max(0, int(anchor) - 260)
