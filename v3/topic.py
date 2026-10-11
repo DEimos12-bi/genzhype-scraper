@@ -163,9 +163,30 @@ def run(topic, work, log, budget=None):
         log('desk (%s): "%s" | %d events | about: %s' % (by, st['brief']['title'], len(ev), ', '.join(st['brief']['people'][:6])))
         keep()
     b = st['brief']
+    if st.get('about') is None and st['posts']:                # which posts are about THIS story
+        first = min([e['date'] for e in b['events'] if re.fullmatch(r'\d{4}-\d\d-\d\d', e['date'])] or [today])
+        floor = time.strftime('%Y-%m-%d', time.localtime(time.mktime(time.strptime(first, '%Y-%m-%d')) - 30 * 86400))
+        fresh = [i for i, p in enumerate(st['posts']) if not p.get('date') or p['date'] >= floor]
+        keep_ = fresh
+        try:
+            j, _ = ai.ask_json('You sort posts. Strict JSON only.',
+                               'THE STORY: %s\n%s\nIts events: %s\n\nPOSTS that pages about it cite:\n%s\n\n'
+                               'Which posts are about THIS story, the same event (the same version, the same day or the days after, the same people)? A post about an EARLIER update, another game or another matter is not. '
+                               'JSON: {"about":[0,2]} (the numbers; an empty list when none is).'
+                               % (b['title'], b['summary'], '; '.join('%s %s' % (e['date'], e['title']) for e in b['events']),
+                                  '\n'.join('%d. %s (%s) %s: "%s"' % (i, st['posts'][i]['handle'], st['posts'][i].get('platform', 'x'), st['posts'][i].get('date', ''), st['posts'][i]['text'][:300]) for i in fresh)),
+                               kind='light', temperature=0.1, timeout=40, max_tokens=400)
+            keep_ = [int(i) for i in j.get('about') or [] if str(i).isdigit() and int(i) in fresh]
+        except ai.AIError:
+            pass
+        st['about'] = keep_
+        gone = [st['posts'][i]['handle'] for i in range(len(st['posts'])) if i not in keep_]
+        log('desk: %d of %d cited post(s) are about this story%s' % (len(keep_), len(st['posts']), ' (left out: %s)' % ', '.join(gone) if gone else ''))
+        keep()
+    posts_kept = [p for i, p in enumerate(st['posts']) if i in (st.get('about') or [])] if st['posts'] else []
     text = '%s\n%s\n\nBackground\n%s\n\nThe timeline\n%s' % (b['title'], b['summary'], b['background'], '\n'.join('%s  %s\n%s [%s]' % (e['date'], e['title'], e['text'], e['source']) for e in b['events']))
     m = {'url': 'https://genzhype.com/topic/%s/' % slug_of(b['title']), 'no_page': True, 'topic': topic, 'title': b['title'], 'summary': b['summary'], 'published': today, 'people': b['people'], 'page_text': text,
-         'posts': st['posts'], 'sources': [], 'images': [], 'examples': [], 'events': b['events']}
+         'posts': posts_kept, 'sources': [], 'images': [], 'examples': [], 'events': b['events']}
     if st.get('own') is None:                                  # the subject's own page is proof; another publisher's is a signpost: read from the page, not guessed from its address
         st['own'] = [bool(investigate.own_page(p['url'], p['title'], p['text'], b['people'] + [b['title']], log)) for p in st['pages'][:5]]
         keep()
