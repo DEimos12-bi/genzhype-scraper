@@ -108,15 +108,21 @@ def over():
     return (BUDGET['s'] is not None and spent > BUDGET['s']) or (BUDGET.get('left') is not None and BUDGET['left'] - spent < 32)      # its own budget, or too little left of the caller's call for one more batch
 
 
-def chunk_size():
-    """How many lines the next local-voice batch may take: about 12 s to load the model and 18 s a line, and the step may
-    run one minute past its budget at most (a call is cut at two minutes from outside)."""
+def chunk_size(takes=None):
+    """How many lines the next local-voice batch may take. A line costs what it cost in the last batch on this machine
+    (kept with the takes; 30 s before any was measured: the model's loading shared out). The step may run one minute past
+    its budget at most (a call is cut at two minutes from outside). 0 = no batch can end in what is left of this call."""
     if BUDGET['s'] is None:
         return 3
+    cost = 30.0
+    try:
+        cost = max(8.0, float(json.load(open(os.path.join(takes, 'speed.json'), encoding='utf-8'))['line']))
+    except Exception:  # noqa: BLE001
+        pass
     room = BUDGET['s'] + 60 - (time.time() - BUDGET['t0'])
     if BUDGET.get('left') is not None:                         # the caller cuts the whole command: the batch must end before that
         room = min(room, BUDGET['left'] - (time.time() - BUDGET['t0']) - 14)
-    return max(1, min(3, int((room - 12) / 18)))
+    return max(0, min(3, int(room / cost)))
 
 
 def speak(takes, lines):
@@ -147,10 +153,15 @@ def speak(takes, lines):
     while left and refused:
         if over():
             break
-        chunk = left[:chunk_size()]                       # up to three lines at a time, fewer near the end of the budget, so a call ends in time
+        chunk = left[:chunk_size(takes)]                  # up to three lines at a time, fewer near the end of the budget, so a call ends in time
+        if not chunk:                                     # not even one line can end before this call is cut: the same command continues
+            print('voice: stopped with %d line(s) to speak (a line takes this machine too long for what is left of this call); run again' % len(left), flush=True)
+            raise SystemExit(3)
+        began = time.time()
         got = fallback_batch(takes, [(i, lines[i][1], lines[i][2]) for i in chunk])
         if not got:
             raise SystemExit('voice failed on line %s: %s' % (lines[chunk[0]][0], refused[0]))
+        json.dump({'line': round((time.time() - began) / len(chunk), 1)}, open(os.path.join(takes, 'speed.json'), 'w', encoding='utf-8'))      # what a line cost today
         for i in got:
             mark_take(takes, i, lines[i][1], lines[i][2])
         spoken |= got
