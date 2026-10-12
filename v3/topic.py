@@ -30,7 +30,7 @@ FRESH_DAYS = 30
 BRIEF = """You are the desk editor of ~NAME~ (~DESK~). You get a TOPIC and everything that was found about it: pages, each with its publisher, and posts. You write the brief of this story from those sources ONLY. Strict JSON, nothing around it:
 {"title":"what happened, max 70 characters, no clickbait, no question",
  "summary":"two plain sentences",
- "people":["every person, company, studio, game or product this story is about, by its exact name as the sources write it"],
+ "people":["every person, company, studio, game or product this story is ABOUT (who did it, whom it happened to), by its exact name as the sources write it. NEVER the author of a page, a journalist, an analyst or a blogger who reports or comments on it, never a publication"],
  "game":"when the story is about ONE video game: its exact title as its store page writes it; otherwise an empty string",
  "events":[{"date":"YYYY-MM-DD","title":"max 90 characters","text":"two or three sentences: what happened, and who says it","source":"the publisher's address (example.com), or: X post by @handle"}],
  "background":"one paragraph for a newcomer: what the thing is, who makes it, why people care"}
@@ -165,6 +165,14 @@ def run(topic, work, log, budget=None):
                        'people': [re.sub(r'\s+', ' ', str(x)).strip() for x in j.get('people') or [] if str(x).strip()][:10], 'game': re.sub(r'\s+', ' ', str(j.get('game') or '')).strip()[:80], 'background': re.sub(r'\s+', ' ', str(j.get('background', ''))).strip()[:1200],
                        'events': [{'date': str(e.get('date', ''))[:10], 'title': str(e['title']).strip()[:160], 'text': re.sub(r'\s+', ' ', str(e.get('text', ''))).strip()[:600], 'source': str(e.get('source', '')).strip()[:60], 'post': '', 'proof': '', 'proof_caption': ''} for e in ev],
                        'by': by}
+        flat = investigate.flat
+        texts = [' %s ' % flat(p['title'] + ' ' + p['text']) for p in st['pages'][:5]]
+        named = lambda who: sum(1 for t in texts if ' %s ' % flat(who) in t)
+        signed = lambda who: any(re.search(r'(?:(?:written|posted|published|reported|authored)\s+by|author\s*:|(?:^|[\n|•·>])\s*by)\s+' + re.escape(who) + r'\b', p['text'][:6000], re.I) for p in st['pages'][:5])
+        kept = [who for who in st['brief']['people'] if flat(who) and (' %s ' % flat(who) in ' %s ' % flat(st['brief']['title']) or ((named(who) >= 2 or len(texts) < 2) and not signed(who)))]      # ...nor the one who SIGNS a page: a reporter
+        if len(kept) < len(st['brief']['people']):             # named by one page only: its author, its own expert. Not who the story is about
+            log('desk: not people of the story (one page alone names them): %s' % ', '.join(w for w in st['brief']['people'] if w not in kept))
+            st['brief']['people'] = kept
         log('desk (%s): "%s" | %d events | about: %s' % (by, st['brief']['title'], len(ev), ', '.join(st['brief']['people'][:6])))
         keep()
     b = st['brief']

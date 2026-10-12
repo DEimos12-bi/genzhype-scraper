@@ -132,6 +132,10 @@ def own_page(url, title, text, about, log=None):
     except ai.AIError:
         return False
     own = str(j.get('page', '')).strip().lower() == 'own'
+    if own:                                                    # ...and its publisher or its address carries a name of the story (a blog signed by its own authors is not "the subject")
+        words = {w for a in about[:-1] or about for w in flat(a).split() if len(w) >= 4}
+        where = flat(str(j.get('publisher', ''))) + ' ' + squash(re.sub(r'^https?://(www\.)?', '', url).split('/')[0])
+        own = any(w in where for w in words)
     if log:
         log('  who publishes %s: %s -> %s' % (re.sub(r'^https?://(www\.)?', '', url).split('/')[0], str(j.get('publisher', '?'))[:50], 'the subject itself' if own else 'someone else'))
     return own
