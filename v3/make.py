@@ -8,7 +8,7 @@ Steps, each one a file in this folder; a run can be stopped and started again, f
     script, the pictures) -> footage (footage.py: the hunts) -> eyes (eyes.py) -> repair (a sentence whose footage never came is dropped) -> voice (tts.py) -> receipts (receipts.py)
     -> site (site.py: the page on a PC, a tablet and a phone, for the closing) -> cut (shots.py) -> layout (render.py + check.py, repaired) -> gate (check.py) -> frames (render.py, in batches)
     -> sound (audio.py) -> pack (mp4, cover.jpg, post.txt, report.json in <work>/out)
-Options: --steps a,b,c  only these steps      --from STEP  this step and the ones after it      --approved  the owner read
+Options: --brand ID  the channel the video is made for (brands/ID.json; kept with the work folder)      --steps a,b,c  only these steps      --from STEP  this step and the ones after it      --approved  the owner read
 the plan of a sensitive story      --budget N  seconds a step may spend before it stops to be run again (frames, footage)      --limit N  the caller cuts ONE call of this command after N seconds: no step is started that cannot end in time
 Nothing is posted anywhere. Exit code 0 = video made, 2 = refused (the reason is printed and written to report.json),
 3 = a step stopped at its time budget: run the same command again."""
@@ -97,7 +97,8 @@ def pack(work):
     comp = json.load(open(os.path.join(work, 'comp.json'), encoding='utf-8'))
     out = os.path.join(work, 'out'); os.makedirs(out, exist_ok=True)
     slug = (plan['url'].rstrip('/').split('/')[-1] or 'video')[:70]
-    mp4 = os.path.join(out, 'genzhype-%s.mp4' % slug)
+    import brand
+    mp4 = os.path.join(out, '%s-%s.mp4' % (brand.load()['file'], slug))
     seg = os.path.join(work, 'segments')
     lst = os.path.join(seg, 'list.txt')
     open(lst, 'w').write(''.join("file '%s'\n" % f for f in sorted(os.listdir(seg)) if f.endswith('.mp4')))
@@ -141,6 +142,11 @@ def main():
     work = os.path.abspath(args[0])
     opt = lambda name: args[args.index(name) + 1] if name in args else None
     os.makedirs(work, exist_ok=True)
+    bfile = os.path.join(work, 'brand')                        # the channel this video is made for stays with its folder (brand.py)
+    if opt('--brand'):
+        open(bfile, 'w', encoding='utf-8').write(opt('--brand'))
+    if os.path.isfile(bfile):
+        os.environ['V3_BRAND'] = open(bfile, encoding='utf-8').read().strip()
     localenv.load()
     os.environ['V3_AI_LOG'] = os.path.join(work, 'ai_log.jsonl')
     os.environ['V3_AI_STRIKES'] = os.path.join(os.path.dirname(os.path.abspath(work)), 'ai_strikes.json')   # one file for every run: a model that is out stays aside in the next run too

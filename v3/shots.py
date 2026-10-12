@@ -18,6 +18,7 @@ import subprocess
 import sys
 
 import beats
+import brand
 
 FPS = 30
 MAX_SHARP, MAX_UNDER = 4.0, 6.0
@@ -412,7 +413,7 @@ def main(work, log=lambda *a: print(*a, flush=True)):
     sfile = os.path.join(work, 'site', 'site.json')
     comp = {'fps': FPS, 'end': end, 'frames': int(round(end * FPS)), 'shots': shots, 'lines': tl['lines'], 'cues': cues_slang(plan, tl) if slang else cues(plan, tl), 'receipts': receipts,
             'site': json.load(open(sfile, encoding='utf-8')) if os.path.isfile(sfile) else None,
-            'plan': {k: plan.get(k) for k in ('lines', 'vote', 'title', 'url', 'format', 'slang')}, 'brand': json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'config.json'), encoding='utf-8'))['brand']}
+            'plan': {k: plan.get(k) for k in ('lines', 'vote', 'title', 'url', 'format', 'slang')}, 'brand': {k: brand.B[k] for k in ('site', 'spoken', 'shown', 'name', 'css')}}
     json.dump(comp, open(os.path.join(work, 'comp.json'), 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
     open(os.path.join(work, 'comp.js'), 'w', encoding='utf-8').write('window.COMP = ' + json.dumps(comp, ensure_ascii=False) + ';')
     film = sum(s['t1'] - s['t0'] for s in shots)

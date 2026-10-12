@@ -13,6 +13,7 @@ import sys
 import time
 
 import ai
+import brand
 import beats
 import habits
 from beats import squash
@@ -23,7 +24,7 @@ CFG = ai.CONFIG
 LIGHT, CARDS = ('stamp', 'chip', 'sub'), ('rows', 'quote', 'receipt', 'blocks')
 BANNED = ['official source', 'fans ask', 'fans are asking', 'in conclusion', 'stay tuned', 'buckle up', 'let that sink in', 'you won\'t believe', 'dive in', 'delve',
           'the internet is', 'netizens', 'swipe up', 'smash that', 'in this video', 'welcome back',
-          'our page', 'unverified', 'primary source', 'gen z hype', 'genzhype', 'gen-z hype']      # the video tells the story, never our own checking
+          'our page', 'unverified', 'primary source'] + brand.names()      # the video tells the story, never our own checking, never its own channel's name (the closing says it)
 # words that state a crime, a lie or a death as fact: the line then has to say who says it
 HEAVY = re.compile(r'\b(steals?|stealing|sabotag\w*|stole|stolen|theft|thief|fraud|scam|scammed|lied|liar|arrested|guilty|convicted|assaulted|abuse[ds]?|groom\w*|rape\w*|murder\w*|died|'
                    r'overdos\w*|suicide|racist|harass\w*|cheat(?:ed|er|ing)|plagiari\w*|embezzl\w*)\b', re.I)
@@ -181,8 +182,8 @@ def assets_of(m):
     return out
 
 
-HEAD = ('You are the %s of GenZHype\'s TikTok videos (vertical, 61 to 75 seconds, one male voice-over, footage under everything). GenZHype is "the receipts, not the gossip": '
-        'creator, gaming and meme stories told with the proof on screen.\nA machine builds the video from your JSON with nobody checking, so follow the format exactly.')
+HEAD = ('You are the %s of ' + brand.B['name'] + '\'s TikTok videos (vertical, 61 to 75 seconds, one male voice-over, footage under everything). ' + brand.B['about']
+        + (' ' + brand.B['angle'] if brand.B['angle'] else '') + '\nA machine builds the video from your JSON with nobody checking, so follow the format exactly.')
 
 SHAPE = {'story': """HOW THE VIDEO WORKS
 - Line 1 is THE OPENING (rules below). It plays on real footage, with its key number or word stamped on screen.
@@ -202,8 +203,7 @@ SHAPE = {'story': """HOW THE VIDEO WORKS
 - One line is the turn: the fact the viewer could not have guessed. The FACT itself tells it. It is never announced: no "Here's the twist", "One problem", "Now it gets deeper", "Then came the debate", "But wait".
 - Do NOT write the closing line that sends to the website; the machine adds it."""}
 
-VIEWER = """WHO IS WATCHING
-A 16-year-old scrolling with the sound on. They give the video two seconds, they have never heard of this story, and they leave the moment a sentence sounds like an article or a school report."""
+VIEWER = "WHO IS WATCHING\n" + brand.B['viewer']
 
 OPENING = """THE OPENING (line 1) decides everything
 - 2 to 5 short sentences (a fragment counts: "One problem."), 10 to 30 words in all. The FIRST sentence has 10 words at most. It puts the strangest TRUE thing of the story in front of the viewer: a number, a name, or the thing they are looking at.
@@ -230,7 +230,7 @@ VOICE = """THE VOICE (study the examples: this exact rhythm)
 - An account name with digits or symbols in it (@jay_4471, @mo.edits99) is NEVER spoken, not even spelled out in words: say "a TikTok creator", "one account", "the animator". The screen shows the name.
 - A news outlet or a gossip site is NEVER named in the voice: it is another publisher, and the screen credits it once, small. Say "one report", "in an interview", "a gaming site". What IS named: the person's own post or clip ("his own post"), a company's own page ("its own press release"), a court, the police.
 - Do not hedge every sentence. Say where a claim comes from ONCE, where it first appears ("one report says", "the patch notes say", "in his own post"), then tell it plainly. Never say "end quote".
-- Tell the story, not our work: never mention GenZHype's checking, "we found", "unverified", "our page".
+- Tell the story, not our work: never mention our own checking, "we found", "unverified", "our page".
 - TRUTH: use only facts that are in the material. Anything disputed, or about wrongdoing, is said with who says it ("the agent says", "police say", "reportedly", "according to one report"). A quote must be the source's real words (translated quotes: say "translated"). Never guess a person's gender: use the name or "they".
 THE FLOW (what keeps them watching; the examples do all of it)
 - EVERY LINE STARTS FROM WHAT THE VIEWER JUST HEARD, then brings the new thing. A new name never opens a line cold. Tie it to the line before with a time ("Same night,", "Four days later,"), a pointer ("That's Reggie.", "The club is Karmine Corp.", "His answer:"), a turn ("But", "Then", "So") or the question the last line left open ("His proof? Not shown.").
@@ -312,6 +312,8 @@ OUT_PATCH = """OUTPUT: strict JSON, nothing around it. You get a finished plan a
 {"lines":[{"id":"the id of a line you change","say":["its new spoken text,","one sentence per string"]}]}
 For a line, give only the fields you change: "say" (2 or 3 sentences, one per string), "overlays", "caps". A line you do not list stays exactly as it is. Add "vote" only if a fault is about the vote, "hunts" only if a fault is about them. Never return the whole plan."""
 
+OUT_STAGE, OUT_FULL = (x.replace('receipts on genzhype.com (link in bio)', brand.B['pinned']) for x in (OUT_STAGE, OUT_FULL))      # where the pinned comment sends
+
 STAGE_JOB = ('You get a FINISHED voice-over script, sentence by sentence. You are its picture editor: for EACH sentence you choose the picture and how it is framed, and the graphic that lands on its word. '
              'You never change, add or drop a spoken word.')
 JUDGE = 'You are a 16-year-old scrolling TikTok with the sound on. You get several openings written for the SAME video. You pick the one that would make you stop and watch. Strict JSON only.'
@@ -375,6 +377,9 @@ Rules: choose ONLY among the listed ids. The opener must be clear (a moving clip
 {"angle":"the story in one sentence","opener":"id","opener_why":"what it shows, 8 words","players":[{"name":"","from":"where they are from","asset":"id","focus":"s1"}],
  "twist":"the fact, one sentence","twist_asset":"id","bites":[{"asset":"clip0","from":"b3","to":"b4","why":"it is the claim itself"}],"proofs":["post1","id"],"numbers":[{"say":"sixty-three million views","show":"63M VIEWS","about":"what the number is about"}],
  "shape":["step 1: what is shown and what it says","step 2","step 3","step 4","step 5","the vote"],"vote":{"question":"max 22 characters","a":"ONE WORD","b":"ONE WORD"}}"""
+
+
+CAST_JOB = CAST_JOB.replace("GenZHype's", brand.B['name'] + "'s")
 
 
 def cast(m, log=print):
@@ -873,7 +878,7 @@ def fix_and_check(p, m):
         for o in ov:
             k = o.get('k')
             shown = json.dumps(o, ensure_ascii=False).lower()
-            if any(b in shown for b in ('our page', 'our read', 'unverified', 'primary source', 'gen z hype', 'genzhype', 'gen-z hype')):
+            if any(b in shown for b in ['our page', 'our read', 'unverified', 'primary source'] + brand.names()):
                 continue                                       # a graphic about our own checking is not part of the story: it is not drawn
             pubs = named_in(' '.join(str(o.get(x) or '') for x in ('t', 'name', 'role', 'who', 'label', 'a', 'b')) + ' ' + ' '.join(str(r.get('t', '')) for r in o.get('rows') or [] if isinstance(r, dict)))
             if pubs:                                           # ANOTHER PUBLISHER IS NEVER ADVERTISED: its name once, small (a chip, or who said a quote), never big
@@ -1015,9 +1020,9 @@ def fix_and_check(p, m):
 
 
 def add_site_line(p):
-    spoken = CFG['brand']['spoken']
-    text = 'The full timeline, and every receipt, is on %s. Link in bio.' if not p.get('no_page') else 'More stories like this one, with every receipt, are on %s. Link in bio.'      # no page yet: none is promised
-    p['lines'].append({'id': 'site', 'text': text % spoken, 'show': {'asset': 'auto', 'mode': 'under'}, 'overlays': [], 'caps': [{'say': spoken, 'show': spoken.replace(' ', '')}]})
+    spoken = brand.B['spoken']
+    text = brand.B['closing_page'] if not p.get('no_page') else brand.B['closing_topic']      # no page yet: none is promised
+    p['lines'].append({'id': 'site', 'text': text % spoken, 'show': {'asset': 'auto', 'mode': 'under'}, 'overlays': [], 'caps': [{'say': spoken, 'show': brand.B['shown']}]})
     return p
 
 

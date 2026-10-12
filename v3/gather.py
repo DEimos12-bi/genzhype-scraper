@@ -244,6 +244,33 @@ def main(work, budget=None, log=lambda *a: print(*a, flush=True)):
             keep()
         m['hunted'] = True
         keep()
+    if not m.get('scrolled') and not m.get('examples'):        # 2f. the subject's own pages, filmed as they scroll on a phone screen (scroll.py, in the Python that opens a browser)
+        import subprocess
+        exe = ai.CONFIG.get('local_browser_python', '')
+        exe = exe if exe and os.path.isfile(exe) and not os.environ.get('GITHUB_ACTIONS') else sys.executable
+        room(62, 'filming a page')
+        left = call_left()
+        r = subprocess.run([exe, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'scroll.py'), work, '%d' % (min(110, left - 6) if left is not None else 110)],
+                           capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=170)
+        for line in (r.stdout or '').splitlines():
+            if line.startswith('scroll'):
+                log(line)
+        sfile = os.path.join(work, 'scroll.json')
+        for c in (json.load(open(sfile, encoding='utf-8'))['clips'] if os.path.isfile(sfile) else []):
+            aid, pub = c['file'][:-4], c['publisher']
+            if aid in A:
+                continue
+            A[aid] = {'kind': 'clip', 'file': c['file'], 'w': c['w'], 'h': c['h'], 'dur': c['dur'], 'luma': None, 'credit': 'PAGE · %s' % pub.upper()[:34], 'by': pub, 'page': c['url'], 'scroll': True, 'stills_cut': True,
+                      'about': 'the page itself, filmed as it scrolls on a phone: "%s", on the own site of %s' % (c['title'][:120], pub), 'scenes': [[0.0, c['dur']]], 'usable': True,
+                      'eyes': {'kind': 'page', 'relevant': True, 'exact': True, 'shows': 'The page "%s" on %s, scrolling down from its top' % (c['title'][:80], pub), 'model': 'none: a page is what it is'},
+                      'windows': [{'t': round(0.8 + k * (c['dur'] - 4.5) / 3, 2), 'score': 3.5, 'x': 0.5, 'face': False, 'what': 'the page, %s' % ('its top' if k == 0 else 'further down')} for k in range(4)]}
+            A[aid]['tiles'] = [{'t': w['t'], 'score': w['score'], 'x': 0.5} for w in A[aid]['windows']]
+        if r.returncode == 3:
+            json.dump(m, open(mfile, 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
+            log('gather: a page is still to film; run again')
+            raise SystemExit(3)
+        m['scrolled'] = True
+        keep()
     if m.get('examples') and not m.get('examples_collected'):  # 3. a meme's examples
         A.update(memes.collect(m, work, log))
         m['examples_collected'] = True

@@ -29,6 +29,7 @@ import sys
 import time
 
 import ai
+import brand
 import material
 import supply
 
@@ -37,7 +38,7 @@ SOCIAL = material.SOCIAL
 STOP = set('The This That These Those There Then They Their What When Where Which While Because New Video Videos After Before With From Into Over Under About How Why Who Says Said Alleges Claims Claim '
            'Explained Meme Memes Drama Story First Last Best Top Live Stream Streamer Game Games Player Players'.split())
 
-SYSTEM = """You are the researcher of GenZHype's video desk ("the receipts, not the gossip"). A short video is about to be written from the material below. Before anyone writes, you go and CHECK, the way a careful editor does by hand. You look for exactly two things:
+SYSTEM = """You are the researcher of ~NAME~'s video desk (~DESK~). A short video is about to be written from the material below. Before anyone writes, you go and CHECK, the way a careful editor does by hand. You look for exactly two things:
 1. THE PRIMARY SOURCE of the story's main claim: the subject's OWN post, clip or page, where they say it themselves. Not a news site retelling it.
 2. ONE FACT OF CONTEXT that makes the story make sense to someone who has never heard of it: what a thing the story names actually IS (a company, a tool, a game, a rank, an event), taken from that thing's OWN page, and any real, documented link between it and the people of the story.
 News outlets and gossip sites are other publishers. Use them only as signposts to where the primary source is. They are never the proof.
@@ -60,6 +61,9 @@ RULES
 PLAN_ASK = """First, before any tool: survey the facts and plan (do not call a tool yet). Strict JSON:
 {"given":["facts the material already gives, with who says them"],"look_up":[{"what":"a fact to verify or a thing to identify","where":"where it would be: whose own site, whose own post"}],"plan":["step 1","step 2","step 3"]}
 Keep it short: at most 4 facts, 3 things to look up, 4 plan steps. The things to look up are the PRIMARY SOURCE of the main claim, and the one named thing a newcomer will not know."""
+
+
+SYSTEM = SYSTEM.replace('~NAME~', brand.B['name']).replace('~DESK~', brand.B['desk'])
 
 
 def squash(s):
@@ -208,7 +212,7 @@ def run(m, work, log, budget=None):
             url = str(args.get('url', '')).strip()
             if not re.match(r'https?://', url):
                 return 'open needs a full address (https://...).'
-            if 'genzhype.com' in url:
+            if 'genzhype.com' in url or brand.B['site'] in url:
                 return 'That is our own page: you already have its text above.'
             try:
                 title, text = read_page(url)

@@ -21,12 +21,13 @@ import sys
 import time
 
 import ai
+import brand
 import investigate
 import material
 import supply
 
 FRESH_DAYS = 30
-BRIEF = """You are the desk editor of GenZHype ("the receipts, not the gossip": creator, gaming and meme stories told with the proof). You get a TOPIC and everything that was found about it: pages, each with its publisher, and posts. You write the brief of this story from those sources ONLY. Strict JSON, nothing around it:
+BRIEF = """You are the desk editor of ~NAME~ (~DESK~). You get a TOPIC and everything that was found about it: pages, each with its publisher, and posts. You write the brief of this story from those sources ONLY. Strict JSON, nothing around it:
 {"title":"what happened, max 70 characters, no clickbait, no question",
  "summary":"two plain sentences",
  "people":["every person, company, studio, game or product this story is about, by its exact name as the sources write it"],
@@ -42,6 +43,9 @@ RULES
 
 def slug_of(text):
     return re.sub(r'-+', '-', re.sub(r'[^a-z0-9]+', '-', text.lower())).strip('-')[:70] or 'story'
+
+
+BRIEF = BRIEF.replace('~NAME~', brand.B['name']).replace('~DESK~', brand.B['desk'])
 
 
 def read(url):
@@ -106,7 +110,7 @@ def run(topic, work, log, budget=None):
         raise SystemExit('NO STORY: the search found nothing recent about "%s"' % topic)
     if st['pages'] is None:                                    # 3. the reading: one page per publisher, a name of the topic first
         own = lambda u: any(investigate.label(u).startswith(n) or (len(investigate.label(u)) >= 4 and n.startswith(investigate.label(u))) for n in names)
-        cand = [h for h in st['hits'] if not material.SOCIAL.search(h['url']) and 'genzhype.com' not in h['url']]
+        cand = [h for h in st['hits'] if not material.SOCIAL.search(h['url']) and 'genzhype.com' not in h['url'] and brand.B['site'] not in h['url']]
         cand.sort(key=lambda h: (not own(h['url']), -(len(h.get('text') or '')), h.get('published') or ''))
         pages, seen, posts = [], set(), {'x': {}, 'reddit': {}, 'tiktok': {}}
         for h in st['hits']:                                   # a result that IS a post
@@ -186,7 +190,7 @@ def run(topic, work, log, budget=None):
         keep()
     posts_kept = [p for i, p in enumerate(st['posts']) if i in (st.get('about') or [])] if st['posts'] else []
     text = '%s\n%s\n\nBackground\n%s\n\nThe timeline\n%s' % (b['title'], b['summary'], b['background'], '\n'.join('%s  %s\n%s [%s]' % (e['date'], e['title'], e['text'], e['source']) for e in b['events']))
-    m = {'url': 'https://genzhype.com/topic/%s/' % slug_of(b['title']), 'no_page': True, 'topic': topic, 'game': b.get('game', ''), 'title': b['title'], 'summary': b['summary'], 'published': today, 'people': b['people'], 'page_text': text,
+    m = {'url': brand.B['url'].rstrip('/') + '/topic/%s/' % slug_of(b['title']), 'no_page': True, 'topic': topic, 'game': b.get('game', ''), 'title': b['title'], 'summary': b['summary'], 'published': today, 'people': b['people'], 'page_text': text,
          'posts': posts_kept, 'sources': [], 'images': [], 'examples': [], 'events': b['events']}
     if st.get('own') is None:                                  # the subject's own page is proof; another publisher's is a signpost: read from the page, not guessed from its address
         st['own'] = [bool(investigate.own_page(p['url'], p['title'], p['text'], b['people'] + [b['title']], log)) for p in st['pages'][:5]]

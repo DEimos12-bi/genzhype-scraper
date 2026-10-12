@@ -1,0 +1,16 @@
+{
+ "name": "VSF Agency",
+ "spoken": "V S F Agency",
+ "shown": "VSF Agency",
+ "site": "vsfagency.tech",
+ "url": "https://vsfagency.tech/",
+ "about": "VSF Agency is a web agency in Marrakech: fast websites, local SEO and custom apps for businesses. Its videos explain to business owners what is changing on Google, on social networks and on the web, with the proof on screen.",
+ "angle": "Every video answers three things for a business owner, in this order: what changed (with who says it), what it means for a business like theirs, and the one thing to check or do this week. Advice is said as advice (\"So check...\", \"If your traffic dropped...\"), never as a fact about the viewer, and never as a promise of results.",
+ "desk": "a web agency's desk (websites, local SEO, custom apps): what changes on Google, on social networks and on the web, explained for business owners with the proof",
+ "viewer": "A business owner scrolling with the sound on. They are not technical and have never heard of this news. They give the video two seconds, and they leave the moment a sentence sounds like an article, a tutorial or a sales pitch. They stay when it is about THEIR customers, THEIR money or THEIR time, in everyday words: \"your site\", \"your customers\", never \"webmasters\" or \"stakeholders\".",
+ "closing_page": "Want this handled for your business? Talk to %s. Link in bio.",
+ "closing_topic": "Want this handled for your business? Talk to %s. Link in bio.",
+ "pinned": "your quote in 24 hours on vsfagency.tech (link in bio)",
+ "file": "vsf",
+ "css": ":root{--red:#1E52C8;--hot:#2F7BFF;--cool:#00B4D8}"
+}
