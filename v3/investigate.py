@@ -346,6 +346,13 @@ def run(m, work, log, budget=None):
             pg = st['pages'].get(e['url']) or {}
             m.setdefault('sources', []).append({'url': e['url'], 'publisher': e['publisher'], 'title': pg.get('title', '')[:200], 'excerpt': pg.get('text', '')[:5000], 'primary': True})
             have.add(e['url'].rstrip('/'))
+    # A page of the subject's own that was opened is material even when no sentence of it was noted: the writer reads it,
+    # the second reading checks against it, and the page itself can be shown (two at most; the ones with text first).
+    opened = sorted(((url, pg) for url, pg in st['pages'].items() if pg.get('kind') == 'official' and url.rstrip('/') not in have and len(pg.get('text', '')) >= 200), key=lambda x: -len(x[1].get('text', '')))
+    for url, pg in opened[:max(0, 2 - sum(1 for s in m.get('sources') or [] if s.get('primary')))]:
+        m.setdefault('sources', []).append({'url': url, 'publisher': re.sub(r'^https?://(www\.)?', '', url).split('/')[0], 'title': pg.get('title', '')[:200], 'excerpt': pg.get('text', '')[:5000], 'primary': True})
+        have.add(url.rstrip('/'))
+        log('investigator: the subject\'s own page it opened joins the material (%s)' % url[:90])
     ids = {str(p.get('id')) for p in m.get('posts') or []}
     for url, pg in st['pages'].items():                        # a post it opened that carries a video is material: the gather step fetches it
         if pg['kind'] != 'post' or not any(e['url'] == url for e in ev):

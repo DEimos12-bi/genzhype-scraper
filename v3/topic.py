@@ -27,6 +27,7 @@ import material
 import supply
 
 FRESH_DAYS = 30
+BYLINE = r'(?:(?:written|posted|published|reported|authored)\s+by|author\s*:|(?:^|[\n|•·>])\s*by)\s+'      # what stands before the name of who signs a page
 BRIEF = """You are the desk editor of ~NAME~ (~DESK~). You get a TOPIC and everything that was found about it: pages, each with its publisher, and posts. You write the brief of this story from those sources ONLY. Strict JSON, nothing around it:
 {"title":"what happened, max 70 characters, no clickbait, no question",
  "summary":"two plain sentences",
@@ -59,6 +60,12 @@ def read(url):
     if len(h1.split()) >= 4 and 0 < text.find(h1) < len(text) * 0.4:
         text = text[text.find(h1):]
     return title[:200], text, frag
+
+
+def signs(pages, who):
+    """Does this name sign one of the pages read (its author, its reporter)?"""
+    who = (who or '').strip()
+    return len(who) >= 4 and any(re.search(BYLINE + re.escape(who) + r'\b', p['text'][:6000], re.I) for p in pages[:5])
 
 
 def cited(frag):
@@ -168,7 +175,7 @@ def run(topic, work, log, budget=None):
         flat = investigate.flat
         texts = [' %s ' % flat(p['title'] + ' ' + p['text']) for p in st['pages'][:5]]
         named = lambda who: sum(1 for t in texts if ' %s ' % flat(who) in t)
-        signed = lambda who: any(re.search(r'(?:(?:written|posted|published|reported|authored)\s+by|author\s*:|(?:^|[\n|•·>])\s*by)\s+' + re.escape(who) + r'\b', p['text'][:6000], re.I) for p in st['pages'][:5])
+        signed = lambda who: signs(st['pages'], who)
         kept = [who for who in st['brief']['people'] if flat(who) and (' %s ' % flat(who) in ' %s ' % flat(st['brief']['title']) or ((named(who) >= 2 or len(texts) < 2) and not signed(who)))]      # ...nor the one who SIGNS a page: a reporter
         if len(kept) < len(st['brief']['people']):             # named by one page only: its author, its own expert. Not who the story is about
             log('desk: not people of the story (one page alone names them): %s' % ', '.join(w for w in st['brief']['people'] if w not in kept))
@@ -197,6 +204,10 @@ def run(topic, work, log, budget=None):
         log('desk: %d of %d cited post(s) are about this story%s' % (len(keep_), len(st['posts']), ' (left out: %s)' % ', '.join(gone) if gone else ''))
         keep()
     posts_kept = [p for i, p in enumerate(st['posts']) if i in (st.get('about') or [])] if st['posts'] else []
+    reporters = [p for p in posts_kept if signs(st['pages'], p.get('name', ''))]      # a post by someone who signs one of the pages read is that publisher's post: left out like its page
+    if reporters:
+        posts_kept = [p for p in posts_kept if p not in reporters]
+        log('desk: left out, the posts of people who sign the pages read (another publisher\'s reporters): %s' % ', '.join(p.get('handle', '?') for p in reporters))
     text = '%s\n%s\n\nBackground\n%s\n\nThe timeline\n%s' % (b['title'], b['summary'], b['background'], '\n'.join('%s  %s\n%s [%s]' % (e['date'], e['title'], e['text'], e['source']) for e in b['events']))
     m = {'url': brand.B['url'].rstrip('/') + '/topic/%s/' % slug_of(b['title']), 'no_page': True, 'topic': topic, 'game': b.get('game', ''), 'title': b['title'], 'summary': b['summary'], 'published': today, 'people': b['people'], 'page_text': text,
          'posts': posts_kept, 'sources': [], 'images': [], 'examples': [], 'events': b['events']}
