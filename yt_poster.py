@@ -45,6 +45,8 @@ CID = os.environ.get("YT_CLIENT_ID", "")
 SEC = os.environ.get("YT_CLIENT_SECRET", "")
 STATE = ".social"
 DONE = f"{STATE}/yt_posted.txt"
+LAST = f"{STATE}/yt_last_post.txt"   # 2026-10-15: unix time of the last upload (the catch-up rule below)
+CATCHUP_GAP_H = 2                      # the slots are 2 hours apart; a missed slot is made up no sooner than that
 POLICY = {}          # r114: filled from the queue endpoint's "policy" block
 
 
@@ -227,8 +229,22 @@ def main():
         log(f"YT: hot story outside slots (hour {hour}) — publishing now")
         todo = hot
     else:
-        log(f"YT: hour {hour} is not a slot {slots} and nothing is hot; waiting")
-        return 0
+        # 2026-10-15 CATCH-UP. GitHub starts this hourly job only 4-5 times a day, at random minutes, so from Oct 13 23:24
+        # to Oct 15 not one of 9 runs landed on a slot hour and nothing was posted with 215 videos waiting. Inside the
+        # 21:00-05:00 night window, a run that finds no upload in the last CATCHUP_GAP_H hours posts now: the same grid,
+        # at most one post per 2 hours, never outside the window.
+        try:
+            last = float(open(LAST).read().strip()) if os.path.exists(LAST) else 0.0
+        except (OSError, ValueError):
+            last = 0.0
+        in_window = hour >= 21 or hour <= 5
+        gap_h = (time.time() - last) / 3600.0
+        if in_window and gap_h >= CATCHUP_GAP_H:
+            log(f"YT: hour {hour} is not a slot {slots}, but no upload for {gap_h:.1f}h inside the night window; catching up")
+        else:
+            log(f"YT: hour {hour} is not a slot {slots} and nothing is hot; waiting"
+                + ("" if in_window else " (outside the 21:00-05:00 window)"))
+            return 0
     token = access_token()
     if not token:
         log("YT: token refresh failed")
@@ -239,6 +255,7 @@ def main():
         return 1
     done.add(str(v["page_id"]))
     open(DONE, "w").write("\n".join(sorted(done)) + "\n")
+    open(LAST, "w").write("%d\n" % int(time.time()))
     return 0
 
 
