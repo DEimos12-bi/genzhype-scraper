@@ -1,0 +1,413 @@
+2026-10-16 22:52:41,603 INFO caption font: /usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf
+2026-10-16 22:52:41,604 INFO job feed from repo branch (generated 2026-10-16T22:50:12+00:00)
+2026-10-16 22:52:41,604 INFO job from static feed (generated 2026-10-16T22:50:12+00:00)
+2026-10-16 22:52:41,604 INFO processing page_id=4302 slug=yk-osiris-vs-deshae-frost-press-conference-showdown
+2026-10-16 22:52:41,604 INFO STYLE punch: lead=faces cuts~1.5s xfade=0.08 zoom=0.16 punch=1.17 bgm_3 evidence_cap=2 footage_consec=2
+2026-10-16 22:52:41,604 INFO voice: en-US-AndrewMultilingualNeural
+2026-10-16 22:52:41,604 INFO STAGE: visuals
+2026-10-16 22:52:41,604 INFO PROVENANCE: 1 clip(s) were embedded by reporters in this story's own articles; the footage gate cannot veto those
+2026-10-16 22:52:41,605 INFO CLIP HUNT: story now has 4 clip(s)
+2026-10-16 22:52:42,592 INFO archive.org clip: deshae frost (20250506-tardy-dull-deer-ri-pepperonis-eb-yn-jwws-h-4-ooy-klx-source, 46s, 41.1MB)
+2026-10-16 22:52:43,282 INFO archive.org clip: YK Osiris Talks 'The Golden Child' & Working w/ Kehlani | MT (youtube-eXZVGBZ8p1w, 284s, 28.4MB)
+2026-10-16 22:52:44,739 INFO archive.org clip: Twitch Girlhefunny 1x 2025 04 28 19 47 13 Just Chatting REGG (twitch-girlhefunny-1x-2025-04-28-19-47-13-just-chatting-reggie-x-yk-osiris-x-glojays, 306s, 83.6MB)
+2026-10-16 22:52:44,740 INFO story clips available: 7 (archive, tiktok)
+2026-10-16 22:52:44,740 INFO person photos from feed (site-resolved): YK Osiris x1
+2026-10-16 22:52:45,553 INFO face detected in vis-4302-0: 541x741 at (1028,306)
+2026-10-16 22:52:45,666 INFO CONTAIN MODE: 1536x1025 needs 1.9x upscale to cover; rendering whole on a blurred fill instead
+2026-10-16 22:52:45,690 INFO face detected in vis-4302-1: 440x559 at (931,99)
+2026-10-16 22:52:53,364 INFO vision rotation: still-relevance served by gemini-3.5-flash-lite
+2026-10-16 22:52:53,413 INFO text-heavy visual (heuristic) -> contain mode (no crop/zoom): https://genzhype.com/assets/covers/yk-osiris-vs-deshae-frost-press-conference-showdown-hero.webp
+2026-10-16 22:52:53,439 INFO face detected in vis-4302-2: 271x346 at (488,97)
+2026-10-16 22:53:02,701 INFO openverse: 3 modifiable-licence photos for 'Press Conference Showdown'
+2026-10-16 22:53:04,734 INFO vision rotation: still-relevance served by gemini-3.5-flash-lite
+2026-10-16 22:53:04,735 INFO openverse candidate rejected (not this story): https://live.staticflickr.com/4017/4565123527_aa3d893111_b.jpg
+2026-10-16 22:53:06,251 INFO vision rotation: still-relevance served by gemini-3.5-flash-lite
+2026-10-16 22:53:06,252 INFO openverse candidate rejected (not this story): https://live.staticflickr.com/3533/4565753934_8b35ddb578_b.jpg
+2026-10-16 22:53:08,890 INFO vision rotation: still-relevance served by gemini-3.5-flash-lite
+2026-10-16 22:53:08,891 INFO openverse candidate rejected (not this story): https://live.staticflickr.com/3158/4565751128_2a14600035_b.jpg
+2026-10-16 22:53:08,891 INFO visual pool: 3 distinct of 3 candidates (1 from people, 1 name(s) mapped: {'yk osiris': 1})
+2026-10-16 22:53:08,891 INFO SUBJECT ON SCREEN: headline names ['YK Osiris', 'Deshae Frost']; verified picture(s) for ['YK Osiris']
+2026-10-16 22:53:08,891 INFO visual_i 1 ready (the actual moment (Oct 14 report photo): Press Conference Showdown)
+2026-10-16 22:53:08,891 INFO STAGE: receipts
+2026-10-16 22:53:09,026 INFO receipts: 8 card(s) downloaded of 9 entries (event entries carry no card by design)
+2026-10-16 22:53:09,026 INFO STAGE: screenshots
+2026-10-16 22:53:09,571 INFO Readability injected from vendor/Readability.js
+2026-10-16 22:53:17,886 INFO Readability column 30..730 (23 nodes) on https://theshaderoom.com/social-media-reacts-yk-osiris-
+2026-10-16 22:53:17,894 INFO crop r30c: 748x926 at 6,97 (col 700, lead-img True) https://theshaderoom.com/social-media-reacts-yk-osiris-goes-
+2026-10-16 22:53:18,942 INFO SHOT BLANK-BAND: removed 159px empty band at y=1166 (shot-4302-0.png)
+2026-10-16 22:53:20,952 INFO vision rotation: screenshot-clean served by gemini-3.5-flash-lite
+2026-10-16 22:53:20,953 INFO REAL source screenshot: https://theshaderoom.com/social-media-reacts-yk-osiris-goes-off-on-deshae-frost-boxing-match-video/
+2026-10-16 22:53:20,998 INFO event receipts: 1 clean screenshot(s), 0 og report photo(s); the rest fall back to subject photos
+2026-10-16 22:53:20,998 INFO STAGE: tts
+2026-10-16 22:53:22,942 INFO expressive TTS: segment 1/2 rate=+18% pitch=+2Hz 1.87s 5 cue(s)
+2026-10-16 22:53:46,471 INFO expressive TTS: segment 2/2 rate=+5% pitch=- 25.20s 59 cue(s)
+2026-10-16 22:53:46,856 INFO expressive TTS ok: 2 segment(s), 27.12s audio, 64 word timings
+2026-10-16 22:53:46,856 INFO STAGE: compose
+2026-10-16 22:53:46,857 INFO bgm: SIGNATURE bed bgm_2.mp3 (same on every video, by design)
+2026-10-16 22:53:46,867 INFO ALIGNMENT: 58/60 tokens cue-matched (97%); largest interpolated gap 2 words
+2026-10-16 22:53:46,868 INFO EDL: 13 shot(s) from 13 directed (words=60)
+2026-10-16 22:53:47,545 INFO PICTURE IN PROOF: shot-4302-0.png shows vis-4302-1 (64 matching points); one picture to the use cap
+2026-10-16 22:53:47,545 INFO footage: cookies active
+2026-10-16 22:53:47,546 INFO CLIP staged by the server: 68736b21b74d4dee2e1fca1b8dc0c07cd0c1ed94.mp4 (https://www.tiktok.com/@squidward.bandz/video/76966889447458)
+2026-10-16 22:53:58,840 INFO face detected in clipfr-0.jpg: 339x460 at (259,651)
+2026-10-16 22:53:58,991 INFO face detected in clipfr-2.jpg: 227x251 at (470,587)
+2026-10-16 22:53:58,991 INFO clip frame skipped: a face is cut by the frame's own edge (clipfr-2.jpg)
+2026-10-16 22:53:59,002 INFO clip frame too similar to one already kept; skipped
+2026-10-16 22:53:59,025 INFO face detected in clipfr-4.jpg: 318x440 at (222,770)
+2026-10-16 22:53:59,102 INFO clip frame skipped: 12% of it is burned-in text (clipfr-4.jpg)
+2026-10-16 22:53:59,126 INFO face detected in clipfr-5.jpg: 273x333 at (482,512)
+2026-10-16 22:53:59,127 INFO clip frame skipped: a face is cut by the frame's own edge (clipfr-5.jpg)
+2026-10-16 22:53:59,149 INFO face detected in clipfr-6.jpg: 336x408 at (389,413)
+2026-10-16 22:53:59,150 INFO clip frame skipped: a face is cut by the frame's own edge (clipfr-6.jpg)
+2026-10-16 22:53:59,173 INFO face detected in clipfr-7.jpg: 346x433 at (412,727)
+2026-10-16 22:53:59,247 INFO clip frame skipped: 11% of it is burned-in text (clipfr-7.jpg)
+2026-10-16 22:53:59,270 INFO face detected in clipfr-8.jpg: 340x462 at (379,739)
+2026-10-16 22:53:59,344 INFO clip frame skipped: 12% of it is burned-in text (clipfr-8.jpg)
+2026-10-16 22:53:59,368 INFO face detected in clipfr-9.jpg: 270x326 at (436,594)
+2026-10-16 22:53:59,475 INFO face detected in clipfr-10.jpg: 352x473 at (431,696)
+2026-10-16 22:53:59,582 INFO face detected in clipfr-11.jpg: 285x371 at (181,547)
+2026-10-16 22:53:59,582 INFO clip frame skipped: a face is cut by the frame's own edge (clipfr-11.jpg)
+2026-10-16 22:53:59,582 INFO CLIP FRAMES: +3 stills harvested from the money-moment clip (pool 3 -> 6)
+2026-10-16 22:53:59,582 INFO HOOK = OPENING CLIP: 68736b21b74d4dee2e1fca1b8dc0c07cd0c1ed94.mp4 (t=0s)
+2026-10-16 22:53:59,663 INFO CLIP FIT: no clip's title matches scene 3's words ('2026, at the'); the planned still stands
+2026-10-16 22:53:59,663 INFO receipt 0 repeats within 3 scenes; subject photo fallback
+2026-10-16 22:53:59,663 INFO receipt 0 missing/unresolved; subject photo fallback
+2026-10-16 22:53:59,663 INFO CLIP FIT: no clip's title matches scene 4's words ('Brand Risk press conference'); the planned still stands
+2026-10-16 22:53:59,664 INFO CLIP FIT: no clip's title matches scene 5's words ('ahead of their boxing match,'); the planned still stands
+2026-10-16 22:53:59,664 INFO CLIP staged by the server: 68736b21b74d4dee2e1fca1b8dc0c07cd0c1ed94.mp4 (https://www.tiktok.com/@squidward.bandz/video/76966889447458)
+2026-10-16 22:53:59,664 INFO PROVENANCE: beat 6 clip kept without a vision vote (embedded in this story's own coverage)
+2026-10-16 22:53:59,664 INFO TIMELINE ARTIFACT: beat 6 plays its own clip 68736b21b74d4dee2e1fca1b8dc0c07cd0c1ed94.mp4
+2026-10-16 22:53:59,664 INFO IMAGE CAP: receipt 0 shows a picture already in 2 shot(s); subject photo instead
+2026-10-16 22:53:59,664 INFO receipt 0 missing/unresolved; subject photo fallback
+2026-10-16 22:53:59,664 INFO CLIP FIT: no clip's title matches scene 7's words ("calling him a 'bum' and"); the planned still stands
+2026-10-16 22:53:59,664 INFO CLIP FIT: no clip's title matches scene 8's words ("a 'b****'. Deshae Frost"); the planned still stands
+2026-10-16 22:53:59,664 INFO IMAGE CAP: receipt 0 shows a picture already in 2 shot(s); subject photo instead
+2026-10-16 22:53:59,664 INFO receipt 0 missing/unresolved; subject photo fallback
+2026-10-16 22:53:59,664 INFO IMAGE CAP: every real image fills 2 shot(s); a repeat is the last resort
+2026-10-16 22:53:59,664 INFO CLIP FIT: no clip's title matches scene 9's words ('reportedly stayed really silent, letting'); the planned still stands
+2026-10-16 22:53:59,664 INFO IMAGE CAP: every real image fills 2 shot(s); a repeat is the last resort
+2026-10-16 22:53:59,664 INFO CLIP FIT: no clip's title matches scene 10's words ('the insults hang without a'); the planned still stands
+2026-10-16 22:53:59,664 INFO IMAGE CAP: receipt 0 shows a picture already in 3 shot(s); subject photo instead
+2026-10-16 22:53:59,664 INFO receipt 0 missing/unresolved; subject photo fallback
+2026-10-16 22:53:59,664 INFO IMAGE CAP: every real image fills 2 shot(s); a repeat is the last resort
+2026-10-16 22:53:59,665 INFO CLIP FIT: no clip's title matches scene 11's words ('rebuttal. Should Deshae have fired'); the planned still stands
+2026-10-16 22:53:59,665 INFO IMAGE CAP: every real image fills 2 shot(s); a repeat is the last resort
+2026-10-16 22:53:59,665 INFO CLIP FIT: no clip's title matches scene 12's words ('back with a comeback, or'); the planned still stands
+2026-10-16 22:53:59,665 INFO IMAGE CAP: receipt 0 shows a picture already in 3 shot(s); subject photo instead
+2026-10-16 22:53:59,665 INFO receipt 0 missing/unresolved; subject photo fallback
+2026-10-16 22:53:59,665 INFO IMAGE CAP: every real image fills 2 shot(s); a repeat is the last resort
+2026-10-16 22:53:59,665 INFO CLIP FIT: no clip's title matches scene 13's words ('was silence the smarter move?'); the planned still stands
+2026-10-16 22:53:59,676 INFO SPEND THE POOL: 1 repeat(s) swapped for unused images (3 distinct stills now on screen)
+2026-10-16 22:53:59,676 INFO REPEAT HOLD: 0 beat(s) moved to a picture with a use left, 2 held on the previous picture (cap 2 shots)
+2026-10-16 22:53:59,677 INFO RENDER REPORT: {"style": "punch", "ck_mode": true, "cookie_bytes": 3003, "story_vids": 0, "scenes": 11, "runtime_s": 27.6, "footage_scenes": 2, "gap_fill_scenes": 0, "opportunistic_footage": 2, "still_photo_scenes": 8, "card_scenes": 1, "frozen_stills": 0, "footage_fetches": 0, "seq": "fcsssfsssss"}
+2026-10-16 22:53:59,677 INFO CLIP verify disabled (VIDEO_CLIP_VERIFY=0)
+2026-10-16 22:53:59,677 INFO scene plan (v4 EDL): 11 scene(s) (1 receipt, 2 b-roll), pool=6
+2026-10-16 22:53:59,677 INFO   scene 1: 0.00-1.66s type=broll(FOOTAGE) motion=punch_build sfx=none music=bed visual=68736b21b74d4dee2e1fca1b8dc0c07cd0c1ed94.mp4
+2026-10-16 22:53:59,677 INFO   scene 2: 1.66-3.25s type=receipt motion=contain sfx=pop music=bed visual=shot-4302-0.png
+2026-10-16 22:53:59,677 INFO   scene 3: 3.25-4.18s type=photo motion=zoom_out sfx=none music=bed visual=vis-4302-0
+2026-10-16 22:53:59,677 INFO   scene 4: 4.18-5.50s type=photo motion=pan_left sfx=none music=bed visual=clipfr-0.jpg
+2026-10-16 22:53:59,677 INFO   scene 5: 5.50-7.10s type=photo motion=pan_right sfx=whoosh music=bed visual=clipfr-0.jpg
+2026-10-16 22:53:59,677 INFO   scene 6: 7.10-10.98s type=broll(FOOTAGE) motion=None sfx=none music=bed visual=68736b21b74d4dee2e1fca1b8dc0c07cd0c1ed94.mp4
+2026-10-16 22:53:59,677 INFO   scene 7: 10.98-12.56s type=photo motion=punch_hit sfx=none music=bed visual=clipfr-9.jpg
+2026-10-16 22:53:59,677 INFO   scene 8: 12.56-16.57s type=photo motion=zoom_out sfx=none music=bed visual=vis-4302-0
+2026-10-16 22:53:59,677 INFO   scene 9: 16.57-19.56s type=photo motion=pan_left sfx=none music=bed visual=clipfr-10.jpg
+2026-10-16 22:53:59,677 INFO   scene 10: 19.56-23.45s type=photo motion=pan_right sfx=none music=bed visual=vis-4302-1
+2026-10-16 22:53:59,677 INFO   scene 11: 23.45-27.57s type=photo motion=punch_hit sfx=riser music=silence visual=clipfr-9.jpg
+2026-10-16 22:53:59,677 INFO VARIETY: 6 distinct stills, top visual carries 2/9 (22%)
+2026-10-16 22:53:59,677 INFO SELFCHECK: repeats=0 short_scenes=none caption_cov=98% (window=3, assets=16)
+2026-10-16 22:53:59,677 WARNING SELFCHECK: 1 near-repeat(s) within the 3-scene window (small pool; each reappears with different motion) — non-fatal
+2026-10-16 22:54:00,853 INFO EDGE-SAFE CROP: shifted +59px — 1 sliced face(s) -> 0
+[0;93m2026-10-16 22:54:00.912343540 [W:onnxruntime:Default, device_discovery.cc:95 GetPciBusId] Skipping pci_bus_id for PCI path at "/sys/devices/LNXSYSTM:00/LNXSYBUS:00/ACPI0004:00/MSFT1000:00/5620e0c7-8062-4dce-aeb7-520c7ef76171" because filename "5620e0c7-8062-4dce-aeb7-520c7ef76171" did not match expected pattern of [0-9a-f]+:[0-9a-f]+:[0-9a-f]+[.][0-9a-f]+[m
+2026-10-16 22:54:01,157 INFO depth: session ready
+2026-10-16 22:54:01,892 INFO depth: vis-4302-0 in 0.73s
+2026-10-16 22:54:01,969 INFO DEPTH SCENE vis-4302-0 motion=zoom_out dur=0.9s
+2026-10-16 22:54:03,737 INFO depth: clipfr-9.jpg in 0.74s
+2026-10-16 22:54:03,783 INFO DEPTH SCENE clipfr-9.jpg motion=punch_hit dur=1.6s
+2026-10-16 22:54:03,968 INFO EDGE-SAFE CROP: shifted +59px — 1 sliced face(s) -> 0
+2026-10-16 22:54:04,050 INFO DEPTH SCENE vis-4302-0 motion=zoom_out dur=4.0s
+2026-10-16 22:54:04,609 INFO DEPTH SCENE clipfr-9.jpg motion=punch_hit dur=4.1s
+2026-10-16 22:54:05,027 INFO transition 1/3: whip at 5.50s (beat change)
+2026-10-16 22:54:10,256 INFO TEXT AVOID: burned-in text on 9 of 11 scene(s) (5.2s)
+2026-10-16 22:54:10,263 INFO TEXT AVOID: hook moved off burned-in text, top y 652 -> 610
+2026-10-16 22:54:11,289 INFO CAPTION PLACEMENT: 19 caption event(s) by position: {"card": 1, "home": 11, "home-least-covered": 7}
+2026-10-16 22:54:12,261 INFO bgm: SIGNATURE bed bgm_2.mp3 (same on every video, by design)
+2026-10-16 22:54:12,712 INFO sound: bed bgm_2.mp3 over 1 interval(s), 0 swell(s)
+2026-10-16 22:54:12,990 INFO sound: 2 SFX placed
+2026-10-16 22:54:13,023 INFO sound: final -17.7 dBFS avg / -1.5 dBFS peak
+2026-10-16 22:57:31,762 INFO COMPOSE TIMING: {'prepare_s': 13.5, 'draw_encode_s': 198.5, 'remux_s': 0.1, 'scenes': 11, 'seconds': 27.6}
+2026-10-16 22:57:31,771 INFO STAGE: judge
+2026-10-16 22:57:39,692 INFO vision rotation: JUDGE served by gemini-3.5-flash-lite
+2026-10-16 22:57:39,693 INFO vision judge: pass=False weird=[{'frame': 3, 'issue': 'c. REPETITION: the same background image/screenshot appears across multiple frames repeatedly'}, {'frame': 7, 'issue': 'c. REPETITION: the same background image/screenshot appears across multiple frames repeatedly'}] mismatches=[] artifact_misses=[] scores={'readability': 9, 'framing': 8, 'variety': 4, 'edit_variety': 4, 'completeness': 5} issues=['Repeated use of the same still image/portrait frames across the video violates the repetition checklist rule.']
+2026-10-16 22:57:47,752 INFO caption font: /usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf
+2026-10-16 22:57:47,937 INFO filmstrip built: build/reject-4302.jpg
+2026-10-16 22:57:48,025 INFO DIAG reject-sheet -> HTTP 403
+2026-10-16 22:57:48,116 INFO DIAG shot-4302-0 -> HTTP 403
+2026-10-16 22:57:48,180 ERROR failed to make video for 4302: vision judge rejected page 4302 (attempt 1/1): weird=[{'frame': 3, 'issue': 'c. REPETITION: the same background image/screenshot appears across multiple frames repeatedly'}, {'frame': 7, 'issue': 'c. REPETITION: the same background image/screenshot appears across multiple frames repeatedly'}] mism=[] issues=['Repeated use of the same still image/portrait frames across the video violates the repetition checklist rule.']
+Traceback (most recent call last):
+  File "/home/runner/work/genzhype-scraper/genzhype-scraper/video_maker.py", line 10934, in main
+    make_one(post, font_path)
+  File "/home/runner/work/genzhype-scraper/genzhype-scraper/video_maker.py", line 10889, in make_one
+    raise JudgeRejected(
+JudgeRejected: vision judge rejected page 4302 (attempt 1/1): weird=[{'frame': 3, 'issue': 'c. REPETITION: the same background image/screenshot appears across multiple frames repeatedly'}, {'frame': 7, 'issue': 'c. REPETITION: the same background image/screenshot appears across multiple frames repeatedly'}] mism=[] issues=['Repeated use of the same still image/portrait frames across the video violates the repetition checklist rule.']
+2026-10-16 22:57:48,252 INFO job feed from repo branch (generated 2026-10-16T22:50:12+00:00)
+2026-10-16 22:57:48,252 INFO job from static feed (generated 2026-10-16T22:50:12+00:00)
+2026-10-16 22:57:48,252 INFO processing page_id=376 slug=viral-woman-s-immigration-remarks
+2026-10-16 22:57:48,252 INFO STYLE rapid: lead=receipts cuts~1.0s xfade=0.00 zoom=0.20 punch=1.22 bgm_2 evidence_cap=3 footage_consec=2
+2026-10-16 22:57:48,252 INFO voice: en-US-BrianMultilingualNeural
+2026-10-16 22:57:48,252 INFO STAGE: visuals
+2026-10-16 22:57:48,252 INFO PROVENANCE: 1 clip(s) were embedded by reporters in this story's own articles; the footage gate cannot veto those
+2026-10-16 22:57:48,253 INFO story clips available: 7 (tiktok, youtube)
+2026-10-16 22:57:48,254 INFO trimmed letterbox (480, 360) -> (480, 270): https://i.ytimg.com/vi/f8ky2So9yZw/hqdefault.jpg
+2026-10-16 22:57:48,257 INFO CONTAIN MODE: 480x270 needs 7.1x upscale to cover; rendering whole on a blurred fill instead
+2026-10-16 22:57:50,704 INFO vision rotation: still-relevance served by gemini-3.5-flash-lite
+2026-10-16 22:57:50,705 INFO STILL GATE: judged off-topic, dropped: https://i.ytimg.com/vi/f8ky2So9yZw/hqdefault.jpg
+2026-10-16 22:57:50,724 INFO CONTAIN MODE: 1200x800 needs 2.4x upscale to cover; rendering whole on a blurred fill instead
+2026-10-16 22:57:50,741 INFO face detected in vis-376-1: 67x79 at (370,190)
+2026-10-16 22:57:53,152 INFO vision rotation: still-relevance served by gemini-3.5-flash-lite
+2026-10-16 22:57:53,153 INFO STILL GATE: judged off-topic, dropped: https://americancommunitymedia.org/wp-content/uploads/2025/05/jason-leung-nxDCTfvXzys-unsplash-scale
+2026-10-16 22:57:53,167 INFO trimmed letterbox (1200, 630) -> (1135, 586): https://genzhype.com/assets/covers/viral-woman-s-immigration-remarks.png
+2026-10-16 22:57:53,169 INFO text-heavy visual (heuristic) -> contain mode (no crop/zoom): https://genzhype.com/assets/covers/viral-woman-s-immigration-remarks.png
+2026-10-16 22:57:57,978 INFO openverse: 7 modifiable-licence photos for 'Woman's Immigration Remarks'
+2026-10-16 22:58:00,783 INFO vision rotation: still-relevance served by gemini-3.5-flash-lite
+2026-10-16 22:58:00,784 INFO openverse candidate rejected (not this story): https://live.staticflickr.com/5726/21632705371_b7934e7496_b.jpg
+2026-10-16 22:58:03,506 INFO vision rotation: still-relevance served by gemini-3.5-flash-lite
+2026-10-16 22:58:03,507 INFO openverse candidate rejected (not this story): https://live.staticflickr.com/5786/21435743910_a01eca99ef_b.jpg
+2026-10-16 22:58:03,704 WARNING visual too small (240x126), dropped: https://live.staticflickr.com/65535/52074684722_3525af3b84_m.jpg
+2026-10-16 22:58:03,921 INFO trimmed letterbox (1024, 682) -> (911, 442): https://live.staticflickr.com/5333/8879925875_1509e43970_b.jpg
+2026-10-16 22:58:06,614 INFO vision rotation: still-relevance served by gemini-3.5-flash-lite
+2026-10-16 22:58:06,615 INFO openverse candidate rejected (not this story): https://live.staticflickr.com/5333/8879925875_1509e43970_b.jpg
+2026-10-16 22:58:08,187 INFO vision rotation: still-relevance served by gemini-3.5-flash-lite
+2026-10-16 22:58:08,188 INFO openverse candidate rejected (not this story): https://live.staticflickr.com/2830/9340333487_67d7371040_b.jpg
+2026-10-16 22:58:10,205 INFO vision rotation: still-relevance served by gemini-3.5-flash-lite
+2026-10-16 22:58:10,206 INFO openverse candidate rejected (not this story): https://upload.wikimedia.org/wikipedia/commons/7/75/Jean_Lumb_Plaque_-_Chinese_Version_-_D
+2026-10-16 22:58:14,409 INFO vision rotation: still-relevance served by gemini-3.5-flash-lite
+2026-10-16 22:58:14,410 INFO openverse candidate rejected (not this story): https://upload.wikimedia.org/wikipedia/commons/7/76/Jean_Lumb_Plaque_-_Chinese_Version_-_D
+2026-10-16 22:58:14,410 INFO visual pool: 1 distinct of 3 candidates (0 from people, 0 name(s) mapped: {})
+2026-10-16 22:58:14,410 INFO STAGE: receipts
+2026-10-16 22:58:14,497 INFO receipts: 4 card(s) downloaded of 7 entries (event entries carry no card by design)
+2026-10-16 22:58:14,497 INFO STAGE: screenshots
+2026-10-16 22:58:14,869 INFO Readability injected from vendor/Readability.js
+2026-10-16 22:58:17,980 INFO screenshot: DEAD PAGE (http 404, title 'The Daily Dot | Page Not Found') — the source itself is gone, not a detection failure: https://dailydot.com/woman-says-asians-can-stay-in-the-us-others-should-be-evalu
+2026-10-16 22:58:26,978 INFO screenshot: no headline block found; skipping (no raw-page fallback): https://americancommunitymedia.org/immigration/asian-americans-left-out-of-immigration-deb
+2026-10-16 22:58:27,026 INFO screenshot: 1 page(s) showed no headline at 760px; re-shooting at desktop 1440px
+2026-10-16 22:58:27,403 INFO Readability injected from vendor/Readability.js
+2026-10-16 22:58:35,636 INFO Readability column 624..1416 (33 nodes) on https://americancommunitymedia.org/immigration/asian-am
+2026-10-16 22:58:35,643 INFO crop r30c: 1440x1800 at 0,300 (col 1392, lead-img False) https://americancommunitymedia.org/immigration/asian-america
+2026-10-16 22:58:40,620 INFO vision rotation: screenshot-clean served by gemini-3.5-flash-lite
+2026-10-16 22:58:40,621 INFO SHOT AD-GATE: ad/merch-cluttered screenshot rejected (shot-376-2.png)
+2026-10-16 22:58:40,668 INFO event receipts: 0 clean screenshot(s), 1 og report photo(s); the rest fall back to subject photos
+2026-10-16 22:58:40,668 INFO STAGE: tts
+2026-10-16 22:58:42,041 INFO expressive TTS: segment 1/2 rate=+18% pitch=+2Hz 4.78s 9 cue(s)
+2026-10-16 22:58:51,925 INFO expressive TTS: segment 2/2 rate=+5% pitch=- 23.35s 54 cue(s)
+2026-10-16 22:58:52,204 INFO expressive TTS ok: 2 segment(s), 28.18s audio, 63 word timings
+2026-10-16 22:58:52,204 INFO STAGE: compose
+2026-10-16 22:58:52,204 INFO bgm: SIGNATURE bed bgm_2.mp3 (same on every video, by design)
+2026-10-16 22:58:52,204 INFO ALIGNMENT: 61/62 tokens cue-matched (98%); largest interpolated gap 2 words
+2026-10-16 22:58:52,205 INFO EDL: 13 shot(s) from 13 directed (words=62)
+2026-10-16 22:58:52,455 INFO CLIP staged by the server: 7fa7947681dee8a9bd2d83496f6f483c8af2f698.mp4 (https://www.tiktok.com/@jeawok_media/video/75128254340446815)
+2026-10-16 22:59:32,819 INFO vision footage-relevance: gemini-flash-latest failed (HTTPSConnectionPool(host='generativelanguage.googleapis.com', port=443): Read timed out. (read timeout=40))
+2026-10-16 23:00:12,877 INFO vision footage-relevance: gemma-4-31b-it failed (HTTPSConnectionPool(host='generativelanguage.googleapis.com', port=443): Read timed out. (read timeout=40))
+2026-10-16 23:00:13,755 INFO vision rotation: footage-relevance served by gemini-3.5-flash-lite
+2026-10-16 23:00:16,229 INFO face detected in clipfr-1.jpg: 277x383 at (488,306)
+2026-10-16 23:00:16,405 INFO clip frame too similar to one already kept; skipped
+2026-10-16 23:00:16,429 INFO clip frame too similar to one already kept; skipped
+2026-10-16 23:00:16,442 INFO clip frame too similar to one already kept; skipped
+2026-10-16 23:00:16,442 INFO CLIP FRAMES: +2 stills harvested from the money-moment clip (pool 1 -> 3)
+2026-10-16 23:00:16,442 INFO HOOK = OPENING CLIP: 7fa7947681dee8a9bd2d83496f6f483c8af2f698.mp4 (t=0s)
+2026-10-16 23:00:16,443 INFO CLIP FIT: no clip's title matches scene 2's words ('her immigration video sparked controversy.'); the planned still stands
+2026-10-16 23:00:16,454 INFO receipt 2 -> og report photo (photo scene)
+2026-10-16 23:00:16,454 INFO CLIP FIT: no clip's title matches scene 3's words ('Daily Dot reported on July 13'); the planned still stands
+2026-10-16 23:00:16,454 INFO CLIP FIT: no clip's title matches scene 4's words ('that the clip ignited heated debate'); the planned still stands
+2026-10-16 23:00:16,454 INFO receipt 0 missing/unresolved; subject photo fallback
+2026-10-16 23:00:16,454 INFO IMAGE CAP: every real image fills 2 shot(s); a repeat is the last resort
+2026-10-16 23:00:16,815 INFO broll search 'phone screen displaying a TikTok video with rising view count': 15 candidate(s)
+2026-10-16 23:00:17,179 INFO broll matched 'phone screen displaying a TikTok video with rising view count' (16.0s clip for 1.9s beat, pexels)
+2026-10-16 23:00:17,179 INFO tiny pool (3 distinct): stock variety instead of a repeat (scene 5)
+2026-10-16 23:00:17,180 INFO receipt 2 repeats within 3 scenes; subject photo fallback
+2026-10-16 23:00:17,180 INFO receipt 2 missing/unresolved; subject photo fallback
+2026-10-16 23:00:17,180 INFO IMAGE CAP: every real image fills 2 shot(s); a repeat is the last resort
+2026-10-16 23:00:17,180 INFO CLIP FIT: no clip's title matches scene 6's words ('By July 14,'); the planned still stands
+2026-10-16 23:00:17,180 INFO IMAGE CAP: every real image fills 2 shot(s); a repeat is the last resort
+2026-10-16 23:00:17,650 INFO broll search 'split-screen of TikTok and Twitter feeds showing comment threads': 15 candidate(s)
+2026-10-16 23:00:17,651 INFO broll cache HIT: broll-dcbfcab76b895225dcba1eef49e0dfb2.mp4
+2026-10-16 23:00:17,651 INFO broll matched 'split-screen of TikTok and Twitter feeds showing comment threads' (54.0s clip for 2.3s beat, pexels)
+2026-10-16 23:00:17,651 INFO tiny pool (3 distinct): stock variety instead of a repeat (scene 7)
+2026-10-16 23:00:17,651 INFO receipt 0 missing/unresolved; subject photo fallback
+2026-10-16 23:00:17,651 INFO IMAGE CAP: every real image fills 2 shot(s); a repeat is the last resort
+2026-10-16 23:00:17,651 INFO CLIP FIT: no clip's title matches scene 8's words ('of users sharing supportive'); the planned still stands
+2026-10-16 23:00:17,651 INFO IMAGE CAP: every real image fills 2 shot(s); a repeat is the last resort
+2026-10-16 23:00:18,006 INFO broll search 'animated bar chart showing immigrants' net positive fiscal impact': 13 candidate(s)
+2026-10-16 23:00:18,328 INFO broll matched 'animated bar chart showing immigrants' net positive fiscal impact' (15.0s clip for 1.6s beat, pexels)
+2026-10-16 23:00:18,328 INFO tiny pool (3 distinct): stock variety instead of a repeat (scene 9)
+2026-10-16 23:00:18,328 INFO receipt 2 -> og report photo (photo scene)
+2026-10-16 23:00:18,329 INFO CLIP FIT: no clip's title matches scene 10's words ('Experts highlighted that her comments'); the planned still stands
+2026-10-16 23:00:18,329 INFO IMAGE CAP: every real image fills 2 shot(s); a repeat is the last resort
+2026-10-16 23:00:18,329 INFO CLIP FIT: no clip's title matches scene 11's words ("ignored immigrants' net positive fiscal impact."); the planned still stands
+2026-10-16 23:00:18,329 INFO receipt 0 missing/unresolved; subject photo fallback
+2026-10-16 23:00:18,329 INFO IMAGE CAP: every real image fills 2 shot(s); a repeat is the last resort
+2026-10-16 23:00:18,329 INFO CLIP FIT: no clip's title matches scene 12's words ('Her video sparked the controversy—so,'); the planned still stands
+2026-10-16 23:00:18,329 INFO IMAGE CAP: every real image fills 2 shot(s); a repeat is the last resort
+2026-10-16 23:00:19,075 INFO broll matched 'phone screen displaying a TikTok video with rising view count' (58.0s clip for 3.1s beat, pexels)
+2026-10-16 23:00:19,075 INFO tiny pool (3 distinct): stock variety instead of a repeat (scene 13)
+2026-10-16 23:00:19,079 INFO REPEAT HOLD: 0 beat(s) moved to a picture with a use left, 1 held on the previous picture (cap 2 shots)
+2026-10-16 23:00:19,079 INFO RENDER REPORT: {"style": "rapid", "ck_mode": true, "cookie_bytes": 3003, "story_vids": 0, "scenes": 12, "runtime_s": 28.6, "footage_scenes": 1, "gap_fill_scenes": 0, "opportunistic_footage": 1, "still_photo_scenes": 7, "card_scenes": 0, "frozen_stills": 0, "footage_fetches": 0, "seq": "fsssssssssss"}
+2026-10-16 23:00:19,079 INFO CLIP verify disabled (VIDEO_CLIP_VERIFY=0)
+2026-10-16 23:00:19,079 INFO scene plan (v4 EDL): 12 scene(s) (0 receipt, 5 b-roll), pool=3
+2026-10-16 23:00:19,079 INFO   scene 1: 0.00-1.94s type=broll(FOOTAGE) motion=punch_build sfx=none music=bed visual=7fa7947681dee8a9bd2d83496f6f483c8af2f698.mp4
+2026-10-16 23:00:19,079 INFO   scene 2: 1.94-4.56s type=photo motion=punch_hit sfx=none music=bed visual=clipfr-0.jpg
+2026-10-16 23:00:19,079 INFO   scene 3: 4.56-6.76s type=photo motion=zoom_out sfx=none music=bed visual=receipt-og-376-2.jpg
+2026-10-16 23:00:19,079 INFO   scene 4: 6.76-8.54s type=photo motion=pan_left sfx=none music=bed visual=clipfr-1.jpg
+2026-10-16 23:00:19,080 INFO   scene 5: 8.54-10.40s type=broll motion=pan_right sfx=none music=bed visual=broll-3e95a3e7843f5e07cbc9a332207964b5.mp4
+2026-10-16 23:00:19,080 INFO   scene 6: 10.40-11.96s type=photo motion=punch_build sfx=whoosh music=bed visual=clipfr-0.jpg
+2026-10-16 23:00:19,080 INFO   scene 7: 11.96-14.30s type=broll motion=punch_hit sfx=none music=bed visual=broll-dcbfcab76b895225dcba1eef49e0dfb2.mp4
+2026-10-16 23:00:19,080 INFO   scene 8: 14.30-15.77s type=photo motion=zoom_out sfx=none music=bed visual=clipfr-1.jpg
+2026-10-16 23:00:19,080 INFO   scene 9: 15.77-17.38s type=broll motion=pan_left sfx=riser music=silence visual=broll-1f170effbea3978d7a4eb4e90000d690.mp4
+2026-10-16 23:00:19,080 INFO   scene 10: 17.38-22.36s type=photo motion=pan_right sfx=impact music=duck visual=receipt-og-376-2.jpg
+2026-10-16 23:00:19,080 INFO   scene 11: 22.36-25.52s type=photo motion=punch_hit sfx=whoosh music=bed visual=clipfr-1.jpg
+2026-10-16 23:00:19,080 INFO   scene 12: 25.52-28.63s type=broll motion=zoom_out sfx=none music=bed visual=broll-447c9da33c2eb311e436f79081ff2d96.mp4
+2026-10-16 23:00:19,080 INFO VARIETY: 1 scene(s) re-pointed (cap 2 of 7 still scenes)
+2026-10-16 23:00:19,080 INFO VARIETY: 4 distinct stills, top visual carries 2/7 (29%)
+2026-10-16 23:00:19,080 INFO SELFCHECK: repeats=0 short_scenes=none caption_cov=99% (window=3, assets=13)
+2026-10-16 23:00:19,080 WARNING SELFCHECK: 1 near-repeat(s) within the 3-scene window (small pool; each reappears with different motion) — non-fatal
+2026-10-16 23:00:20,482 INFO depth: clipfr-0.jpg in 0.74s
+2026-10-16 23:00:20,520 INFO DEPTH SCENE clipfr-0.jpg motion=punch_hit dur=2.6s
+2026-10-16 23:00:20,544 INFO face detected in receipt-og-376-2.jpg: 67x79 at (370,190)
+2026-10-16 23:00:21,401 INFO depth: receipt-og-376-2.jpg in 0.73s
+2026-10-16 23:00:21,438 INFO DEPTH SCENE receipt-og-376-2.jpg motion=zoom_out dur=2.2s
+2026-10-16 23:00:22,245 INFO DEPTH SCENE clipfr-0.jpg motion=punch_build dur=1.6s
+2026-10-16 23:00:23,528 INFO depth: clipfr-1.jpg in 0.73s
+2026-10-16 23:00:23,565 INFO DEPTH SCENE clipfr-1.jpg motion=zoom_out dur=1.5s
+2026-10-16 23:00:24,425 INFO DEPTH SCENE clipfr-1.jpg motion=punch_hit dur=3.2s
+2026-10-16 23:00:25,500 INFO transition 1/3: whip at 10.40s (beat change)
+2026-10-16 23:00:25,984 INFO transition 2/3: crosszoom at 22.36s (beat change)
+2026-10-16 23:00:33,022 INFO TEXT AVOID: burned-in text on 9 of 12 scene(s) (7.0s)
+2026-10-16 23:00:33,027 INFO TEXT AVOID: hook moved off burned-in text, top y 652 -> 360
+2026-10-16 23:00:33,966 INFO CAPTION PLACEMENT: 18 caption event(s) by position: {"home": 7, "top": 8, "top-least-covered": 3}
+2026-10-16 23:00:34,938 INFO bgm: SIGNATURE bed bgm_2.mp3 (same on every video, by design)
+2026-10-16 23:00:35,411 INFO sound: SWELL +5dB over 1.6s into the reveal at 17.4s, decaying 1.8s
+2026-10-16 23:00:35,436 INFO sound: bed bgm_2.mp3 over 3 interval(s), 1 swell(s)
+2026-10-16 23:00:35,987 INFO sound: 4 SFX placed
+2026-10-16 23:00:36,022 INFO sound: final -17.5 dBFS avg / -1.5 dBFS peak
+2026-10-16 23:04:07,158 INFO COMPOSE TIMING: {'prepare_s': 17.1, 'draw_encode_s': 210.9, 'remux_s': 0.1, 'scenes': 12, 'seconds': 28.6}
+2026-10-16 23:04:07,171 INFO STAGE: judge
+2026-10-16 23:04:13,995 INFO vision rotation: JUDGE served by gemini-3.5-flash-lite
+2026-10-16 23:04:13,996 INFO vision judge: pass=False weird=[{'frame': 4, 'issue': "a. CUT/UNREADABLE TEXT: on-screen text cut off mid-word (only 'tion' visible on screen)"}] mismatches=[] artifact_misses=[] scores={'readability': 7, 'framing': 8, 'variety': 6, 'edit_variety': 6, 'completeness': 7} issues=["Frame 4 has a cut/unreadable text artifact where only 'tion' is displayed."]
+2026-10-16 23:04:22,294 INFO caption font: /usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf
+2026-10-16 23:04:22,492 INFO filmstrip built: build/reject-376.jpg
+2026-10-16 23:04:22,675 INFO DIAG reject-sheet -> HTTP 403
+2026-10-16 23:04:22,764 INFO DIAG shot-376-2 -> HTTP 403
+2026-10-16 23:04:22,834 ERROR failed to make video for 376: vision judge rejected page 376 (attempt 1/1): weird=[{'frame': 4, 'issue': "a. CUT/UNREADABLE TEXT: on-screen text cut off mid-word (only 'tion' visible on screen)"}] mism=[] issues=["Frame 4 has a cut/unreadable text artifact where only 'tion' is displayed."]
+Traceback (most recent call last):
+  File "/home/runner/work/genzhype-scraper/genzhype-scraper/video_maker.py", line 10934, in main
+    make_one(post, font_path)
+  File "/home/runner/work/genzhype-scraper/genzhype-scraper/video_maker.py", line 10889, in make_one
+    raise JudgeRejected(
+JudgeRejected: vision judge rejected page 376 (attempt 1/1): weird=[{'frame': 4, 'issue': "a. CUT/UNREADABLE TEXT: on-screen text cut off mid-word (only 'tion' visible on screen)"}] mism=[] issues=["Frame 4 has a cut/unreadable text artifact where only 'tion' is displayed."]
+2026-10-16 23:04:22,899 INFO job feed from repo branch (generated 2026-10-16T22:50:12+00:00)
+2026-10-16 23:04:22,899 INFO job from static feed (generated 2026-10-16T22:50:12+00:00)
+2026-10-16 23:04:22,899 INFO processing page_id=375 slug=graham-platner-controversy
+2026-10-16 23:04:22,900 INFO page 375 is a GRAVE story: ambient bed, no whoosh/transitions, halved hook-rate boost
+2026-10-16 23:04:22,900 INFO STYLE punch: lead=faces cuts~1.5s xfade=0.08 zoom=0.16 punch=1.17 bgm_3 evidence_cap=2 footage_consec=2
+2026-10-16 23:04:22,900 INFO voice: en-US-AndrewMultilingualNeural (grave register)
+2026-10-16 23:04:22,900 INFO STAGE: visuals
+2026-10-16 23:04:22,900 INFO story clips available: 6 (tiktok, twitch)
+2026-10-16 23:04:22,900 INFO person photos from feed (site-resolved): Graham Platner x1
+2026-10-16 23:04:23,191 INFO UPSIZED: https://yt3.ggpht.com/YXYY9NwhttYvygIT3ae51IjsErDuwkcOvTBnaZJnATFRZopdFQWCjfS2Kcbjt_cprFT79JpU=s1200
+2026-10-16 23:04:23,203 INFO CONTAIN MODE: 400x400 needs 4.8x upscale to cover; rendering whole on a blurred fill instead
+2026-10-16 23:04:23,213 INFO face detected in vis-375-0: 86x123 at (174,43)
+2026-10-16 23:04:24,137 INFO UPSIZED: https://lgbtqnation-wp.b-cdn.net/assets/2025/10/graham-platner-pod-save-america.png?width=1600&height=630&aspe
+2026-10-16 23:04:24,145 INFO CONTAIN MODE: 1196x630 needs 3.0x upscale to cover; rendering whole on a blurred fill instead
+2026-10-16 23:04:24,155 INFO face detected in vis-375-1: 378x558 at (397,77)
+2026-10-16 23:04:25,565 INFO vision rotation: still-relevance served by gemini-3.5-flash-lite
+2026-10-16 23:04:32,290 WARNING visual download failed (requests HTTP 403): https://www.ap.org/wp-content/uploads/2026/07/Election_2026_Maine_Senate_26161070340162.jpg
+2026-10-16 23:04:32,305 INFO trimmed letterbox (1200, 630) -> (1135, 586): https://genzhype.com/assets/covers/graham-platner-controversy.png
+2026-10-16 23:04:32,307 INFO text-heavy visual (heuristic) -> contain mode (no crop/zoom): https://genzhype.com/assets/covers/graham-platner-controversy.png
+2026-10-16 23:04:32,383 INFO openverse top-up skipped: nothing left to search for once the people are removed, and a name returns strangers
+2026-10-16 23:04:32,383 INFO visual pool: 3 distinct of 4 candidates (1 from people, 1 name(s) mapped: {'graham platner': 1})
+2026-10-16 23:04:32,383 INFO SUBJECT ON SCREEN: headline names ['Graham Platner']; verified picture(s) for ['Graham Platner']
+2026-10-16 23:04:32,383 INFO visual_i 0 ready (cover photo of the story)
+2026-10-16 23:04:32,383 INFO STAGE: receipts
+2026-10-16 23:04:32,441 INFO receipts: 2 card(s) downloaded of 5 entries (event entries carry no card by design)
+2026-10-16 23:04:32,441 INFO STAGE: screenshots
+2026-10-16 23:04:32,810 INFO Readability injected from vendor/Readability.js
+2026-10-16 23:04:50,826 INFO screenshot: no ON-TOPIC headline (['graham', 'platner', 'controversy']) on https://www.lgbtqnation.com/2026/03/dem-senate-candidate-shares-post-f; skipping
+2026-10-16 23:04:59,981 INFO screenshot: no headline block found; skipping (no raw-page fallback): https://www.ap.org/news-highlights/elections/2026/democrat-graham-platner-says-he-plans-to
+2026-10-16 23:05:00,085 INFO screenshot: 3 page(s) showed no headline at 760px; re-shooting at desktop 1440px
+2026-10-16 23:05:00,473 INFO Readability injected from vendor/Readability.js
+2026-10-16 23:05:17,776 INFO screenshot: no headline block found; skipping (no raw-page fallback): https://www.lgbtqnation.com/2026/03/dem-senate-candidate-shares-post-from-anti-lgbtq-influ
+2026-10-16 23:05:26,912 INFO screenshot: no headline block found; skipping (no raw-page fallback): https://www.ap.org/news-highlights/elections/2026/democrat-graham-platner-says-he-plans-to
+2026-10-16 23:05:27,117 INFO UPSIZED: https://lgbtqnation-wp.b-cdn.net/assets/2025/10/graham-platner-pod-save-america.png?width=1600&height=630&aspe
+2026-10-16 23:05:33,784 WARNING visual download failed (requests HTTP 403): https://www.ap.org/wp-content/uploads/2026/07/Election_2026_Maine_Senate_26161070340162.jpg
+2026-10-16 23:05:40,407 WARNING visual download failed (requests HTTP 403): https://www.ap.org/wp-content/uploads/2026/07/Election_2026_Maine_Senate_26161070340162.jpg
+2026-10-16 23:05:40,408 INFO event receipts: 0 clean screenshot(s), 1 og report photo(s); the rest fall back to subject photos
+2026-10-16 23:05:40,408 INFO STAGE: tts
+2026-10-16 23:05:46,799 INFO expressive TTS: segment 1/2 rate=+11% pitch=- 7.39s 15 cue(s)
+2026-10-16 23:05:58,499 INFO expressive TTS: segment 2/2 rate=+5% pitch=- 18.82s 44 cue(s)
+2026-10-16 23:05:58,767 INFO expressive TTS ok: 2 segment(s), 26.26s audio, 59 word timings
+2026-10-16 23:05:58,767 INFO STAGE: compose
+2026-10-16 23:05:58,767 INFO bgm (GRAVE story -> ambient bed): .social/bgm/bgm_1.mp3
+2026-10-16 23:05:58,767 INFO EDL: 8 shot(s) from 8 directed (words=59)
+2026-10-16 23:06:01,241 INFO CLIP tiktok -> clip-tiktok-d942fc771488.mp4 (https://www.tiktok.com/@worldsgreatestdadpod/video/764235607)
+2026-10-16 23:06:06,703 INFO FOOTAGE GATE: off-topic clip rejected (clip-tiktok-d942fc771488.mp4)
+2026-10-16 23:06:06,703 INFO HOOK: candidate unavailable (off-topic); trying next
+2026-10-16 23:06:06,703 INFO CLIP staged by the server: e128c45ac3d943be631349e646b31cf2597c3e70.mp4 (https://clips.twitch.tv/StupidWanderingPorcupineBloodTrail-g)
+2026-10-16 23:06:14,553 INFO clip frame skipped: a face is cut by the frame's own edge (clipfr-0.jpg)
+2026-10-16 23:06:14,558 INFO clip frame skipped: a face is cut by the frame's own edge (clipfr-1.jpg)
+2026-10-16 23:06:14,563 INFO clip frame skipped: a face is cut by the frame's own edge (clipfr-2.jpg)
+2026-10-16 23:06:14,578 INFO face detected in clipfr-3.jpg: 156x209 at (840,123)
+2026-10-16 23:06:14,688 INFO CLIP FRAMES: +1 stills harvested from the money-moment clip (pool 3 -> 4)
+2026-10-16 23:06:14,688 INFO HOOK = OPENING CLIP: e128c45ac3d943be631349e646b31cf2597c3e70.mp4 (t=0s)
+2026-10-16 23:06:14,694 INFO person shot -> Graham Platner's photo 1/1 (vis-375-0)
+2026-10-16 23:06:14,694 INFO CLIP FIT: no clip's title matches scene 2's words ('of sexual assault, according to local news recen'); the planned still stands
+2026-10-16 23:06:14,694 INFO receipt 1 missing/unresolved; subject photo fallback
+2026-10-16 23:06:14,700 INFO CLIP FIT: no clip's title matches scene 3's words ('He had won the Democratic primary on June'); the planned still stands
+2026-10-16 23:06:14,700 INFO person 'Graham Platner': all 1 photo(s) inside the no-repeat window; LRU pool pick instead
+2026-10-16 23:06:14,704 INFO receipt 0 -> og report photo (photo scene)
+2026-10-16 23:06:14,705 INFO CLIP FIT: no clip's title matches scene 5's words ('On July 14, 2026, Platner announced he would'); the planned still stands
+2026-10-16 23:06:14,705 INFO person shot -> Graham Platner's photo 1/1 (vis-375-0)
+2026-10-16 23:06:14,706 INFO CLIP FIT: no clip's title matches scene 6's words ('withdraw from the race, citing the allegations a'); the planned still stands
+2026-10-16 23:06:14,706 INFO visual_i 0 -> real story image (vis-375-3)
+2026-10-16 23:06:14,710 INFO CLIP FIT: no clip's title matches scene 7's words ('the controversy over his past.'); the planned still stands
+2026-10-16 23:06:14,710 INFO person 'Graham Platner': all 1 photo(s) inside the no-repeat window; LRU pool pick instead
+2026-10-16 23:06:14,710 INFO CLIP FIT: no clip's title matches scene 8's words ('Was withdrawing the right decision for Platner?'); the planned still stands
+2026-10-16 23:06:14,711 INFO RENDER REPORT: {"style": "punch", "ck_mode": true, "cookie_bytes": 3003, "story_vids": 0, "scenes": 8, "runtime_s": 26.7, "footage_scenes": 1, "gap_fill_scenes": 0, "opportunistic_footage": 1, "still_photo_scenes": 7, "card_scenes": 1, "frozen_stills": 0, "footage_fetches": 1, "seq": "fssssscs"}
+2026-10-16 23:06:14,711 INFO CLIP verify disabled (VIDEO_CLIP_VERIFY=0)
+2026-10-16 23:06:14,711 INFO scene plan (v4 EDL): 8 scene(s) (0 receipt, 1 b-roll), pool=4
+2026-10-16 23:06:14,711 INFO   scene 1: 0.00-3.70s type=broll(FOOTAGE) motion=punch_build sfx=pop music=bed visual=e128c45ac3d943be631349e646b31cf2597c3e70.mp4
+2026-10-16 23:06:14,711 INFO   scene 2: 3.70-7.19s type=photo motion=zoom_out sfx=none music=bed visual=vis-375-0
+2026-10-16 23:06:14,711 INFO   scene 3: 7.19-9.59s type=photo motion=pan_left sfx=none music=bed visual=vis-375-1
+2026-10-16 23:06:14,711 INFO   scene 4: 9.59-14.66s type=photo motion=punch_build sfx=none music=bed visual=clipfr-3.jpg
+2026-10-16 23:06:14,711 INFO   scene 5: 14.66-18.43s type=photo motion=zoom_out sfx=pop music=bed visual=receipt-og-375-0.jpg
+2026-10-16 23:06:14,711 INFO   scene 6: 18.43-21.47s type=photo motion=pan_right sfx=none music=bed visual=vis-375-0
+2026-10-16 23:06:14,711 INFO   scene 7: 21.47-23.58s type=photo motion=contain sfx=none music=bed visual=vis-375-3
+2026-10-16 23:06:14,711 INFO   scene 8: 23.58-26.71s type=photo motion=zoom_out sfx=none music=bed visual=clipfr-3.jpg
+2026-10-16 23:06:14,711 INFO VARIETY: 5 distinct stills, top visual carries 2/7 (29%)
+2026-10-16 23:06:14,711 INFO SELFCHECK: repeats=0 short_scenes=none caption_cov=100% (window=3, assets=8)
+2026-10-16 23:06:17,217 INFO depth: clipfr-3.jpg in 0.74s
+2026-10-16 23:06:17,256 INFO DEPTH SCENE clipfr-3.jpg motion=punch_build dur=5.1s
+2026-10-16 23:06:17,275 INFO face detected in receipt-og-375-0.jpg: 378x558 at (397,77)
+2026-10-16 23:06:18,143 INFO depth: receipt-og-375-0.jpg in 0.73s
+2026-10-16 23:06:18,181 INFO DEPTH SCENE receipt-og-375-0.jpg motion=zoom_out dur=3.8s
+2026-10-16 23:06:18,869 INFO DEPTH SCENE clipfr-3.jpg motion=zoom_out dur=3.1s
+2026-10-16 23:06:18,869 INFO GRAVE story: transitions + pattern interrupt disabled
+2026-10-16 23:06:23,626 INFO TEXT AVOID: burned-in text on 3 of 8 scene(s) (4.8s)
+2026-10-16 23:06:24,384 INFO CAPTION PLACEMENT: 17 caption event(s) by position: {"home": 13, "top": 4}
+2026-10-16 23:06:25,571 INFO bgm: SIGNATURE bed bgm_2.mp3 (same on every video, by design)
+2026-10-16 23:06:26,044 INFO sound: bed bgm_2.mp3 over 1 interval(s), 0 swell(s)
+2026-10-16 23:06:26,238 INFO sound: 2 SFX placed
+2026-10-16 23:06:26,270 INFO sound: final -17.6 dBFS avg / -1.5 dBFS peak
+2026-10-16 23:09:39,664 INFO COMPOSE TIMING: {'prepare_s': 11.7, 'draw_encode_s': 193.2, 'remux_s': 0.1, 'scenes': 8, 'seconds': 26.7}
+2026-10-16 23:09:39,668 INFO STAGE: judge
+2026-10-16 23:11:02,730 INFO vision rotation: JUDGE served by gemini-3.5-flash-lite
+2026-10-16 23:11:02,731 INFO vision judge: pass=False weird=[] mismatches=[] artifact_misses=[] scores={'readability': 9, 'framing': 9, 'variety': 4, 'edit_variety': 5, 'completeness': 8} issues=['Repetition of avatar illustration in frames 4 and 8 violates visual variety/standards.']
+2026-10-16 23:11:10,133 INFO caption font: /usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf
+2026-10-16 23:11:10,317 INFO filmstrip built: build/reject-375.jpg
+2026-10-16 23:11:10,437 INFO DIAG reject-sheet -> HTTP 403
+2026-10-16 23:11:10,502 ERROR failed to make video for 375: vision judge rejected page 375 (attempt 1/1): weird=[] mism=[] issues=['Repetition of avatar illustration in frames 4 and 8 violates visual variety/standards.']
+Traceback (most recent call last):
+  File "/home/runner/work/genzhype-scraper/genzhype-scraper/video_maker.py", line 10934, in main
+    make_one(post, font_path)
+  File "/home/runner/work/genzhype-scraper/genzhype-scraper/video_maker.py", line 10889, in make_one
+    raise JudgeRejected(
+JudgeRejected: vision judge rejected page 375 (attempt 1/1): weird=[] mism=[] issues=['Repetition of avatar illustration in frames 4 and 8 violates visual variety/standards.']
+2026-10-16 23:11:10,563 INFO done. made 0 video(s), 3 failed
