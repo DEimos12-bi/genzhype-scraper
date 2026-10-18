@@ -14,6 +14,7 @@ import wave
 import numpy as np
 
 import ai
+import voicecheck
 import voicewords
 
 SR = 48000
@@ -40,7 +41,9 @@ def place_bites(plan, tl):
     return out
 
 
-async def one(takes, i, text, rate, voice):
+async def one(takes, i, text, rate, voice, script=None):
+    """One take by the online voice. `text` is what it is given (a name may be respelled), `script` the line's own words:
+    the word timings are put back on those, so the captions show the real names."""
     import edge_tts
     mp3, meta = os.path.join(takes, '%02d.mp3' % i), os.path.join(takes, '%02d.json' % i)
     try:
@@ -54,6 +57,8 @@ async def one(takes, i, text, rate, voice):
                 f.write(chunk['data'])
             elif chunk['type'] == 'WordBoundary':
                 words.append({'w': chunk['text'], 's': chunk['offset'] / 1e7, 'd': chunk['duration'] / 1e7})
+    if script and script != text:
+        words = voicecheck.restore(words, script, text)
     json.dump(words, open(meta, 'w', encoding='utf-8'), ensure_ascii=False)
     return len(words)
 
@@ -65,15 +70,35 @@ def load(mp3):
     return np.frombuffer(raw, dtype=np.float32).copy()
 
 
+def sent(i, text):
+    """What the online voice is given for line i: the line, or the line with a name respelled after the ear (SEND)."""
+    x = SEND.get(str(i))
+    return x[1] if x and x[0] == text else text
+
+
 def have_take(takes, i, text, rate):
     """A take spoken before, for the same words at the same rate, is kept (a stopped run does not speak twice)."""
     tag = os.path.join(takes, '%02d.txt' % i)
     ok = os.path.isfile(os.path.join(takes, '%02d.json' % i)) and (os.path.isfile(os.path.join(takes, '%02d.mp3' % i)) or os.path.isfile(os.path.join(takes, '%02d.wav' % i)))
-    return ok and os.path.isfile(tag) and open(tag, encoding='utf-8').read() == '%s|%s' % (rate, text)
+    return ok and os.path.isfile(tag) and open(tag, encoding='utf-8').read() == '%s|%s' % (rate, sent(i, text))
 
 
 def mark_take(takes, i, text, rate):
-    open(os.path.join(takes, '%02d.txt' % i), 'w', encoding='utf-8').write('%s|%s' % (rate, text))
+    open(os.path.join(takes, '%02d.txt' % i), 'w', encoding='utf-8').write('%s|%s' % (rate, sent(i, text)))
+
+
+def take_files(takes, i):
+    return [os.path.join(takes, '%02d.%s' % (i, x)) for x in ('mp3', 'wav', 'json', 'txt')]
+
+
+def drop_take(takes, i):
+    for f in take_files(takes, i):
+        if os.path.exists(f):
+            os.remove(f)
+
+
+def is_local(takes, i):
+    return os.path.isfile(os.path.join(takes, '%02d.wav' % i))
 
 
 def fallback_batch(takes, jobs):
@@ -101,6 +126,8 @@ def fallback_batch(takes, jobs):
 
 BUDGET = {'t0': time.time(), 's': None}
 SAID = {}                    # how this script's names are said (voicewords.py)
+SEND = {}                    # {line index: [the line, what the online voice is given]} when the ear made a name be respelled
+LOCAL = {'on': False}        # one voice per video: once the local voice speaks a line, it speaks them all
 
 
 def over():
@@ -127,7 +154,8 @@ def chunk_size(takes=None):
 
 def speak(takes, lines):
     spoken = {i for i, (lid, text, rate, _) in enumerate(lines) if have_take(takes, i, text, rate)}
-    refused = []
+    LOCAL['on'] = LOCAL['on'] or any(is_local(takes, i) for i in spoken)
+    refused = ['the local voice speaks this video'] if LOCAL['on'] else []
 
     async def synth():
         for i, (lid, text, rate, _) in enumerate(lines):
@@ -135,21 +163,30 @@ def speak(takes, lines):
                 continue
             if refused or over():                         # the service is refusing: the rest goes to the local voice; or the time is up
                 break
-            for attempt in range(3):                      # the free voice service drops a request now and then
+            for attempt in range(4):                      # the free voice service drops a request now and then ("no audio received")
                 try:
-                    if await one(takes, i, text, '%+d%%' % rate, ai.CONFIG['voice']) > 0:
+                    if await one(takes, i, sent(i, text), '%+d%%' % rate, ai.CONFIG['voice'], text) > 0:
                         mark_take(takes, i, text, rate)
                         spoken.add(i)
                         break
                 except Exception as e:  # noqa: BLE001
-                    if attempt == 2:
+                    if attempt == 3:
                         refused.append(str(e)[:80])
                         break
-                    await asyncio.sleep(2)
+                    await asyncio.sleep(2 + 2 * attempt)
     asyncio.run(synth())
+    online = [i for i in spoken if not is_local(takes, i)]
+    if refused and online:                                # two voices in one video sound like two videos: the local voice says it all
+        print('voice: one voice per video: the %d line(s) the online voice spoke are spoken again by the local voice' % len(online), flush=True)
+        for i in online:
+            drop_take(takes, i)
+        spoken -= set(online)
+    if refused:
+        LOCAL['on'] = True
     left = [i for i in range(len(lines)) if i not in spoken]
     if left and refused:
-        print('voice: the online voice refuses (%s); the local voice speaks %d line(s)' % (refused[0], len(left)), flush=True)
+        print(('voice: the local voice speaks %d line(s)' % len(left)) if LOCAL['on'] and refused[0].startswith('the local voice') else
+              'voice: the online voice refuses (%s); the local voice speaks %d line(s)' % (refused[0], len(left)), flush=True)
     while left and refused:
         if over():
             break
@@ -189,9 +226,135 @@ def speak(takes, lines):
     return np.concatenate(out), tl, t
 
 
+def keep_aside(takes, i):
+    for f in take_files(takes, i):
+        if os.path.exists(f):
+            os.replace(f, f + '.best')
+
+
+def back(takes, i):
+    """The take kept aside comes back (the new one was not better, or was cut off)."""
+    if not any(os.path.exists(f + '.best') for f in take_files(takes, i)):
+        return
+    drop_take(takes, i)
+    for f in take_files(takes, i):
+        if os.path.exists(f + '.best'):
+            os.replace(f + '.best', f)
+
+
+def hear_back(takes, lines, about, log):
+    """Every take with a word the voice had to guess is heard back (voicecheck.py). A name that did not come back is said
+    again another way, twice at most, and the new take is kept only when the ear hears it better.
+    -> True when a take changed (the voice-over is put together again)."""
+    import ears
+    hfile = os.path.join(takes, 'heard.json')
+    try:
+        book = json.load(open(hfile, encoding='utf-8'))
+    except Exception:  # noqa: BLE001
+        book = {}
+    book.setdefault('heard', {})
+    book.setdefault('tries', {})
+    save = lambda: json.dump(book, open(hfile, 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
+    for i in range(len(lines)):                           # a try cut off by the end of a call: the take before it comes back
+        back(takes, i)
+    tag = lambda i: open(take_files(takes, i)[3], encoding='utf-8').read()
+    audio = lambda i: next(f for f in take_files(takes, i)[:2] if os.path.isfile(f))
+
+    def hear(idx):
+        need = [i for i in idx if tag(i) not in book['heard']]
+        if not need:
+            return True
+        if over():
+            log('voice: stopped before hearing the takes back; run again')
+            raise SystemExit(3)
+        got = ears.heard([audio(i) for i in need], log, lang='en', min_p=0)
+        if not got:
+            return False
+        for i in need:
+            h = got.get(os.path.basename(audio(i)))
+            if h is not None:
+                ws = [w[0] for w in h['words']]
+                book['heard'][tag(i)] = {'missed': voicecheck.missed(lines[i][1], ws), 'heard': ' '.join(ws)}
+        save()
+        return True
+
+    todo = [i for i, l in enumerate(lines) if voicecheck.risky(l[1])]
+    if not todo:
+        return False
+    if not hear(todo):
+        log('voice: no ear on this machine: the names are not heard back')
+        return False
+    bad = lambda i: (book['heard'].get(tag(i)) or {}).get('missed') or []
+    flagged = [i for i in todo if bad(i)]
+    log('voice: %d take(s) with names heard back; %s' % (len(todo), 'every name came back' if not flagged else 'did not come back: ' + '; '.join(
+        '%s (heard "%s")' % (x['word'], x['heard'][:40]) for i in flagged for x in bad(i))))
+    changed, sure = False, book.setdefault('sure', {})    # sure: {name: its IPA or respelling} once the ear heard it right in one line
+    for i in todo:
+        while bad(i) and book['tries'].get(str(i), 0) < 2:
+            k = book['tries'].get(str(i), 0)
+            if over():                                    # a try is only started when it can end in this call
+                log('voice: stopped before saying a name again; run again')
+                raise SystemExit(3)
+            miss, text = bad(i), lines[i][1]
+            words, heard = [x['word'] for x in miss], {x['word']: x['heard'] for x in miss}
+            old_send, old_said = SEND.get(str(i)), dict(SAID)
+            if is_local(takes, i):                        # the local voice reads sounds: the sounds are asked again
+                new = {w.lower(): sure[w] for w in words if w in sure} if k == 0 and all(w in sure for w in words) else voicewords.relearn(words, about, heard, log)
+                if not new:
+                    break
+                SAID.update(new)
+                how = ', '.join('%s /%s/' % (w, new.get(w.lower(), '?')) for w in words)
+            else:                                         # the online voice reads text: the name is respelled
+                sp = {} if all(w in sure for w in words) and k == 0 else voicecheck.respellings(words, about, heard, log)
+                spell = dict(old_send[2] if old_send and old_send[0] == text and len(old_send) > 2 else {})
+                spell.update({w: sure.get(w) if k == 0 and w in sure else sp[w][min(k, len(sp[w]) - 1)] for w in words if sp.get(w) or w in sure})
+                if not any(w in spell for w in words):
+                    break
+                SEND[str(i)] = [text, voicecheck.respelled(text, spell), spell]
+                json.dump(SEND, open(os.path.join(takes, 'send.json'), 'w', encoding='utf-8'), ensure_ascii=False)
+                how = ', '.join('%s as "%s"' % (w, spell[w]) for w in words if w in spell)
+            n_old = sum(x['n'] for x in miss)            # how far off it was, in consonants
+            old_tag = tag(i)
+            old_heard = book['heard'].pop(old_tag)        # the local voice's new take carries the same tag: it must be heard anew
+            keep_aside(takes, i)
+            speak(takes, lines)                           # only this line is missing: only it is spoken
+            hear([i])
+            book['tries'][str(i)] = k + 1                 # counted once heard: a try cut off by the end of a call is tried again
+            save()
+            if sum(x['n'] for x in bad(i)) < n_old:
+                for f in take_files(takes, i):
+                    if os.path.exists(f + '.best'):
+                        os.remove(f + '.best')
+                changed = True
+                fixed = {x['word'] for x in miss} - {x['word'] for x in bad(i)}
+                sure.update({w: v for w, v in ((w, SAID.get(w.lower()) if is_local(takes, i) else (SEND.get(str(i)) or [0, 0, {}])[2].get(w)) for w in fixed) if v})
+                save()
+                log('voice: line %s said again (%s): %s' % (lines[i][0], how, 'the ear hears it now' if not bad(i) else 'better, still unsure of ' + ', '.join(x['word'] for x in bad(i))))
+            else:
+                back(takes, i)
+                book['heard'][old_tag] = old_heard
+                save()
+                SAID.clear()
+                SAID.update(old_said)
+                if old_send:
+                    SEND[str(i)] = old_send
+                else:
+                    SEND.pop(str(i), None)
+                json.dump(SEND, open(os.path.join(takes, 'send.json'), 'w', encoding='utf-8'), ensure_ascii=False)
+                log('voice: line %s said again (%s) was not heard better: the earlier take stays' % (lines[i][0], how))
+    left = [x['word'] for i in todo for x in bad(i)]
+    if left:
+        log("voice: the ear still does not hear %s; the voice's own reading stays" % ', '.join(dict.fromkeys(left)))
+    return changed
+
+
 def main(work):
     plan = json.load(open(os.path.join(work, 'plan.json'), encoding='utf-8'))
     takes = os.path.join(work, 'takes'); os.makedirs(takes, exist_ok=True)
+    try:
+        SEND.update(json.load(open(os.path.join(takes, 'send.json'), encoding='utf-8')))
+    except Exception:  # noqa: BLE001
+        pass
     lines = [[l['id'], l['text'], int(l.get('rate') or (10 if l['id'] in ('vote', 'site', 'final') else 12)),
               float(l.get('pause') or (0.5 if l['id'] == 'site' else 0.3 if l['id'] in ('vote', 'final') else 0.22))] for l in plan['lines']]
     for l, row in zip(plan['lines'], lines):                 # a bite plays in the pause after its line
@@ -209,6 +372,8 @@ def main(work):
     if os.path.isfile(rfile):                             # a slower pace was chosen in an earlier run of this step: spoken at it from the first line
         for l, r in zip(lines, json.load(open(rfile, encoding='utf-8'))):
             l[2] = r
+    for i in range(len(lines)):                           # a name said again was cut off by the end of a call: the take before it comes back first
+        back(takes, i)
     vo, tl, t = speak(takes, lines)
     passes = len(json.load(open(rfile + '.passes', encoding='utf-8'))) if os.path.isfile(rfile + '.passes') else 0
     while t + 0.45 < need and passes < 2 and any(l[2] > SLOWEST for l in lines):      # short: once or twice more, slower by what is missing (a voice does not slow in proportion)
@@ -222,6 +387,8 @@ def main(work):
         json.dump([1] * passes, open(rfile + '.passes', 'w', encoding='utf-8'))
         for l, r in zip(lines, slower):
             l[2] = r
+        vo, tl, t = speak(takes, lines)
+    if hear_back(takes, lines, plan.get('title', ''), lambda *a: print(*a, flush=True)):
         vo, tl, t = speak(takes, lines)
     vo = vo / (np.max(np.abs(vo)) + 1e-9) * 0.89
     with wave.open(os.path.join(work, 'vo.wav'), 'wb') as w:

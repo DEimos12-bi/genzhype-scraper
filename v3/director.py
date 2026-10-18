@@ -207,12 +207,16 @@ VIEWER = "WHO IS WATCHING\n" + brand.B['viewer']
 
 OPENING = """THE OPENING (line 1) decides everything
 - 2 to 5 short sentences (a fragment counts: "One problem."), 10 to 30 words in all. The FIRST sentence has 10 words at most. It puts the strangest TRUE thing of the story in front of the viewer: a number, a name, or the thing they are looking at.
+- It is built on THE FACT THE OPENING SAYS (given in the casting): that fact, with its number or its name, is in the opening.
+- SPECIFIC BEATS VIVID: a stock picture that fits any story of its kind ("the crowd was roaring", "silenced the stadium", "flipped the script", "the internet exploded", "jaws dropped") is not an opening. Say the fact only THIS story has.
+- Every sentence is literally true as said. Never fuse a picture and a fact into something that did not happen ("silenced the stadium four to one": a score does not silence anyone).
 - It shows a PERSON, a THING on screen or a NUMBER. Never a feeling or a category ("Extreme player frustration.", "Massive backlash.", "Total chaos."): nobody can see those. Say what happened to whom.
 - It makes the viewer need the next sentence. It never explains, sums up or announces ("X, explained", "here is why", "a new trend is taking over").
 - It never starts with "The", "A new", "In", "On", "Recently", a date or an outlet's name. It never orders the viewer around before showing anything ("Pick...", "Guess...", "Watch...").
 - EVERYDAY WORDS: say it the way a teenager would tell it, never with the article's term. "Taking their internet", not "manipulating bandwidth". "Still not paid", not "a compensation dispute". "One grab kills you", not "an instant death mechanic".
 - The story's best-known NAME is in the first or second sentence. It is never hidden ("one man is behind all of it", "a famous streamer").
 - A list of fragments works only when each one is a THING a camera can show ("A sleep mask. Seven live streams."). Three abstract words in a row is the weakest opening there is ("Redirected bandwidth. Lagging connections. Slower streams.").
+- The five openings you write are five DIFFERENT builds (the ways below): at most two of them may turn on "Then".
 - Six ways to build one. These are openings of OTHER stories: take the shape, never the facts.
   plain:    "This game sells a ship for seven hundred dollars. The artist who drew it was never asked."   (the claim itself, said straight: the strongest way when the fact is strange enough)
   number:   "Twenty-two million views. For a game that does not exist."
@@ -231,6 +235,8 @@ VOICE = """THE VOICE (study the examples: this exact rhythm)
 - A news outlet or a gossip site is NEVER named in the voice: it is another publisher, and the screen credits it once, small. Say "one report", "in an interview", "a gaming site". What IS named: the person's own post or clip ("his own post"), a company's own page ("its own press release"), a court, the police.
 - Do not hedge every sentence. Say where a claim comes from ONCE, where it first appears ("one report says", "the patch notes say", "in his own post"), then tell it plainly. Never say "end quote".
 - Tell the story, not our work: never mention our own checking, "we found", "unverified", "our page".
+- NO DESK PHRASES: the stock words of a sports desk or a news desk say nothing ("the Turkish giant", "silenced the crowd", "changed the entire night", "looks unstoppable", "sent a message", "a statement win"). Say what happened: who, what, the number.
+- NO OPINION the material does not hold: "unstoppable", "deserved", "the best", "will win it all" are verdicts nobody gave. A line about where things stand says the facts ("two wins from two, nine goals"), not a judgement.
 - TRUTH: use only facts that are in the material. Anything disputed, or about wrongdoing, is said with who says it ("the agent says", "police say", "reportedly", "according to one report"). A quote must be the source's real words (translated quotes: say "translated"). Never guess a person's gender: use the name or "they".
 THE FLOW (what keeps them watching; the examples do all of it)
 - EVERY LINE STARTS FROM WHAT THE VIEWER JUST HEARD, then brings the new thing. A new name never opens a line cold. Tie it to the line before with a time ("Same night,", "Four days later,"), a pointer ("That's Reggie.", "The club is Karmine Corp.", "His answer:"), a turn ("But", "Then", "So") or the question the last line left open ("His proof? Not shown.").
@@ -373,8 +379,9 @@ def listing(m):
 
 
 CAST_JOB = """You are the editor who CASTS GenZHype's TikTok videos (vertical, about a minute, footage under everything). Before a word of the script is written, you decide, from the material alone, what this video is built on. A person doing this by hand looks at everything first, then decides: what the strongest picture is, what the twist is and which picture shows it, who the players are and where each one is seen, which proofs go on screen, which numbers hit. The writer then writes TO this casting, and the picture editor follows it.
-Rules: choose ONLY among the listed ids. The opener must be clear (a moving clip of the thing itself, or a sharp close-up of a player: never a dark picture, never one with words written across it). A player is only cast when a listed picture shows them (give its id and the subject id, "s2"). The twist is the fact that turns the story, and twist_asset the listed picture that shows what the twist is about. Proofs are posts or pictures that prove a claim. Numbers only from the material, with the digits the caption shows. When a clip lists what is SAID in it and those words carry the claim, cast a "bite": the parts (ids as listed: "from" the first, "to" the last, 2 to 7.5 seconds together) that the video lets the subject say in their own voice. Choose the parts that state the claim itself, whole thoughts, not the warm-up. The shape is the order of the video in 5 to 8 steps, each tied to what is shown; it comes from THIS material (a story with the subject's own voice opens on it or turns on it; a story with a company's own page uses it as its turn), never from a habit. Strict JSON only:
+Rules: choose ONLY among the listed ids. The opener must be clear (a moving clip of the thing itself, or a sharp close-up of a player: never a dark picture, never one with words written across it). A player is only cast when a listed picture shows them (give its id and the subject id, "s2"). The twist is the fact that turns the story, and twist_asset the listed picture that shows what the twist is about. Proofs are posts or pictures that prove a claim. Numbers only from the material, with the digits the caption shows. The hook_fact is what nobody scrolling would expect: often a number COUNTED from the material makes it (how fast: minutes or days between two dated events; how many in a row; how much more than before): then say in hook_count how it was counted ("goals at 43, 50, 53 and 65 minutes: 22 minutes"). The vote is two one-word answers taken from the story's real argument, never yes / no. When a clip lists what is SAID in it and those words carry the claim, cast a "bite": the parts (ids as listed: "from" the first, "to" the last, 2 to 7.5 seconds together) that the video lets the subject say in their own voice. Choose the parts that state the claim itself, whole thoughts, not the warm-up. The shape is the order of the video in 5 to 8 steps, each tied to what is shown; it comes from THIS material (a story with the subject's own voice opens on it or turns on it; a story with a company's own page uses it as its turn), never from a habit. Strict JSON only:
 {"angle":"the story in one sentence","opener":"id","opener_why":"what it shows, 8 words","players":[{"name":"","from":"where they are from","asset":"id","focus":"s1"}],
+ "hook_fact":"THE FACT THE OPENING SAYS: the strangest true thing of this story in one plain sentence, with its number or name","hook_count":"empty, or how that number was counted from the material",
  "twist":"the fact, one sentence","twist_asset":"id","bites":[{"asset":"clip0","from":"b3","to":"b4","why":"it is the claim itself"}],"proofs":["post1","id"],"numbers":[{"say":"sixty-three million views","show":"63M VIEWS","about":"what the number is about"}],
  "shape":["step 1: what is shown and what it says","step 2","step 3","step 4","step 5","the vote"],"vote":{"question":"max 22 characters","a":"ONE WORD","b":"ONE WORD"}}"""
 
@@ -397,6 +404,9 @@ def cast(m, log=print):
         if c.get(key) not in have:
             c[key] = ''
     c['players'] = [p for p in (c.get('players') or []) if isinstance(p, dict) and p.get('name') and p.get('asset') in have][:4]
+    v = c.get('vote') or {}
+    if not isinstance(v, dict) or {norm(str(v.get('a', ''))), norm(str(v.get('b', '')))} & {'yes', 'no', 'maybe', ''}:
+        c['vote'] = {}                                         # a yes / no vote is not passed on to the writer as the choice
     c['model'] = model
     log('director: cast by %s: opens on %s (%s); players %s; twist on %s; shape: %s' % (model, c.get('opener') or '?', str(c.get('opener_why', ''))[:40],
         ', '.join('%s=%s' % (p['name'], p['asset']) for p in c['players']) or 'none', c.get('twist_asset') or '?', ' > '.join(str(x)[:28] for x in (c.get('shape') or [])[:8])))
@@ -418,6 +428,7 @@ def cast_block(c, m):
     show = lambda k: '%s (%s)' % (k, (have.get(k, {}).get('seen') or have.get(k, {}).get('eyes', {}).get('shows') or have.get(k, {}).get('about') or '')[:90]) if k else '(none cast)'
     rows = ['- the angle: %s' % c.get('angle', ''), '- open on: %s' % show(c.get('opener')),
             '- the players, and where each is seen: %s' % ('; '.join('%s = %s %s (%s)' % (p['name'], p['asset'], p.get('focus', ''), p.get('from', '')) for p in c.get('players') or []) or 'none'),
+            '- THE FACT THE OPENING SAYS: %s%s' % (c.get('hook_fact') or '(choose it from the material)', ' (counted: %s)' % c['hook_count'] if c.get('hook_count') else ''),
             '- the twist: %s, shown by %s' % (c.get('twist', ''), show(c.get('twist_asset')))]
     bites = [b for b in c.get('bites') or [] if isinstance(b, dict) and b.get('asset') in have]
     if bites:
@@ -528,7 +539,7 @@ def voice_faults(lines):
         if first.count(w) >= 3:
             out.append('%d lines start with "%s": start them differently' % (first.count(w), w))
     turn = r'(but|then|now|same|meanwhile|until|except|and then|yet|still|instead|only|because|so far|one thing|except)\b'
-    if len(lines) > 4 and not any(re.match(turn, l['text'].lower()) or re.match(r'[^.!?]{2,34}\?', l['text']) or l.get('bite') for l in lines[1:-1]):      # a turn word, a short question ("His proof?"), or the subject's own voice
+    if len(lines) > 4 and not any(any(re.match(turn, x.lower()) or re.match(r'[^.!?]{2,34}\?$', x) for x in sentences(l['text'])) or l.get('bite') for l in lines[1:-1]):      # a turn word, a short question ("His proof?"), or the subject's own voice
         out.append('the script has no turn: one line in the middle must turn the story (a "But" or "Then", a short question like "The proof?", or the subject\'s own words)')
     cold = cold_starts(lines)
     if len(cold) >= 2:                                         # a news brief: every line a new subject. A told story: every line leans on the one before
@@ -541,9 +552,15 @@ def voice_faults(lines):
     for i, l in enumerate(lines):
         if VAGUE.search(l['text']):
             out.append('line %d has words that fit any story ("%s"): say the fact itself, with its name, its number or the real words' % (i + 1, VAGUE.search(l['text']).group(0)))
+        if STOCK.search(l['text']):
+            out.append('line %d uses a desk phrase ("%s"): say what happened instead, with who, what and the number' % (i + 1, STOCK.search(l['text']).group(0)))
     return out
 
 
+STOCK = re.compile(r"\b(silenced (?:the|a|their) (?:crowd|stadium|arena|fans|haters|critics|doubters)|(?:had|got) (?:the|a) (?:home )?crowd (?:roaring|on its feet|going)|flipped the script|"
+                   r"changed the (?:entire|whole) (?:night|game|match|story)|looks? unstoppable|sent (?:a|out a) (?:message|statement|warning)|statement win|the rest is history|"
+                   r"(?:turkish|spanish|french|english|italian|german|dutch|portuguese|brazilian|american|korean|chinese|japanese|gaming|streaming|tech|esports) giants?\b|jaws? (?:dropped|on the floor)|"
+                   r"the internet (?:exploded|went wild|lost it)|broke the internet|nobody saw (?:it|this) coming|all hell broke loose)", re.I)
 HYPE = re.compile(r"\b(absolute|absolutely|massive|insane|insanely|hardcore|chaotic|pure|literally|truly|incredibl[ey]|huge|crazy|wild|shocking|stunning|epic|ultimate|unbelievable|legendary|brutal|extreme|mind-blowing|jaw-dropping)\b", re.I)
 FEELING = re.compile(r'\b(frustration|backlash|controversy|chaos|outrage|uproar|criticism|speculation|tensions?|concerns|drama|the situation)\b', re.I)
 VAGUE = re.compile(r"\b(brought (?:\w+ ){1,3}to light|came to light|broke down (?:what|how|the)|behind closed doors|rolled out (?:major|new|several)|major updates|things (?:escalated|took a turn)|"
@@ -591,8 +608,8 @@ def choose_opening(sc, m, log):
         log('director: %d openings written, %d keep the form: no choice to make; line 1 is "%s"' % (len(ops), len(good), lines[0]['text']))
         return info
     user = ('THE VIDEO IS ABOUT: %s\n%s\n\nOPENINGS\n%s\n\nScore EACH opening from 1 to 10: how likely are you to keep watching after hearing it?\n'
-            'HIGH: it says the strange thing straight, in the words I would use to tell a friend, and it names who it is about; it puts something concrete in front of me that I can picture (a thing, a number, a name), it is strange or it starts a fight I have an opinion on, and it leaves a question open.\n'
-            'LOW: it is vague ("absurd", "chaos", "endless", "sparks memes"), it names a feeling instead of a thing ("frustration", "backlash"), it is a list of abstract fragments, it hides who it is about ("one man", "a streamer"), it uses the term of an article where a plain word exists, it sums the story up, it tells me what to do before showing me anything, or it sounds like an article.\n'
+            'HIGH: it carries a fact ONLY this story has (its own number, its own name); it says the strange thing straight, in the words I would use to tell a friend, and it names who it is about; it puts something concrete in front of me that I can picture (a thing, a number, a name), it is strange or it starts a fight I have an opinion on, and it leaves a question open.\n'
+            'LOW: it paints a stock picture that fits any story of its kind ("the crowd was roaring", "silenced the stadium", "flipped the script") instead of the fact only this story has; a sentence that is not literally true as said; it is vague ("absurd", "chaos", "endless", "sparks memes"), it names a feeling instead of a thing ("frustration", "backlash"), it is a list of abstract fragments, it hides who it is about ("one man", "a streamer"), it uses the term of an article where a plain word exists, it sums the story up, it tells me what to do before showing me anything, or it sounds like an article.\n'
             'JSON: {"scores":[{"n":1,"score":7},{"n":2,"score":4}],"why":"max 12 words about the best one"}'
             % (m.get('title', ''), (m.get('summary') or '')[:300], '\n'.join('%d. %s' % (i + 1, o) for i, o in enumerate(good))))
     try:
@@ -1292,6 +1309,8 @@ def unsupported(plan, m):
         mat += '\n\nSAID IN THE STORY\'S OWN CLIPS (the subject\'s own voice):\n' + '\n'.join('%s: "%s"' % (k, t[:900]) for k, t in said_of(m).items())
     if m.get('evidence'):
         mat += '\n\nVERIFIED BY OUR RESEARCHER (each with the exact words of its page):\n' + '\n'.join('- %s — "%s" [%s]' % (e['claim'], e['quote'][:300], e['publisher']) for e in m['evidence'])
+    if (m.get('cast') or {}).get('hook_count'):               # a number counted from the material: the checker checks the count itself
+        mat += '\n\nCOUNTED FROM THE MATERIAL BY OUR EDITOR (supported only if the count is right): %s (%s)' % (m['cast'].get('hook_fact', ''), m['cast']['hook_count'])
     if shown:                                                  # what the video shows is material too: a line may say what is on screen
         mat += '\n\nTHE PICTURES THE VIDEO SHOWS (the meme itself, and posts that use it):\n' + '\n'.join(shown)
     sys_ = ('You are a strict fact checker. You get a short video script and the ONLY material it may use. List every statement in the script (spoken or on screen) that the material does not support: '
@@ -1305,6 +1324,85 @@ def unsupported(plan, m):
     vote = '' if plan.get('format') == 'slang' else str(len(plan['lines']))      # a story's last line is the vote: a question, by rule not a claim
     return ['line %s says "%s": not in the material (%s); say only what the material says, or cut it' % (p.get('line'), str(p.get('text', ''))[:70], str(p.get('why', ''))[:80])
             for p in j.get('problems', []) if isinstance(p, dict) and str(p.get('line')).strip() != vote][:8]
+
+
+EDITOR = ('You are the story editor of short TikTok voice-overs. A person who edits by hand reads every sentence and asks: does it carry something only THIS story has? '
+          'Is it literally true as said? Is it the fact, or a stock phrase or a verdict in its place? You get the script sentence by sentence and the material it was written from. '
+          'Give a verdict for EVERY sentence, one of:\n'
+          '  ok        it carries a name, a number, a thing or real words of this story, and says it plainly\n'
+          '  EMPTY     it would fit any story of its kind: no name, number, thing or real words of this one ("That changed everything.", "The fans could not believe it.")\n'
+          '  STOCK     a stock phrase of a sports or news desk where the fact should be ("silenced the crowd", "the Turkish giant", "sent a message")\n'
+          '  OPINION   a judgement or a prediction the material does not make ("looks unstoppable", "deserved it")\n'
+          '  NONSENSE  not literally true as said: it fuses a picture and a fact into something that did not happen\n'
+          '  REPEAT    it says again what an earlier sentence already said\n'
+          'A short sentence that hands over, points at the screen or asks the viewer ("Listen.", "That\'s Reggie.", "His proof? Not shown.") is ok. Strict JSON only: '
+          '{"rows":[{"id":"hook.1","v":"ok"},{"id":"hook.2","v":"STOCK","why":"max 10 words"}]}')
+
+
+def editor_faults(plan, m):
+    """The script read as an editor reads it, sentence by sentence (every row gets a verdict: asking only for the bad
+    ones found nothing). -> [faults for the corrector], or None when no model answered."""
+    rows, ids = [], {}
+    for i, l in enumerate(plan.get('lines') or []):
+        if l.get('id') in ('vote', 'site', 'final'):
+            continue
+        for k, x in enumerate(sentences(l['text']), 1):
+            rid = '%s.%d' % (l['id'], k)
+            rows.append('%s  %s' % (rid, x))
+            ids[rid] = (i, x)
+    if not rows:
+        return []
+    mat = (m.get('summary') or '')[:600] + '\n' + (m.get('page_text') or '')[:3000]
+    try:
+        j, _ = ai.ask_json(EDITOR, 'THE STORY: %s\n\nTHE MATERIAL (short):\n%s\n\nTHE SCRIPT, SENTENCE BY SENTENCE:\n%s' % (m.get('title', ''), mat, '\n'.join(rows)),
+                           kind='text', temperature=0.1, timeout=ai.CONFIG['ai'].get('timeout', 100), max_tokens=4000)
+    except ai.OutOfTime:
+        raise
+    except ai.AIError:
+        return None
+    say = {'EMPTY': 'fits any story: say a fact only this story has (its name, its number, the real words)', 'STOCK': 'a desk phrase: say what happened instead',
+           'OPINION': 'a verdict the material does not give: say the facts instead', 'NONSENSE': 'not literally true as said: say what really happened',
+           'REPEAT': 'says again what was already said: cut it or bring the next fact'}
+    out = []
+    for r in (j or {}).get('rows') or []:
+        v, rid = str((r or {}).get('v', '')).upper().strip(), str((r or {}).get('id', '')).strip()
+        if v in say and rid in ids:
+            i, x = ids[rid]
+            out.append('line %d, sentence "%s": %s%s' % (i + 1, x[:70], say[v], ' (%s)' % str(r.get('why'))[:60] if r.get('why') else ''))
+    return out[:8]
+
+
+VOTE_JOB = ('You write the last line of a TikTok voice-over: the VOTE. One question about the story\'s real argument, and two answers of ONE word each that people would really '
+            'fight over in the comments (names, sides, verdicts: never yes / no, never maybe). The line says the question, then "Comment one word.", then both answers. Strict JSON only: '
+            '{"question":"max 22 characters","a":{"word":"ONE WORD","sub":"that side in 3 words"},"b":{"word":"ONE WORD","sub":"that side in 3 words"},"say":["The question?","Comment one word.","This, or that."]}')
+
+
+def fix_vote(plan, m, log):
+    """A vote the corrections left as yes / no (or with answers the line does not say) is written again on its own."""
+    vote = plan.get('vote') or {}
+    va, vb = norm((vote.get('a') or {}).get('word', '')), norm((vote.get('b') or {}).get('word', ''))
+    last = plan['lines'][-1] if plan.get('lines') else None
+    if not last or last.get('id') != 'vote' or (va and vb and not {va, vb} & {'yes', 'no', 'maybe'} and va in norm(last['text']) and vb in norm(last['text'])):
+        return False
+    script = '\n'.join(l['text'] for l in plan['lines'][:-1])
+    try:
+        j, by = ai.ask_json(VOTE_JOB, 'THE STORY: %s\n\nTHE SCRIPT BEFORE THE VOTE:\n%s\n\nWrite the vote.' % (m.get('title', ''), script), kind='text', temperature=0.5, timeout=60, max_tokens=1500)
+        a, b = str(j['a']['word']).strip().upper(), str(j['b']['word']).strip().upper()
+        say = ' '.join(str(x).strip() for x in j['say'] if str(x).strip())
+    except ai.OutOfTime:
+        raise
+    except (ai.AIError, KeyError, TypeError):
+        return False
+    if not a or not b or {norm(a), norm(b)} & {'yes', 'no', 'maybe'} or norm(a) not in norm(say) or norm(b) not in norm(say) or 'comment' not in norm(say) or words(say) > 22:
+        log('director: the vote written again did not keep the rules; the old one stays')
+        return False
+    plan['vote'] = {'question': str(j.get('question', ''))[:22], 'a': {'word': a, 'sub': str(j['a'].get('sub', ''))[:24]}, 'b': {'word': b, 'sub': str(j['b'].get('sub', ''))[:24]}}
+    last['text'] = say
+    if last.get('beats'):                                      # the vote's sentences, each on the vote's picture
+        pic = last['beats'][0].get('show')
+        last['beats'] = [{'say': x, 'show': dict(pic or {})} for x in sentences(say)]
+    log('director: the vote was written again (%s): "%s"' % (by, say))
+    return True
 
 
 def picture_check(p, m, log):
@@ -1675,6 +1773,7 @@ def direct(m, log=print, work=None, budget=None):
             st['sorted'] = True
             keep()
     m['meme_assets'] = st.get('memes') or {}
+    m['cast'] = st.get('cast') or {}
     system, user = prompt_slang(m) if slang_page else prompt_for(m)
     if st['plan'] is None and slang_page:
         st['plan'], st['model'] = ai.ask_json(system, user, temperature=0.7, timeout=wait, max_tokens=12000, effort='medium', patient=True)
@@ -1683,6 +1782,7 @@ def direct(m, log=print, work=None, budget=None):
         if st.get('cast') is None:
             st['cast'] = cast(m, log)
             keep()
+        m['cast'] = st.get('cast') or {}
         if st.get('script') is None:
             sc, st['model'] = ai.ask_json(system_for('writer', m), story_user(m, 'Write the five openings, pick the strongest, then the script.', st.get('cast')), temperature=0.8, timeout=wait, max_tokens=14000,
                                           effort='medium', patient=True)
@@ -1707,17 +1807,19 @@ def direct(m, log=print, work=None, budget=None):
         plan, soft, hard = check(st['plan'], m)
         if st['facts_for'] != st['round']:                        # every version is fact-checked, the last one included
             st['facts'] = read(plan, hard)
+            st['edit'] = [] if slang_page or hard else (editor_faults(plan, m) or [])      # and read by an editor, sentence by sentence
             st['facts_for'], st['plan'] = st['round'], plan
             keep()
+        soft = soft + (st.get('edit') or [])
         facts, r = st['facts'], rank(plan, soft, hard, st['facts'])
         better = st.get('best') is None or r < st['best']['rank']
         log('director round %d (%s): %d words, %d lines, %d hunts | fact check: %s | faults: %s | %s' % (st['round'] + 1, st['model'], plan.get('words', 0), len(plan.get('lines', [])),
             len(plan.get('hunts', [])), 'NOT RUN' if facts is None else '%d problems' % len(facts) if facts else 'clean', '; '.join(soft + hard) or 'none',
             'KEPT as the best so far' if better else 'WORSE than the best so far (%d words): thrown away' % st['best']['plan'].get('words', 0)))
         if better:
-            st['best'] = {'plan': copy(plan), 'model': st['model'], 'rank': r, 'facts': facts}
+            st['best'] = {'plan': copy(plan), 'model': st['model'], 'rank': r, 'facts': facts, 'edit': st.get('edit') or []}
         base, bsoft, bhard = check(copy(st['best']['plan']), m)       # the next correction always starts from the best version
-        todo = bsoft + bhard + (st['best']['facts'] or [])
+        todo = bsoft + bhard + (st['best']['facts'] or []) + (st['best'].get('edit') or [])
         if not todo or st['round'] >= 2:
             break
         st['fix_tries'] = st.get('fix_tries', 0) + 1                # counted across runs: when no model answers the correction, the best version stands
@@ -1794,6 +1896,12 @@ def direct(m, log=print, work=None, budget=None):
                 'NOT RUN' if gfacts is None else '%d problems' % len(gfacts) if gfacts else 'clean', 'KEPT' if gr < st['best']['rank'] else 'not better: thrown away'))
             if gr < st['best']['rank']:
                 st['best'] = {'plan': copy(g), 'model': st['best']['model'], 'rank': gr, 'facts': gfacts}
+        keep()
+    if not slang_page and not st.get('vote_fixed'):
+        st['vote_fixed'] = True                                     # a yes / no vote left by the corrections is written again on its own
+        if fix_vote(st['best']['plan'], m, log):
+            g, gsoft, ghard = check(copy(st['best']['plan']), m)
+            st['best']['rank'] = rank(g, gsoft, ghard, st['best']['facts'])
         keep()
     plan, soft2, hard = check(copy(st['best']['plan']), m)
     facts = st['best']['facts']

@@ -70,7 +70,7 @@ jobs:
           command -v ffmpeg >/dev/null || { sudo apt-get update -qq >/dev/null 2>&1 || true; sudo timeout 200 apt-get install -y -qq ffmpeg >/dev/null 2>&1 || true; }
           ffmpeg -version | head -1
           python -m pip install --upgrade pip 2>&1 | tail -1
-          python -m pip install "playwright==1.48.0" "edge-tts==7.2.8" numpy pillow 2>&1 | tail -2
+          python -m pip install "playwright==1.48.0" "edge-tts==7.3.1" numpy pillow 2>&1 | tail -2
           ( python -m pip install -U yt-dlp 2>&1 | tail -1 ) || echo "yt-dlp not installed: footage searches off this run"
           python -m playwright install --with-deps chromium 2>&1 | tail -2
           sudo timeout 120 apt-get install -y -qq fonts-noto-color-emoji >/dev/null 2>&1 || echo "no emoji font: emoji in the slang format will not draw"

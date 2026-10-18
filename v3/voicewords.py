@@ -128,6 +128,35 @@ def learn(texts, about, log=print):
     return have
 
 
+def relearn(words, about, heard, log=print):
+    """The ear did not hear these names back from the local voice: their sounds are asked again from a writing model,
+    told what was heard instead, and kept. -> {word in small letters: IPA}"""
+    try:
+        j, by = ai.ask_json('You know how names from sport, gaming, streaming and internet culture are said out loud by the people themselves. Strict JSON only.',
+                            'THE STORY: %s\n\nA text-to-speech voice said these names WRONG (what a listener heard instead is given). For EACH, give how the person or brand says it, in IPA '
+                            'for an American English voice, with the stress mark ˈ before the stressed syllable. Count the syllables first: the IPA has one vowel per syllable.\nNAMES: %s\n'
+                            'JSON: {"said":[{"w":"Kameto","syllables":3,"ipa":"kɑˈmɛtoʊ"}]}' % (about[:300], json.dumps([{'name': w, 'heard': heard.get(w, '')} for w in words], ensure_ascii=False)),
+                            kind='text', temperature=0.2, timeout=60, max_tokens=2000)
+    except ai.OutOfTime:
+        raise
+    except Exception as e:  # noqa: BLE001
+        log('voice: the names were not asked again (%s)' % str(e)[-60:])
+        return {}
+    got = {}
+    for x in (j or {}).get('said') or []:
+        w, v = str((x or {}).get('w', '')), to_voice((x or {}).get('ipa', ''))
+        if w in words and v:
+            got[w.lower()] = str(x['ipa']).strip('/[] ')
+    try:
+        kept = json.load(open(KEPT, encoding='utf-8'))
+    except Exception:  # noqa: BLE001
+        kept = {}
+    kept.update(got)
+    os.makedirs(os.path.dirname(KEPT), exist_ok=True)
+    json.dump(kept, open(KEPT, 'w', encoding='utf-8'), ensure_ascii=False, indent=1, sort_keys=True)
+    return got
+
+
 def mark(text, said=None):
     """The line as the voice gets it: the sound written next to every word it would guess, and "live" said as the sentence means it."""
     said = names() if said is None else said

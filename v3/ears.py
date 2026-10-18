@@ -26,13 +26,13 @@ def voice_python():
     return py if py and os.path.isfile(py) else ''
 
 
-def heard(files, log):
+def heard(files, log, lang='', min_p=0.25):
     """{name: {'lang': 'en', 'words': [[w, s, e]]}} for the files the speech model could hear; {} when this machine has none."""
     py = voice_python()
     if not py or not files:
         return {}
     jobs = os.path.join(os.path.dirname(files[0]), 'ears_jobs.json')
-    json.dump([{'file': f, 'max_s': MAX_S} for f in files], open(jobs, 'w', encoding='utf-8'))
+    json.dump([{'file': f, 'max_s': MAX_S, 'lang': lang, 'min_p': min_p} for f in files], open(jobs, 'w', encoding='utf-8'))
     try:
         r = subprocess.run([py, os.path.join(HERE, 'ears_run.py'), jobs], capture_output=True, text=True, timeout=600)
     except subprocess.TimeoutExpired:
