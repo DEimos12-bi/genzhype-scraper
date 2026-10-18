@@ -1327,15 +1327,16 @@ def unsupported(plan, m):
 
 
 EDITOR = ('You are the story editor of short TikTok voice-overs. A person who edits by hand reads every sentence and asks: does it carry something only THIS story has? '
-          'Is it literally true as said? Is it the fact, or a stock phrase or a verdict in its place? You get the script sentence by sentence and the material it was written from. '
-          'Give a verdict for EVERY sentence, one of:\n'
+          'Does it make sense as said? Is it the fact, or a stock phrase or a verdict in its place? You get the script sentence by sentence. '
+          'You do NOT judge whether a fact is true or in the sources: another reader checks that. You judge how each sentence is SAID. Give a verdict for EVERY sentence, one of:\n'
           '  ok        it carries a name, a number, a thing or real words of this story, and says it plainly\n'
           '  EMPTY     it would fit any story of its kind: no name, number, thing or real words of this one ("That changed everything.", "The fans could not believe it.")\n'
           '  STOCK     a stock phrase of a sports or news desk where the fact should be ("silenced the crowd", "the Turkish giant", "sent a message")\n'
           '  OPINION   a judgement or a prediction the material does not make ("looks unstoppable", "deserved it")\n'
-          '  NONSENSE  not literally true as said: it fuses a picture and a fact into something that did not happen\n'
-          '  REPEAT    it says again what an earlier sentence already said\n'
-          'A short sentence that hands over, points at the screen or asks the viewer ("Listen.", "That\'s Reggie.", "His proof? Not shown.") is ok. Strict JSON only: '
+          '  NONSENSE  it cannot be true as worded, whatever the facts: it fuses a picture and a fact into something impossible ("silenced the stadium four to one")\n'
+          '  REPEAT    it says again, in other words, what an earlier sentence already said, and adds nothing\n'
+          'A short sentence that hands over, points at the screen or asks the viewer ("Listen.", "That\'s Reggie.", "His proof? Not shown.") is ok. The line marked STATUS sums up where things stand: '
+          'it may repeat a key number on purpose. Most sentences of a good script are ok: flag only what a person editing by hand would rewrite. Strict JSON only: '
           '{"rows":[{"id":"hook.1","v":"ok"},{"id":"hook.2","v":"STOCK","why":"max 10 words"}]}')
 
 
@@ -1343,18 +1344,19 @@ def editor_faults(plan, m):
     """The script read as an editor reads it, sentence by sentence (every row gets a verdict: asking only for the bad
     ones found nothing). -> [faults for the corrector], or None when no model answered."""
     rows, ids = [], {}
-    for i, l in enumerate(plan.get('lines') or []):
+    ls = plan.get('lines') or []
+    status = max([i for i, l in enumerate(ls) if l.get('id') not in ('vote', 'site', 'final')] or [-1])      # the line before the vote
+    for i, l in enumerate(ls):
         if l.get('id') in ('vote', 'site', 'final'):
             continue
         for k, x in enumerate(sentences(l['text']), 1):
             rid = '%s.%d' % (l['id'], k)
-            rows.append('%s  %s' % (rid, x))
+            rows.append('%s%s  %s' % (rid, ' (STATUS)' if i == status and i else '', x))
             ids[rid] = (i, x)
     if not rows:
         return []
-    mat = (m.get('summary') or '')[:600] + '\n' + (m.get('page_text') or '')[:3000]
     try:
-        j, _ = ai.ask_json(EDITOR, 'THE STORY: %s\n\nTHE MATERIAL (short):\n%s\n\nTHE SCRIPT, SENTENCE BY SENTENCE:\n%s' % (m.get('title', ''), mat, '\n'.join(rows)),
+        j, _ = ai.ask_json(EDITOR, 'THE STORY: %s\n\nTHE SCRIPT, SENTENCE BY SENTENCE:\n%s' % (m.get('title', ''), '\n'.join(rows)),
                            kind='text', temperature=0.1, timeout=ai.CONFIG['ai'].get('timeout', 100), max_tokens=4000)
     except ai.OutOfTime:
         raise
@@ -1366,10 +1368,11 @@ def editor_faults(plan, m):
     out = []
     for r in (j or {}).get('rows') or []:
         v, rid = str((r or {}).get('v', '')).upper().strip(), str((r or {}).get('id', '')).strip()
-        if v in say and rid in ids:
+        if v in say and rid in ids and not (v == 'REPEAT' and ids[rid][0] == status):
             i, x = ids[rid]
-            out.append('line %d, sentence "%s": %s%s' % (i + 1, x[:70], say[v], ' (%s)' % str(r.get('why'))[:60] if r.get('why') else ''))
-    return out[:8]
+            out.append((list(say).index(v), 'line %d, sentence "%s": %s%s' % (i + 1, x[:70], say[v], ' (%s)' % str(r.get('why'))[:60] if r.get('why') else '')))
+    order = ['NONSENSE', 'STOCK', 'OPINION', 'EMPTY', 'REPEAT']      # the worst first; four at most, so a correction rewrites and does not just cut
+    return [f for _, f in sorted(out, key=lambda x: order.index(list(say)[x[0]]))][:4]
 
 
 VOTE_JOB = ('You write the last line of a TikTok voice-over: the VOTE. One question about the story\'s real argument, and two answers of ONE word each that people would really '
