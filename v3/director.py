@@ -1973,7 +1973,7 @@ def direct(m, log=print, work=None, budget=None):
     if not slang_page:
         soft2 = check(copy(plan), m)[1]                       # read again: the proofs and the faces were put on screen after the last check
     plan.update({'url': m['url'], 'title': m['title'], 'no_page': bool(m.get('no_page')), 'model': st['best']['model'], 'assets': {} if slang_page else assets_of(m), 'kind': 'slang' if slang_page else 'meme' if is_meme(m) and any(v.get('usable', True) for v in m['meme_assets'].values()) else 'story',
-                 'opening': st.get('opening'), 'left_open': soft2 + (facts or []),
+                 'opening': st.get('opening'), 'left_open': soft2 + (st['best'].get('edit') or []) + (facts or []),
                  'fact_checked': facts is not None, 'unsupported_left': len(facts or [])})
     return add_site_line(plan)
 
