@@ -451,11 +451,45 @@ def story_user(m, ask, casting=None):
     alist, plist, slist = listing(m)
     out = ('%s\n\nTHE STORY\nTitle: %s\nPage: %s\nPublished: %s\n\n%sOUR PAGE (already fact-checked; its attributions are the safe wording):\n%s\n\nTHE POSTS THE PAGE CITES (ids for receipts):\n%s\n\n'
            'WHAT THE VIDEO CAN SHOW (ids for "show"):\n%s\n\nWHAT WAS FOUND AND WHAT OTHERS WROTE:\n%s\n\n%s%s%s'
-           % (examples, m['title'], m['url'], m.get('published', ''), timeline_block(m), m['page_text'][:6500], plist, alist, slist, habits.block(m.get('url', '')), cast_block(casting, m), ask))
+           % (examples, m['title'], m['url'], m.get('published', ''), timeline_block(m), m['page_text'][:6500], plist, alist, slist, habits.block(m.get('url', '')), private_block(m) + cast_block(casting, m), ask))
     if m.get('no_page'):                                       # a story made from a topic: what stands in for the page is the desk's brief, and it is said so
         out = out.replace('OUR PAGE (already fact-checked; its attributions are the safe wording):',
                           "OUR DESK'S BRIEF (written from the pages below and NOT yet checked: where it differs from a page or a post, the page or the post is right):").replace('\nPage: %s\n' % m['url'], '\nPage: (none yet)\n')
     return out
+
+
+def private_block(m):
+    """The private people of a story: named in the material, never in the video."""
+    ps = m.get('private') or []
+    return ('PRIVATE PEOPLE: never say their name and never write it on screen; say their role instead: %s.\n\n' % '; '.join('%s = "%s"' % (p['name'], p['role']) for p in ps)) if ps else ''
+
+
+def private_names(m):
+    """Each private person's name and its parts long enough to be theirs alone (a surname alone names them too)."""
+    out = []
+    for p in m.get('private') or []:
+        out += [p['name']] + [w for w in p['name'].split() if len(w) >= 4 and w[0].isupper()]
+    return [n for n in dict.fromkeys(out) if n]
+
+
+def private_faults(lines, m):
+    """A private person named: on screen the text is taken off by code; in the voice the corrector says the role instead."""
+    soft = []
+    names = private_names(m)
+    if not names:
+        return soft
+    hit = lambda t: next((n for n in names if re.search(r'(?<![\w])%s(?![\w])' % re.escape(n), str(t or ''), re.I)), None)
+    for i, l in enumerate(lines):
+        for o in list(l.get('overlays') or []):
+            if hit(json.dumps(o, ensure_ascii=False)):
+                l['overlays'].remove(o)
+        for b in l.get('beats') or []:
+            b['gfx'] = [g for g in (b.get('gfx') or []) if not hit(json.dumps(g, ensure_ascii=False))]
+        n = hit(l.get('text'))
+        if n:
+            role = next((p['role'] for p in m['private'] if n.lower() in p['name'].lower()), 'their role')
+            soft.append('line %d names %s, a private person: never say the name, say "%s" instead' % (i + 1, n, role))
+    return soft
 
 
 def stager_user(m, sc, casting=None):
@@ -468,7 +502,7 @@ def stager_user(m, sc, casting=None):
             'OTHER PUBLISHERS (never a picture, never named big: one small "VIA ..." chip in the whole video at most): %s\nA quote card may only use words that the script itself quotes, or words of a post above.\n\n%sChoose the picture and the graphics of every sentence.'
             % (m['title'], m['url'], script, v.get('question', ''), (v.get('a') or {}).get('word', ''), (v.get('b') or {}).get('word', ''),
                plist, alist, ', '.join('%s ("%s")' % (x['publisher'], x['title'][:70]) for x in m.get('sources', []) if not x.get('primary')) or 'none',
-               cast_block(casting, m).replace('the script and the pictures FOLLOW it', 'hook.1 shows the opener, each player is named on the picture cast for them, the twist line shows the twist picture')))
+               private_block(m) + cast_block(casting, m).replace('the script and the pictures FOLLOW it', 'hook.1 shows the opener, each player is named on the picture cast for them, the twist line shows the twist picture')))
 
 
 def prompt_for(m):
@@ -1008,7 +1042,7 @@ def fix_and_check(p, m):
         soft.append('line 1 needs a "stamp" on one of its sentences: the key number or the two key words of the opening')
     if sum(1 for l in lines for o in l['overlays'] if o.get('k') in ('receipt', 'quote')) == 0 and (m.get('posts') or not meme):
         soft.append('no proof on screen: show at least one post as a "receipt" or one real quote as a "quote"')
-    soft += ['line 1 (the opening): ' + x for x in opening_faults(lines[0]['text'])] + voice_faults(lines) + habits.faults(lines, m.get('url', ''))
+    soft += ['line 1 (the opening): ' + x for x in opening_faults(lines[0]['text'])] + voice_faults(lines) + habits.faults(lines, m.get('url', '')) + private_faults(lines, m)
     first = (split_keep(lines[0]['text']) or [''])[0]
     if ALLEGED.search(m.get('title', '') + ' ' + m.get('summary', '')) and not SAYS.search(first) and '?' not in first and len(names_of(m)) and any(n in tokens(first) for n in names_of(m)):
         soft.append('line 1 states an ALLEGATION about a named person as a fact ("%s"): the same sentence must carry who says it ("He says ...", "X claims ...")' % first[:70])

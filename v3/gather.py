@@ -73,7 +73,9 @@ def about_of(m, log):
         j, _ = ai.ask_json('You read a short news story and answer two questions about it. Strict JSON only.',
                            'THE STORY: %s\n\n1. "game": is ONE video game at the centre of this story (it is played, patched, released or competed in)? Its name as its store page writes it ("TEKKEN 8", "Fortnite"), '
                            'or "" when the story is about no video game, or about several.\n2. "people": the streamers, creators, players, teams or companies this story is ABOUT, at most 4, each exactly as the story writes the name. '
-                           'Not journalists, not publications, not the game itself.\nJSON: {"game":"","people":[""]}' % text, kind='light', temperature=0.1, timeout=40, max_tokens=400)
+                           'Not journalists, not publications, not the game itself, and not private people.\n3. "private": the PRIVATE people the story names: someone known only from a document, an email, a claim, '
+                           'a court filing or a police report (a claimant, a victim, a witness, a relative, an employee), with no public life of their own, each with their role in 2 to 4 words.\n'
+                           'JSON: {"game":"","people":[""],"private":[{"name":"","role":"the copyright claimant"}]}' % text, kind='light', temperature=0.1, timeout=40, max_tokens=500)
     except ai.OutOfTime:
         raise
     except Exception:  # noqa: BLE001
@@ -82,7 +84,21 @@ def about_of(m, log):
     told = lambda name: bool(investigate.flat(name)) and all(' %s ' % w in hay for w in investigate.flat(name).split() if w not in ('the', 'of', 'and', 'a'))
     game = re.sub(r'\s+', ' ', str((j or {}).get('game') or '')).strip()[:60]
     game = game if told(game) else ''
+    if game:                                                   # a game named in passing ("he was an Overwatch pro") is not what the story is about:
+        body = re.sub(r'\s+', ' ', m.get('page_text', ''))     # it must be in the title, in the lead, or come back through the whole page
+        lead = ' %s ' % investigate.flat(m.get('title', '') + ' ' + ' '.join(re.split(r'(?<=[.!?])\s+', body)[:2]))
+        named = lambda t: all(' %s ' % w in t for w in investigate.flat(game).split() if w not in ('the', 'of', 'and', 'a'))
+        times = len(re.findall(re.escape(investigate.flat(game)), investigate.flat(body)))
+        if not named(lead) and times < 3:
+            log('gather: "%s" is only named in passing (%d time(s), not in the title or the lead): not the game of the story' % (game, times))
+            game = ''
+    private = [{'name': re.sub(r'\s+', ' ', str(x.get('name', ''))).strip()[:40], 'role': re.sub(r'\s+', ' ', str(x.get('role') or 'a private person')).strip()[:40]}
+               for x in (j or {}).get('private') or [] if isinstance(x, dict) and told(str(x.get('name', '')))]
+    m['private'] = private                                     # never named in the voice or on screen (director.private_faults)
+    if private:
+        log('gather: private people the story names (said by their role, never by name): %s' % ', '.join('%s (%s)' % (x['name'], x['role']) for x in private))
     people = [re.sub(r'\s+', ' ', str(x)).strip()[:40] for x in (j or {}).get('people') or [] if isinstance(x, str)]
+    people = [x for x in people if investigate.squash(x) not in {investigate.squash(p['name']) for p in private}]
     people = list(dict.fromkeys(x for x in people if told(x) and investigate.squash(x) != investigate.squash(game)))[:4]
     log('gather: the story is about %s%s' % (', '.join(people) or 'nobody the page names', (' and the game "%s": its own videos and screenshots are material' % game) if game else ''))
     return game, people
@@ -315,6 +331,14 @@ def main(work, budget=None, log=lambda *a: print(*a, flush=True)):
     clips = {k for k, a in A.items() if a.get('file') and a['kind'] == 'clip' and not a.get('whole') and not a.get('eyes')}
     if clips:
         eyes.look_assets(A, m.get('title', ''), 'meme' if m.get('examples') else 'story', work, log, save=keep, only=clips)
+    films = [a for a in A.values() if a.get('game') and a.get('kind') == 'clip' and a.get('file') and a.get('eyes')]
+    if films and not any(a.get('usable', True) for a in films):    # the eyes found the game's own videos off topic: its screenshots are the same game
+        off = [k for k, a in A.items() if a.get('game') and a.get('kind') == 'photo' and a.get('usable', True)]
+        for k in off:
+            A[k]['usable'] = False
+        if off:
+            log('  the videos of the game are off this story: its screenshots are left out too (%s)' % ', '.join(off))
+            keep()
     # THE EARS: what is said in the story's own clips, word by word (a caption track that came with the clip, else the
     # speech model of this machine). A clip where the subject says the claim can speak in the video.
     if not m.get('heard'):

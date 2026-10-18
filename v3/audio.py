@@ -354,6 +354,13 @@ def main():
         if len(x) < SR // 2:
             print('bite %s: the clip gave no sound' % l['id']); continue
         x *= ref / (np.sqrt(np.mean(x[np.abs(x) > .02] ** 2)) + 1e-9)
+        for w in l.get('words') or []:                     # a swear word of the clip: its seconds become a bleep (tts.SWEAR)
+            if w.get('bleep'):
+                a0, a1 = max(0, int((w['s'] - b['at'] - .03) * SR)), min(len(x), int((w['e'] - b['at'] + .03) * SR))
+                if a1 > a0:
+                    t = np.arange(a1 - a0) / SR
+                    edge = np.minimum(1, np.minimum(t, t[::-1]) / .01)
+                    x[a0:a1] = .35 * ref / .7 * np.sin(2 * np.pi * 1000 * t) * edge
         i = int(b['at'] * SR)
         n = max(0, min(len(x), len(vo) - i))
         vo[i:i + n] += x[:n]

@@ -21,6 +21,14 @@ SR = 48000
 LEAD = 0.10          # silence before the first word
 SLOWEST = -4         # per cent: the slowest the voice may go
 BITE_LEAD, BITE_TAIL = 0.28, 0.22      # the silence before and after a clip that speaks for itself
+# A swear word in the subject's own clip: TikTok holds back a video that says or shows it. It is bleeped in the sound
+# (audio.py, on the word's own seconds) and written masked in the captions ("F******"); the clip still speaks.
+SWEAR = re.compile(r"(?i)^(?:mother)?f+u+c*k+\w*$|^shit\w*$|^bullshit\w*$|^bitch\w*$|^cunts?$|^ass(?:hole)?s?$|^dick(?:head)?s?$|^puss(?:y|ies)$|^bastards?$|^nigg\w*$|^fag(?:got)?s?$|^retard\w*$|^wtf$|^stfu$")
+
+
+def masked(w):
+    """A swear word with its first letter kept: "fucking" -> "F******"."""
+    return w[:1].upper() + '*' * max(2, len(w) - 1)
 
 
 def place_bites(plan, tl):
@@ -36,7 +44,13 @@ def place_bites(plan, tl):
         at = round(l['e'] + BITE_LEAD, 3)                    # the second of the video where the clip second b['ss'] plays
         clean = lambda w: re.sub(r"^[^\w@#$%]+|[^\w%'’]+$", '', w)
         ws = [{'w': clean(w), 's': round(at + s - b['ss'], 3), 'e': round(at + e - b['ss'], 3)} for w, s, e in b['words'] if clean(w)]
-        out.append({'id': l['id'] + 'bite', 'text': b['text'], 's': ws[0]['s'] if ws else at, 'e': round(at + b['dur'], 3), 'words': ws,
+        for w in ws:
+            if SWEAR.match(w['w']):
+                w['w'], w['bleep'] = masked(w['w']), True
+        text = ' '.join(masked(x) if SWEAR.match(re.sub(r"[^\w']", '', x)) else x for x in b['text'].split())
+        if any(w.get('bleep') for w in ws):
+            print('voice: the clip says %d swear word(s): bleeped in the sound, masked in the captions' % sum(1 for w in ws if w.get('bleep')), flush=True)
+        out.append({'id': l['id'] + 'bite', 'text': text, 's': ws[0]['s'] if ws else at, 'e': round(at + b['dur'], 3), 'words': ws,
                     'bite': {'at': at, 'ss': b['ss'], 'dur': b['dur'], 'asset': b['asset'], 'src': 'assets/' + plan['assets'][b['asset']]['file'], 'of': l['id'], 'who': b.get('who', '')}})
     return out
 

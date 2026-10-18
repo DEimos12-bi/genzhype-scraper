@@ -76,7 +76,11 @@ def fetchable(url):
 def _get(url, headers=None, timeout=30, data=None):
     req = urllib.request.Request(url, data=data, headers=dict({'User-Agent': UA, 'Accept-Language': 'en-US,en;q=0.9'}, **(headers or {})), method='POST' if data is not None else 'GET')
     with urllib.request.urlopen(req, timeout=timeout) as r:
-        return r.status, dict(r.headers), r.read().decode('utf-8', 'replace')
+        raw = r.read()
+        if raw[:2] == b'\x1f\x8b':                             # packed by the server though not asked for (material.get does the same)
+            import gzip
+            raw = gzip.decompress(raw)
+        return r.status, dict(r.headers), raw.decode('utf-8', 'replace')
 
 
 # ---- resolvers: the address of the media file, per platform (clip_fetch.php cf_resolve_*) ----------------------------

@@ -18,9 +18,35 @@ NOT_OUTLETS = re.compile(r'//(?:[^/]+\.)?(?:googleapis\.com|gstatic\.com|giphy\.
 
 
 def get(url, timeout=25):
-    req = urllib.request.Request(url, headers={'User-Agent': UA, 'Accept-Language': 'en-US,en;q=0.9'})
+    """A page's text. Some servers pack it (gzip, deflate, brotli) even when not asked to: it is unpacked, and read in
+    the charset the server names. A page that still reads as bytes is refused, never passed on as text."""
+    import gzip
+    import zlib
+    req = urllib.request.Request(url, headers={'User-Agent': UA, 'Accept-Language': 'en-US,en;q=0.9', 'Accept-Encoding': 'gzip, deflate'})
     with urllib.request.urlopen(req, timeout=timeout) as r:
-        return r.read().decode('utf-8', 'replace')
+        raw, enc = r.read(), (r.headers.get('Content-Encoding') or '').lower()
+        cs = r.headers.get_content_charset() or 'utf-8'
+    if 'gzip' in enc or raw[:2] == b'\x1f\x8b':
+        raw = gzip.decompress(raw)
+    elif 'deflate' in enc:
+        try:
+            raw = zlib.decompress(raw)
+        except zlib.error:
+            raw = zlib.decompress(raw, -zlib.MAX_WBITS)
+    elif 'br' in enc:
+        try:
+            import brotli
+            raw = brotli.decompress(raw)
+        except ImportError:
+            raise RuntimeError('the page is packed with brotli and this machine cannot unpack it')
+    try:
+        text = raw.decode(cs, 'replace')
+    except LookupError:
+        text = raw.decode('utf-8', 'replace')
+    head = text[:4000]
+    if head and (head.count('�') + sum(1 for c in head if ord(c) < 32 and c not in '\r\n\t')) / len(head) > 0.05:
+        raise RuntimeError('the page came as unreadable bytes')
+    return text
 
 
 def text_of(fragment):
