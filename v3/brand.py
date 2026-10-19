@@ -29,6 +29,11 @@ DEFAULT = {
     'viewer': 'A 16-year-old scrolling with the sound on. They give the video two seconds, they have never heard of this story, and they leave the moment a sentence sounds like an article or a school report.',
     'closing_page': 'The full timeline, and every receipt, is on %s. Link in bio.',
     'closing_topic': 'More stories like this one, with every receipt, are on %s. Link in bio.',
+    'closings_page': ['The full timeline, and every receipt, is on %s. Link in bio.', 'Every post and every date is on %s. Link in bio.',
+                      'The receipts are all on %s. Link in bio.', 'Want the whole thing, receipts and all? %s. Link in bio.', 'The rest of the receipts are on %s. Link in bio.'],
+    'closings_topic': ['More stories like this one, with every receipt, are on %s. Link in bio.', 'Stories like this, with the receipts, are on %s. Link in bio.',
+                       'For more of these, receipts included, %s. Link in bio.'],
+    'persona': 'a dry, quick Gen Z guy who lives online and has seen every drama twice. He catches a friend up on what happened, like a person and never like a news anchor',
     'pinned': 'receipts on genzhype.com (link in bio)',
     'file': 'genzhype', 'css': '',
 }
@@ -40,7 +45,7 @@ def load(bid=None):
     if bid:
         b.update(json.load(open(os.path.join(HERE, 'brands', bid + '.json'), encoding='utf-8')))      # (an unknown brand stops the run here, by name)
         b['id'] = bid
-    for k in ('about', 'angle', 'desk', 'viewer', 'pinned'):   # these go into prompts that are filled with %
+    for k in ('about', 'angle', 'desk', 'viewer', 'pinned', 'persona'):   # these go into prompts that are filled with %
         b[k] = str(b.get(k) or '').replace('%', ' percent')
     return b
 
