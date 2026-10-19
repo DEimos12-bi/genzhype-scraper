@@ -554,7 +554,7 @@ def tidy_script(sc):
         if isinstance(l, dict) and isinstance(l.get('say'), list):
             lift_bite(l, l['say'])
             parts = [re.sub(r'\s+', ' ', x).strip() for x in l['say'] if isinstance(x, str) and x.strip() and not re.search(r"[{}\[\]]|'asset'|\"asset\"", x)]
-            l['text'] = ' '.join(x if x[-1] in '.!?…"”' else x + '.' for x in parts)
+            l['text'] = ' '.join(x if x[-1] in '.!?…"”:' else x + '.' for x in parts)
     lines, seen = [l for l in (sc.get('lines') or []) if isinstance(l, dict) and str(l.get('text', '')).strip() and l.get('id') != 'site'], set()
     for i, l in enumerate(lines):
         base = 'hook' if i == 0 else 'vote' if i == len(lines) - 1 else re.sub(r'[^a-z0-9]', '', str(l.get('id') or '').lower()) or 'l%d' % i
@@ -783,7 +783,7 @@ def lift_bite(line, say):
 def say_text(say):
     """A line given sentence by sentence, as one text. Only text is ever spoken: an object or a bracket in the list is not a sentence."""
     parts = [re.sub(r'\s+', ' ', x).strip() for x in say if isinstance(x, str) and x.strip() and not re.search(r"[{}\[\]]|'asset'|\"asset\"", x)]
-    return ' '.join(x if x[-1] in '.!?…"”' else x + '.' for x in parts)
+    return ' '.join(x if x[-1] in '.!?…"”:' else x + '.' for x in parts)
 
 
 def apply_patch(base, patch):
