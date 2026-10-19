@@ -91,7 +91,9 @@ PLAN.lines.forEach((pl, li) => {
     item(`<div class="big ring" style="font-size:96px">${esc(v.question).toUpperCase()}</div>`, 520, 330, a + .15, b, 'slam', {r: -2, fit: 900, key: 'vote.q'});
     item(`<div class="ob cool"><span>${esc(v.a.sub || 'ONE SIDE').toUpperCase()}</span><b>${esc(v.a.word).toUpperCase()}</b></div>`, 60, 440, wa - .02, b, 'slam', {tl: 1, r: -1.5, big: 1, pulse: last(v.a.word) ? [last(v.a.word)] : [], key: 'vote.a'});
     item(`<div class="ob red"><span>${esc(v.b.sub || 'THE OTHER').toUpperCase()}</span><b>${esc(v.b.word).toUpperCase()}</b></div>`, 60, 730, wb - .02, b, 'slam', {tl: 1, r: 1.5, big: 1, pulse: last(v.b.word) ? [last(v.b.word)] : [], key: 'vote.b'});
-    item('<div class="go">COMMENT ONE WORD 👇</div>', 500, 1110, at(pl.id, 'Comment'), b, 'pop', {r: -2, wob: 9, key: 'vote.go'});
+    const GO = ['DROP ONE BELOW 👇', 'PICK A SIDE 👇', 'YOUR CALL 👇', 'COMMENTS 👇', 'ONE WORD. GO 👇'];      // the same label on every video is a template
+    const ask = lineOf(pl.id).words.find(w => /^(drop|comment|comments|below|tell|type|reply|vote|your|call)$/i.test(norm(w.w)));
+    item(`<div class="go">${GO[[...String(v.question)].reduce((s, c) => s + c.charCodeAt(0), 0) % GO.length]}</div>`, 500, 1110, ask ? ask.s - .04 : Math.max(wa, wb) + .3, b, 'pop', {r: -2, wob: 9, key: 'vote.go'});
     return; }
   if (pl.id === 'site') { const end = C.end + 1, S = C.site;
     if (S && S.desktop && S.tablet && S.phone) {                         // the real page on a PC, a tablet and a phone
