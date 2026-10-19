@@ -37,7 +37,7 @@ SENSITIVE = re.compile(r'\b(died|dies|dead at|death of|passed away|found dead|mu
 
 
 # how an article sounds; a voice-over that uses these is sent back
-ANNOUNCE = re.compile(r"\b(here'?s the twist|here is the twist|one problem|but wait|plot twist|now it gets \w+|it gets (?:deeper|worse|crazier|wilder)|then came the \w+|here'?s (?:the thing|where it gets)|and that'?s not all|buckle up)\b", re.I)
+ANNOUNCE = re.compile(r"\b(here'?s the twist|here is the twist|one problem|but wait|plot twist|now it gets \w+|it gets (?:deeper|worse|crazier|wilder)|then came (?:the|a|an) \w+|here'?s (?:the thing|where it gets)|and that'?s not all|buckle up)\b", re.I)
 ALLEGED = re.compile(r'\b(alleg\w*|accus\w*|claims?|claimed|denie[sd]|rumou?r\w*|reportedly|unverified)\b', re.I)
 HANDOVER = re.compile(r"^(listen|listen to (?:this|him|her|them)|(?:his|her|their) (?:own )?words|in (?:his|her|their) own words|hear (?:it|him|her|them)(?: out)?|here (?:he|she) is)[.!:…]*$", re.I)
 HEALTH = re.compile(r'\b(therap\w*|rehab\w*|drug use|drugs|addict\w*|sober|sobriety|overdos\w*|mental health|depress\w*|anxiety|diagnos\w*|medication|suicid\w*|self[- ]harm|eating disorder|relaps\w*)\b', re.I)
@@ -349,7 +349,7 @@ The last line's id must be "vote"."""
 
 OUT_PATCH = """OUTPUT: strict JSON, nothing around it. You get a finished plan and the faults a machine found in it. Return ONLY the lines you change:
 {"lines":[{"id":"the id of a line you change","say":["its new spoken text,","one sentence per string"]}]}
-For a line, give only the fields you change: "say" (2 or 3 sentences, one per string), "overlays", "caps". A line you do not list stays exactly as it is. Add "vote" only if a fault is about the vote, "hunts" only if a fault is about them. Never return the whole plan."""
+For a line, give only the fields you change: "say" (2 or 3 sentences, one per string), "overlays", "caps". A line you do not list stays exactly as it is. A take of the narrator you write or keep in a changed line goes, word for word, in "takes":["..."]. Add "vote" only if a fault is about the vote, "hunts" only if a fault is about them. Never return the whole plan."""
 
 OUT_STAGE, OUT_FULL = (x.replace('receipts on genzhype.com (link in bio)', brand.B['pinned']) for x in (OUT_STAGE, OUT_FULL))      # where the pinned comment sends
 
@@ -788,7 +788,7 @@ def say_text(say):
 
 def apply_patch(base, patch):
     """A correction that came back as changed lines only, set into the plan it corrects. Returns (the plan, lines changed)."""
-    p = json.loads(json.dumps({k: base.get(k) for k in ('angle', 'lines', 'vote', 'people', 'hunts', 'stock', 'post')}))      # the whole plan, pictures included
+    p = json.loads(json.dumps({k: base.get(k) for k in ('angle', 'lines', 'vote', 'people', 'hunts', 'stock', 'post', 'takes')}))      # the whole plan, pictures included
     by, n = {l['id']: l for l in p['lines']}, 0
     for x in patch.get('lines') or []:
         l = by.get(re.sub(r'[^a-z0-9]', '', str(x.get('id', '')).lower())) if isinstance(x, dict) else None
@@ -810,6 +810,8 @@ def apply_patch(base, patch):
         p['vote'] = v
     if isinstance(patch.get('hunts'), list):
         p['hunts'] = patch['hunts']
+    if isinstance(patch.get('takes'), list):                   # the takes of the corrected script (take_faults keeps only those still in it)
+        p['takes'] = list(dict.fromkeys((p.get('takes') or []) + [str(t) for t in patch['takes'] if isinstance(t, str)]))[:5]
     return p, n
 
 
@@ -817,7 +819,7 @@ def story_for_repair(p):
     """The plan as the corrector reads it: the words and the graphics of each line (which picture goes where is not its business)."""
     lines = [{'id': l['id'], 'text': l['text'], 'overlays': [{k: v for k, v in o.items() if k not in ('beat', 'to', 'drop')} for o in l.get('overlays') or []], 'caps': l.get('caps') or []}
              for l in p.get('lines') or []]
-    return {'angle': p.get('angle'), 'lines': lines, 'vote': p.get('vote'), 'people': p.get('people'), 'hunts': p.get('hunts'), 'stock': p.get('stock'), 'post': p.get('post')}
+    return {'angle': p.get('angle'), 'lines': lines, 'vote': p.get('vote'), 'people': p.get('people'), 'hunts': p.get('hunts'), 'stock': p.get('stock'), 'post': p.get('post'), 'takes': p.get('takes') or []}
 
 
 DOMAIN_SPOKEN = re.compile(r'(?i)(\S+\s+dot\s+(com|net|news|org|gg|tv|co|io)\b|\S+\.(com|net|news|org|gg|tv|io)\b)')
@@ -1447,7 +1449,7 @@ def take_faults(p, lines, m):
         out.append('the narrator never reacts: add one or two takes (2 to 8 words, right after the fact they react to) and list them in "takes"')
     for t in takes:
         heard = set(script[:script.index(' %s ' % norm(t))].split())      # what the viewer heard before the take
-        new = [w for w in re.findall(r"\b[A-Z][a-zA-Z]{2,}\b", t)[1:] if norm(w) not in heard]
+        new = [mo.group(0) for mo in re.finditer(r"\b[A-Z][a-zA-Z]{2,}\b", t) if norm(mo.group(0)) not in heard and not re.match(r'^\s*$|.*[.!?…]["”]?\s*$', t[:mo.start()])]      # a capital that starts a sentence is not a name
         if words(t) > 9:
             out.append('the take "%s" is too long: 2 to 8 words' % t)
         elif re.search(r'\d', t) or new:
