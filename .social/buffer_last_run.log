@@ -1,7 +1,19 @@
-channels: tiktok:genzhype0, instagram:therealgenzhype_, facebook:Genzhypee
-tt: queueing page 236 (grandma-droniak-s-nursing-home-parties)
-  SCHEDULED on tiktok as reel for 2026-10-22T20:20:00.000Z (buffer post 6ad9add5deacf5d25332ca3b)
-ig: queueing page 236 (grandma-droniak-s-nursing-home-parties)
-  SCHEDULED on instagram as reel for 2026-10-22T20:57:00.000Z (buffer post 6ad9add61093844846e49171)
-fb: queueing page 236 (grandma-droniak-s-nursing-home-parties)
-  SCHEDULED on facebook as reel for 2026-10-22T21:34:00.000Z (buffer post 6ad9add7ecaa6cda042ea11b)
+Traceback (most recent call last):
+  File "/home/runner/work/genzhype-scraper/genzhype-scraper/buffer_poster.py", line 402, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "/home/runner/work/genzhype-scraper/genzhype-scraper/buffer_poster.py", line 363, in main
+    q = curl_json(f"{BASE}/api/video_social_next.php?token={INGEST}")
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/work/genzhype-scraper/genzhype-scraper/buffer_poster.py", line 91, in curl_json
+    return json.loads(r.stdout or b"{}")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/json/__init__.py", line 346, in loads
+    return _default_decoder.decode(s)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/json/decoder.py", line 338, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/json/decoder.py", line 356, in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
