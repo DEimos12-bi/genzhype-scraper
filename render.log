@@ -1,0 +1,406 @@
+2026-10-22 13:57:13,393 INFO caption font: /usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf
+2026-10-22 13:57:13,394 INFO job feed from repo branch (generated 2026-10-22T13:50:14+00:00)
+2026-10-22 13:57:13,394 INFO job from static feed (generated 2026-10-22T13:50:14+00:00)
+2026-10-22 13:57:13,394 INFO processing page_id=4874 slug=qtcinderella-slams-parasocial-freaks-after-ludwig-names-late-wedding-guests
+2026-10-22 13:57:13,394 INFO STYLE slowburn: lead=footage cuts~2.2s xfade=0.25 zoom=0.10 punch=1.10 bgm_1 evidence_cap=2 footage_consec=6
+2026-10-22 13:57:13,394 INFO voice: en-US-AvaMultilingualNeural
+2026-10-22 13:57:13,394 INFO STAGE: visuals
+2026-10-22 13:57:13,395 INFO CLIP HUNT: story now has 0 clip(s)
+2026-10-22 13:57:15,324 INFO archive.org clip: Trombone Champ - Ludwig, The Holy Blade (Bloodborne) (youtube-SaR6upaOoAo, 130s, 12.8MB)
+2026-10-22 13:57:15,907 INFO archive.org clip: Ludwig (ludwig_jojo, 163s, 28.5MB)
+2026-10-22 13:57:16,382 INFO archive.org clip: The Fight Against Error. Excerpt from Human Action, by Ludwi (youtube-mOje0iNWCeY, 609s, 6.5MB)
+2026-10-22 13:57:16,384 INFO story clips available: 3 (archive)
+2026-10-22 13:57:16,384 INFO person photos from feed (site-resolved): QTCinderella x1
+2026-10-22 13:57:16,384 INFO person photos from feed (site-resolved): Ludwig x3
+2026-10-22 13:57:16,568 INFO UPSIZED: https://commons.wikimedia.org/wiki/Special:FilePath/QTCinderella_in_2022_%282%29.jpg?width=1600
+2026-10-22 13:57:16,587 INFO CONTAIN MODE: 395x588 needs 3.3x upscale to cover; rendering whole on a blurred fill instead
+2026-10-22 13:57:16,636 INFO face detected in vis-4874-0: 163x208 at (117,98)
+2026-10-22 13:57:16,793 INFO UPSIZED: https://yt3.ggpht.com/ytc/AIdro_nBvD2_i9JPqMIZoH-3Pct438PAEd1d4rLEd1LCCLEEmKc=s1200
+2026-10-22 13:57:16,795 WARNING visual too small (112x111), dropped: https://yt3.ggpht.com/ytc/AIdro_nBvD2_i9JPqMIZoH-3Pct438PAEd1d4rLEd1LCCLEEmKc=s800-k-c0xffffffff-no-rj-mo
+2026-10-22 13:57:16,802 INFO trimmed letterbox (1280, 720) -> (1135, 720): https://i.ytimg.com/vi/5sKRZd5Pqxs/maxresdefault.jpg
+2026-10-22 13:57:16,812 INFO CONTAIN MODE: 1135x720 needs 2.7x upscale to cover; rendering whole on a blurred fill instead
+2026-10-22 13:57:16,828 INFO face detected in vis-4874-2: 85x107 at (581,424)
+2026-10-22 13:57:20,628 INFO vision still-relevance: gemini-3.5-flash-lite HTTP 503
+2026-10-22 13:57:36,179 INFO CONTAIN MODE: 1280x720 needs 2.7x upscale to cover; rendering whole on a blurred fill instead
+2026-10-22 13:57:36,194 INFO face detected in vis-4874-3: 101x126 at (592,425)
+2026-10-22 13:57:47,154 INFO vision rotation: still-relevance served by gemini-3.5-flash-lite
+2026-10-22 13:57:47,193 INFO CONTAIN MODE: 1600x900 needs 2.1x upscale to cover; rendering whole on a blurred fill instead
+2026-10-22 13:57:47,212 INFO face detected in vis-4874-4: 253x338 at (1084,156)
+2026-10-22 13:58:27,317 INFO vision still-relevance: gemini-3.5-flash-lite failed (HTTPSConnectionPool(host='generativelanguage.googleapis.com', port=443): Read timed out. (read timeout=40))
+2026-10-22 13:58:32,908 INFO vision still-relevance: gemini-flash-latest HTTP 503
+2026-10-22 13:59:12,988 INFO vision still-relevance: gemma-4-31b-it failed (HTTPSConnectionPool(host='generativelanguage.googleapis.com', port=443): Read timed out. (read timeout=40))
+2026-10-22 13:59:13,085 INFO vision still-relevance: groq HTTP 404
+2026-10-22 13:59:15,430 INFO vision still-relevance: cloudflare failed (expected string or bytes-like object, got 'dict')
+2026-10-22 13:59:15,430 WARNING vision still-relevance: ALL rotation tiers exhausted
+2026-10-22 13:59:15,432 INFO STILL GATE: UNJUDGED (no answer) but from the story's own coverage; kept: https://www.dexerto.com/cdn-image/wp-content/uploads/2026/10/22/ludwig-qt-wedding.jpg
+2026-10-22 13:59:15,477 INFO text-heavy visual (heuristic) -> contain mode (no crop/zoom): https://genzhype.com/assets/covers/qtcinderella-slams-parasocial-freaks-after-ludwig-names-late-wedding-guests-hero.webp
+2026-10-22 13:59:15,501 INFO face detected in vis-4874-5: 191x245 at (816,98)
+2026-10-22 13:59:15,513 INFO POOL DEDUP: https://genzhype.com/assets/covers/qtcinderella-slams-parasocial-freaks-after-lu is the same image as https://www.dexerto.com/cdn-image/wp-content/uploads/2026/10; skipped
+2026-10-22 13:59:26,948 INFO visual pool: 4 distinct of 6 candidates (4 from people, 2 name(s) mapped: {'qtcinderella': 1, 'ludwig': 2})
+2026-10-22 13:59:26,949 INFO SUBJECT ON SCREEN: headline names ['QTCinderella', 'Ludwig']; verified picture(s) for ['QTCinderella', 'Ludwig']
+2026-10-22 13:59:26,949 INFO STAGE: receipts
+2026-10-22 13:59:27,013 INFO receipts: 4 card(s) downloaded of 8 entries (event entries carry no card by design)
+2026-10-22 13:59:27,014 INFO STAGE: screenshots
+2026-10-22 13:59:27,395 INFO screenshot engine unavailable (BrowserType.launch: Executable doesn't exist at /home/runner/.cache/ms-playwright/chromium_headless_); article receipts fall back to og photos / subject
+2026-10-22 13:59:27,423 INFO event receipts: 0 clean screenshot(s), 2 og report photo(s); the rest fall back to subject photos
+2026-10-22 13:59:27,423 INFO STAGE: tts
+2026-10-22 13:59:33,382 INFO expressive TTS: segment 1/2 rate=+18% pitch=+2Hz 3.62s 7 cue(s)
+2026-10-22 13:59:49,282 INFO expressive TTS: segment 2/2 rate=+5% pitch=- 21.43s 56 cue(s)
+2026-10-22 13:59:49,504 INFO expressive TTS ok: 2 segment(s), 25.06s audio, 63 word timings
+2026-10-22 13:59:49,505 INFO STAGE: compose
+2026-10-22 13:59:49,505 INFO bgm: SIGNATURE bed bgm_2.mp3 (same on every video, by design)
+2026-10-22 13:59:49,516 INFO EDL: 11 shot(s) from 11 directed (words=63)
+2026-10-22 13:59:50,024 INFO footage: cookies active
+2026-10-22 14:00:01,312 INFO vision caption-free: gemini-flash-latest HTTP 503
+2026-10-22 14:00:34,575 INFO vision rotation: caption-free served by gemma-4-31b-it
+2026-10-22 14:00:34,576 INFO archive.org footage: 13.5MB from https://archive.org/download/youtube-SaR6upaOoAo/Trombone%20Champ%20-%
+2026-10-22 14:00:38,201 INFO vision footage-relevance: gemini-flash-latest HTTP 503
+2026-10-22 14:01:05,823 INFO vision footage-relevance: gemma-4-31b-it HTTP 500
+2026-10-22 14:01:17,894 INFO vision rotation: footage-relevance served by gemini-3.5-flash-lite
+2026-10-22 14:01:17,895 INFO FOOTAGE GATE: off-topic clip rejected (arch-4d6727329016.mp4)
+2026-10-22 14:01:17,895 INFO HOOK: candidate unavailable (off-topic); trying next
+2026-10-22 14:01:27,043 INFO archive.org footage: 4.4MB from https://archive.org/download/ludwig_jojo/Ludwig.mp4
+2026-10-22 14:01:28,789 INFO vision footage-relevance: gemini-flash-latest HTTP 503
+2026-10-22 14:02:02,184 INFO vision rotation: footage-relevance served by gemma-4-31b-it
+2026-10-22 14:02:04,620 INFO face detected in clipfr-0.jpg: 178x257 at (510,109)
+2026-10-22 14:02:04,746 INFO clip frame too similar to one already kept; skipped
+2026-10-22 14:02:04,750 INFO clip frame too similar to one already kept; skipped
+2026-10-22 14:02:04,754 INFO clip frame too similar to one already kept; skipped
+2026-10-22 14:02:04,759 INFO clip frame too similar to one already kept; skipped
+2026-10-22 14:02:04,763 INFO clip frame too similar to one already kept; skipped
+2026-10-22 14:02:04,768 INFO clip frame too similar to one already kept; skipped
+2026-10-22 14:02:04,772 INFO clip frame too similar to one already kept; skipped
+2026-10-22 14:02:04,781 INFO CLIP FRAMES: +1 stills harvested from the money-moment clip (pool 4 -> 5)
+2026-10-22 14:02:04,781 INFO HOOK = OPENING CLIP: arch-fe25b5c1b468.mp4 (t=0s)
+2026-10-22 14:02:04,817 INFO receipt 0 -> og report photo (photo scene)
+2026-10-22 14:02:04,817 INFO CLIP FIT: no clip's title matches scene 3's words ('and ExtraEmily for arriving late'); the planned still stands
+2026-10-22 14:02:04,850 INFO CLIP FIT: no clip's title matches scene 4's words ('to their wedding and ruining'); the planned still stands
+2026-10-22 14:02:04,850 INFO receipt 0 repeats within 3 scenes; subject photo fallback
+2026-10-22 14:02:04,850 INFO receipt 0 missing/unresolved; subject photo fallback
+2026-10-22 14:02:22,019 INFO FOOTAGE unavailable for 5sKRZd5Pqxs; thumbnail fallback
+2026-10-22 14:02:22,020 INFO CLIP FIT: no clip's title matches scene 5's words ('the photo schedule. The'); the planned still stands
+2026-10-22 14:02:22,020 INFO receipt 2 missing/unresolved; subject photo fallback
+2026-10-22 14:02:39,171 INFO FOOTAGE unavailable for NlN2y6YvX0E; thumbnail fallback
+2026-10-22 14:02:39,171 INFO CLIP FIT: no clip's title matches scene 6's words ('next day, QT slammed fans'); the planned still stands
+2026-10-22 14:02:39,171 INFO CLIP FIT: no clip's title matches scene 7's words ('for attacking those guests, blaming drama'); the planned still stands
+2026-10-22 14:02:39,171 INFO receipt 2 missing/unresolved; subject photo fallback
+2026-10-22 14:02:39,171 INFO CLIP FIT: no clip's title matches scene 8's words ('clippers for farming the clip. When'); the planned still stands
+2026-10-22 14:02:39,171 INFO CLIP FIT: no clip's title matches scene 9's words ('fans reminded her she and Ludwig'); the planned still stands
+2026-10-22 14:02:39,172 INFO person shot -> Ludwig's photo 1/2 (vis-4874-2)
+2026-10-22 14:02:56,145 INFO FOOTAGE unavailable for 5sKRZd5Pqxs; thumbnail fallback
+2026-10-22 14:02:56,145 INFO CLIP FIT: no clip's title matches scene 10's words ('named them first, she claimed'); the planned still stands
+2026-10-22 14:02:56,145 INFO receipt 3 missing/unresolved; subject photo fallback
+2026-10-22 14:03:13,299 INFO FOOTAGE unavailable for NlN2y6YvX0E; thumbnail fallback
+2026-10-22 14:03:13,300 INFO CLIP FIT: no clip's title matches scene 11's words ('it was just a long podcast.'); the planned still stands
+2026-10-22 14:03:13,300 INFO SPEND THE POOL: 1 repeat(s) swapped for unused images (6 distinct stills now on screen)
+2026-10-22 14:03:13,300 INFO RENDER REPORT: {"style": "slowburn", "ck_mode": true, "cookie_bytes": 1582, "story_vids": 2, "scenes": 11, "runtime_s": 25.5, "footage_scenes": 1, "gap_fill_scenes": 0, "opportunistic_footage": 1, "still_photo_scenes": 9, "card_scenes": 1, "frozen_stills": 0, "footage_fetches": 4, "seq": "fcsssssssss"}
+2026-10-22 14:03:13,300 INFO CLIP verify disabled (VIDEO_CLIP_VERIFY=0)
+2026-10-22 14:03:13,300 INFO scene plan (v4 EDL): 11 scene(s) (1 receipt, 1 b-roll), pool=5
+2026-10-22 14:03:13,300 INFO   scene 1: 0.00-3.57s type=broll(FOOTAGE) motion=punch_build sfx=none music=bed visual=arch-fe25b5c1b468.mp4
+2026-10-22 14:03:13,300 INFO   scene 2: 3.57-8.37s type=receipt motion=contain sfx=whoosh music=bed visual=receipt-4874-4.png
+2026-10-22 14:03:13,300 INFO   scene 3: 8.37-9.95s type=photo motion=zoom_out sfx=none music=bed visual=receipt-og-4874-0.jpg
+2026-10-22 14:03:13,300 INFO   scene 4: 9.95-11.15s type=photo motion=pan_left sfx=none music=bed visual=vis-4874-0
+2026-10-22 14:03:13,300 INFO   scene 5: 11.15-12.54s type=photo motion=pan_right sfx=none music=bed visual=vis-4874-2
+2026-10-22 14:03:13,300 INFO   scene 6: 12.54-14.69s type=photo motion=punch_build sfx=whoosh music=bed visual=vis-4874-3
+2026-10-22 14:03:13,300 INFO   scene 7: 14.69-16.94s type=photo motion=punch_hit sfx=none music=bed visual=clipfr-0.jpg
+2026-10-22 14:03:13,300 INFO   scene 8: 16.94-18.90s type=photo motion=zoom_out sfx=none music=bed visual=clipfr-0.jpg
+2026-10-22 14:03:13,300 INFO   scene 9: 18.90-20.84s type=photo motion=pan_left sfx=whoosh music=bed visual=vis-4874-0
+2026-10-22 14:03:13,300 INFO   scene 10: 20.84-22.54s type=photo motion=zoom_out sfx=riser music=silence visual=vis-4874-2
+2026-10-22 14:03:13,300 INFO   scene 11: 22.54-25.51s type=photo motion=punch_build sfx=impact music=duck visual=vis-4874-3
+2026-10-22 14:03:13,300 INFO VARIETY: 6 distinct stills, top visual carries 2/10 (20%)
+2026-10-22 14:03:13,300 INFO SELFCHECK: repeats=0 short_scenes=none caption_cov=100% (window=3, assets=12)
+2026-10-22 14:03:13,301 WARNING SELFCHECK: 1 near-repeat(s) within the 3-scene window (small pool; each reappears with different motion) — non-fatal
+2026-10-22 14:03:14,976 INFO face detected in receipt-og-4874-0.jpg: 253x338 at (1084,156)
+[0;93m2026-10-22 14:03:15.175066162 [W:onnxruntime:Default, device_discovery.cc:95 GetPciBusId] Skipping pci_bus_id for PCI path at "/sys/devices/LNXSYSTM:00/LNXSYBUS:00/ACPI0004:00/MSFT1000:00/5620e0c7-8062-4dce-aeb7-520c7ef76171" because filename "5620e0c7-8062-4dce-aeb7-520c7ef76171" did not match expected pattern of [0-9a-f]+:[0-9a-f]+:[0-9a-f]+[.][0-9a-f]+[m
+2026-10-22 14:03:15,464 INFO depth: session ready
+2026-10-22 14:03:16,275 INFO depth: receipt-og-4874-0.jpg in 0.81s
+2026-10-22 14:03:16,360 INFO DEPTH SCENE receipt-og-4874-0.jpg motion=zoom_out dur=1.6s
+2026-10-22 14:03:18,688 INFO depth: clipfr-0.jpg in 0.82s
+2026-10-22 14:03:18,735 INFO DEPTH SCENE clipfr-0.jpg motion=zoom_out dur=2.0s
+2026-10-22 14:03:20,660 INFO transition 1/3: whip at 3.57s (beat change)
+2026-10-22 14:03:21,328 INFO transition 2/3: crosszoom at 12.54s (beat change)
+2026-10-22 14:03:21,563 INFO transition 3/3: whip at 18.90s (beat change)
+2026-10-22 14:03:28,965 INFO TEXT AVOID: burned-in text on 9 of 11 scene(s) (7.4s)
+2026-10-22 14:03:30,142 INFO CAPTION PLACEMENT: 17 caption event(s) by position: {"card": 4, "home": 6, "top": 7}
+2026-10-22 14:03:31,336 INFO bgm: SIGNATURE bed bgm_2.mp3 (same on every video, by design)
+2026-10-22 14:03:31,600 INFO sound: SWELL +5dB over 1.7s into the reveal at 22.5s, decaying 1.8s
+2026-10-22 14:03:31,620 INFO sound: bed bgm_2.mp3 over 2 interval(s), 1 swell(s)
+2026-10-22 14:03:31,814 INFO sound: 5 SFX placed
+2026-10-22 14:03:31,850 INFO sound: final -17.4 dBFS avg / -1.5 dBFS peak
+2026-10-22 14:07:25,993 INFO COMPOSE TIMING: {'prepare_s': 18.6, 'draw_encode_s': 234.0, 'remux_s': 0.0, 'scenes': 11, 'seconds': 25.5}
+2026-10-22 14:07:26,039 INFO STAGE: judge
+2026-10-22 14:07:38,568 INFO vision rotation: JUDGE served by gemini-3.5-flash-lite
+2026-10-22 14:07:38,570 INFO vision judge: pass=False weird=[{'frame': 5, 'issue': 'c. REPETITION: the underlying image/video clip of Ludwig reacting in the podcast appears in frames 5, 9, 11 (and also shares the exact same composite layout as 5, 9, 11)'}, {'frame': 9, 'issue': 'c. REPETITION: the same podcast clip composite repeats in frame 9'}, {'frame': 11, 'issue': 'c. REPETITION: the same podcast clip composite repeats in frame 11'}] mismatches=[] artifact_misses=[] scores={'readability': 9, 'framing': 9, 'variety': 6, 'edit_variety': 6, 'completeness': 8} issues=['Repetition of the exact same visual composition and clip across frames 5, 9, and 11.']
+2026-10-22 14:07:44,284 INFO caption font: /usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf
+2026-10-22 14:07:44,464 INFO filmstrip built: build/reject-4874.jpg
+2026-10-22 14:07:45,447 INFO DIAG reject-sheet -> HTTP 200
+2026-10-22 14:07:45,660 ERROR failed to make video for 4874: vision judge rejected page 4874 (attempt 1/1): weird=[{'frame': 5, 'issue': 'c. REPETITION: the underlying image/video clip of Ludwig reacting in the podcast appears in frames 5, 9, 11 (and also shares the exact same composite layout as 5, 9, 11)'}, {'frame': 9, 'issue': 'c. REPETITION: the same podcast clip composite repeats in frame 9'}, {'frame': 11, 'issue': 'c. REPETITION: the same podcast clip composite repeats in frame 11'}] mism=[] issues=['Repetition of the exact same visual composition and clip across frames 5, 9, and 11.']
+Traceback (most recent call last):
+  File "/home/runner/work/genzhype-scraper/genzhype-scraper/video_maker.py", line 10934, in main
+    make_one(post, font_path)
+  File "/home/runner/work/genzhype-scraper/genzhype-scraper/video_maker.py", line 10889, in make_one
+    raise JudgeRejected(
+JudgeRejected: vision judge rejected page 4874 (attempt 1/1): weird=[{'frame': 5, 'issue': 'c. REPETITION: the underlying image/video clip of Ludwig reacting in the podcast appears in frames 5, 9, 11 (and also shares the exact same composite layout as 5, 9, 11)'}, {'frame': 9, 'issue': 'c. REPETITION: the same podcast clip composite repeats in frame 9'}, {'frame': 11, 'issue': 'c. REPETITION: the same podcast clip composite repeats in frame 11'}] mism=[] issues=['Repetition of the exact same visual composition and clip across frames 5, 9, and 11.']
+2026-10-22 14:07:45,871 INFO job feed from repo branch (generated 2026-10-22T13:50:14+00:00)
+2026-10-22 14:07:45,871 INFO job from static feed (generated 2026-10-22T13:50:14+00:00)
+2026-10-22 14:07:45,871 INFO processing page_id=231 slug=yourrage-accuses-childhood-friend-greg-of-six-figure-theft
+2026-10-22 14:07:45,871 INFO STYLE punch: lead=faces cuts~1.5s xfade=0.08 zoom=0.16 punch=1.17 bgm_3 evidence_cap=2 footage_consec=2
+2026-10-22 14:07:45,871 INFO voice: en-US-AndrewMultilingualNeural
+2026-10-22 14:07:45,871 INFO STAGE: visuals
+2026-10-22 14:07:45,871 INFO CLIP HUNT: story now has 0 clip(s)
+2026-10-22 14:07:46,584 INFO archive.org clip: Special Operations Division - LT Greg Flowers (colctx-Special_Operations_Division_-_LT_Greg_Flowers, 81s, 8.3MB)
+2026-10-22 14:07:46,897 INFO archive.org clip: Louisville NOW! from NULU Marketplace with Greg Fante, Louis (lmtvtn-Louisville_NOW_from_NULU_Marketplace_with_Greg_Fante_Louisville_Sports_Commission, 265s, 26.0MB)
+2026-10-22 14:07:46,966 INFO archive.org clip: Greg Gatsby & Richard Fraioli MAYDAY ( Ft. Camila (GregGatsbyRichardFraioliMAYDAYFt.Camila, 295s, 116.4MB)
+2026-10-22 14:07:46,967 INFO story clips available: 3 (archive)
+2026-10-22 14:07:46,967 INFO person photos from feed (site-resolved): YourRAGE x1
+2026-10-22 14:07:47,408 INFO UPSIZED: https://yt3.ggpht.com/ytc/AIdro_mP324EYPG7QJ1Km-LzLz0U5ayeKAphylIz9ZcDQgbmFQ=s1200
+2026-10-22 14:07:47,418 INFO CONTAIN MODE: 768x768 needs 2.5x upscale to cover; rendering whole on a blurred fill instead
+2026-10-22 14:07:47,434 INFO face detected in vis-231-0: 655x756 at (112,3)
+2026-10-22 14:07:47,453 INFO CONTAIN MODE: 1600x900 needs 2.1x upscale to cover; rendering whole on a blurred fill instead
+2026-10-22 14:07:47,467 INFO face detected in vis-231-1: 441x620 at (1078,244)
+2026-10-22 14:08:00,323 INFO vision rotation: still-relevance served by gemini-3.5-flash-lite
+2026-10-22 14:08:00,385 INFO trimmed letterbox (1961, 802) -> (1753, 672): https://getknownradio.com/assets/get-known-radio-header.png
+2026-10-22 14:08:00,402 INFO text-heavy visual (heuristic) -> contain mode (no crop/zoom): https://getknownradio.com/assets/get-known-radio-header.png
+2026-10-22 14:08:00,423 INFO face detected in vis-231-2: 314x298 at (1034,21)
+2026-10-22 14:08:00,447 INFO trimmed letterbox (1200, 630) -> (1135, 586): https://genzhype.com/assets/covers/yourrage-accuses-childhood-friend-greg-of-six-figure-theft.png
+2026-10-22 14:08:00,449 INFO text-heavy visual (heuristic) -> contain mode (no crop/zoom): https://genzhype.com/assets/covers/yourrage-accuses-childhood-friend-greg-of-six-figure-theft.png
+2026-10-22 14:08:25,854 INFO openverse failed (HTTPSConnectionPool(host='api.openverse.org', port=443): Read timed out. (read t)
+2026-10-22 14:08:25,854 INFO visual pool: 4 distinct of 4 candidates (1 from people, 1 name(s) mapped: {'yourrage': 1})
+2026-10-22 14:08:25,854 INFO SUBJECT ON SCREEN: headline names ['YourRAGE', 'Greg']; verified picture(s) for ['YourRAGE']
+2026-10-22 14:08:25,854 INFO visual_i 2 ready (the actual moment (Jun 30 report photo): Editorial highlights creator‑economy fi)
+2026-10-22 14:08:25,854 INFO STAGE: receipts
+2026-10-22 14:08:25,918 INFO receipts: 4 card(s) downloaded of 6 entries (event entries carry no card by design)
+2026-10-22 14:08:25,918 INFO STAGE: screenshots
+2026-10-22 14:08:26,449 INFO Readability injected from vendor/Readability.js
+2026-10-22 14:08:34,748 INFO Readability column 16..744 (9 nodes) on https://www.dexerto.com/twitch/yourrage-accuses-childho
+2026-10-22 14:08:34,758 INFO crop r30c: 760x950 at 0,158 (col 728, lead-img True) https://www.dexerto.com/twitch/yourrage-accuses-childhood-fr
+2026-10-22 14:08:43,387 INFO vision rotation: screenshot-clean served by gemini-3.5-flash-lite
+2026-10-22 14:08:43,388 INFO REAL source screenshot: https://www.dexerto.com/twitch/yourrage-accuses-childhood-friend-of-stealing-100k-during-on-stream-c
+2026-10-22 14:08:48,697 INFO Readability column 55..705 (15 nodes) on https://getknownradio.com/blog/2026-06-30-yourrage-s-st
+2026-10-22 14:08:48,706 INFO crop r30c: 697x823 at 31,419 (col 649, lead-img False) https://getknownradio.com/blog/2026-06-30-yourrage-s-stolen-
+2026-10-22 14:08:49,551 INFO SHOT DEAD-ZONE: still >20% dead after repair; rejected (shot-231-1.png)
+2026-10-22 14:08:49,649 INFO trimmed letterbox (1961, 802) -> (1753, 672): https://getknownradio.com/assets/get-known-radio-header.png
+2026-10-22 14:08:49,654 INFO event receipts: 1 clean screenshot(s), 1 og report photo(s); the rest fall back to subject photos
+2026-10-22 14:08:49,654 INFO STAGE: tts
+2026-10-22 14:08:49,654 INFO expressive TTS: script structure unclear; single-pass
+2026-10-22 14:08:49,654 INFO expressive TTS unavailable for page 231; single-pass synthesis
+2026-10-22 14:08:49,654 INFO MPT voice module not found; using in-file edge-tts fallback
+2026-10-22 14:08:49,654 INFO TTS attempt 1/4 voice=en-US-AndrewMultilingualNeural rate=+5% (300s budget left)
+2026-10-22 14:09:06,144 INFO TTS ok: 28.49s audio, 62 word timings
+2026-10-22 14:09:06,144 INFO STAGE: compose
+2026-10-22 14:09:06,144 INFO bgm: SIGNATURE bed bgm_2.mp3 (same on every video, by design)
+2026-10-22 14:09:06,144 INFO EDL: 11 shot(s) from 11 directed (words=62)
+2026-10-22 14:09:12,197 INFO vision caption-free: gemini-flash-latest HTTP 503
+2026-10-22 14:09:23,717 INFO vision caption-free: gemma-4-31b-it HTTP 500
+2026-10-22 14:09:35,458 INFO vision rotation: caption-free served by gemini-3.5-flash-lite
+2026-10-22 14:09:35,459 INFO archive.org footage: 3.0MB from https://archive.org/download/colctx-Special_Operations_Division_-_LT_G
+2026-10-22 14:09:41,400 INFO FOOTAGE GATE: off-topic clip rejected (arch-2e15d2962e4c.mp4)
+2026-10-22 14:09:41,400 INFO HOOK: candidate unavailable (off-topic); trying next
+2026-10-22 14:09:46,553 INFO vision caption-free: gemini-flash-latest HTTP 503
+2026-10-22 14:10:10,868 INFO vision rotation: caption-free served by gemma-4-31b-it
+2026-10-22 14:10:10,869 INFO archive.org footage: 8.9MB from https://archive.org/download/lmtvtn-Louisville_NOW_from_NULU_Marketpla
+2026-10-22 14:10:12,419 INFO vision footage-relevance: gemini-flash-latest HTTP 503
+2026-10-22 14:10:17,054 INFO vision footage-relevance: gemma-4-31b-it HTTP 500
+2026-10-22 14:10:49,111 INFO vision rotation: footage-relevance served by gemini-3.5-flash-lite
+2026-10-22 14:10:49,113 INFO FOOTAGE GATE: off-topic clip rejected (arch-5c181ca8669a.mp4)
+2026-10-22 14:10:49,113 INFO HOOK: candidate unavailable (off-topic); trying next
+2026-10-22 14:11:39,437 INFO vision caption-free: gemini-flash-latest failed (HTTPSConnectionPool(host='generativelanguage.googleapis.com', port=443): Read timed out. (read timeout=45))
+2026-10-22 14:12:24,522 INFO vision caption-free: gemma-4-31b-it failed (HTTPSConnectionPool(host='generativelanguage.googleapis.com', port=443): Read timed out. (read timeout=45))
+2026-10-22 14:12:31,401 INFO vision rotation: caption-free served by gemini-3.5-flash-lite
+2026-10-22 14:12:31,401 INFO ARCHIVE CAPTION GATE: burned-in text found; clip dropped (arch-ddd76d29cec8.mp4)
+2026-10-22 14:12:31,402 INFO archive clip REFUSED by the caption gate (burned-in text, or the check could not run — it fails closed on purpose): https://archive.org/download/GregGatsbyRichardFraioliMAYDAYFt.Camila/G
+2026-10-22 14:12:31,402 INFO HOOK: candidate unavailable (fetch failed); trying next
+2026-10-22 14:12:31,402 INFO HOOK: no fetchable clip; normal opener
+2026-10-22 14:12:31,402 INFO CLIP FRAMES: no usable clip of the 3 available (fetch or a quality gate refused every one); pool stays at 4
+2026-10-22 14:12:31,426 INFO CLIP FIT: no clip's title matches scene 1's words ('YourRAGE: $50K THEFT BY GREG'); the planned still stands
+2026-10-22 14:12:31,458 INFO CLIP FIT: no clip's title matches scene 3's words ('a tearful video on X accusing'); the planned still stands
+2026-10-22 14:12:31,469 INFO receipt 1 -> og report photo (photo scene)
+2026-10-22 14:12:31,469 INFO CLIP FIT: no clip's title matches scene 4's words ('his 25‑year‑old childhood friend Greg of'); the planned still stands
+2026-10-22 14:12:31,469 INFO CLIP FIT: no clip's title matches scene 5's words ('stealing at least fifty thousand dollars,'); the planned still stands
+2026-10-22 14:12:31,488 INFO visual_i 2 -> real story image (vis-231-2)
+2026-10-22 14:12:31,488 INFO IMAGE CAP: vis-231-2 already fills 2 shot(s); LRU pool pick instead
+2026-10-22 14:12:31,489 INFO CLIP FIT: no clip's title matches scene 8's words ('a misunderstanding and denying any theft.'); the planned still stands
+2026-10-22 14:12:31,489 INFO CLIP FIT: no clip's title matches scene 9's words ('So, do you believe Greg really'); the planned still stands
+2026-10-22 14:12:31,489 INFO IMAGE CAP: receipt 1 shows a picture already in 2 shot(s); subject photo instead
+2026-10-22 14:12:31,489 INFO receipt 1 missing/unresolved; subject photo fallback
+2026-10-22 14:12:31,489 INFO IMAGE CAP: every real image fills 2 shot(s); a repeat is the last resort
+2026-10-22 14:12:31,489 INFO CLIP FIT: no clip's title matches scene 10's words ('stole at least $50k, or was'); the planned still stands
+2026-10-22 14:12:31,489 INFO IMAGE CAP: every real image fills 2 shot(s); a repeat is the last resort
+2026-10-22 14:12:31,489 INFO IMAGE CAP: every real image fills 2 shot(s); a repeat is the last resort
+2026-10-22 14:12:31,489 INFO CLIP FIT: no clip's title matches scene 11's words ('it just a misunderstanding?'); the planned still stands
+2026-10-22 14:12:31,493 INFO REPEAT HOLD: 0 beat(s) moved to a picture with a use left, 1 held on the previous picture (cap 2 shots)
+2026-10-22 14:12:31,493 INFO RENDER REPORT: {"style": "punch", "ck_mode": true, "cookie_bytes": 1582, "story_vids": 0, "scenes": 10, "runtime_s": 28.9, "footage_scenes": 0, "gap_fill_scenes": 0, "opportunistic_footage": 0, "still_photo_scenes": 7, "card_scenes": 4, "frozen_stills": 0, "footage_fetches": 4, "seq": "scsscccsss"}
+2026-10-22 14:12:31,493 INFO CLIP verify disabled (VIDEO_CLIP_VERIFY=0)
+2026-10-22 14:12:31,494 INFO scene plan (v4 EDL): 10 scene(s) (3 receipt, 0 b-roll), pool=4
+2026-10-22 14:12:31,494 INFO   scene 1: 0.00-2.95s type=photo motion=punch_build sfx=none music=bed visual=vis-231-1
+2026-10-22 14:12:31,494 INFO   scene 2: 2.95-6.55s type=receipt motion=contain sfx=whoosh music=bed visual=shot-231-0.png
+2026-10-22 14:12:31,494 INFO   scene 3: 6.55-8.71s type=photo motion=zoom_out sfx=none music=bed visual=vis-231-0
+2026-10-22 14:12:31,494 INFO   scene 4: 8.71-11.33s type=photo motion=pan_left sfx=riser music=silence visual=receipt-og-231-1.jpg
+2026-10-22 14:12:31,494 INFO   scene 5: 11.33-14.07s type=photo motion=contain sfx=impact music=duck visual=vis-231-2
+2026-10-22 14:12:31,494 INFO   scene 6: 14.07-16.09s type=receipt motion=contain sfx=none music=bed visual=shot-231-0.png
+2026-10-22 14:12:31,494 INFO   scene 7: 16.09-18.74s type=receipt motion=contain sfx=whoosh music=bed visual=receipt-231-2.png
+2026-10-22 14:12:31,494 INFO   scene 8: 18.74-21.72s type=photo motion=zoom_out sfx=none music=bed visual=vis-231-1
+2026-10-22 14:12:31,494 INFO   scene 9: 21.72-26.57s type=photo motion=pan_left sfx=none music=bed visual=vis-231-0
+2026-10-22 14:12:31,494 INFO   scene 10: 26.57-28.94s type=photo motion=punch_build sfx=none music=bed visual=vis-231-1
+2026-10-22 14:12:31,494 INFO VARIETY: 6 distinct stills, top visual carries 3/10 (30%)
+2026-10-22 14:12:31,494 INFO SELFCHECK: repeats=0 short_scenes=none caption_cov=99% (window=3, assets=10)
+2026-10-22 14:12:31,494 WARNING SELFCHECK: 1 near-repeat(s) within the 3-scene window (small pool; each reappears with different motion) — non-fatal
+2026-10-22 14:12:32,464 INFO face detected in receipt-og-231-1.jpg: 314x298 at (1034,21)
+2026-10-22 14:12:35,160 INFO transition 1/3: whip at 2.95s (beat change)
+2026-10-22 14:12:35,858 INFO transition 2/3: crosszoom at 16.09s (beat change)
+2026-10-22 14:12:40,557 INFO TEXT AVOID: burned-in text on 5 of 10 scene(s) (4.7s)
+2026-10-22 14:12:40,561 INFO TEXT AVOID: hook moved off burned-in text, top y 652 -> 630
+2026-10-22 14:12:41,653 INFO CAPTION PLACEMENT: 18 caption event(s) by position: {"card": 6, "home": 9, "top": 3}
+2026-10-22 14:12:42,217 INFO bgm: SIGNATURE bed bgm_2.mp3 (same on every video, by design)
+2026-10-22 14:12:42,483 INFO sound: SWELL +5dB over 2.6s into the reveal at 11.3s, decaying 1.8s
+2026-10-22 14:12:42,508 INFO sound: bed bgm_2.mp3 over 3 interval(s), 1 swell(s)
+2026-10-22 14:12:42,659 INFO sound: 4 SFX placed
+2026-10-22 14:12:42,701 INFO sound: final -17.5 dBFS avg / -1.5 dBFS peak
+2026-10-22 14:16:54,724 INFO COMPOSE TIMING: {'prepare_s': 11.3, 'draw_encode_s': 251.9, 'remux_s': 0.0, 'scenes': 10, 'seconds': 28.9}
+2026-10-22 14:16:54,770 INFO STAGE: judge
+2026-10-22 14:17:19,467 INFO vision JUDGE: gemini-3.5-flash-lite HTTP 503
+2026-10-22 14:17:41,689 INFO vision judge: pass=False weird=[{'frame': 4, 'issue': 'e. CONTEXT MISMATCH: random raccoon radio illustration unrelated to the story'}, {'frame': 5, 'issue': 'e. CONTEXT MISMATCH: random raccoon radio illustration unrelated to the story'}, {'frame': 7, 'issue': 'e. CONTEXT MISMATCH: completely unrelated tweet about anime/manga NTR tropes'}, {'frame': 10, 'issue': 'c. REPETITION: the screaming meme face repeats for a third time (frames 3, 9, 10)'}, {'frame': 11, 'issue': 'c. REPETITION: the split-screen stream image repeats for a third time (frames 1, 8, 11)'}] mismatches=[{'frame': 4, 'words': 'his 25‑year‑old childhood friend Greg of', 'what_shown': 'graphic of a raccoon with headphones'}, {'frame': 7, 'words': 'Greg responded on‑camera, insisting it was', 'what_shown': 'unrelated anime tweet'}] artifact_misses=[{'frame': 5, 'words': 'stealing at least fifty thousand dollars,', 'what_shown': 'graphic of a raccoon with headphones instead of story artifact'}, {'frame': 7, 'words': 'Greg responded on‑camera, insisting it was', 'what_shown': 'unrelated anime tweet instead of story artifact'}, {'frame': 10, 'words': 'stole at least $50k, or was', 'what_shown': 'screaming meme face instead of story artifact'}] scores={'readability': 5, 'framing': 4, 'variety': 3, 'edit_variety': 3, 'completeness': 3} issues=['Severe repetition of underlying visuals across sampled frames', 'Irrelevant imagery and unrelated tweet artifacts used in place of story coverage']
+2026-10-22 14:17:48,104 INFO caption font: /usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf
+2026-10-22 14:17:48,314 INFO filmstrip built: build/reject-231.jpg
+2026-10-22 14:17:48,992 INFO DIAG reject-sheet -> HTTP 200
+2026-10-22 14:17:49,988 INFO DIAG shot-231-0 -> HTTP 200
+2026-10-22 14:17:50,371 INFO DIAG shot-231-1 -> HTTP 200
+2026-10-22 14:17:50,798 INFO replan requested for page 231
+2026-10-22 14:17:50,798 ERROR failed to make video for 231: vision judge rejected page 231 (attempt 1/1): weird=[{'frame': 4, 'issue': 'e. CONTEXT MISMATCH: random raccoon radio illustration unrelated to the story'}, {'frame': 5, 'issue': 'e. CONTEXT MISMATCH: random raccoon radio illustration unrelated to the story'}, {'frame': 7, 'issue': 'e. CONTEXT MISMATCH: completely unrelated tweet about anime/manga NTR tropes'}] mism=[{'frame': 4, 'words': 'his 25‑year‑old childhood friend Greg of', 'what_shown': 'graphic of a raccoon with headphones'}, {'frame': 7, 'words': 'Greg responded on‑camera, insisting it was', 'what_shown': 'unrelated anime tweet'}] issues=['Severe repetition of underlying visuals across sampled frames', 'Irrelevant imagery and unrelated tweet artifacts used in place of story coverage']
+Traceback (most recent call last):
+  File "/home/runner/work/genzhype-scraper/genzhype-scraper/video_maker.py", line 10934, in main
+    make_one(post, font_path)
+  File "/home/runner/work/genzhype-scraper/genzhype-scraper/video_maker.py", line 10889, in make_one
+    raise JudgeRejected(
+JudgeRejected: vision judge rejected page 231 (attempt 1/1): weird=[{'frame': 4, 'issue': 'e. CONTEXT MISMATCH: random raccoon radio illustration unrelated to the story'}, {'frame': 5, 'issue': 'e. CONTEXT MISMATCH: random raccoon radio illustration unrelated to the story'}, {'frame': 7, 'issue': 'e. CONTEXT MISMATCH: completely unrelated tweet about anime/manga NTR tropes'}] mism=[{'frame': 4, 'words': 'his 25‑year‑old childhood friend Greg of', 'what_shown': 'graphic of a raccoon with headphones'}, {'frame': 7, 'words': 'Greg responded on‑camera, insisting it was', 'what_shown': 'unrelated anime tweet'}] issues=['Severe repetition of underlying visuals across sampled frames', 'Irrelevant imagery and unrelated tweet artifacts used in place of story coverage']
+2026-10-22 14:17:51,013 INFO job feed from repo branch (generated 2026-10-22T13:50:14+00:00)
+2026-10-22 14:17:51,013 INFO job from static feed (generated 2026-10-22T13:50:14+00:00)
+2026-10-22 14:17:51,013 INFO processing page_id=230 slug=brian-tamaki-s-gun-licence-revoked-and-firearms-seized
+2026-10-22 14:17:51,013 INFO STYLE slowburn: lead=footage cuts~2.2s xfade=0.25 zoom=0.10 punch=1.10 bgm_1 evidence_cap=2 footage_consec=6
+2026-10-22 14:17:51,013 INFO voice: en-US-AvaMultilingualNeural
+2026-10-22 14:17:51,013 INFO STAGE: visuals
+2026-10-22 14:17:51,013 INFO story clips available: 6 (tiktok)
+2026-10-22 14:17:51,013 INFO person photos from feed (site-resolved): Brian Tamaki x1
+2026-10-22 14:17:51,262 INFO UPSIZED: https://commons.wikimedia.org/wiki/Special:FilePath/Bishop-Tamaki-Auckland-2006.jpg?width=1600
+2026-10-22 14:17:51,318 INFO trimmed letterbox (1000, 1500) -> (1000, 1255): https://commons.wikimedia.org/wiki/Special:FilePath/Bishop-Tamaki-Auckland-2006.jpg?width=1400
+2026-10-22 14:17:51,332 INFO CONTAIN MODE: 1000x1255 needs 1.5x upscale to cover; rendering whole on a blurred fill instead
+2026-10-22 14:17:51,350 INFO face detected in vis-230-0: 169x217 at (394,60)
+2026-10-22 14:18:00,827 WARNING visual download failed (requests HTTP 503): https://tvnz-1-news-prod.cdn.arcpublishing.com/resizer/v2/a-screenshot-of-police-at-tamakis-property-shared-by-the-des-W
+2026-10-22 14:18:00,834 INFO CONTAIN MODE: 600x315 needs 6.1x upscale to cover; rendering whole on a blurred fill instead
+2026-10-22 14:18:00,842 INFO face detected in vis-230-1: 190x272 at (424,59)
+2026-10-22 14:18:07,250 INFO vision rotation: still-relevance served by gemini-3.5-flash-lite
+2026-10-22 14:18:07,264 INFO CONTAIN MODE: 1280x720 needs 2.7x upscale to cover; rendering whole on a blurred fill instead
+2026-10-22 14:18:07,276 INFO face detected in vis-230-2: 333x490 at (944,171)
+2026-10-22 14:18:14,722 INFO vision rotation: still-relevance served by gemini-3.5-flash-lite
+2026-10-22 14:18:14,744 INFO trimmed letterbox (1200, 630) -> (1135, 586): https://genzhype.com/assets/covers/brian-tamaki-s-gun-licence-revoked-and-firearms-seized.png
+2026-10-22 14:18:14,746 INFO text-heavy visual (heuristic) -> contain mode (no crop/zoom): https://genzhype.com/assets/covers/brian-tamaki-s-gun-licence-revoked-and-firearms-seized.png
+2026-10-22 14:18:39,883 INFO openverse failed (HTTPSConnectionPool(host='api.openverse.org', port=443): Read timed out. (read t)
+2026-10-22 14:18:39,883 INFO visual pool: 4 distinct of 4 candidates (1 from people, 1 name(s) mapped: {'brian tamaki': 1})
+2026-10-22 14:18:39,883 INFO SUBJECT ON SCREEN: headline names ['Brian Tamaki']; verified picture(s) for ['Brian Tamaki']
+2026-10-22 14:18:39,883 INFO visual_i 2 ready (the actual moment (Jun 29 report photo): Police seize firearms at Tamaki’s Auckl)
+2026-10-22 14:18:39,883 INFO STAGE: receipts
+2026-10-22 14:18:39,933 INFO receipts: 3 card(s) downloaded of 10 entries (event entries carry no card by design)
+2026-10-22 14:18:39,933 INFO STAGE: screenshots
+2026-10-22 14:18:40,320 INFO Readability injected from vendor/Readability.js
+2026-10-22 14:18:51,865 INFO Readability column 49..671 (7 nodes) on https://www.1news.co.nz/2026/06/30/brian-tamaki-blames-
+2026-10-22 14:18:51,875 INFO crop r30c: 760x950 at 0,129 (col 725, lead-img False) https://www.1news.co.nz/2026/06/30/brian-tamaki-blames-immig
+2026-10-22 14:18:52,245 INFO SHOT BLANK-BAND: removed 1043px empty band at y=295 (shot-230-0.png)
+2026-10-22 14:18:58,839 INFO vision rotation: screenshot-clean served by gemini-3.5-flash-lite
+2026-10-22 14:18:58,841 INFO REAL source screenshot: https://www.1news.co.nz/2026/06/30/brian-tamaki-blames-immigrants-for-police-seizing-his-guns/
+2026-10-22 14:19:16,606 INFO screenshot: no headline block found; skipping (no raw-page fallback): https://dailydot.com/brian-tamaki-says-new-zealand-police-revoked-his-gun-license-over-imm
+2026-10-22 14:19:17,644 INFO screenshot: 2 page(s) showed no headline at 760px; re-shooting at desktop 1440px
+2026-10-22 14:19:18,072 INFO Readability injected from vendor/Readability.js
+2026-10-22 14:19:35,318 INFO Readability column 360..1080 (2 nodes) on https://dailydot.com/brian-tamaki-says-new-zealand-poli
+2026-10-22 14:19:36,407 INFO crop r30c: 1072x1294 at 184,408 (col 987, lead-img True) https://dailydot.com/brian-tamaki-says-new-zealand-police-re
+2026-10-22 14:19:39,054 INFO SHOT BLANK-BAND: removed 289px empty band at y=851 (shot-230-1.png)
+2026-10-22 14:19:45,931 INFO vision rotation: screenshot-clean served by gemini-3.5-flash-lite
+2026-10-22 14:19:45,932 INFO SHOT AD-GATE: ad/merch-cluttered screenshot rejected (shot-230-1.png)
+2026-10-22 14:19:52,538 WARNING visual download failed (requests HTTP 503): https://tvnz-1-news-prod.cdn.arcpublishing.com/resizer/v2/a-screenshot-of-police-at-tamakis-property-shared-by-the-des-W
+2026-10-22 14:19:58,869 WARNING visual download failed (requests HTTP 503): https://tvnz-1-news-prod.cdn.arcpublishing.com/resizer/v2/a-screenshot-of-police-at-tamakis-property-shared-by-the-des-W
+2026-10-22 14:19:58,873 INFO event receipts: 1 clean screenshot(s), 4 og report photo(s); the rest fall back to subject photos
+2026-10-22 14:19:58,873 INFO STAGE: tts
+2026-10-22 14:20:02,296 INFO expressive TTS: segment 1/2 rate=+18% pitch=+2Hz 3.12s 6 cue(s)
+2026-10-22 14:20:22,297 INFO expressive TTS: segment 2/2 rate=+5% pitch=- 26.50s 65 cue(s)
+2026-10-22 14:20:22,468 INFO expressive TTS ok: 2 segment(s), 29.62s audio, 71 word timings
+2026-10-22 14:20:22,469 INFO STAGE: compose
+2026-10-22 14:20:22,469 INFO bgm: SIGNATURE bed bgm_2.mp3 (same on every video, by design)
+2026-10-22 14:20:22,469 INFO EDL: 12 shot(s) from 12 directed (words=71)
+2026-10-22 14:20:23,102 INFO CLIP staged by the server: cb63f4eaca6058600ae84eaede4e6651a3c5f203.mp4 (https://www.tiktok.com/@te_otane1/video/7303836360190741762)
+2026-10-22 14:20:24,270 INFO vision footage-relevance: gemini-flash-latest HTTP 503
+2026-10-22 14:20:26,553 INFO vision footage-relevance: gemma-4-31b-it HTTP 500
+2026-10-22 14:20:36,354 INFO vision footage-relevance: gemini-3.5-flash-lite HTTP 503
+2026-10-22 14:20:36,482 INFO vision footage-relevance: groq HTTP 404
+2026-10-22 14:20:37,104 INFO vision footage-relevance: cloudflare failed (expected string or bytes-like object, got 'dict')
+2026-10-22 14:20:37,104 WARNING vision footage-relevance: ALL rotation tiers exhausted
+2026-10-22 14:20:37,105 INFO CLIP FRAMES: opener cb63f4eaca6058600ae84eaede4e6651a3c5f203.mp4 not harvested (UNJUDGED: no answer)
+2026-10-22 14:20:37,105 INFO HOOK = OPENING CLIP: cb63f4eaca6058600ae84eaede4e6651a3c5f203.mp4 (t=0s)
+2026-10-22 14:20:37,111 INFO visual_i 2 -> real story image (vis-230-2)
+2026-10-22 14:20:37,118 INFO CLIP FIT: no clip's title matches scene 3's words ('his Auckland garage and removed multiple'); the planned still stands
+2026-10-22 14:20:37,124 INFO receipt 1 -> og report photo (photo scene)
+2026-10-22 14:20:37,125 INFO CLIP FIT: no clip's title matches scene 4's words ('scoped and suppressed rifles.'); the planned still stands
+2026-10-22 14:20:37,125 INFO receipt 0 repeats within 3 scenes; subject photo fallback
+2026-10-22 14:20:37,125 INFO receipt 0 missing/unresolved; subject photo fallback
+2026-10-22 14:20:37,137 INFO CLIP FIT: no clip's title matches scene 5's words ('Tamaki claimed the action was retaliation for'); the planned still stands
+2026-10-22 14:20:37,156 INFO IMAGE CAP: receipt 1 shows a picture already in 2 shot(s); subject photo instead
+2026-10-22 14:20:37,156 INFO receipt 1 missing/unresolved; subject photo fallback
+2026-10-22 14:20:37,156 INFO CLIP FIT: no clip's title matches scene 7's words ('licence after he called for a "purge"'); the planned still stands
+2026-10-22 14:20:37,156 INFO IMAGE CAP: receipt 1 shows a picture already in 2 shot(s); subject photo instead
+2026-10-22 14:20:37,156 INFO receipt 1 missing/unresolved; subject photo fallback
+2026-10-22 14:20:37,156 INFO CLIP FIT: no clip's title matches scene 9's words ('Police confirmed a temporary suspension notice'); the planned still stands
+2026-10-22 14:20:37,156 INFO IMAGE CAP: fresh candidates all fill 2 shot(s); reusing an under-cap image inside the window instead
+2026-10-22 14:20:37,156 INFO IMAGE CAP: fresh candidates all fill 2 shot(s); reusing an under-cap image inside the window instead
+2026-10-22 14:20:37,157 INFO CLIP FIT: no clip's title matches scene 10's words ('was served but gave no specific grounds,'); the planned still stands
+2026-10-22 14:20:37,157 INFO receipt image already in 2 scenes; subject photo for variety
+2026-10-22 14:20:37,157 INFO receipt 0 missing/unresolved; subject photo fallback
+2026-10-22 14:20:37,157 INFO IMAGE CAP: every real image fills 2 shot(s); a repeat is the last resort
+2026-10-22 14:20:37,157 INFO CLIP FIT: no clip's title matches scene 11's words ('leaving the motive unclear.'); the planned still stands
+2026-10-22 14:20:37,157 INFO IMAGE CAP: every real image fills 2 shot(s); a repeat is the last resort
+2026-10-22 14:20:37,157 INFO IMAGE CAP: every real image fills 2 shot(s); a repeat is the last resort
+2026-10-22 14:20:37,157 INFO CLIP FIT: no clip's title matches scene 12's words ('Was the seizure of Brian Tamaki guns justified?'); the planned still stands
+2026-10-22 14:20:37,161 INFO SPEND THE POOL: 2 repeat(s) swapped for unused images (5 distinct stills now on screen)
+2026-10-22 14:20:37,162 INFO RENDER REPORT: {"style": "slowburn", "ck_mode": true, "cookie_bytes": 1582, "story_vids": 0, "scenes": 12, "runtime_s": 30.1, "footage_scenes": 1, "gap_fill_scenes": 0, "opportunistic_footage": 1, "still_photo_scenes": 8, "card_scenes": 3, "frozen_stills": 0, "footage_fetches": 4, "seq": "fcssscscssss"}
+2026-10-22 14:20:37,162 INFO CLIP verify disabled (VIDEO_CLIP_VERIFY=0)
+2026-10-22 14:20:37,162 INFO scene plan (v4 EDL): 12 scene(s) (3 receipt, 1 b-roll), pool=4
+2026-10-22 14:20:37,162 INFO   scene 1: 0.00-2.90s type=broll(FOOTAGE) motion=punch_build sfx=whoosh music=bed visual=cb63f4eaca6058600ae84eaede4e6651a3c5f203.mp4
+2026-10-22 14:20:37,162 INFO   scene 2: 2.90-5.50s type=receipt motion=contain sfx=pop music=bed visual=shot-230-0.png
+2026-10-22 14:20:37,162 INFO   scene 3: 5.50-7.86s type=photo motion=pan_right sfx=none music=bed visual=vis-230-2
+2026-10-22 14:20:37,162 INFO   scene 4: 7.86-10.09s type=photo motion=zoom_out sfx=pop music=bed visual=vis-230-0
+2026-10-22 14:20:37,162 INFO   scene 5: 10.09-12.49s type=photo motion=punch_hit sfx=pop music=bed visual=vis-230-1
+2026-10-22 14:20:37,162 INFO   scene 6: 12.49-15.49s type=receipt motion=contain sfx=none music=bed visual=receipt-230-7.png
+2026-10-22 14:20:37,162 INFO   scene 7: 15.49-17.87s type=photo motion=zoom_out sfx=none music=bed visual=vis-230-1
+2026-10-22 14:20:37,162 INFO   scene 8: 17.87-19.30s type=receipt motion=contain sfx=none music=bed visual=shot-230-0.png
+2026-10-22 14:20:37,162 INFO   scene 9: 19.30-21.53s type=photo motion=pan_right sfx=none music=bed visual=vis-230-0
+2026-10-22 14:20:37,162 INFO   scene 10: 21.53-24.43s type=photo motion=zoom_out sfx=none music=bed visual=vis-230-1
+2026-10-22 14:20:37,162 INFO   scene 11: 24.43-26.18s type=photo motion=punch_hit sfx=riser music=silence visual=vis-230-2
+2026-10-22 14:20:37,162 INFO   scene 12: 26.18-30.07s type=photo motion=pan_left sfx=impact music=duck visual=vis-230-0
+2026-10-22 14:20:37,162 INFO VARIETY: 5 distinct stills, top visual carries 3/11 (27%)
+2026-10-22 14:20:37,162 INFO SELFCHECK: repeats=0 short_scenes=none caption_cov=99% (window=2, assets=13)
+2026-10-22 14:20:37,162 WARNING SELFCHECK: 1 near-repeat(s) within the 2-scene window (small pool; each reappears with different motion) — non-fatal
+2026-10-22 14:20:38,489 INFO EDGE-SAFE CROP: shifted -76px — 1 sliced face(s) -> 0
+2026-10-22 14:20:39,348 INFO depth: vis-230-0 in 0.81s
+2026-10-22 14:20:39,389 INFO DEPTH SCENE vis-230-0 motion=zoom_out dur=2.2s
+2026-10-22 14:20:48,286 INFO TEXT AVOID: burned-in text on 4 of 12 scene(s) (6.2s)
+2026-10-22 14:20:49,580 INFO CAPTION PLACEMENT: 19 caption event(s) by position: {"card": 7, "home": 12}
+2026-10-22 14:20:50,459 INFO bgm: SIGNATURE bed bgm_2.mp3 (same on every video, by design)
+2026-10-22 14:20:50,728 INFO sound: SWELL +5dB over 1.8s into the reveal at 26.2s, decaying 1.8s
+2026-10-22 14:20:50,752 INFO sound: bed bgm_2.mp3 over 2 interval(s), 1 swell(s)
+2026-10-22 14:20:51,022 INFO sound: 6 SFX placed
+2026-10-22 14:20:51,065 INFO sound: final -17.4 dBFS avg / -1.5 dBFS peak
+2026-10-22 14:25:15,440 INFO COMPOSE TIMING: {'prepare_s': 14.0, 'draw_encode_s': 264.3, 'remux_s': 0.0, 'scenes': 12, 'seconds': 30.1}
+2026-10-22 14:25:15,496 INFO STAGE: judge
+2026-10-22 14:25:32,870 INFO vision rotation: JUDGE served by gemini-3.5-flash-lite
+2026-10-22 14:25:32,871 INFO vision judge: pass=False weird=[{'frame': 2, 'issue': 'c2. UNREADABLE EVIDENCE: article card screenshot is rendered extremely narrow and small, unreadable at this resolution'}, {'frame': 8, 'issue': 'c2. UNREADABLE EVIDENCE: article card screenshot is rendered extremely narrow and small, unreadable at this resolution'}] mismatches=[{'frame': 2, 'words': 'On June 29th, armed officers entered', 'what_shown': 'An unrelated news snippet about GTA 6'}, {'frame': 8, 'words': 'of certain faiths.', 'what_shown': 'An unrelated news snippet about GTA 6'}] artifact_misses=[] scores={'readability': 4, 'framing': 8, 'variety': 6, 'edit_variety': 6, 'completeness': 5} issues=['Unreadable narrow evidence cards displayed for article screenshots in frames 2 and 8', 'Context mismatch with GTA 6 article snippet used as evidence for June 29th police raid']
+2026-10-22 14:25:39,434 INFO caption font: /usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf
+2026-10-22 14:25:39,647 INFO filmstrip built: build/reject-230.jpg
+2026-10-22 14:25:42,885 INFO DIAG reject-sheet -> HTTP 200
+2026-10-22 14:25:43,144 INFO DIAG shot-230-0 -> HTTP 200
+2026-10-22 14:25:43,927 INFO DIAG shot-230-1 -> HTTP 200
+2026-10-22 14:25:44,344 INFO replan requested for page 230
+2026-10-22 14:25:44,344 ERROR failed to make video for 230: vision judge rejected page 230 (attempt 1/1): weird=[{'frame': 2, 'issue': 'c2. UNREADABLE EVIDENCE: article card screenshot is rendered extremely narrow and small, unreadable at this resolution'}, {'frame': 8, 'issue': 'c2. UNREADABLE EVIDENCE: article card screenshot is rendered extremely narrow and small, unreadable at this resolution'}] mism=[{'frame': 2, 'words': 'On June 29th, armed officers entered', 'what_shown': 'An unrelated news snippet about GTA 6'}, {'frame': 8, 'words': 'of certain faiths.', 'what_shown': 'An unrelated news snippet about GTA 6'}] issues=['Unreadable narrow evidence cards displayed for article screenshots in frames 2 and 8', 'Context mismatch with GTA 6 article snippet used as evidence for June 29th police raid']
+Traceback (most recent call last):
+  File "/home/runner/work/genzhype-scraper/genzhype-scraper/video_maker.py", line 10934, in main
+    make_one(post, font_path)
+  File "/home/runner/work/genzhype-scraper/genzhype-scraper/video_maker.py", line 10889, in make_one
+    raise JudgeRejected(
+JudgeRejected: vision judge rejected page 230 (attempt 1/1): weird=[{'frame': 2, 'issue': 'c2. UNREADABLE EVIDENCE: article card screenshot is rendered extremely narrow and small, unreadable at this resolution'}, {'frame': 8, 'issue': 'c2. UNREADABLE EVIDENCE: article card screenshot is rendered extremely narrow and small, unreadable at this resolution'}] mism=[{'frame': 2, 'words': 'On June 29th, armed officers entered', 'what_shown': 'An unrelated news snippet about GTA 6'}, {'frame': 8, 'words': 'of certain faiths.', 'what_shown': 'An unrelated news snippet about GTA 6'}] issues=['Unreadable narrow evidence cards displayed for article screenshots in frames 2 and 8', 'Context mismatch with GTA 6 article snippet used as evidence for June 29th police raid']
+2026-10-22 14:25:44,556 INFO done. made 0 video(s), 3 failed
