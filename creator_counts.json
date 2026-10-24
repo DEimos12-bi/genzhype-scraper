@@ -1,0 +1,1064 @@
+{
+ "rows": [
+  {
+   "platform": "tiktok",
+   "handle": "qtcinderella",
+   "read_at": "2026-10-24T10:51:02Z",
+   "followers": 390405,
+   "following": 313,
+   "posts": 1396,
+   "likes": 32143858,
+   "exact": true,
+   "name": "QTCinderella",
+   "bio": "its a me, QT\nWatch me on Twitch :)",
+   "verified": false
+  },
+  {
+   "platform": "tiktok",
+   "handle": "fuslie",
+   "read_at": "2026-10-24T10:51:17Z",
+   "followers": 595490,
+   "following": 471,
+   "posts": 1473,
+   "likes": 37422846,
+   "exact": true,
+   "name": "fuslie",
+   "bio": "@fuslie on all socials ^^\nAudible - 30 day free-trial",
+   "verified": true
+  },
+  {
+   "platform": "instagram",
+   "handle": "fuslie",
+   "read_at": "2026-10-24T10:51:29Z",
+   "followers": 638000,
+   "exact": false
+  },
+  {
+   "platform": "tiktok",
+   "handle": "mrbeast",
+   "read_at": "2026-10-24T10:51:38Z",
+   "followers": 144796981,
+   "following": 346,
+   "posts": 484,
+   "likes": 1546918888,
+   "exact": true,
+   "name": "MrBeast",
+   "bio": "Checkout My New Book!👇",
+   "verified": true
+  },
+  {
+   "platform": "instagram",
+   "handle": "mrbeast",
+   "read_at": "2026-10-24T10:51:51Z",
+   "followers": 91100000,
+   "exact": false
+  },
+  {
+   "platform": "tiktok",
+   "handle": "50cent",
+   "read_at": "2026-10-24T10:52:01Z",
+   "followers": 9431790,
+   "following": 13,
+   "posts": 359,
+   "likes": 66999378,
+   "exact": true,
+   "name": "50 Cent",
+   "bio": "Artist-Actor-Television Producer- Executive Producer of Power & BMF",
+   "verified": true
+  },
+  {
+   "platform": "instagram",
+   "handle": "50cent",
+   "read_at": "2026-10-24T10:52:12Z",
+   "followers": 38700000,
+   "exact": false
+  },
+  {
+   "platform": "tiktok",
+   "handle": "miketyson",
+   "read_at": "2026-10-24T10:52:21Z",
+   "followers": 13224817,
+   "following": 15,
+   "posts": 181,
+   "likes": 94634630,
+   "exact": true,
+   "name": "Mike Tyson",
+   "bio": "Official TikTok of Mike Tyson",
+   "verified": true
+  },
+  {
+   "platform": "instagram",
+   "handle": "miketyson",
+   "read_at": "2026-10-24T10:52:32Z",
+   "followers": 33400000,
+   "exact": false
+  },
+  {
+   "platform": "instagram",
+   "handle": "ritchietorresny15",
+   "read_at": "2026-10-24T10:52:44Z",
+   "followers": 133000,
+   "exact": false
+  },
+  {
+   "platform": "tiktok",
+   "handle": "kimkardashian",
+   "read_at": "2026-10-24T10:52:50Z",
+   "followers": 12123062,
+   "following": 11,
+   "posts": 235,
+   "likes": 145264861,
+   "exact": true,
+   "name": "Kim Kardashian",
+   "bio": "@SKIMS \n@Update",
+   "verified": true
+  },
+  {
+   "platform": "instagram",
+   "handle": "kimkardashian",
+   "read_at": "2026-10-24T10:53:04Z",
+   "followers": 343000000,
+   "exact": false
+  },
+  {
+   "platform": "instagram",
+   "handle": "faker",
+   "read_at": "2026-10-24T10:53:12Z",
+   "followers": 2700000,
+   "exact": false
+  },
+  {
+   "platform": "instagram",
+   "handle": "creggerzach0500",
+   "read_at": "2026-10-24T10:53:23Z",
+   "error": "no counts in the embed page: lient_side_loaded_posts_page_size\":null,\"hide_ui_for_crawlers\":false,\"hide_ayml_follow_cta_for_crawler\":false,\"missing_bio_alternative_for_crawlers\":null,\"shoul"
+  },
+  {
+   "platform": "tiktok",
+   "handle": "imwoahvickyyy",
+   "read_at": "2026-10-24T10:53:31Z",
+   "error": "profile data without user info"
+  },
+  {
+   "platform": "tiktok",
+   "handle": "kai_cenat",
+   "read_at": "2026-10-24T10:53:43Z",
+   "followers": 25438664,
+   "following": 32,
+   "posts": 92,
+   "likes": 244404024,
+   "exact": true,
+   "name": "Kai Cenat",
+   "bio": "",
+   "verified": true
+  },
+  {
+   "platform": "instagram",
+   "handle": "kaicenat",
+   "read_at": "2026-10-24T10:53:58Z",
+   "followers": 17500000,
+   "exact": false
+  },
+  {
+   "platform": "instagram",
+   "handle": "matpatgt",
+   "read_at": "2026-10-24T10:54:07Z",
+   "followers": 2100000,
+   "exact": false
+  },
+  {
+   "platform": "instagram",
+   "handle": "marisha_ray",
+   "read_at": "2026-10-24T10:54:14Z",
+   "followers": 571000,
+   "exact": false
+  },
+  {
+   "platform": "tiktok",
+   "handle": "iamcardib",
+   "read_at": "2026-10-24T10:54:22Z",
+   "followers": 36698656,
+   "following": 118,
+   "posts": 384,
+   "likes": 461051406,
+   "exact": true,
+   "name": "Cardi B",
+   "bio": "Official Cardi B TikTok",
+   "verified": true
+  },
+  {
+   "platform": "instagram",
+   "handle": "iamcardib",
+   "read_at": "2026-10-24T10:54:38Z",
+   "followers": 160000000,
+   "exact": false
+  },
+  {
+   "platform": "tiktok",
+   "handle": "twitchxqcow",
+   "read_at": "2026-10-24T10:54:46Z",
+   "error": "profile data without user info"
+  },
+  {
+   "platform": "tiktok",
+   "handle": "poki",
+   "read_at": "2026-10-24T10:54:59Z",
+   "followers": 7193362,
+   "following": 283,
+   "posts": 378,
+   "likes": 149235965,
+   "exact": true,
+   "name": "pokimane",
+   "bio": "i <3 sharing my life \n💌 teampokimane@wmeagency.com",
+   "verified": true
+  },
+  {
+   "platform": "instagram",
+   "handle": "pokimanelol",
+   "read_at": "2026-10-24T10:55:13Z",
+   "error": "no counts in the embed page: lient_side_loaded_posts_page_size\":null,\"hide_ui_for_crawlers\":false,\"hide_ayml_follow_cta_for_crawler\":false,\"missing_bio_alternative_for_crawlers\":null,\"shoul"
+  },
+  {
+   "platform": "instagram",
+   "handle": "sykkuwu",
+   "read_at": "2026-10-24T10:55:23Z",
+   "error": "no counts in the embed page: lient_side_loaded_posts_page_size\":null,\"hide_ui_for_crawlers\":false,\"hide_ayml_follow_cta_for_crawler\":false,\"missing_bio_alternative_for_crawlers\":null,\"shoul"
+  },
+  {
+   "platform": "instagram",
+   "handle": "asmongold",
+   "read_at": "2026-10-24T10:55:32Z",
+   "followers": 140000,
+   "exact": false
+  },
+  {
+   "platform": "instagram",
+   "handle": "jynxzilive",
+   "read_at": "2026-10-24T10:55:42Z",
+   "error": "no counts in the embed page: lient_side_loaded_posts_page_size\":null,\"hide_ui_for_crawlers\":false,\"hide_ayml_follow_cta_for_crawler\":false,\"missing_bio_alternative_for_crawlers\":null,\"shoul"
+  },
+  {
+   "platform": "instagram",
+   "handle": "tyler1_alpha",
+   "read_at": "2026-10-24T10:55:51Z",
+   "followers": 540000,
+   "exact": false
+  },
+  {
+   "platform": "tiktok",
+   "handle": "ethankleinh3",
+   "read_at": "2026-10-24T10:56:02Z",
+   "followers": 1643712,
+   "following": 485,
+   "posts": 401,
+   "likes": 72677106,
+   "exact": true,
+   "name": "Ethan Klein",
+   "bio": "",
+   "verified": true
+  },
+  {
+   "platform": "instagram",
+   "handle": "h3h3productions",
+   "read_at": "2026-10-24T10:56:16Z",
+   "followers": 1500000,
+   "exact": false
+  },
+  {
+   "platform": "instagram",
+   "handle": "hideo_kojima",
+   "read_at": "2026-10-24T10:56:26Z",
+   "followers": 5300000,
+   "exact": false
+  },
+  {
+   "platform": "tiktok",
+   "handle": "natalieroushh",
+   "read_at": "2026-10-24T10:56:35Z",
+   "followers": 797998,
+   "following": 154,
+   "posts": 576,
+   "likes": 10894378,
+   "exact": true,
+   "name": "natalieroush",
+   "bio": "ig/yt natalieroush",
+   "verified": false
+  },
+  {
+   "platform": "tiktok",
+   "handle": "miley",
+   "read_at": "2026-10-24T10:56:51Z",
+   "followers": 19365793,
+   "following": 0,
+   "posts": 427,
+   "likes": 216566027,
+   "exact": true,
+   "name": "Miley Cyrus",
+   "bio": "BASS PERSUADES. THE ALBUM OUT NOW.",
+   "verified": true
+  },
+  {
+   "platform": "instagram",
+   "handle": "miley",
+   "read_at": "2026-10-24T10:57:02Z",
+   "followers": 205000000,
+   "exact": false
+  },
+  {
+   "platform": "instagram",
+   "handle": "alexandracooper",
+   "read_at": "2026-10-24T10:57:09Z",
+   "followers": 7900000,
+   "exact": false
+  },
+  {
+   "platform": "tiktok",
+   "handle": "alixearle",
+   "read_at": "2026-10-24T10:57:19Z",
+   "followers": 8726374,
+   "following": 533,
+   "posts": 5269,
+   "likes": 1739985592,
+   "exact": true,
+   "name": "Alix Earle",
+   "bio": "Founder of \n@reale actives \nEarle Meets World 🤍 out now on Netflix \nalixearleteam@unitedtalent.com",
+   "verified": true
+  },
+  {
+   "platform": "instagram",
+   "handle": "alix_earle",
+   "read_at": "2026-10-24T10:57:34Z",
+   "error": "no counts in the embed page: lient_side_loaded_posts_page_size\":null,\"hide_ui_for_crawlers\":false,\"hide_ayml_follow_cta_for_crawler\":false,\"missing_bio_alternative_for_crawlers\":null,\"shoul"
+  },
+  {
+   "platform": "tiktok",
+   "handle": "yefersoncossio",
+   "read_at": "2026-10-24T10:57:43Z",
+   "followers": 19843293,
+   "following": 43,
+   "posts": 786,
+   "likes": 470726280,
+   "exact": true,
+   "name": "Yef",
+   "bio": "Sígueme en Instagram👇🏻🖤",
+   "verified": true
+  },
+  {
+   "platform": "instagram",
+   "handle": "yefersoncossio",
+   "read_at": "2026-10-24T10:57:55Z",
+   "followers": 12100000,
+   "exact": false
+  },
+  {
+   "platform": "tiktok",
+   "handle": "callmeagentzero",
+   "read_at": "2026-10-24T10:58:02Z",
+   "followers": 2764906,
+   "following": 72,
+   "posts": 189,
+   "likes": 58184023,
+   "exact": true,
+   "name": "Agent",
+   "bio": "Twitch.tv/agent00",
+   "verified": true
+  },
+  {
+   "platform": "instagram",
+   "handle": "callmeagentzero",
+   "read_at": "2026-10-24T10:58:18Z",
+   "followers": 1600000,
+   "exact": false
+  },
+  {
+   "platform": "tiktok",
+   "handle": "rubius",
+   "read_at": "2026-10-24T10:58:25Z",
+   "error": "profile data without user info"
+  },
+  {
+   "platform": "tiktok",
+   "handle": "katyperry",
+   "read_at": "2026-10-24T10:58:39Z",
+   "followers": 10161298,
+   "following": 1,
+   "posts": 301,
+   "likes": 94033173,
+   "exact": true,
+   "name": "Katy Perry",
+   "bio": "Watch It Burn \nOut Now 🦂",
+   "verified": true
+  },
+  {
+   "platform": "instagram",
+   "handle": "katyperry",
+   "read_at": "2026-10-24T10:58:52Z",
+   "followers": 195000000,
+   "exact": false
+  },
+  {
+   "platform": "tiktok",
+   "handle": "justinbieber",
+   "read_at": "2026-10-24T10:59:01Z",
+   "followers": 31162735,
+   "following": 17,
+   "posts": 52,
+   "likes": 134203806,
+   "exact": true,
+   "name": "Justin Bieber",
+   "bio": "",
+   "verified": true
+  },
+  {
+   "platform": "instagram",
+   "handle": "justinbieber",
+   "read_at": "2026-10-24T10:59:14Z",
+   "error": "no counts in the embed page: lient_side_loaded_posts_page_size\":null,\"hide_ui_for_crawlers\":false,\"hide_ayml_follow_cta_for_crawler\":false,\"missing_bio_alternative_for_crawlers\":null,\"shoul"
+  },
+  {
+   "platform": "tiktok",
+   "handle": "leahashe",
+   "read_at": "2026-10-24T10:59:23Z",
+   "followers": 4246075,
+   "following": 344,
+   "posts": 403,
+   "likes": 60108468,
+   "exact": true,
+   "name": "Leah Ashe",
+   "bio": "Instagram, Twitter, YouTube: @LeahAshe\nVlog channel: Leah Ashley \n💖✨💖✨💖✨💖",
+   "verified": true
+  },
+  {
+   "platform": "instagram",
+   "handle": "leahashe",
+   "read_at": "2026-10-24T10:59:36Z",
+   "followers": 640000,
+   "exact": false
+  },
+  {
+   "platform": "tiktok",
+   "handle": "rubengallegoaz",
+   "read_at": "2026-10-24T10:59:47Z",
+   "followers": 97450,
+   "following": 85,
+   "posts": 753,
+   "likes": 3418173,
+   "exact": true,
+   "name": "Senator Gallego",
+   "bio": "Senator from Arizona. Married to Sydney. Dad to Michael, Isla, and Cooper. USMC 0311/0341.",
+   "verified": true
+  },
+  {
+   "platform": "instagram",
+   "handle": "senrubengallego",
+   "read_at": "2026-10-24T10:59:59Z",
+   "followers": 85000,
+   "exact": false
+  },
+  {
+   "platform": "tiktok",
+   "handle": "ishowspeed",
+   "read_at": "2026-10-24T11:00:10Z",
+   "followers": 54437511,
+   "following": 27,
+   "posts": 31,
+   "likes": 436969621,
+   "exact": true,
+   "name": "IShowSpeed",
+   "bio": "",
+   "verified": true
+  },
+  {
+   "platform": "instagram",
+   "handle": "ishowspeed",
+   "read_at": "2026-10-24T11:00:24Z",
+   "followers": 54900000,
+   "exact": false
+  },
+  {
+   "platform": "instagram",
+   "handle": "moneyyaya",
+   "read_at": "2026-10-24T11:00:32Z",
+   "followers": 1400000,
+   "exact": false
+  },
+  {
+   "platform": "tiktok",
+   "handle": "jaidynalexxis",
+   "read_at": "2026-10-24T11:00:40Z",
+   "followers": 1324661,
+   "following": 44,
+   "posts": 412,
+   "likes": 28779144,
+   "exact": true,
+   "name": "jaidynalexxis",
+   "bio": "🍒🌈🏳️‍🌈🎶🔊🎥\n@pinkface\nPO BOX #803010\nSANTA CLARITA CA 91380\n 📧contactforj.alexxis@gmail.com",
+   "verified": false
+  },
+  {
+   "platform": "instagram",
+   "handle": "officialjaidynalexxis",
+   "read_at": "2026-10-24T11:00:52Z",
+   "error": "no counts in the embed page: lient_side_loaded_posts_page_size\":null,\"hide_ui_for_crawlers\":false,\"hide_ayml_follow_cta_for_crawler\":false,\"missing_bio_alternative_for_crawlers\":null,\"shoul"
+  },
+  {
+   "platform": "tiktok",
+   "handle": "hankgreen1",
+   "read_at": "2026-10-24T11:01:01Z",
+   "followers": 8063032,
+   "following": 1095,
+   "posts": 841,
+   "likes": 649794306,
+   "exact": true,
+   "name": "Hank Green",
+   "bio": "I may have taught you biology.\nSubscribe to my newsletter We're Here!",
+   "verified": true
+  },
+  {
+   "platform": "instagram",
+   "handle": "hankgreen",
+   "read_at": "2026-10-24T11:01:13Z",
+   "followers": 2200000,
+   "exact": false
+  },
+  {
+   "platform": "tiktok",
+   "handle": "bluefacebleedem",
+   "read_at": "2026-10-24T11:01:24Z",
+   "followers": 9334116,
+   "following": 7,
+   "posts": 215,
+   "likes": 124152324,
+   "exact": true,
+   "name": "Blueface",
+   "bio": "",
+   "verified": true
+  },
+  {
+   "platform": "instagram",
+   "handle": "bluefacebleedem",
+   "read_at": "2026-10-24T11:01:49Z",
+   "error": "no counts in the embed page: lient_side_loaded_posts_page_size\":null,\"hide_ui_for_crawlers\":false,\"hide_ayml_follow_cta_for_crawler\":false,\"missing_bio_alternative_for_crawlers\":null,\"shoul"
+  },
+  {
+   "platform": "instagram",
+   "handle": "noahkahanmusic",
+   "read_at": "2026-10-24T11:01:59Z",
+   "followers": 4700000,
+   "exact": false
+  },
+  {
+   "platform": "tiktok",
+   "handle": "theofficertatum",
+   "read_at": "2026-10-24T11:02:08Z",
+   "followers": 1801184,
+   "following": 99,
+   "posts": 1436,
+   "likes": 51399478,
+   "exact": true,
+   "name": "The Officer Tatum",
+   "bio": "Host of “The Officer Tatum Show\"🇺🇸\nWatch Nolan Wells Interview Here ⬇️",
+   "verified": true
+  },
+  {
+   "platform": "instagram",
+   "handle": "theofficertatum",
+   "read_at": "2026-10-24T11:02:21Z",
+   "followers": 2500000,
+   "exact": false
+  },
+  {
+   "platform": "tiktok",
+   "handle": "plakboymac",
+   "read_at": "2026-10-24T11:02:30Z",
+   "followers": 132594,
+   "following": 3,
+   "posts": 4,
+   "likes": 1069987,
+   "exact": true,
+   "name": "FaZe Max",
+   "bio": "",
+   "verified": false
+  },
+  {
+   "platform": "instagram",
+   "handle": "loomered",
+   "read_at": "2026-10-24T11:02:43Z",
+   "error": "no counts in the embed page: lient_side_loaded_posts_page_size\":null,\"hide_ui_for_crawlers\":false,\"hide_ayml_follow_cta_for_crawler\":false,\"missing_bio_alternative_for_crawlers\":null,\"shoul"
+  },
+  {
+   "platform": "tiktok",
+   "handle": "ze__president",
+   "read_at": "2026-10-24T11:02:53Z",
+   "followers": 2083197,
+   "following": 0,
+   "posts": 920,
+   "likes": 50009066,
+   "exact": true,
+   "name": "Команда Зеленського",
+   "bio": "Офіційний TikTok Команди Зеленського",
+   "verified": false
+  },
+  {
+   "platform": "instagram",
+   "handle": "qtcinderella",
+   "read_at": "2026-10-24T11:03:07Z",
+   "followers": 443000,
+   "exact": false
+  },
+  {
+   "platform": "tiktok",
+   "handle": "brentrivera",
+   "read_at": "2026-10-24T11:03:15Z",
+   "followers": 50960843,
+   "following": 1210,
+   "posts": 1833,
+   "likes": 1817731664,
+   "exact": true,
+   "name": "Brent Rivera",
+   "bio": "MY NEW CHIP BRAND! @eatlevels\n@Amp World",
+   "verified": true
+  },
+  {
+   "platform": "instagram",
+   "handle": "brentrivera",
+   "read_at": "2026-10-24T11:03:31Z",
+   "followers": 23400000,
+   "exact": false
+  },
+  {
+   "platform": "instagram",
+   "handle": "whistlindiesel",
+   "read_at": "2026-10-24T11:03:41Z",
+   "followers": 5700000,
+   "exact": false
+  },
+  {
+   "platform": "tiktok",
+   "handle": "gustavopetrooficial",
+   "read_at": "2026-10-24T11:03:49Z",
+   "followers": 3309304,
+   "following": 217,
+   "posts": 821,
+   "likes": 67583783,
+   "exact": true,
+   "name": "Gustavo Petro",
+   "bio": "Presidente de la República de Colombia \n2022 - 2026 🇨🇴",
+   "verified": true
+  },
+  {
+   "platform": "tiktok",
+   "handle": "clavicular",
+   "read_at": "2026-10-24T11:04:04Z",
+   "followers": 1196510,
+   "following": 108,
+   "posts": 596,
+   "likes": 43090747,
+   "exact": true,
+   "name": "user31173106497",
+   "bio": "No bio yet",
+   "verified": false
+  },
+  {
+   "platform": "instagram",
+   "handle": "tamarbraxton",
+   "read_at": "2026-10-24T11:04:17Z",
+   "followers": 5900000,
+   "exact": false
+  },
+  {
+   "platform": "tiktok",
+   "handle": "cobratate_official",
+   "read_at": "2026-10-24T11:04:25Z",
+   "error": "profile data without user info"
+  },
+  {
+   "platform": "instagram",
+   "handle": "cobratate",
+   "read_at": "2026-10-24T11:04:40Z",
+   "error": "no counts in the embed page: lient_side_loaded_posts_page_size\":null,\"hide_ui_for_crawlers\":false,\"hide_ayml_follow_cta_for_crawler\":false,\"missing_bio_alternative_for_crawlers\":null,\"shoul"
+  },
+  {
+   "platform": "instagram",
+   "handle": "talismantate",
+   "read_at": "2026-10-24T11:04:50Z",
+   "error": "no counts in the embed page: lient_side_loaded_posts_page_size\":null,\"hide_ui_for_crawlers\":false,\"hide_ayml_follow_cta_for_crawler\":false,\"missing_bio_alternative_for_crawlers\":null,\"shoul"
+  },
+  {
+   "platform": "tiktok",
+   "handle": "itsdeaann",
+   "read_at": "2026-10-24T11:05:01Z",
+   "followers": 7740085,
+   "following": 1277,
+   "posts": 284,
+   "likes": 143632906,
+   "exact": true,
+   "name": "Dean Withers",
+   "bio": "22\n\nVOTE DEAN WITHERS FOR STREAMERS AWARD👇🏼🔗",
+   "verified": true
+  },
+  {
+   "platform": "tiktok",
+   "handle": "extraemily",
+   "read_at": "2026-10-24T11:05:14Z",
+   "followers": 865641,
+   "following": 60,
+   "posts": 466,
+   "likes": 31845933,
+   "exact": true,
+   "name": "extra emily",
+   "bio": "hi there! | 28\n↓ i'm live on Twitch! ✨",
+   "verified": true
+  },
+  {
+   "platform": "instagram",
+   "handle": "drawwithjazza",
+   "read_at": "2026-10-24T11:05:25Z",
+   "followers": 1352,
+   "exact": true
+  },
+  {
+   "platform": "tiktok",
+   "handle": "nbayoungboy",
+   "read_at": "2026-10-24T11:05:36Z",
+   "followers": 3865018,
+   "following": 3,
+   "posts": 227,
+   "likes": 47795647,
+   "exact": true,
+   "name": "NbaYoungBoy",
+   "bio": "ML2 OUT NOW",
+   "verified": true
+  },
+  {
+   "platform": "instagram",
+   "handle": "nba_youngboy",
+   "read_at": "2026-10-24T11:05:49Z",
+   "followers": 12000000,
+   "exact": false
+  },
+  {
+   "platform": "tiktok",
+   "handle": "arianagrande",
+   "read_at": "2026-10-24T11:06:00Z",
+   "followers": 44792425,
+   "following": 18,
+   "posts": 427,
+   "likes": 475792059,
+   "exact": true,
+   "name": "arianagrande",
+   "bio": "petal out now ꕤ ｡˚",
+   "verified": true
+  },
+  {
+   "platform": "instagram",
+   "handle": "arianagrande",
+   "read_at": "2026-10-24T11:06:16Z",
+   "followers": 362000000,
+   "exact": false
+  },
+  {
+   "platform": "tiktok",
+   "handle": "dylanmulvaney",
+   "read_at": "2026-10-24T11:06:24Z",
+   "followers": 8921259,
+   "following": 1665,
+   "posts": 901,
+   "likes": 547152435,
+   "exact": true,
+   "name": "Dylan Mulvaney",
+   "bio": "NY TIMES BESTSELLER PAPER DOLL  🎀",
+   "verified": true
+  },
+  {
+   "platform": "instagram",
+   "handle": "dylanmulvaney",
+   "read_at": "2026-10-24T11:06:37Z",
+   "followers": 1500000,
+   "exact": false
+  },
+  {
+   "platform": "tiktok",
+   "handle": "realdonaldtrump",
+   "read_at": "2026-10-24T11:06:44Z",
+   "followers": 17028745,
+   "following": 2,
+   "posts": 88,
+   "likes": 125897598,
+   "exact": true,
+   "name": "President Donald J Trump",
+   "bio": "45th & 47th President of the United States",
+   "verified": true
+  },
+  {
+   "platform": "instagram",
+   "handle": "realdonaldtrump",
+   "read_at": "2026-10-24T11:06:58Z",
+   "followers": 44600000,
+   "exact": false
+  },
+  {
+   "platform": "instagram",
+   "handle": "courtneyastodden",
+   "read_at": "2026-10-24T11:07:08Z",
+   "followers": 412000,
+   "exact": false
+  },
+  {
+   "platform": "tiktok",
+   "handle": "loganpaul",
+   "read_at": "2026-10-24T11:07:17Z",
+   "followers": 19019191,
+   "following": 31,
+   "posts": 491,
+   "likes": 413259035,
+   "exact": true,
+   "name": "Logan Paul",
+   "bio": "Open trading cards rn on @Ripit ↙️",
+   "verified": true
+  },
+  {
+   "platform": "instagram",
+   "handle": "loganpaul",
+   "read_at": "2026-10-24T11:07:31Z",
+   "followers": 25700000,
+   "exact": false
+  },
+  {
+   "platform": "tiktok",
+   "handle": "tombrady",
+   "read_at": "2026-10-24T11:07:40Z",
+   "followers": 4958480,
+   "following": 29,
+   "posts": 139,
+   "likes": 44670628,
+   "exact": true,
+   "name": "Tom Brady",
+   "bio": "Family and Football.",
+   "verified": true
+  },
+  {
+   "platform": "instagram",
+   "handle": "tombradyl",
+   "read_at": "2026-10-24T11:07:56Z",
+   "error": "no counts in the embed page: lient_side_loaded_posts_page_size\":null,\"hide_ui_for_crawlers\":false,\"hide_ayml_follow_cta_for_crawler\":false,\"missing_bio_alternative_for_crawlers\":null,\"shoul"
+  },
+  {
+   "platform": "instagram",
+   "handle": "stevewilldoit",
+   "read_at": "2026-10-24T11:08:05Z",
+   "followers": 3800000,
+   "exact": false
+  },
+  {
+   "platform": "tiktok",
+   "handle": "jidion",
+   "read_at": "2026-10-24T11:08:12Z",
+   "error": "profile data without user info"
+  },
+  {
+   "platform": "tiktok",
+   "handle": "realmizkif",
+   "read_at": "2026-10-24T11:08:23Z",
+   "followers": 1208544,
+   "following": 52,
+   "posts": 1549,
+   "likes": 79367368,
+   "exact": true,
+   "name": "Mizkif",
+   "bio": "I like finance and world of Warcraft lawl active in  my discord  ⬇️ ⬇️",
+   "verified": true
+  },
+  {
+   "platform": "tiktok",
+   "handle": "emiru",
+   "read_at": "2026-10-24T11:08:35Z",
+   "followers": 2019481,
+   "following": 251,
+   "posts": 545,
+   "likes": 30069740,
+   "exact": true,
+   "name": "emiru",
+   "bio": "⭐️i’m emi⭐️\nLIVE @ twitch.tv/emiru",
+   "verified": true
+  },
+  {
+   "platform": "tiktok",
+   "handle": "kitbogashow",
+   "read_at": "2026-10-24T11:08:48Z",
+   "followers": 583204,
+   "following": 0,
+   "posts": 408,
+   "likes": 5767080,
+   "exact": true,
+   "name": "kitbogashow",
+   "bio": "Improv artist who calls scammers. Laughter is the best medicine.",
+   "verified": false
+  },
+  {
+   "platform": "instagram",
+   "handle": "kitbogashow",
+   "read_at": "2026-10-24T11:09:02Z",
+   "followers": 113000,
+   "exact": false
+  },
+  {
+   "platform": "instagram",
+   "handle": "indiaarie",
+   "read_at": "2026-10-24T11:09:12Z",
+   "followers": 1200000,
+   "exact": false
+  },
+  {
+   "platform": "tiktok",
+   "handle": "maya_higa",
+   "read_at": "2026-10-24T11:09:21Z",
+   "followers": 462857,
+   "following": 168,
+   "posts": 820,
+   "likes": 18129334,
+   "exact": true,
+   "name": "maya_higa",
+   "bio": "Founder of @AlveusSanctuary 💚",
+   "verified": false
+  },
+  {
+   "platform": "tiktok",
+   "handle": "markrober",
+   "read_at": "2026-10-24T11:09:32Z",
+   "followers": 3972810,
+   "following": 233,
+   "posts": 189,
+   "likes": 53996615,
+   "exact": true,
+   "name": "Mark Rober",
+   "bio": "Former NASA engineer. Current YouTuber and friend of science.",
+   "verified": true
+  },
+  {
+   "platform": "tiktok",
+   "handle": "jason.nms",
+   "read_at": "2026-10-24T11:09:46Z",
+   "followers": 3118097,
+   "following": 34,
+   "posts": 427,
+   "likes": 131946207,
+   "exact": true,
+   "name": "Jason",
+   "bio": "Goober\nTwitch: jasontheween\nContact: jasontheweenbusiness@gmail.com",
+   "verified": true
+  },
+  {
+   "platform": "instagram",
+   "handle": "rosannapansino",
+   "read_at": "2026-10-24T11:09:58Z",
+   "followers": 4200000,
+   "exact": false
+  },
+  {
+   "platform": "tiktok",
+   "handle": "jamescharles",
+   "read_at": "2026-10-24T11:10:07Z",
+   "followers": 39158812,
+   "following": 369,
+   "posts": 1258,
+   "likes": 1603447469,
+   "exact": true,
+   "name": "James Charles",
+   "bio": "✉️ management@painted.co\n🎨 @Painted @PaintedUK\n🎶 @James Charles Music \n\nPRE-SAVE MY NEW SINGLE 5150! 🚨⤵️",
+   "verified": true
+  },
+  {
+   "platform": "instagram",
+   "handle": "jamescharles",
+   "read_at": "2026-10-24T11:10:21Z",
+   "followers": 18600000,
+   "exact": false
+  },
+  {
+   "platform": "tiktok",
+   "handle": "xomgitsbunnie",
+   "read_at": "2026-10-24T11:10:30Z",
+   "followers": 8585739,
+   "following": 513,
+   "posts": 3373,
+   "likes": 362472817,
+   "exact": true,
+   "name": "Bunnie Xo 🪄",
+   "bio": "Fairy Godmother 🧚‍♂️ \nTrailerpark Barbara Walters 🎙️👱‍♀️\nWatch Pods 👇🏻\nYT: DumbBlondePod\nNew York Times #1 Best Seller 📕",
+   "verified": true
+  },
+  {
+   "platform": "tiktok",
+   "handle": "officialjellyroll",
+   "read_at": "2026-10-24T11:10:43Z",
+   "followers": 9931526,
+   "following": 283,
+   "posts": 465,
+   "likes": 115234548,
+   "exact": true,
+   "name": "Jelly Roll",
+   "bio": "Musician 🎶",
+   "verified": true
+  },
+  {
+   "platform": "tiktok",
+   "handle": "kellyclarkson",
+   "read_at": "2026-10-24T11:10:59Z",
+   "followers": 1393299,
+   "following": 5,
+   "posts": 195,
+   "likes": 5820015,
+   "exact": true,
+   "name": "kellyclarkson",
+   "bio": "I am Kelly. \nI'd Be Lyin' is out now!",
+   "verified": true
+  },
+  {
+   "platform": "tiktok",
+   "handle": "ksi",
+   "read_at": "2026-10-24T11:11:15Z",
+   "followers": 12088542,
+   "following": 6,
+   "posts": 80,
+   "likes": 112841944,
+   "exact": true,
+   "name": "KSI",
+   "bio": "",
+   "verified": true
+  },
+  {
+   "platform": "instagram",
+   "handle": "ksi",
+   "read_at": "2026-10-24T11:11:28Z",
+   "followers": 12900000,
+   "exact": false
+  },
+  {
+   "platform": "tiktok",
+   "handle": "kingclavicular",
+   "read_at": "2026-10-24T11:11:34Z",
+   "error": "profile data without user info"
+  },
+  {
+   "platform": "tiktok",
+   "handle": "souljaboytv",
+   "read_at": "2026-10-24T11:11:47Z",
+   "followers": 3615531,
+   "following": 23,
+   "posts": 459,
+   "likes": 24817415,
+   "exact": true,
+   "name": "Soulja Boy",
+   "bio": "Owner of @souljaboydripco \nBookings: souljaboyinfo@gmail.com",
+   "verified": true
+  },
+  {
+   "platform": "instagram",
+   "handle": "idubbbz",
+   "read_at": "2026-10-24T11:12:02Z",
+   "followers": 902000,
+   "exact": false
+  }
+ ]
+}

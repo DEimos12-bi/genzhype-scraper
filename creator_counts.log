@@ -1,0 +1,237 @@
+112 account(s) to read
+
+  CloakBrowser - stealth Chromium for automation
+  https://github.com/CloakHQ/CloakBrowser
+
+  Running the free binary (v146). The latest binary (v155) is free too, with 1 concurrent session.
+  Get your key: run  cloakbrowser login  or visit https://cloakbrowser.dev/free
+  For more than one concurrent session -> https://cloakbrowser.dev
+  Star us if CloakBrowser helps your project!
+
+[cloakbrowser] Incomplete Windows font set - installing the full set is strongly advised for best results when spoofing Windows on Linux. https://github.com/CloakHQ/cloakbrowser#font-setup-on-linux (silence: CLOAKBROWSER_SUPPRESS_FONT_WARNING=1)
+[2026-10-24 10:51:08] INFO: Fetched (200) <GET https://www.tiktok.com/@qtcinderella> (referer: https://www.google.com/)
+{"platform": "tiktok", "handle": "qtcinderella", "read_at": "2026-10-24T10:51:02Z", "followers": 390405, "following": 313, "posts": 1396, "likes": 32143858, "exact": true, "name": "QTCinderella", "bio": "its a me, QT\nWatch me on Twitch :)", "verified": false}
+[2026-10-24 10:51:22] INFO: Fetched (200) <GET https://www.tiktok.com/@fuslie> (referer: https://www.google.com/)
+{"platform": "tiktok", "handle": "fuslie", "read_at": "2026-10-24T10:51:17Z", "followers": 595490, "following": 471, "posts": 1473, "likes": 37422846, "exact": true, "name": "fuslie", "bio": "@fuslie on all socials ^^\nAudible - 30 day free-trial", "verified": true}
+[2026-10-24 10:51:31] INFO: Fetched (200) <GET https://www.instagram.com/fuslie/embed/> (referer: https://www.google.com/)
+{"platform": "instagram", "handle": "fuslie", "read_at": "2026-10-24T10:51:29Z", "followers": 638000, "exact": false}
+[2026-10-24 10:51:43] INFO: Fetched (200) <GET https://www.tiktok.com/@mrbeast> (referer: https://www.google.com/)
+{"platform": "tiktok", "handle": "mrbeast", "read_at": "2026-10-24T10:51:38Z", "followers": 144796981, "following": 346, "posts": 484, "likes": 1546918888, "exact": true, "name": "MrBeast", "bio": "Checkout My New Book!👇", "verified": true}
+[2026-10-24 10:51:56] INFO: Fetched (200) <GET https://www.instagram.com/mrbeast/embed/> (referer: https://www.google.com/)
+{"platform": "instagram", "handle": "mrbeast", "read_at": "2026-10-24T10:51:51Z", "followers": 91100000, "exact": false}
+[2026-10-24 10:52:07] INFO: Fetched (200) <GET https://www.tiktok.com/@50cent> (referer: https://www.google.com/)
+{"platform": "tiktok", "handle": "50cent", "read_at": "2026-10-24T10:52:01Z", "followers": 9431790, "following": 13, "posts": 359, "likes": 66999378, "exact": true, "name": "50 Cent", "bio": "Artist-Actor-Television Producer- Executive Producer of Power & BMF", "verified": true}
+[2026-10-24 10:52:14] INFO: Fetched (200) <GET https://www.instagram.com/50cent/embed/> (referer: https://www.google.com/)
+{"platform": "instagram", "handle": "50cent", "read_at": "2026-10-24T10:52:12Z", "followers": 38700000, "exact": false}
+[2026-10-24 10:52:26] INFO: Fetched (200) <GET https://www.tiktok.com/@miketyson> (referer: https://www.google.com/)
+{"platform": "tiktok", "handle": "miketyson", "read_at": "2026-10-24T10:52:21Z", "followers": 13224817, "following": 15, "posts": 181, "likes": 94634630, "exact": true, "name": "Mike Tyson", "bio": "Official TikTok of Mike Tyson", "verified": true}
+[2026-10-24 10:52:35] INFO: Fetched (200) <GET https://www.instagram.com/miketyson/embed/> (referer: https://www.google.com/)
+{"platform": "instagram", "handle": "miketyson", "read_at": "2026-10-24T10:52:32Z", "followers": 33400000, "exact": false}
+[2026-10-24 10:52:46] INFO: Fetched (200) <GET https://www.instagram.com/ritchietorresny15/embed/> (referer: https://www.google.com/)
+{"platform": "instagram", "handle": "ritchietorresny15", "read_at": "2026-10-24T10:52:44Z", "followers": 133000, "exact": false}
+[2026-10-24 10:52:57] INFO: Fetched (200) <GET https://www.tiktok.com/@kimkardashian> (referer: https://www.google.com/)
+{"platform": "tiktok", "handle": "kimkardashian", "read_at": "2026-10-24T10:52:50Z", "followers": 12123062, "following": 11, "posts": 235, "likes": 145264861, "exact": true, "name": "Kim Kardashian", "bio": "@SKIMS \n@Update", "verified": true}
+[2026-10-24 10:53:06] INFO: Fetched (200) <GET https://www.instagram.com/kimkardashian/embed/> (referer: https://www.google.com/)
+{"platform": "instagram", "handle": "kimkardashian", "read_at": "2026-10-24T10:53:04Z", "followers": 343000000, "exact": false}
+[2026-10-24 10:53:14] INFO: Fetched (200) <GET https://www.instagram.com/faker/embed/> (referer: https://www.google.com/)
+{"platform": "instagram", "handle": "faker", "read_at": "2026-10-24T10:53:12Z", "followers": 2700000, "exact": false}
+[2026-10-24 10:53:24] INFO: Fetched (200) <GET https://www.instagram.com/creggerzach0500/embed/> (referer: https://www.google.com/)
+{"platform": "instagram", "handle": "creggerzach0500", "read_at": "2026-10-24T10:53:23Z", "error": "no counts in the embed page: lient_side_loaded_posts_page_size\":null,\"hide_ui_for_crawlers\":false,\"hide_ayml_follow_cta_for_crawler\":false,\"missing_bio_alternative_for_crawlers\":null,\"shoul"}
+[2026-10-24 10:53:37] INFO: Fetched (200) <GET https://www.tiktok.com/@imwoahvickyyy> (referer: https://www.google.com/)
+{"platform": "tiktok", "handle": "imwoahvickyyy", "read_at": "2026-10-24T10:53:31Z", "error": "profile data without user info"}
+[2026-10-24 10:53:49] INFO: Fetched (200) <GET https://www.tiktok.com/@kai_cenat> (referer: https://www.google.com/)
+{"platform": "tiktok", "handle": "kai_cenat", "read_at": "2026-10-24T10:53:43Z", "followers": 25438664, "following": 32, "posts": 92, "likes": 244404024, "exact": true, "name": "Kai Cenat", "bio": "", "verified": true}
+[2026-10-24 10:54:00] INFO: Fetched (200) <GET https://www.instagram.com/kaicenat/embed/> (referer: https://www.google.com/)
+{"platform": "instagram", "handle": "kaicenat", "read_at": "2026-10-24T10:53:58Z", "followers": 17500000, "exact": false}
+[2026-10-24 10:54:09] INFO: Fetched (200) <GET https://www.instagram.com/matpatgt/embed/> (referer: https://www.google.com/)
+{"platform": "instagram", "handle": "matpatgt", "read_at": "2026-10-24T10:54:07Z", "followers": 2100000, "exact": false}
+[2026-10-24 10:54:16] INFO: Fetched (200) <GET https://www.instagram.com/marisha_ray/embed/> (referer: https://www.google.com/)
+{"platform": "instagram", "handle": "marisha_ray", "read_at": "2026-10-24T10:54:14Z", "followers": 571000, "exact": false}
+[2026-10-24 10:54:29] INFO: Fetched (200) <GET https://www.tiktok.com/@iamcardib> (referer: https://www.google.com/)
+{"platform": "tiktok", "handle": "iamcardib", "read_at": "2026-10-24T10:54:22Z", "followers": 36698656, "following": 118, "posts": 384, "likes": 461051406, "exact": true, "name": "Cardi B", "bio": "Official Cardi B TikTok", "verified": true}
+[2026-10-24 10:54:40] INFO: Fetched (200) <GET https://www.instagram.com/iamcardib/embed/> (referer: https://www.google.com/)
+{"platform": "instagram", "handle": "iamcardib", "read_at": "2026-10-24T10:54:38Z", "followers": 160000000, "exact": false}
+[2026-10-24 10:54:52] INFO: Fetched (200) <GET https://www.tiktok.com/@twitchxqcow> (referer: https://www.google.com/)
+{"platform": "tiktok", "handle": "twitchxqcow", "read_at": "2026-10-24T10:54:46Z", "error": "profile data without user info"}
+[2026-10-24 10:55:06] INFO: Fetched (200) <GET https://www.tiktok.com/@poki> (referer: https://www.google.com/)
+{"platform": "tiktok", "handle": "poki", "read_at": "2026-10-24T10:54:59Z", "followers": 7193362, "following": 283, "posts": 378, "likes": 149235965, "exact": true, "name": "pokimane", "bio": "i <3 sharing my life \n💌 teampokimane@wmeagency.com", "verified": true}
+[2026-10-24 10:55:15] INFO: Fetched (200) <GET https://www.instagram.com/pokimanelol/embed/> (referer: https://www.google.com/)
+{"platform": "instagram", "handle": "pokimanelol", "read_at": "2026-10-24T10:55:13Z", "error": "no counts in the embed page: lient_side_loaded_posts_page_size\":null,\"hide_ui_for_crawlers\":false,\"hide_ayml_follow_cta_for_crawler\":false,\"missing_bio_alternative_for_crawlers\":null,\"shoul"}
+[2026-10-24 10:55:24] INFO: Fetched (200) <GET https://www.instagram.com/sykkuwu/embed/> (referer: https://www.google.com/)
+{"platform": "instagram", "handle": "sykkuwu", "read_at": "2026-10-24T10:55:23Z", "error": "no counts in the embed page: lient_side_loaded_posts_page_size\":null,\"hide_ui_for_crawlers\":false,\"hide_ayml_follow_cta_for_crawler\":false,\"missing_bio_alternative_for_crawlers\":null,\"shoul"}
+[2026-10-24 10:55:34] INFO: Fetched (200) <GET https://www.instagram.com/asmongold/embed/> (referer: https://www.google.com/)
+{"platform": "instagram", "handle": "asmongold", "read_at": "2026-10-24T10:55:32Z", "followers": 140000, "exact": false}
+[2026-10-24 10:55:44] INFO: Fetched (200) <GET https://www.instagram.com/jynxzilive/embed/> (referer: https://www.google.com/)
+{"platform": "instagram", "handle": "jynxzilive", "read_at": "2026-10-24T10:55:42Z", "error": "no counts in the embed page: lient_side_loaded_posts_page_size\":null,\"hide_ui_for_crawlers\":false,\"hide_ayml_follow_cta_for_crawler\":false,\"missing_bio_alternative_for_crawlers\":null,\"shoul"}
+[2026-10-24 10:55:54] INFO: Fetched (200) <GET https://www.instagram.com/tyler1_alpha/embed/> (referer: https://www.google.com/)
+{"platform": "instagram", "handle": "tyler1_alpha", "read_at": "2026-10-24T10:55:51Z", "followers": 540000, "exact": false}
+[2026-10-24 10:56:10] INFO: Fetched (200) <GET https://www.tiktok.com/@ethankleinh3> (referer: https://www.google.com/)
+{"platform": "tiktok", "handle": "ethankleinh3", "read_at": "2026-10-24T10:56:02Z", "followers": 1643712, "following": 485, "posts": 401, "likes": 72677106, "exact": true, "name": "Ethan Klein", "bio": "", "verified": true}
+[2026-10-24 10:56:19] INFO: Fetched (200) <GET https://www.instagram.com/h3h3productions/embed/> (referer: https://www.google.com/)
+{"platform": "instagram", "handle": "h3h3productions", "read_at": "2026-10-24T10:56:16Z", "followers": 1500000, "exact": false}
+[2026-10-24 10:56:28] INFO: Fetched (200) <GET https://www.instagram.com/hideo_kojima/embed/> (referer: https://www.google.com/)
+{"platform": "instagram", "handle": "hideo_kojima", "read_at": "2026-10-24T10:56:26Z", "followers": 5300000, "exact": false}
+[2026-10-24 10:56:42] INFO: Fetched (200) <GET https://www.tiktok.com/@natalieroushh> (referer: https://www.google.com/)
+{"platform": "tiktok", "handle": "natalieroushh", "read_at": "2026-10-24T10:56:35Z", "followers": 797998, "following": 154, "posts": 576, "likes": 10894378, "exact": true, "name": "natalieroush", "bio": "ig/yt natalieroush", "verified": false}
+[2026-10-24 10:56:58] INFO: Fetched (200) <GET https://www.tiktok.com/@miley> (referer: https://www.google.com/)
+{"platform": "tiktok", "handle": "miley", "read_at": "2026-10-24T10:56:51Z", "followers": 19365793, "following": 0, "posts": 427, "likes": 216566027, "exact": true, "name": "Miley Cyrus", "bio": "BASS PERSUADES. THE ALBUM OUT NOW.", "verified": true}
+[2026-10-24 10:57:05] INFO: Fetched (200) <GET https://www.instagram.com/miley/embed/> (referer: https://www.google.com/)
+{"platform": "instagram", "handle": "miley", "read_at": "2026-10-24T10:57:02Z", "followers": 205000000, "exact": false}
+[2026-10-24 10:57:12] INFO: Fetched (200) <GET https://www.instagram.com/alexandracooper/embed/> (referer: https://www.google.com/)
+{"platform": "instagram", "handle": "alexandracooper", "read_at": "2026-10-24T10:57:09Z", "followers": 7900000, "exact": false}
+[2026-10-24 10:57:26] INFO: Fetched (200) <GET https://www.tiktok.com/@alixearle> (referer: https://www.google.com/)
+{"platform": "tiktok", "handle": "alixearle", "read_at": "2026-10-24T10:57:19Z", "followers": 8726374, "following": 533, "posts": 5269, "likes": 1739985592, "exact": true, "name": "Alix Earle", "bio": "Founder of \n@reale actives \nEarle Meets World 🤍 out now on Netflix \nalixearleteam@unitedtalent.com", "verified": true}
+[2026-10-24 10:57:36] INFO: Fetched (200) <GET https://www.instagram.com/alix_earle/embed/> (referer: https://www.google.com/)
+{"platform": "instagram", "handle": "alix_earle", "read_at": "2026-10-24T10:57:34Z", "error": "no counts in the embed page: lient_side_loaded_posts_page_size\":null,\"hide_ui_for_crawlers\":false,\"hide_ayml_follow_cta_for_crawler\":false,\"missing_bio_alternative_for_crawlers\":null,\"shoul"}
+[2026-10-24 10:57:50] INFO: Fetched (200) <GET https://www.tiktok.com/@yefersoncossio> (referer: https://www.google.com/)
+{"platform": "tiktok", "handle": "yefersoncossio", "read_at": "2026-10-24T10:57:43Z", "followers": 19843293, "following": 43, "posts": 786, "likes": 470726280, "exact": true, "name": "Yef", "bio": "Sígueme en Instagram👇🏻🖤", "verified": true}
+[2026-10-24 10:57:58] INFO: Fetched (200) <GET https://www.instagram.com/yefersoncossio/embed/> (referer: https://www.google.com/)
+{"platform": "instagram", "handle": "yefersoncossio", "read_at": "2026-10-24T10:57:55Z", "followers": 12100000, "exact": false}
+[2026-10-24 10:58:09] INFO: Fetched (200) <GET https://www.tiktok.com/@callmeagentzero> (referer: https://www.google.com/)
+{"platform": "tiktok", "handle": "callmeagentzero", "read_at": "2026-10-24T10:58:02Z", "followers": 2764906, "following": 72, "posts": 189, "likes": 58184023, "exact": true, "name": "Agent", "bio": "Twitch.tv/agent00", "verified": true}
+[2026-10-24 10:58:20] INFO: Fetched (200) <GET https://www.instagram.com/callmeagentzero/embed/> (referer: https://www.google.com/)
+{"platform": "instagram", "handle": "callmeagentzero", "read_at": "2026-10-24T10:58:18Z", "followers": 1600000, "exact": false}
+[2026-10-24 10:58:32] INFO: Fetched (200) <GET https://www.tiktok.com/@rubius> (referer: https://www.google.com/)
+{"platform": "tiktok", "handle": "rubius", "read_at": "2026-10-24T10:58:25Z", "error": "profile data without user info"}
+[2026-10-24 10:58:46] INFO: Fetched (200) <GET https://www.tiktok.com/@katyperry> (referer: https://www.google.com/)
+{"platform": "tiktok", "handle": "katyperry", "read_at": "2026-10-24T10:58:39Z", "followers": 10161298, "following": 1, "posts": 301, "likes": 94033173, "exact": true, "name": "Katy Perry", "bio": "Watch It Burn \nOut Now 🦂", "verified": true}
+[2026-10-24 10:58:54] INFO: Fetched (200) <GET https://www.instagram.com/katyperry/embed/> (referer: https://www.google.com/)
+{"platform": "instagram", "handle": "katyperry", "read_at": "2026-10-24T10:58:52Z", "followers": 195000000, "exact": false}
+[2026-10-24 10:59:09] INFO: Fetched (200) <GET https://www.tiktok.com/@justinbieber> (referer: https://www.google.com/)
+{"platform": "tiktok", "handle": "justinbieber", "read_at": "2026-10-24T10:59:01Z", "followers": 31162735, "following": 17, "posts": 52, "likes": 134203806, "exact": true, "name": "Justin Bieber", "bio": "", "verified": true}
+[2026-10-24 10:59:16] INFO: Fetched (200) <GET https://www.instagram.com/justinbieber/embed/> (referer: https://www.google.com/)
+{"platform": "instagram", "handle": "justinbieber", "read_at": "2026-10-24T10:59:14Z", "error": "no counts in the embed page: lient_side_loaded_posts_page_size\":null,\"hide_ui_for_crawlers\":false,\"hide_ayml_follow_cta_for_crawler\":false,\"missing_bio_alternative_for_crawlers\":null,\"shoul"}
+[2026-10-24 10:59:31] INFO: Fetched (200) <GET https://www.tiktok.com/@leahashe> (referer: https://www.google.com/)
+{"platform": "tiktok", "handle": "leahashe", "read_at": "2026-10-24T10:59:23Z", "followers": 4246075, "following": 344, "posts": 403, "likes": 60108468, "exact": true, "name": "Leah Ashe", "bio": "Instagram, Twitter, YouTube: @LeahAshe\nVlog channel: Leah Ashley \n💖✨💖✨💖✨💖", "verified": true}
+[2026-10-24 10:59:39] INFO: Fetched (200) <GET https://www.instagram.com/leahashe/embed/> (referer: https://www.google.com/)
+{"platform": "instagram", "handle": "leahashe", "read_at": "2026-10-24T10:59:36Z", "followers": 640000, "exact": false}
+[2026-10-24 10:59:54] INFO: Fetched (200) <GET https://www.tiktok.com/@rubengallegoaz> (referer: https://www.google.com/)
+{"platform": "tiktok", "handle": "rubengallegoaz", "read_at": "2026-10-24T10:59:47Z", "followers": 97450, "following": 85, "posts": 753, "likes": 3418173, "exact": true, "name": "Senator Gallego", "bio": "Senator from Arizona. Married to Sydney. Dad to Michael, Isla, and Cooper. USMC 0311/0341.", "verified": true}
+[2026-10-24 11:00:01] INFO: Fetched (200) <GET https://www.instagram.com/senrubengallego/embed/> (referer: https://www.google.com/)
+{"platform": "instagram", "handle": "senrubengallego", "read_at": "2026-10-24T10:59:59Z", "followers": 85000, "exact": false}
+[2026-10-24 11:00:17] INFO: Fetched (200) <GET https://www.tiktok.com/@ishowspeed> (referer: https://www.google.com/)
+{"platform": "tiktok", "handle": "ishowspeed", "read_at": "2026-10-24T11:00:10Z", "followers": 54437511, "following": 27, "posts": 31, "likes": 436969621, "exact": true, "name": "IShowSpeed", "bio": "", "verified": true}
+[2026-10-24 11:00:26] INFO: Fetched (200) <GET https://www.instagram.com/ishowspeed/embed/> (referer: https://www.google.com/)
+{"platform": "instagram", "handle": "ishowspeed", "read_at": "2026-10-24T11:00:24Z", "followers": 54900000, "exact": false}
+[2026-10-24 11:00:34] INFO: Fetched (200) <GET https://www.instagram.com/moneyyaya/embed/> (referer: https://www.google.com/)
+{"platform": "instagram", "handle": "moneyyaya", "read_at": "2026-10-24T11:00:32Z", "followers": 1400000, "exact": false}
+[2026-10-24 11:00:47] INFO: Fetched (200) <GET https://www.tiktok.com/@jaidynalexxis> (referer: https://www.google.com/)
+{"platform": "tiktok", "handle": "jaidynalexxis", "read_at": "2026-10-24T11:00:40Z", "followers": 1324661, "following": 44, "posts": 412, "likes": 28779144, "exact": true, "name": "jaidynalexxis", "bio": "🍒🌈🏳️‍🌈🎶🔊🎥\n@pinkface\nPO BOX #803010\nSANTA CLARITA CA 91380\n 📧contactforj.alexxis@gmail.com", "verified": false}
+[2026-10-24 11:00:54] INFO: Fetched (200) <GET https://www.instagram.com/officialjaidynalexxis/embed/> (referer: https://www.google.com/)
+{"platform": "instagram", "handle": "officialjaidynalexxis", "read_at": "2026-10-24T11:00:52Z", "error": "no counts in the embed page: lient_side_loaded_posts_page_size\":null,\"hide_ui_for_crawlers\":false,\"hide_ayml_follow_cta_for_crawler\":false,\"missing_bio_alternative_for_crawlers\":null,\"shoul"}
+[2026-10-24 11:01:08] INFO: Fetched (200) <GET https://www.tiktok.com/@hankgreen1> (referer: https://www.google.com/)
+{"platform": "tiktok", "handle": "hankgreen1", "read_at": "2026-10-24T11:01:01Z", "followers": 8063032, "following": 1095, "posts": 841, "likes": 649794306, "exact": true, "name": "Hank Green", "bio": "I may have taught you biology.\nSubscribe to my newsletter We're Here!", "verified": true}
+[2026-10-24 11:01:15] INFO: Fetched (200) <GET https://www.instagram.com/hankgreen/embed/> (referer: https://www.google.com/)
+{"platform": "instagram", "handle": "hankgreen", "read_at": "2026-10-24T11:01:13Z", "followers": 2200000, "exact": false}
+[2026-10-24 11:01:42] INFO: Fetched (200) <GET https://www.tiktok.com/@bluefacebleedem> (referer: https://www.google.com/)
+{"platform": "tiktok", "handle": "bluefacebleedem", "read_at": "2026-10-24T11:01:24Z", "followers": 9334116, "following": 7, "posts": 215, "likes": 124152324, "exact": true, "name": "Blueface", "bio": "", "verified": true}
+[2026-10-24 11:01:51] INFO: Fetched (200) <GET https://www.instagram.com/bluefacebleedem/embed/> (referer: https://www.google.com/)
+{"platform": "instagram", "handle": "bluefacebleedem", "read_at": "2026-10-24T11:01:49Z", "error": "no counts in the embed page: lient_side_loaded_posts_page_size\":null,\"hide_ui_for_crawlers\":false,\"hide_ayml_follow_cta_for_crawler\":false,\"missing_bio_alternative_for_crawlers\":null,\"shoul"}
+[2026-10-24 11:02:01] INFO: Fetched (200) <GET https://www.instagram.com/noahkahanmusic/embed/> (referer: https://www.google.com/)
+{"platform": "instagram", "handle": "noahkahanmusic", "read_at": "2026-10-24T11:01:59Z", "followers": 4700000, "exact": false}
+[2026-10-24 11:02:16] INFO: Fetched (200) <GET https://www.tiktok.com/@theofficertatum> (referer: https://www.google.com/)
+{"platform": "tiktok", "handle": "theofficertatum", "read_at": "2026-10-24T11:02:08Z", "followers": 1801184, "following": 99, "posts": 1436, "likes": 51399478, "exact": true, "name": "The Officer Tatum", "bio": "Host of “The Officer Tatum Show\"🇺🇸\nWatch Nolan Wells Interview Here ⬇️", "verified": true}
+[2026-10-24 11:02:23] INFO: Fetched (200) <GET https://www.instagram.com/theofficertatum/embed/> (referer: https://www.google.com/)
+{"platform": "instagram", "handle": "theofficertatum", "read_at": "2026-10-24T11:02:21Z", "followers": 2500000, "exact": false}
+[2026-10-24 11:02:39] INFO: Fetched (200) <GET https://www.tiktok.com/@plakboymac> (referer: https://www.google.com/)
+{"platform": "tiktok", "handle": "plakboymac", "read_at": "2026-10-24T11:02:30Z", "followers": 132594, "following": 3, "posts": 4, "likes": 1069987, "exact": true, "name": "FaZe Max", "bio": "", "verified": false}
+[2026-10-24 11:02:45] INFO: Fetched (200) <GET https://www.instagram.com/loomered/embed/> (referer: https://www.google.com/)
+{"platform": "instagram", "handle": "loomered", "read_at": "2026-10-24T11:02:43Z", "error": "no counts in the embed page: lient_side_loaded_posts_page_size\":null,\"hide_ui_for_crawlers\":false,\"hide_ayml_follow_cta_for_crawler\":false,\"missing_bio_alternative_for_crawlers\":null,\"shoul"}
+[2026-10-24 11:02:59] INFO: Fetched (200) <GET https://www.tiktok.com/@ze__president> (referer: https://www.google.com/)
+{"platform": "tiktok", "handle": "ze__president", "read_at": "2026-10-24T11:02:53Z", "followers": 2083197, "following": 0, "posts": 920, "likes": 50009066, "exact": true, "name": "Команда Зеленського", "bio": "Офіційний TikTok Команди Зеленського", "verified": false}
+[2026-10-24 11:03:09] INFO: Fetched (200) <GET https://www.instagram.com/qtcinderella/embed/> (referer: https://www.google.com/)
+{"platform": "instagram", "handle": "qtcinderella", "read_at": "2026-10-24T11:03:07Z", "followers": 443000, "exact": false}
+[2026-10-24 11:03:23] INFO: Fetched (200) <GET https://www.tiktok.com/@brentrivera> (referer: https://www.google.com/)
+{"platform": "tiktok", "handle": "brentrivera", "read_at": "2026-10-24T11:03:15Z", "followers": 50960843, "following": 1210, "posts": 1833, "likes": 1817731664, "exact": true, "name": "Brent Rivera", "bio": "MY NEW CHIP BRAND! @eatlevels\n@Amp World", "verified": true}
+[2026-10-24 11:03:33] INFO: Fetched (200) <GET https://www.instagram.com/brentrivera/embed/> (referer: https://www.google.com/)
+{"platform": "instagram", "handle": "brentrivera", "read_at": "2026-10-24T11:03:31Z", "followers": 23400000, "exact": false}
+[2026-10-24 11:03:43] INFO: Fetched (200) <GET https://www.instagram.com/whistlindiesel/embed/> (referer: https://www.google.com/)
+{"platform": "instagram", "handle": "whistlindiesel", "read_at": "2026-10-24T11:03:41Z", "followers": 5700000, "exact": false}
+[2026-10-24 11:03:57] INFO: Fetched (200) <GET https://www.tiktok.com/@gustavopetrooficial> (referer: https://www.google.com/)
+{"platform": "tiktok", "handle": "gustavopetrooficial", "read_at": "2026-10-24T11:03:49Z", "followers": 3309304, "following": 217, "posts": 821, "likes": 67583783, "exact": true, "name": "Gustavo Petro", "bio": "Presidente de la República de Colombia \n2022 - 2026 🇨🇴", "verified": true}
+[2026-10-24 11:04:11] INFO: Fetched (200) <GET https://www.tiktok.com/@clavicular> (referer: https://www.google.com/)
+{"platform": "tiktok", "handle": "clavicular", "read_at": "2026-10-24T11:04:04Z", "followers": 1196510, "following": 108, "posts": 596, "likes": 43090747, "exact": true, "name": "user31173106497", "bio": "No bio yet", "verified": false}
+[2026-10-24 11:04:19] INFO: Fetched (200) <GET https://www.instagram.com/tamarbraxton/embed/> (referer: https://www.google.com/)
+{"platform": "instagram", "handle": "tamarbraxton", "read_at": "2026-10-24T11:04:17Z", "followers": 5900000, "exact": false}
+[2026-10-24 11:04:32] INFO: Fetched (200) <GET https://www.tiktok.com/@cobratate_official> (referer: https://www.google.com/)
+{"platform": "tiktok", "handle": "cobratate_official", "read_at": "2026-10-24T11:04:25Z", "error": "profile data without user info"}
+[2026-10-24 11:04:42] INFO: Fetched (200) <GET https://www.instagram.com/cobratate/embed/> (referer: https://www.google.com/)
+{"platform": "instagram", "handle": "cobratate", "read_at": "2026-10-24T11:04:40Z", "error": "no counts in the embed page: lient_side_loaded_posts_page_size\":null,\"hide_ui_for_crawlers\":false,\"hide_ayml_follow_cta_for_crawler\":false,\"missing_bio_alternative_for_crawlers\":null,\"shoul"}
+[2026-10-24 11:04:52] INFO: Fetched (200) <GET https://www.instagram.com/talismantate/embed/> (referer: https://www.google.com/)
+{"platform": "instagram", "handle": "talismantate", "read_at": "2026-10-24T11:04:50Z", "error": "no counts in the embed page: lient_side_loaded_posts_page_size\":null,\"hide_ui_for_crawlers\":false,\"hide_ayml_follow_cta_for_crawler\":false,\"missing_bio_alternative_for_crawlers\":null,\"shoul"}
+[2026-10-24 11:05:09] INFO: Fetched (200) <GET https://www.tiktok.com/@itsdeaann> (referer: https://www.google.com/)
+{"platform": "tiktok", "handle": "itsdeaann", "read_at": "2026-10-24T11:05:01Z", "followers": 7740085, "following": 1277, "posts": 284, "likes": 143632906, "exact": true, "name": "Dean Withers", "bio": "22\n\nVOTE DEAN WITHERS FOR STREAMERS AWARD👇🏼🔗", "verified": true}
+[2026-10-24 11:05:21] INFO: Fetched (200) <GET https://www.tiktok.com/@extraemily> (referer: https://www.google.com/)
+{"platform": "tiktok", "handle": "extraemily", "read_at": "2026-10-24T11:05:14Z", "followers": 865641, "following": 60, "posts": 466, "likes": 31845933, "exact": true, "name": "extra emily", "bio": "hi there! | 28\n↓ i'm live on Twitch! ✨", "verified": true}
+[2026-10-24 11:05:27] INFO: Fetched (200) <GET https://www.instagram.com/drawwithjazza/embed/> (referer: https://www.google.com/)
+{"platform": "instagram", "handle": "drawwithjazza", "read_at": "2026-10-24T11:05:25Z", "followers": 1352, "exact": true}
+[2026-10-24 11:05:43] INFO: Fetched (200) <GET https://www.tiktok.com/@nbayoungboy> (referer: https://www.google.com/)
+{"platform": "tiktok", "handle": "nbayoungboy", "read_at": "2026-10-24T11:05:36Z", "followers": 3865018, "following": 3, "posts": 227, "likes": 47795647, "exact": true, "name": "NbaYoungBoy", "bio": "ML2 OUT NOW", "verified": true}
+[2026-10-24 11:05:51] INFO: Fetched (200) <GET https://www.instagram.com/nba_youngboy/embed/> (referer: https://www.google.com/)
+{"platform": "instagram", "handle": "nba_youngboy", "read_at": "2026-10-24T11:05:49Z", "followers": 12000000, "exact": false}
+[2026-10-24 11:06:07] INFO: Fetched (200) <GET https://www.tiktok.com/@arianagrande> (referer: https://www.google.com/)
+{"platform": "tiktok", "handle": "arianagrande", "read_at": "2026-10-24T11:06:00Z", "followers": 44792425, "following": 18, "posts": 427, "likes": 475792059, "exact": true, "name": "arianagrande", "bio": "petal out now ꕤ ｡˚", "verified": true}
+[2026-10-24 11:06:18] INFO: Fetched (200) <GET https://www.instagram.com/arianagrande/embed/> (referer: https://www.google.com/)
+{"platform": "instagram", "handle": "arianagrande", "read_at": "2026-10-24T11:06:16Z", "followers": 362000000, "exact": false}
+[2026-10-24 11:06:30] INFO: Fetched (200) <GET https://www.tiktok.com/@dylanmulvaney> (referer: https://www.google.com/)
+{"platform": "tiktok", "handle": "dylanmulvaney", "read_at": "2026-10-24T11:06:24Z", "followers": 8921259, "following": 1665, "posts": 901, "likes": 547152435, "exact": true, "name": "Dylan Mulvaney", "bio": "NY TIMES BESTSELLER PAPER DOLL  🎀", "verified": true}
+[2026-10-24 11:06:39] INFO: Fetched (200) <GET https://www.instagram.com/dylanmulvaney/embed/> (referer: https://www.google.com/)
+{"platform": "instagram", "handle": "dylanmulvaney", "read_at": "2026-10-24T11:06:37Z", "followers": 1500000, "exact": false}
+[2026-10-24 11:06:52] INFO: Fetched (200) <GET https://www.tiktok.com/@realdonaldtrump> (referer: https://www.google.com/)
+{"platform": "tiktok", "handle": "realdonaldtrump", "read_at": "2026-10-24T11:06:44Z", "followers": 17028745, "following": 2, "posts": 88, "likes": 125897598, "exact": true, "name": "President Donald J Trump", "bio": "45th & 47th President of the United States", "verified": true}
+[2026-10-24 11:07:00] INFO: Fetched (200) <GET https://www.instagram.com/realdonaldtrump/embed/> (referer: https://www.google.com/)
+{"platform": "instagram", "handle": "realdonaldtrump", "read_at": "2026-10-24T11:06:58Z", "followers": 44600000, "exact": false}
+[2026-10-24 11:07:10] INFO: Fetched (200) <GET https://www.instagram.com/courtneyastodden/embed/> (referer: https://www.google.com/)
+{"platform": "instagram", "handle": "courtneyastodden", "read_at": "2026-10-24T11:07:08Z", "followers": 412000, "exact": false}
+[2026-10-24 11:07:24] INFO: Fetched (200) <GET https://www.tiktok.com/@loganpaul> (referer: https://www.google.com/)
+{"platform": "tiktok", "handle": "loganpaul", "read_at": "2026-10-24T11:07:17Z", "followers": 19019191, "following": 31, "posts": 491, "likes": 413259035, "exact": true, "name": "Logan Paul", "bio": "Open trading cards rn on @Ripit ↙️", "verified": true}
+[2026-10-24 11:07:34] INFO: Fetched (200) <GET https://www.instagram.com/loganpaul/embed/> (referer: https://www.google.com/)
+{"platform": "instagram", "handle": "loganpaul", "read_at": "2026-10-24T11:07:31Z", "followers": 25700000, "exact": false}
+[2026-10-24 11:07:47] INFO: Fetched (200) <GET https://www.tiktok.com/@tombrady> (referer: https://www.google.com/)
+{"platform": "tiktok", "handle": "tombrady", "read_at": "2026-10-24T11:07:40Z", "followers": 4958480, "following": 29, "posts": 139, "likes": 44670628, "exact": true, "name": "Tom Brady", "bio": "Family and Football.", "verified": true}
+[2026-10-24 11:07:58] INFO: Fetched (200) <GET https://www.instagram.com/tombradyl/embed/> (referer: https://www.google.com/)
+{"platform": "instagram", "handle": "tombradyl", "read_at": "2026-10-24T11:07:56Z", "error": "no counts in the embed page: lient_side_loaded_posts_page_size\":null,\"hide_ui_for_crawlers\":false,\"hide_ayml_follow_cta_for_crawler\":false,\"missing_bio_alternative_for_crawlers\":null,\"shoul"}
+[2026-10-24 11:08:07] INFO: Fetched (200) <GET https://www.instagram.com/stevewilldoit/embed/> (referer: https://www.google.com/)
+{"platform": "instagram", "handle": "stevewilldoit", "read_at": "2026-10-24T11:08:05Z", "followers": 3800000, "exact": false}
+[2026-10-24 11:08:19] INFO: Fetched (200) <GET https://www.tiktok.com/@jidion> (referer: https://www.google.com/)
+{"platform": "tiktok", "handle": "jidion", "read_at": "2026-10-24T11:08:12Z", "error": "profile data without user info"}
+[2026-10-24 11:08:30] INFO: Fetched (200) <GET https://www.tiktok.com/@realmizkif> (referer: https://www.google.com/)
+{"platform": "tiktok", "handle": "realmizkif", "read_at": "2026-10-24T11:08:23Z", "followers": 1208544, "following": 52, "posts": 1549, "likes": 79367368, "exact": true, "name": "Mizkif", "bio": "I like finance and world of Warcraft lawl active in  my discord  ⬇️ ⬇️", "verified": true}
+[2026-10-24 11:08:43] INFO: Fetched (200) <GET https://www.tiktok.com/@emiru> (referer: https://www.google.com/)
+{"platform": "tiktok", "handle": "emiru", "read_at": "2026-10-24T11:08:35Z", "followers": 2019481, "following": 251, "posts": 545, "likes": 30069740, "exact": true, "name": "emiru", "bio": "⭐️i’m emi⭐️\nLIVE @ twitch.tv/emiru", "verified": true}
+[2026-10-24 11:08:54] INFO: Fetched (200) <GET https://www.tiktok.com/@kitbogashow> (referer: https://www.google.com/)
+{"platform": "tiktok", "handle": "kitbogashow", "read_at": "2026-10-24T11:08:48Z", "followers": 583204, "following": 0, "posts": 408, "likes": 5767080, "exact": true, "name": "kitbogashow", "bio": "Improv artist who calls scammers. Laughter is the best medicine.", "verified": false}
+[2026-10-24 11:09:04] INFO: Fetched (200) <GET https://www.instagram.com/kitbogashow/embed/> (referer: https://www.google.com/)
+{"platform": "instagram", "handle": "kitbogashow", "read_at": "2026-10-24T11:09:02Z", "followers": 113000, "exact": false}
+[2026-10-24 11:09:15] INFO: Fetched (200) <GET https://www.instagram.com/indiaarie/embed/> (referer: https://www.google.com/)
+{"platform": "instagram", "handle": "indiaarie", "read_at": "2026-10-24T11:09:12Z", "followers": 1200000, "exact": false}
+[2026-10-24 11:09:27] INFO: Fetched (200) <GET https://www.tiktok.com/@maya_higa> (referer: https://www.google.com/)
+{"platform": "tiktok", "handle": "maya_higa", "read_at": "2026-10-24T11:09:21Z", "followers": 462857, "following": 168, "posts": 820, "likes": 18129334, "exact": true, "name": "maya_higa", "bio": "Founder of @AlveusSanctuary 💚", "verified": false}
+[2026-10-24 11:09:40] INFO: Fetched (200) <GET https://www.tiktok.com/@markrober> (referer: https://www.google.com/)
+{"platform": "tiktok", "handle": "markrober", "read_at": "2026-10-24T11:09:32Z", "followers": 3972810, "following": 233, "posts": 189, "likes": 53996615, "exact": true, "name": "Mark Rober", "bio": "Former NASA engineer. Current YouTuber and friend of science.", "verified": true}
+[2026-10-24 11:09:53] INFO: Fetched (200) <GET https://www.tiktok.com/@jason.nms> (referer: https://www.google.com/)
+{"platform": "tiktok", "handle": "jason.nms", "read_at": "2026-10-24T11:09:46Z", "followers": 3118097, "following": 34, "posts": 427, "likes": 131946207, "exact": true, "name": "Jason", "bio": "Goober\nTwitch: jasontheween\nContact: jasontheweenbusiness@gmail.com", "verified": true}
+[2026-10-24 11:10:00] INFO: Fetched (200) <GET https://www.instagram.com/rosannapansino/embed/> (referer: https://www.google.com/)
+{"platform": "instagram", "handle": "rosannapansino", "read_at": "2026-10-24T11:09:58Z", "followers": 4200000, "exact": false}
+[2026-10-24 11:10:14] INFO: Fetched (200) <GET https://www.tiktok.com/@jamescharles> (referer: https://www.google.com/)
+{"platform": "tiktok", "handle": "jamescharles", "read_at": "2026-10-24T11:10:07Z", "followers": 39158812, "following": 369, "posts": 1258, "likes": 1603447469, "exact": true, "name": "James Charles", "bio": "✉️ management@painted.co\n🎨 @Painted @PaintedUK\n🎶 @James Charles Music \n\nPRE-SAVE MY NEW SINGLE 5150! 🚨⤵️", "verified": true}
+[2026-10-24 11:10:24] INFO: Fetched (200) <GET https://www.instagram.com/jamescharles/embed/> (referer: https://www.google.com/)
+{"platform": "instagram", "handle": "jamescharles", "read_at": "2026-10-24T11:10:21Z", "followers": 18600000, "exact": false}
+[2026-10-24 11:10:38] INFO: Fetched (200) <GET https://www.tiktok.com/@xomgitsbunnie> (referer: https://www.google.com/)
+{"platform": "tiktok", "handle": "xomgitsbunnie", "read_at": "2026-10-24T11:10:30Z", "followers": 8585739, "following": 513, "posts": 3373, "likes": 362472817, "exact": true, "name": "Bunnie Xo 🪄", "bio": "Fairy Godmother 🧚‍♂️ \nTrailerpark Barbara Walters 🎙️👱‍♀️\nWatch Pods 👇🏻\nYT: DumbBlondePod\nNew York Times #1 Best Seller 📕", "verified": true}
+[2026-10-24 11:10:51] INFO: Fetched (200) <GET https://www.tiktok.com/@officialjellyroll> (referer: https://www.google.com/)
+{"platform": "tiktok", "handle": "officialjellyroll", "read_at": "2026-10-24T11:10:43Z", "followers": 9931526, "following": 283, "posts": 465, "likes": 115234548, "exact": true, "name": "Jelly Roll", "bio": "Musician 🎶", "verified": true}
+[2026-10-24 11:11:07] INFO: Fetched (200) <GET https://www.tiktok.com/@kellyclarkson> (referer: https://www.google.com/)
+{"platform": "tiktok", "handle": "kellyclarkson", "read_at": "2026-10-24T11:10:59Z", "followers": 1393299, "following": 5, "posts": 195, "likes": 5820015, "exact": true, "name": "kellyclarkson", "bio": "I am Kelly. \nI'd Be Lyin' is out now!", "verified": true}
+[2026-10-24 11:11:22] INFO: Fetched (200) <GET https://www.tiktok.com/@ksi> (referer: https://www.google.com/)
+{"platform": "tiktok", "handle": "ksi", "read_at": "2026-10-24T11:11:15Z", "followers": 12088542, "following": 6, "posts": 80, "likes": 112841944, "exact": true, "name": "KSI", "bio": "", "verified": true}
+[2026-10-24 11:11:30] INFO: Fetched (200) <GET https://www.instagram.com/ksi/embed/> (referer: https://www.google.com/)
+{"platform": "instagram", "handle": "ksi", "read_at": "2026-10-24T11:11:28Z", "followers": 12900000, "exact": false}
+[2026-10-24 11:11:40] INFO: Fetched (200) <GET https://www.tiktok.com/@kingclavicular> (referer: https://www.google.com/)
+{"platform": "tiktok", "handle": "kingclavicular", "read_at": "2026-10-24T11:11:34Z", "error": "profile data without user info"}
+[2026-10-24 11:11:54] INFO: Fetched (200) <GET https://www.tiktok.com/@souljaboytv> (referer: https://www.google.com/)
+{"platform": "tiktok", "handle": "souljaboytv", "read_at": "2026-10-24T11:11:47Z", "followers": 3615531, "following": 23, "posts": 459, "likes": 24817415, "exact": true, "name": "Soulja Boy", "bio": "Owner of @souljaboydripco \nBookings: souljaboyinfo@gmail.com", "verified": true}
+[2026-10-24 11:12:05] INFO: Fetched (200) <GET https://www.instagram.com/idubbbz/embed/> (referer: https://www.google.com/)
+{"platform": "instagram", "handle": "idubbbz", "read_at": "2026-10-24T11:12:02Z", "followers": 902000, "exact": false}
+read 94 of 112
+site: {"ok": true, "read": 94, "saved": 94, "errors": 18}
