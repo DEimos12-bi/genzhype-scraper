@@ -41,7 +41,7 @@ def place_bites(plan, tl):
         b = next((p.get('bite') for p in plan['lines'] if p['id'] == l['id']), None)
         if not b:
             continue
-        at = round(l['e'] + BITE_LEAD, 3)                    # the second of the video where the clip second b['ss'] plays
+        at = round(LEAD if b.get('first') else l['e'] + BITE_LEAD, 3)      # the second of the video where the clip second b['ss'] plays (a cold open: at the very start)
         clean = lambda w: re.sub(r"^[^\w@#$%]+|[^\w%'’]+$", '', w)
         ws = [{'w': clean(w), 's': round(at + s - b['ss'], 3), 'e': round(at + e - b['ss'], 3)} for w, s, e in b['words'] if clean(w)]
         for w in ws:
@@ -50,8 +50,12 @@ def place_bites(plan, tl):
         text = ' '.join(masked(x) if SWEAR.match(re.sub(r"[^\w']", '', x)) else x for x in b['text'].split())
         if any(w.get('bleep') for w in ws):
             print('voice: the clip says %d swear word(s): bleeped in the sound, masked in the captions' % sum(1 for w in ws if w.get('bleep')), flush=True)
-        out.append({'id': l['id'] + 'bite', 'text': text, 's': ws[0]['s'] if ws else at, 'e': round(at + b['dur'], 3), 'words': ws,
-                    'bite': {'at': at, 'ss': b['ss'], 'dur': b['dur'], 'asset': b['asset'], 'src': 'assets/' + plan['assets'][b['asset']]['file'], 'of': l['id'], 'who': b.get('who', '')}})
+        row = {'id': l['id'] + 'bite', 'text': text, 's': ws[0]['s'] if ws else at, 'e': round(at + b['dur'], 3), 'words': ws,
+               'bite': {'at': at, 'ss': b['ss'], 'dur': b['dur'], 'asset': b['asset'], 'src': 'assets/' + plan['assets'][b['asset']]['file'], 'of': l['id'], 'who': b.get('who', ''), 'first': bool(b.get('first'))}}
+        if b.get('first'):
+            out.insert(len(out) - 1, row)                     # the clip comes before its line
+        else:
+            out.append(row)
     return out
 
 
@@ -210,6 +214,7 @@ BUDGET = {'t0': time.time(), 's': None}
 SAID = {}                    # how this script's names are said (voicewords.py)
 SEND = {}                    # {line index: [the line, what the online voice is given]} when the ear made a name be respelled
 LOCAL = {'on': False}        # one voice per video: once the local voice speaks a line, it speaks them all
+COLD = {'s': 0.0}            # the seconds of a cold open (the story's own clip before the first word)
 
 
 def over():
@@ -290,7 +295,7 @@ def speak(takes, lines):
             print('voice: stopped at the time budget with %d line(s) to speak; run again' % len(left), flush=True)
             raise SystemExit(3)
         raise SystemExit('voice failed on line %s: no fallback voice on this machine' % lines[left[0]][0])
-    out, tl, t = [np.zeros(int(LEAD * SR), dtype=np.float32)], [], LEAD
+    out, tl, t = [np.zeros(int((LEAD + COLD['s']) * SR), dtype=np.float32)], [], LEAD + COLD['s']      # a cold open: the clip's seconds come before the first word
     for i, (lid, text, rate, pause) in enumerate(lines):
         a = load(os.path.join(takes, '%02d.mp3' % i))
         words = json.load(open(os.path.join(takes, '%02d.json' % i), encoding='utf-8'))
@@ -440,8 +445,10 @@ def main(work):
         pass
     lines = [[l['id'], l['text'], int(l.get('rate') or (10 if l['id'] in ('vote', 'site', 'final') else 12)),
               float(l.get('pause') or (0.5 if l['id'] == 'site' else 0.3 if l['id'] in ('vote', 'final') else 0.22))] for l in plan['lines']]
-    for l, row in zip(plan['lines'], lines):                 # a bite plays in the pause after its line
-        if l.get('bite') and l['bite'].get('asset') in (plan.get('assets') or {}):
+    for l, row in zip(plan['lines'], lines):                 # a bite plays in the pause after its line (a cold open: before the first line)
+        if l.get('bite') and l['bite'].get('asset') in (plan.get('assets') or {}) and l['bite'].get('first'):
+            COLD['s'] = round(l['bite']['dur'] + BITE_TAIL, 3)
+        elif l.get('bite') and l['bite'].get('asset') in (plan.get('assets') or {}):
             row[3] = round(BITE_LEAD + l['bite']['dur'] + BITE_TAIL, 3)
         else:
             l.pop('bite', None)
@@ -460,7 +467,7 @@ def main(work):
     vo, tl, t = speak(takes, lines)
     passes = len(json.load(open(rfile + '.passes', encoding='utf-8'))) if os.path.isfile(rfile + '.passes') else 0
     while t + 0.45 < need and passes < 2 and any(l[2] > SLOWEST for l in lines):      # short: once or twice more, slower by what is missing (a voice does not slow in proportion)
-        silent = LEAD + sum(l[3] for l in lines)          # the pauses do not stretch: only the speech is slowed, by what the speech is missing
+        silent = LEAD + COLD['s'] + sum(l[3] for l in lines)          # the pauses do not stretch: only the speech is slowed, by what the speech is missing
         slower = [max(SLOWEST, int((100 + r) * (t - silent) / max(1.0, need + 0.5 - silent) - 100) - (1 if passes else 0)) for _, _, r, _ in lines]
         if slower == [l[2] for l in lines]:
             break

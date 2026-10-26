@@ -199,6 +199,11 @@ def plan_shots(plan, tl, log):
         if pl.get('beats'):                                    # the montage, sentence by sentence (beats.py)
             cards = {int(o.get('beat', 0)): int(o.get('to', o.get('beat', 0))) for o in pl.get('overlays', []) if o.get('k') in ('rows', 'quote', 'receipt', 'blocks') and not o.get('drop')}
             bl = lines.get(pl['id'] + 'bite')                 # the line ends with the story's own clip speaking: its sentences stop where the clip starts
+            if bl and bl['bite'].get('first') and bl['bite']['asset'] in sup.a:      # the cold open: the clip first, then the opening's sentences
+                ts = round(max(0.3, ln['s'] - 0.08), 3)
+                shots += bite_shots(pl, bl, 0.0, ts, sup)
+                shots += beats.for_line(pl, ln, ts, t1, sup, shots, pick, lambda b: b in cards, lambda b: cards.get(b, b), face_ok, log, first=False, single=False)
+                continue
             tb = round(bl['bite']['at'] - 0.1, 3) if bl and bl['bite']['asset'] in sup.a else None
             shots += beats.for_line(pl, ln, t0, tb or t1, sup, shots, pick, lambda b: b in cards, lambda b: cards.get(b, b), face_ok, log, first=(i == 0), single=pl['id'] in ('vote', 'site'))
             if tb:
