@@ -133,7 +133,7 @@ def respellings(names, about, heard, log=print):
                                 'JSON: {"said":[{"w":"Cenat","respell":["sih-nat","suh-nat"]}]}'
                                 % (about[:300], json.dumps([{'name': n, 'heard': heard.get(n, '')} for n in new], ensure_ascii=False)), kind='text', temperature=0.2, timeout=60, max_tokens=2000)
             got = {}
-            for x in (j or {}).get('said') or []:
+            for x in [x for x in ((j or {}).get('said') if isinstance(j, dict) else None) or [] if isinstance(x, dict)]:
                 w = str((x or {}).get('w', ''))
                 rs = [r for r in ((x or {}).get('respell') or []) if isinstance(r, str) and re.fullmatch(r"[a-z]+(?:-[a-z]+)*", r.strip().lower())]
                 if w in new and rs:

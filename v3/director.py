@@ -1557,6 +1557,94 @@ VOTE_JOB = ('You write the last line of a TikTok voice-over: the VOTE. One quest
             '{"question":"max 22 characters","a":{"word":"ONE WORD","sub":"that side in 3 words"},"b":{"word":"ONE WORD","sub":"that side in 3 words"},"say":["The question?","This, or that? Drop one below."]}')
 
 
+CLOSE_JOB = ('You write the last words of a TikTok voice-over, after the vote. The video opened on a question it did not answer at once; '
+             'by now the viewer knows the answer. The closing pays that off in one or two short sentences, in the narrator\'s voice (a dry, quick friend, '
+             'never an anchor), then sends to %s for the rest. Strict JSON only.')
+
+
+def write_closing(plan, m, log):
+    """The closing of THIS video, when the writer's did not keep the rules: three tries written from the opening and
+    what happened, the first one that keeps them is used (closing_faults). -> True when one was found."""
+    lines = [l for l in plan['lines'] if l.get('id') != 'site']
+    script = '\n'.join('%s: %s' % (l['id'], l['text']) for l in lines)
+    used = habits.used(m.get('url', ''), 'closing')[-8:]
+    user = ('THE STORY: %s\n\nTHE SCRIPT (the first line is the opening, the last is the vote):\n%s\n\nCLOSINGS OUR OTHER VIDEOS USED (never these, never these words):\n%s\n\n'
+            'Write THREE different closings. Each: 1 or 2 sentences, 24 words at most; it answers or calls back to the question the opening left open, '
+            'with what the viewer now knows (a word, a number, a picture of the opening coming back); then it sends to %s. No new fact, name or number, '
+            'no request for a comment (the vote did that), no "link in bio" needed.%s\nJSON: {"closings":["...","...","..."]}'
+            % (m.get('title', ''), script, '\n'.join('- ' + c for c in used) or '- (none yet)', brand.B['spoken'],
+               ' There is no page for this story yet: send to more stories like it, never to this one.' if m.get('no_page') else ''))
+    try:
+        j, by = ai.ask_json(CLOSE_JOB % brand.B['spoken'], user, kind='text', temperature=0.7, timeout=60, max_tokens=1500)
+    except ai.OutOfTime:
+        raise
+    except ai.AIError as e:
+        log('director: no closing was written for this video (%s); the brand line stays' % str(e)[:80])
+        return False
+    for c in (j or {}).get('closings') or []:
+        q = dict(plan, closing=closing_text(c))
+        bad = closing_faults(q, lines, m)
+        if not bad:
+            plan['closing'] = q['closing']
+            log('director: the closing written for this video (%s): "%s"' % (by, plan['closing']))
+            return True
+        log('director: a closing refused (%s): "%s"' % (bad[0][:70], closing_text(c)[:80]))
+    return False
+
+
+TAKE_JOB = ('You are the narrator of a TikTok voice-over: %s. You get the finished script. Add one or two TAKES: a 2-to-8-word reaction '
+            'of yours that goes right after one fact of the script. Strict JSON only.')
+
+
+def write_takes(plan, m, log):
+    """The narrator reacts: when the corrections left the script without a take, one or two are written for named
+    sentences and set right after them (take_faults keeps only the good ones). -> how many were added."""
+    lines = [l for l in plan['lines'] if l.get('id') not in ('site', 'vote')]
+    grave = HEAVY.search(m.get('title', '') + ' ' + m.get('summary', '')) or SENSITIVE.search(m.get('title', '') + ' ' + m.get('summary', ''))
+    if grave or not NARRATOR or plan.get('takes'):
+        return 0
+    rows = ['%s.%d  %s' % (l['id'], k + 1, x) for l in lines[1:] for k, x in enumerate(split_keep(l['text']))]
+    used = habits.used(m.get('url', ''), 'takes')[-12:]
+    user = ('THE SCRIPT, SENTENCE BY SENTENCE:\n%s\n\nTAKES OUR OTHER VIDEOS USED (never these, never their first word):\n%s\n\n'
+            'Pick the one or two facts a friend would react to (a number, a strange choice, a bold move) and write your take for each: 2 to 8 words, dry, '
+            'no new fact, name or number, never who is right or guilty, nothing about health, crime or a private person, no stock phrase ("classic X", "wild", "big mood").\n'
+            'JSON: {"takes":[{"after":"the sentence id, e.g. who.2","take":"..."}]}' % ('\n'.join(rows), '\n'.join('- ' + t for t in used) or '- (none yet)'))
+    try:
+        j, by = ai.ask_json(TAKE_JOB % brand.B.get('persona', ''), user, kind='text', temperature=0.8, timeout=60, max_tokens=1200)
+    except ai.OutOfTime:
+        raise
+    except ai.AIError:
+        return 0
+    added = 0
+    for x in ((j or {}).get('takes') or [])[:2]:
+        sid, take = str((x or {}).get('after', '')).strip(), re.sub(r'\s+', ' ', str((x or {}).get('take', ''))).strip()
+        mo = re.fullmatch(r'([a-z0-9]+)\.(\d+)', sid)
+        line = next((l for l in lines if mo and l['id'] == mo.group(1)), None)
+        if not line or not take or take[-1] not in '.!?':
+            continue
+        parts, k = split_keep(line['text']), int(mo.group(2)) - 1
+        if not 0 <= k < len(parts):
+            continue
+        trial = json.loads(json.dumps(plan))
+        tl = next(l for l in trial['lines'] if l['id'] == line['id'])
+        tl['text'] = ' '.join(parts[:k + 1] + [take] + parts[k + 1:])
+        if tl.get('beats') and k < len(tl['beats']):           # the take is said over the picture of its fact
+            tl['beats'].insert(k + 1, {'say': take, 'show': dict(tl['beats'][k].get('show') or {})})
+            for o in tl.get('overlays') or []:
+                if isinstance(o.get('beat'), int) and o['beat'] > k:
+                    o['beat'] += 1
+        trial['takes'] = (plan.get('takes') or []) + [take]
+        bad = take_faults(trial, [l for l in trial['lines'] if l.get('id') != 'site'], m)
+        if any(take in b for b in bad):
+            log('director: a take refused: "%s" (%s)' % (take, next(b for b in bad if take in b)[:70]))
+            continue
+        plan.clear(); plan.update(trial)
+        lines = [l for l in plan['lines'] if l.get('id') not in ('site', 'vote')]
+        added += 1
+        log('director: the narrator reacts after %s (%s): "%s"' % (sid, by, take))
+    return added
+
+
 def fix_vote(plan, m, log):
     """A vote the corrections left as yes / no (or with answers the line does not say) is written again on its own."""
     vote = plan.get('vote') or {}
@@ -2082,6 +2170,13 @@ def direct(m, log=print, work=None, budget=None):
         if fix_vote(st['best']['plan'], m, log):
             g, gsoft, ghard = check(copy(st['best']['plan']), m)
             st['best']['rank'] = rank(g, gsoft, ghard, st['best']['facts'])
+        keep()
+    if not slang_page and not st.get('ends_done'):
+        st['ends_done'] = True                                      # the narrator's takes and the closing of THIS video, once the words are final
+        bp = st['best']['plan']
+        write_takes(bp, m, log)
+        if closing_faults(bp, [l for l in bp['lines'] if l.get('id') != 'site'], m):
+            write_closing(bp, m, log)
         keep()
     plan, soft2, hard = check(copy(st['best']['plan']), m)
     facts = st['best']['facts']

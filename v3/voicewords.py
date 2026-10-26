@@ -111,7 +111,7 @@ def learn(texts, about, log=print):
         log('voice: %d word(s) the voice does not know were not asked (%s): it guesses them from their letters (%s)' % (len(new), str(e)[-60:], ', '.join(new)[:120]))
         return have
     got, kept = {}, {}
-    for x in (j or {}).get('said') or []:
+    for x in [x for x in ((j or {}).get('said') if isinstance(j, dict) else None) or [] if isinstance(x, dict)]:      # a model sometimes answers with plain strings: those are passed over
         w, v = str((x or {}).get('w', '')), to_voice((x or {}).get('ipa', ''))
         if w in new and v and 0.4 <= len(v.replace('ˈ', '').replace('ˌ', '')) / max(1, len(w)) <= 1.6:
             got[w.lower()] = str(x['ipa']).strip('/[] ')
@@ -143,7 +143,7 @@ def relearn(words, about, heard, log=print):
         log('voice: the names were not asked again (%s)' % str(e)[-60:])
         return {}
     got = {}
-    for x in (j or {}).get('said') or []:
+    for x in [x for x in ((j or {}).get('said') if isinstance(j, dict) else None) or [] if isinstance(x, dict)]:      # a model sometimes answers with plain strings: those are passed over
         w, v = str((x or {}).get('w', '')), to_voice((x or {}).get('ipa', ''))
         if w in words and v:
             got[w.lower()] = str(x['ipa']).strip('/[] ')
