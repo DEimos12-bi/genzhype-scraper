@@ -1,0 +1,16 @@
+{
+ "_about": "Real recorded music for the videos (audio.py picks one per video by mood). Kevin MacLeod, incompetech.com, licensed CC BY 4.0: free for any use with the credit, which the pack step puts in the caption. Files are kept in store/music/ (not in git); a missing one is fetched from its url.",
+ "credit": "Music: \"%s\" by Kevin MacLeod (incompetech.com), CC BY 4.0",
+ "tracks": [
+  {"file": "investigations.mp3", "title": "Investigations", "mood": "tense"},
+  {"file": "darkling.mp3", "title": "Darkling", "mood": "tense"},
+  {"file": "hiding_your_reality.mp3", "title": "Hiding Your Reality", "mood": "tense"},
+  {"file": "crypto.mp3", "title": "Crypto", "mood": "tense"},
+  {"file": "volatile_reaction.mp3", "title": "Volatile Reaction", "mood": "drive"},
+  {"file": "the_complex.mp3", "title": "The Complex", "mood": "drive"},
+  {"file": "movement_proposition.mp3", "title": "Movement Proposition", "mood": "drive"},
+  {"file": "sneaky_snitch.mp3", "title": "Sneaky Snitch", "mood": "light"},
+  {"file": "life_of_riley.mp3", "title": "Life of Riley", "mood": "light"}
+ ],
+ "url": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/%s.mp3"
+}

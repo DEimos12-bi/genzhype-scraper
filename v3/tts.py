@@ -55,24 +55,92 @@ def place_bites(plan, tl):
     return out
 
 
-async def one(takes, i, text, rate, voice, script=None):
-    """One take by the online voice. `text` is what it is given (a name may be respelled), `script` the line's own words:
-    the word timings are put back on those, so the captions show the real names."""
+SENT = re.compile(r'.+?(?:[.!?…]+["”’\']*(?=\s|$)|:(?=\s)|$)', re.S)
+TAKES = set()                # the narrator's takes of this plan (normalised): said drier and slower
+
+
+def sentences_of(text):
+    return [x.strip() for x in SENT.findall(text or '') if x.strip()]
+
+
+def prosody(k, n, sentence, line_id, rate, seed):
+    """How one sentence is said: a person does not read every sentence at the same pace and pitch. -> (rate %, pitch Hz,
+    pause after in s). The opening is pushed, a take is dry (slower, lower), a question lifts, a fragment lands with a
+    breath after it, a long fact runs a little faster; a small steady variation keeps two lines from sounding alike."""
+    w = len(sentence.split())
+    jit = ((seed * 7 + k * 13) % 7) - 3                   # -3..+3, the same on every run of the same words
+    r, ph, pause = rate + jit, 0, .14
+    flat = re.sub(r'[^a-z0-9 ]', '', sentence.lower())
+    if any(re.sub(r'[^a-z0-9 ]', '', t) == flat or (len(flat) > 6 and flat in re.sub(r'[^a-z0-9 ]', '', t)) for t in TAKES):
+        r, ph, pause = rate - 9, -8, .30
+    elif sentence.rstrip('"”’\'').endswith('?'):
+        r, ph, pause = rate - 3, 6, .26
+    elif w <= 3:
+        r, ph, pause = rate - 5, -3, .24
+    elif w >= 13:
+        r = rate + 4
+    if line_id == 'hook' and k == 0:
+        r, ph = max(r, rate + 3), ph + 3
+    if sentence.endswith(':'):
+        pause = .18
+    if k == n - 1:
+        pause = 0.0                                       # the line's own pause comes after it (main)
+    return r, ph, pause
+
+
+async def one(takes, i, text, rate, voice, script=None, line_id=''):
+    """One take by the online voice, said sentence by sentence (each with its own pace, pitch and pause, see prosody),
+    joined into one take. `text` is what it is given (a name may be respelled), `script` the line's own words: the word
+    timings are put back on those, so the captions show the real names."""
     import edge_tts
     mp3, meta = os.path.join(takes, '%02d.mp3' % i), os.path.join(takes, '%02d.json' % i)
-    try:
-        com = edge_tts.Communicate(text, voice, rate=rate, boundary='WordBoundary')
-    except TypeError:
-        com = edge_tts.Communicate(text, voice, rate=rate)
-    words = []
-    with open(mp3, 'wb') as f:
-        async for chunk in com.stream():
-            if chunk['type'] == 'audio':
-                f.write(chunk['data'])
-            elif chunk['type'] == 'WordBoundary':
-                words.append({'w': chunk['text'], 's': chunk['offset'] / 1e7, 'd': chunk['duration'] / 1e7})
-    if script and script != text:
-        words = voicecheck.restore(words, script, text)
+    base = int(str(rate).rstrip('%') or 0)
+    said, mine = sentences_of(text), sentences_of(script or text)
+    if len(said) != len(mine):                            # the respelled line split differently: said as written
+        said, mine = [text], [script or text]
+    seed = sum(ord(c) for c in (script or text))
+    plan = [prosody(k, len(said), y, line_id, base, seed) for k, y in enumerate(mine)]
+
+    async def say(k):                                     # the sentences of a line are asked for at the same time
+        r, ph, _ = plan[k]
+        tmp = mp3 + '.%d.mp3' % k
+        try:
+            com = edge_tts.Communicate(said[k], voice, rate='%+d%%' % r, pitch='%+dHz' % ph, boundary='WordBoundary')
+        except TypeError:
+            com = edge_tts.Communicate(said[k], voice, rate='%+d%%' % r, pitch='%+dHz' % ph)
+        ws = []
+        with open(tmp, 'wb') as f:
+            async for chunk in com.stream():
+                if chunk['type'] == 'audio':
+                    f.write(chunk['data'])
+                elif chunk['type'] == 'WordBoundary':
+                    ws.append({'w': chunk['text'], 's': chunk['offset'] / 1e7, 'd': chunk['duration'] / 1e7})
+        return tmp, ws
+    got = await asyncio.gather(*(say(k) for k in range(len(said))))
+    parts, words, t = [], [], 0.0
+    for k, (x, y) in enumerate(zip(said, mine)):
+        _, _, pause = plan[k]
+        tmp, ws = got[k]
+        a = load(tmp)
+        os.remove(tmp)
+        loud = np.where(np.abs(a) > 0.012)[0]
+        if not len(loud):
+            continue
+        s0, s1 = max(0, loud[0] - int(0.015 * SR)), min(len(a), loud[-1] + int(0.05 * SR))
+        a = a[s0:s1]
+        if y != x:
+            ws = voicecheck.restore(ws, y, x)
+        words += [{'w': w['w'], 's': round(t + w['s'] - s0 / SR, 3), 'd': w['d']} for w in ws]
+        parts += [a, np.zeros(int(pause * SR), dtype=np.float32)]
+        t += len(a) / SR + pause
+    if not parts:
+        return 0
+    wav = mp3 + '.wav'
+    with wave.open(wav, 'wb') as w:
+        w.setnchannels(1); w.setsampwidth(2); w.setframerate(SR)
+        w.writeframes((np.clip(np.concatenate(parts), -1, 1) * 32767).astype(np.int16).tobytes())
+    subprocess.run(['ffmpeg', '-y', '-v', 'error', '-i', wav, '-c:a', 'libmp3lame', '-b:a', '192k', mp3], check=True)
+    os.remove(wav)
     json.dump(words, open(meta, 'w', encoding='utf-8'), ensure_ascii=False)
     return len(words)
 
@@ -179,7 +247,7 @@ def speak(takes, lines):
                 break
             for attempt in range(4):                      # the free voice service drops a request now and then ("no audio received")
                 try:
-                    if await one(takes, i, sent(i, text), '%+d%%' % rate, ai.CONFIG['voice'], text) > 0:
+                    if await one(takes, i, sent(i, text), '%+d%%' % rate, ai.CONFIG['voice'], text, lid) > 0:
                         mark_take(takes, i, text, rate)
                         spoken.add(i)
                         break
@@ -365,6 +433,7 @@ def hear_back(takes, lines, about, log):
 def main(work):
     plan = json.load(open(os.path.join(work, 'plan.json'), encoding='utf-8'))
     takes = os.path.join(work, 'takes'); os.makedirs(takes, exist_ok=True)
+    TAKES.update(re.sub(r'\s+', ' ', str(t)).strip().lower() for t in plan.get('takes') or [])
     try:
         SEND.update(json.load(open(os.path.join(takes, 'send.json'), encoding='utf-8')))
     except Exception:  # noqa: BLE001

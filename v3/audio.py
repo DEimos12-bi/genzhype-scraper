@@ -1,5 +1,7 @@
-"""THE SOUND: the voice, an original music bed and effects (all made here in code, nothing licensed), placed by the cue
-list that shots.py wrote from the graphics. Writes mix.wav (48 kHz stereo) and prints the levels.
+"""THE SOUND: the voice, the music and effects, placed by the cue list that shots.py wrote from the graphics.
+The music is a real recorded track (music.json: licensed with a credit), chosen by the mood of this video's sections and
+never the one of the last videos; code-made music is only the fallback when no track can be read. The effects are
+made here in code. Writes mix.wav (48 kHz stereo) and music_used.json (the credit for the caption); prints the levels.
 usage: audio.py <work folder>"""
 import json
 import os
@@ -341,6 +343,75 @@ def db(x):
     return 20 * np.log10(np.sqrt(np.mean(x ** 2)) + 1e-9)
 
 
+V3 = os.path.dirname(os.path.abspath(__file__))
+MOOD = {'tense': 'tense', 'hits': 'tense', 'desk': 'tense', 'intro': 'tense', 'groove': 'drive', 'full': 'drive', 'bright': 'light'}
+
+
+def decode(path):
+    raw = subprocess.run(['ffmpeg', '-v', 'error', '-i', path, '-f', 'f32le', '-ac', '2', '-ar', str(SR), '-'], capture_output=True, timeout=120).stdout
+    return np.frombuffer(raw, dtype=np.float32).reshape(-1, 2).T.astype(np.float64) if raw else np.zeros((2, 0))
+
+
+def recorded():
+    """A real track for this video, laid over its length, or (None, None). The mood is what most of the video's time is
+    (its sections); among the tracks of that mood, the ones used by the last videos are passed over."""
+    try:
+        lib = json.load(open(os.path.join(V3, 'music.json'), encoding='utf-8'))
+    except Exception:  # noqa: BLE001
+        return None, None
+    span = {}
+    for (a, k), (b, _) in zip(SECTIONS, SECTIONS[1:]):
+        span[MOOD.get(k, 'drive')] = span.get(MOOD.get(k, 'drive'), 0) + max(0, min(b, END) - a)
+    mood = max(span, key=span.get) if span else 'drive'
+    used_f = os.path.join(V3, 'store', 'music_used.json')
+    try:
+        used = json.load(open(used_f, encoding='utf-8'))
+    except Exception:  # noqa: BLE001
+        used = []
+    pool = [t for t in lib['tracks'] if t['mood'] == mood] or lib['tracks']
+    fresh = [t for t in pool if t['file'] not in used[-3:]] or pool
+    key = sum(ord(c) for c in C['plan'].get('title', '') or HERE)
+    order = fresh[key % len(fresh):] + fresh[:key % len(fresh)] + [t for t in lib['tracks'] if t not in fresh]
+    for t in order:
+        path = os.path.join(V3, 'store', 'music', t['file'])
+        if not os.path.isfile(path):                       # another machine (GitHub): the track is fetched once
+            try:
+                os.makedirs(os.path.dirname(path), exist_ok=True)
+                subprocess.run(['curl', '-s', '-A', 'Mozilla/5.0', '-o', path, lib['url'] % t['title'].replace(' ', '%20')], timeout=120)
+            except Exception:  # noqa: BLE001
+                continue
+        x = decode(path) if os.path.isfile(path) else np.zeros((2, 0))
+        if x.shape[1] < SR * 20:
+            continue
+        c = np.concatenate([[0.0], np.cumsum(x.mean(0) ** 2)])          # loudness over a quarter of a second (running sum: a convolution this long takes minutes)
+        w = SR // 4
+        e = np.sqrt(np.maximum(0, (c[w:] - c[:-w]) / w))
+        start = int(np.argmax(e > .5 * np.median(e[e > 1e-4]))) if np.any(e > 1e-4) else 0      # skip a quiet intro: the video starts on the music
+        x = x[:, start:]
+        while x.shape[1] < N:                              # a short track loops, crossfaded
+            f = SR // 2
+            tail, head = x[:, -f:] * np.linspace(1, 0, f), x[:, :f] * np.linspace(0, 1, f)
+            x = np.hstack([x[:, :-f], tail + head, x[:, f:]])
+        x = x[:, :N].copy()
+        x[:, :int(.25 * SR)] *= np.linspace(0, 1, int(.25 * SR))
+        fo = int(1.6 * SR)
+        x[:, -fo:] *= np.linspace(1, 0, fo)
+        for a, k in SECTIONS:                              # the track follows the video: quieter on the tense parts, fuller on the hits
+            if k in ('tense', 'desk'):
+                g = .8
+            elif k in ('full', 'hits', 'bright'):
+                g = 1.1
+            else:
+                continue
+            nxt = next((b for b, _ in SECTIONS if b > a), END)
+            i0, i1 = int(a * SR), min(N, int(nxt * SR))
+            x[:, i0:i1] *= g
+        json.dump((used + [t['file']])[-8:], open(used_f, 'w', encoding='utf-8'))
+        json.dump({'title': t['title'], 'credit': lib['credit'] % t['title'], 'mood': mood}, open(os.path.join(HERE, 'music_used.json'), 'w', encoding='utf-8'), ensure_ascii=False)
+        return x, t
+    return None, None
+
+
 def main():
     with wave.open(os.path.join(HERE, 'vo.wav')) as w:
         vo = np.frombuffer(w.readframes(w.getnframes()), dtype=np.int16).astype(np.float64) / 32768
@@ -371,7 +442,13 @@ def main():
     vo /= np.max(np.abs(vo)) + 1e-9
     duck = env_follow(vo, .03, .28)
     duck = np.clip((duck - .05) / .22, 0, 1)
-    mus, fx, gm = music(), effects(), game()
+    mus, track = recorded()
+    if mus is None:
+        mus = music()
+        print('music: no recorded track could be read; the code-made music plays')
+    else:
+        print('music: "%s" (%s), real recording' % (track['title'], track['mood']))
+    fx, gm = effects(), game()
     mus /= np.max(np.abs(mus)) + 1e-9
     speaking = duck > .5
     target_mus = db(vo[speaking]) - 13.5

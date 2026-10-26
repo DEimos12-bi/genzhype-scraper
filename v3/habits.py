@@ -44,7 +44,8 @@ def _load():
         except Exception:  # noqa: BLE001
             continue
         if p.get('url') and p.get('lines') and p.get('format') != 'slang':
-            seen[p['url']] = {'url': p['url'], 'date': time.strftime('%Y-%m-%d', time.localtime(os.path.getmtime(f))), 'lines': [[l['id'], l['text']] for l in p['lines'] if l.get('id') != 'site']}
+            seen[p['url']] = {'url': p['url'], 'date': time.strftime('%Y-%m-%d', time.localtime(os.path.getmtime(f))), 'lines': [[l['id'], l['text']] for l in p['lines'] if l.get('id') != 'site'],
+                              'takes': p.get('takes') or [], 'closing': next((l['text'] for l in p['lines'] if l.get('id') == 'site'), '')}
     return list(seen.values())
 
 
@@ -53,7 +54,8 @@ def learn(plan):
     if not plan.get('url') or plan.get('format') == 'slang':
         return
     rows = [r for r in _load() if r.get('url') != plan['url']]
-    rows.append({'url': plan['url'], 'date': time.strftime('%Y-%m-%d'), 'lines': [[l['id'], l['text']] for l in plan.get('lines') or [] if l.get('id') != 'site']})
+    rows.append({'url': plan['url'], 'date': time.strftime('%Y-%m-%d'), 'lines': [[l['id'], l['text']] for l in plan.get('lines') or [] if l.get('id') != 'site'],
+                 'takes': [str(t) for t in plan.get('takes') or []], 'closing': next((l['text'] for l in plan.get('lines') or [] if l.get('id') == 'site'), str(plan.get('closing') or ''))})
     os.makedirs(os.path.dirname(STORE), exist_ok=True)
     json.dump(rows[-80:], open(STORE, 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
 
@@ -67,6 +69,23 @@ def stock(url, seen_in=2):
         for g in set().union(*[grams(t) for _, t in r.get('lines') or []] or [set()]):
             count[g] = count.get(g, 0) + 1
     return {g: n for g, n in count.items() if n >= seen_in}
+
+
+def used(url, key, k=30):
+    """What the other videos already used of one kind ('takes' or 'closing'), latest last."""
+    out = []
+    for r in [r for r in _load() if r.get('url') != url][-k:]:
+        v = r.get(key)
+        out += [x for x in (v if isinstance(v, list) else [v]) if x]
+    return out
+
+
+def same(a, b, n=3):
+    """Whether two short wordings share n words in a row (that are not all small words): the same take said again."""
+    ta, tb = toks(a), toks(b)
+    ga = {' '.join(ta[i:i + n]) for i in range(len(ta) - n + 1) if not set(ta[i:i + n]) <= EMPTY}
+    gb = {' '.join(tb[i:i + n]) for i in range(len(tb) - n + 1) if not set(tb[i:i + n]) <= EMPTY}
+    return bool(ga & gb) or (ta and ta == tb)
 
 
 def openers(url, k=8):
@@ -90,7 +109,10 @@ def block(url):
     """For the writer: our stock phrases and last openings, so this script sounds like no other."""
     st = sorted(stock(url).items(), key=lambda kv: -kv[1])[:14]
     ops = openers(url)
-    if not st and not ops:
+    tk, cl = used(url, 'takes')[-12:], used(url, 'closing')[-6:]
+    if not st and not ops and not tk and not cl:
         return ''
     return ('OUR OTHER VIDEOS ALREADY SAID THIS (a viewer who saw two of them hears the pattern; none of it may come back, in these words or in the same skeleton):\n'
-            + (''.join('- "%s"\n' % g for g, _ in st)) + ('Their openings (never the same shape twice in a row):\n' + ''.join('- %s\n' % o for o in ops[-6:]) if ops else '') + '\n')
+            + (''.join('- "%s"\n' % g for g, _ in st)) + ('Their openings (never the same shape twice in a row):\n' + ''.join('- %s\n' % o for o in ops[-6:]) if ops else '')
+            + ('The narrator\'s takes they used (never again, not even close: he would sound like a bot):\n' + ''.join('- %s\n' % t for t in tk) if tk else '')
+            + ('Their closings (this video ends its own way):\n' + ''.join('- %s\n' % c for c in cl) if cl else '') + '\n')

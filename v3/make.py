@@ -111,6 +111,12 @@ def pack(work):
     credits = '\n'.join('- %s: %s  %s' % (k, plan['assets'][k].get('credit') or 'stock footage (Pexels), blurred', plan['assets'][k].get('page', '')) for k in used if k in plan['assets']) \
         or '- none: this video is drawn (motion graphics), no outside footage'
     mat = json.load(open(os.path.join(work, 'material.json'), encoding='utf-8'))
+    try:                                                  # a recorded track is credited in the caption (its licence asks for it)
+        song = json.load(open(os.path.join(work, 'music_used.json'), encoding='utf-8'))
+    except Exception:  # noqa: BLE001
+        song = {}
+    if song.get('credit'):
+        post = dict(post, caption=(post.get('caption', '') + ' | ' + song['credit']).strip(' |'))
 
     def shown(o):
         if o.get('t'):
@@ -126,9 +132,9 @@ def pack(work):
                       ['- in their own voice (%s, %.1f s): "%s"' % (l['bite']['asset'], l['bite']['dur'], l['bite']['text'][:120]) for l in plan['lines'] if l.get('bite')] +
                       ['- verified by the researcher: %s [%s]' % (e['claim'][:140], e['url']) for e in mat.get('evidence') or []])
     open(os.path.join(out, 'post.txt'), 'w', encoding='utf-8').write(
-        'VIDEO   %s   (%.1f s, 1080x1920)\nPAGE    %s\n\nCAPTION\n%s\n\nHASHTAGS\n%s\n\nPINNED COMMENT\n%s\n\nTHE SCRIPT\n%s\n\nPROOF SHOWN\n%s\n\nFOOTAGE\n%s\n\nVoice: edge-tts. Music and effects: made in code for this video.\nWritten by %s; clips looked at by the picture model before cutting. Nobody checked this video: watch it once before posting.\n'
+        'VIDEO   %s   (%.1f s, 1080x1920)\nPAGE    %s\n\nCAPTION\n%s\n\nHASHTAGS\n%s\n\nPINNED COMMENT\n%s\n\nTHE SCRIPT\n%s\n\nPROOF SHOWN\n%s\n\nFOOTAGE\n%s\n\nVoice: edge-tts. %s. Effects: made in code for this video.\nWritten by %s; clips looked at by the picture model before cutting. Nobody checked this video: watch it once before posting.\n'
         % (os.path.basename(mp4), dur, plan['url'] if not plan.get('no_page') else '(no page on the site yet; made from the topic "%s")' % mat.get('topic', ''), post.get('caption', ''), ' '.join('#' + str(t).lstrip('#') for t in post.get('hashtags', [])), post.get('pinned', ''),
-           '\n'.join(l['text'] for l in plan['lines']), proof or '- (none)', credits, plan.get('model', '?')))
+           '\n'.join(l['text'] for l in plan['lines']), proof or '- (none)', credits, song.get('credit') or 'Music: made in code for this video', plan.get('model', '?')))
     report = {'made': True, 'file': os.path.basename(mp4), 'seconds': round(dur, 1), 'words': plan.get('words'), 'shots': len(comp['shots']), 'assets_used': used,
               'director_model': plan.get('model'), 'opening': plan.get('opening'), 'fact_checked': plan.get('fact_checked'), 'unsupported_left': plan.get('unsupported_left'), 'left_open': plan.get('left_open', []), 'sensitive': plan.get('sensitive'),
               'ai_calls': [json.loads(x) for x in open(os.environ['V3_AI_LOG'], encoding='utf-8')] if os.path.isfile(os.environ.get('V3_AI_LOG', '')) else []}

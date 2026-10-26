@@ -193,7 +193,7 @@ SHAPE = {'story': """HOW THE VIDEO WORKS
 - The last line asks the viewer to answer in the comments: one question, two answers of ONE or TWO words each, taken from the story's real conflict (never "yes / no"). Say it in the narrator's own words, the way the FORM ends (never the stock phrase "Comment one word."): both answers are in the line, and it asks for a comment ("Brutal, or fair? Drop one below.", "Team Gotaga or team Kameto? Comments.").
 - Every sentence is cut to its OWN picture. The material lists each picture and clip with who or what is in it: write sentences that NAME what the viewer is looking at, one thing per sentence. Bring each player in at the moment the story needs them, tied to what was just said ("That's Reggie.", "The club is Karmine Corp."): never a list of who is who.
 - One line is the turn: the fact the viewer could not have guessed. The FACT itself tells it. It is never announced: no "Here's the twist", "One problem", "Now it gets deeper", "Then came the debate", "But wait".
-- Do NOT write the closing line that sends to the website; the machine adds it.""",
+- After the vote comes THE CLOSING ("closing" in the output): written for this video, it pays off the opening's question and sends to the site (rules with the output).""",
          'meme': """THIS STORY IS A MEME. The video shows the meme itself from the first second to the last: its real pictures are listed in the material, each with what it shows.
 - Line 1 is THE OPENING (rules below): it points at the meme on screen and says the strangest true thing about it.
 - Line 2 says what the meme is, in one breath, for someone who has never seen it. Then: where it came from (who made it, when), how people USE it (two or three real uses from the material, one short line each, with the account or the number), how big it got (the biggest number), and what the joke or the argument really is.
@@ -201,7 +201,7 @@ SHAPE = {'story': """HOW THE VIDEO WORKS
 - The last line asks the viewer to answer in the comments: one question, two answers of ONE or TWO words each, taken from the meme's own argument (never "yes / no"), said in the narrator's own words with both answers in it (never the stock phrase "Comment one word.").
 - Every sentence is cut to its OWN picture. The material lists each picture and clip with who or what is in it: write sentences that NAME what the viewer is looking at, one thing per sentence. Bring each player in at the moment the story needs them, tied to what was just said ("That's Reggie.", "The club is Karmine Corp."): never a list of who is who.
 - One line is the turn: the fact the viewer could not have guessed. The FACT itself tells it. It is never announced: no "Here's the twist", "One problem", "Now it gets deeper", "Then came the debate", "But wait".
-- Do NOT write the closing line that sends to the website; the machine adds it."""}
+- After the vote comes THE CLOSING ("closing" in the output): written for this video, it pays off the opening and sends to the site (rules with the output)."""}
 
 VIEWER = "WHO IS WATCHING\n" + brand.B['viewer']
 
@@ -209,6 +209,8 @@ NARRATOR = ("THE NARRATOR (the same person in every video): " + brand.B['persona
 - He talks like a person: contractions ("he's", "that's", "didn't"), plain words, a dry deadpan joke where a fact earns it. Never an anchor ("reports indicate", "in a statement"), never a hype man.
 - TAKES: one to three times in the video he REACTS to a fact he has just said, in its own short sentence of 2 to 8 words: "Five seconds. That's it.", "A one. Out of ten.", "Honestly? Kind of brutal.", "That's not a ban, that's a nap.", "Bold move." A take only reacts: no new fact, no new name, no number that was not just said.
 - A take never says who is right, guilty, lying or deserving in a dispute (the viewer decides that in the comments), and never jokes about health, death, a crime, a victim or a private person. A story about a crime, a death, abuse or an accusation of wrongdoing gets NO takes.
+- A take goes RIGHT AFTER the fact it reacts to, in the SAME line, as that line's last sentence. Never a line of its own, never the last thing before the vote.
+- Every take is new: never one the other videos used (listed with the material), not even with two words changed.
 - List every take, word for word as it stands in the script, in "takes".""") if brand.B.get('persona') else ''
 
 FORMS = {
@@ -244,6 +246,7 @@ OPENING = """THE OPENING (line 1) decides everything
 - Every sentence is literally true as said. Never fuse a picture and a fact into something that did not happen ("silenced the stadium four to one": a score does not silence anyone).
 - It shows a PERSON, a THING on screen or a NUMBER. Never a feeling or a category ("Extreme player frustration.", "Massive backlash.", "Total chaos."): nobody can see those. Say what happened to whom.
 - It makes the viewer need the next sentence. It never explains, sums up or announces ("X, explained", "here is why", "a new trend is taking over").
+- IT OPENS A QUESTION AND DOES NOT ANSWER IT: why did they do it, what happened next, who is right, how did it end. The answer comes later in the video, and the closing pays it off. An opening that already tells the whole story leaves nobody a reason to stay.
 - It never starts with "The", "A new", "In", "On", "Recently", a date or an outlet's name. It never orders the viewer around before showing anything ("Pick...", "Guess...", "Watch...").
 - EVERYDAY WORDS: say it the way a teenager would tell it, never with the article's term. "Taking their internet", not "manipulating bandwidth". "Still not paid", not "a compensation dispute". "One grab kills you", not "an instant death mechanic".
 - The story's best-known NAME is in the first or second sentence. It is never hidden ("one man is behind all of it", "a famous streamer").
@@ -319,7 +322,7 @@ SCREEN_MEME = """
 
 OUT_WRITE = """OUTPUT: strict JSON, nothing around it. Write the five openings FIRST, then pick one, then write the script that follows it:
 {"angle":"the conflict in one sentence",
- "openings":[{"how":"plain","say":["",""]},{"how":"plain","say":["",""]},{"how":"contrast","say":["",""]},{"how":"picture","say":["",""]},{"how":"number, fight or list","say":["",""]}],
+ "openings":[{"how":"plain","say":["",""],"loop":"the question it leaves open, 8 words"},{"how":"plain","say":["",""],"loop":""},{"how":"contrast","say":["",""],"loop":""},{"how":"picture","say":["",""],"loop":""},{"how":"number, fight or list","say":["",""],"loop":""}],
  "pick":1,
  "lines":[{"id":"hook","say":["the opening you picked,","sentence by sentence"]},{"id":"who","say":["One short sentence.","Then another."]},{"id":"claim","say":["What they claim.","His words."],"bite":{"asset":"clip0","from":"b3","to":"b4","who":"NAME"}},{"id":"...","say":["",""]},{"id":"vote","say":["The question?","This, or that? Drop one below."]}],
  "takes":["every take of the narrator, word for word as it stands in the lines"],
@@ -327,6 +330,8 @@ OUT_WRITE = """OUTPUT: strict JSON, nothing around it. Write the five openings F
  "people":[{"name":"","role":""}]}
 Every "say" is a list of 2 or 3 SENTENCES (the opening may have 4): ONE sentence per string, each of 3 to 16 words (only a real quote may be longer). A string never holds two ideas.
 ALL the lines together: %(wmin)d to %(wmax)d words, which is about 19 words a line. A script that runs longer gets sentences removed by a machine, so choose what matters yourself.
+"closing":["the last words of the video, after the vote: 1 or 2 sentences, at most 24 words"],
+"closing" ends THIS video, from what happened in it: it pays off the question the opening left open (or calls back to the opening's picture, number or words) with what the viewer now knows, then sends to %(brand)s for the rest, in the narrator's voice. It names %(brand)s, adds no new fact, name or number, and never repeats a closing of the other videos. It is not a fixed line: two videos never end with the same words.
 "pick" is the number (1 to 5) of the strongest opening. The first line's id is "hook", the last line's id is "vote". You write only what is SPOKEN: no pictures, no graphics. A "bite" is optional and only for a clip whose SAID parts are listed: "from" and "to" are part ids (b1, b2...). Choose the parts that say the claim in the fewest seconds, whole thoughts only."""
 
 OUT_STAGE = """OUTPUT: strict JSON, nothing around it. One entry per SENTENCE of the script, same ids, same order, WITHOUT the spoken text:
@@ -349,7 +354,7 @@ The last line's id must be "vote"."""
 
 OUT_PATCH = """OUTPUT: strict JSON, nothing around it. You get a finished plan and the faults a machine found in it. Return ONLY the lines you change:
 {"lines":[{"id":"the id of a line you change","say":["its new spoken text,","one sentence per string"]}]}
-For a line, give only the fields you change: "say" (2 or 3 sentences, one per string), "overlays", "caps". A line you do not list stays exactly as it is. A take of the narrator you write or keep in a changed line goes, word for word, in "takes":["..."]. Add "vote" only if a fault is about the vote, "hunts" only if a fault is about them. Never return the whole plan."""
+For a line, give only the fields you change: "say" (2 or 3 sentences, one per string), "overlays", "caps". A line you do not list stays exactly as it is. A take of the narrator you write or keep in a changed line goes, word for word, in "takes":["..."]. A new closing (when a fault is about it): "closing":["..."]. Add "vote" only if a fault is about the vote, "hunts" only if a fault is about them. Never return the whole plan."""
 
 OUT_STAGE, OUT_FULL = (x.replace('receipts on genzhype.com (link in bio)', brand.B['pinned']) for x in (OUT_STAGE, OUT_FULL))      # where the pinned comment sends
 
@@ -365,7 +370,7 @@ def system_for(job, m):
     screen = SCREEN + (SCREEN_MEME if kind == 'meme' else '')
     parts = {'writer': [SHAPE[kind], VIEWER, NARRATOR, OPENING, VOICE, OUT_WRITE], 'picture editor': [STAGE_JOB, screen, OUT_STAGE], 'director': [SHAPE[kind], VIEWER, NARRATOR, OPENING, VOICE, screen, OUT_FULL],
              'corrector': [SHAPE[kind], VIEWER, NARRATOR, OPENING, VOICE, screen, OUT_PATCH]}[job]
-    return (HEAD % job) + '\n\n' + '\n\n'.join(parts) % {'wmin': CFG['length']['words_min'], 'wmax': CFG['length']['words_max'], 'hunts': 2 if kind == 'meme' else CFG['footage']['max_hunts']}
+    return (HEAD % job) + '\n\n' + '\n\n'.join(parts) % {'wmin': CFG['length']['words_min'], 'wmax': CFG['length']['words_max'], 'hunts': 2 if kind == 'meme' else CFG['footage']['max_hunts'], 'brand': brand.B['spoken']}
 
 
 def listing(m):
@@ -681,8 +686,8 @@ def choose_opening(sc, m, log):
         log('director: %d openings written, %d keep the form: no choice to make; line 1 is "%s"' % (len(ops), len(good), lines[0]['text']))
         return info
     user = ('THE VIDEO IS ABOUT: %s\n%s\n\nOPENINGS\n%s\n\nScore EACH opening from 1 to 10: how likely are you to keep watching after hearing it?\n'
-            'HIGH: it carries a fact ONLY this story has (its own number, its own name); it says the strange thing straight, in the words I would use to tell a friend, and it names who it is about; it puts something concrete in front of me that I can picture (a thing, a number, a name), it is strange or it starts a fight I have an opinion on, and it leaves a question open.\n'
-            'LOW: it paints a stock picture that fits any story of its kind ("the crowd was roaring", "silenced the stadium", "flipped the script") instead of the fact only this story has; a sentence that is not literally true as said; it is vague ("absurd", "chaos", "endless", "sparks memes"), it names a feeling instead of a thing ("frustration", "backlash"), it is a list of abstract fragments, it hides who it is about ("one man", "a streamer"), it uses the term of an article where a plain word exists, it sums the story up, it tells me what to do before showing me anything, or it sounds like an article.\n'
+            'HIGH: it leaves me a question I need answered (why, what happened next, who is right) and does not answer it; it carries a fact ONLY this story has (its own number, its own name); it says the strange thing straight, in the words I would use to tell a friend, and it names who it is about; it puts something concrete in front of me that I can picture (a thing, a number, a name), it is strange or it starts a fight I have an opinion on, and it leaves a question open.\n'
+            'LOW: it already tells me the whole story, so nothing is left to find out; it paints a stock picture that fits any story of its kind ("the crowd was roaring", "silenced the stadium", "flipped the script") instead of the fact only this story has; a sentence that is not literally true as said; it is vague ("absurd", "chaos", "endless", "sparks memes"), it names a feeling instead of a thing ("frustration", "backlash"), it is a list of abstract fragments, it hides who it is about ("one man", "a streamer"), it uses the term of an article where a plain word exists, it sums the story up, it tells me what to do before showing me anything, or it sounds like an article.\n'
             'JSON: {"scores":[{"n":1,"score":7},{"n":2,"score":4}],"why":"max 12 words about the best one"}'
             % (m.get('title', ''), (m.get('summary') or '')[:300], '\n'.join('%d. %s' % (i + 1, o) for i, o in enumerate(good))))
     try:
@@ -719,7 +724,7 @@ def merge(sc, staged):
             gfx += [dict(g, beat=k) for g in (e.get('gfx') or []) if isinstance(g, dict)]
         lines.append({'id': l['id'], 'text': l['text'], 'beats': bts, 'overlays': gfx, 'caps': caps.get(l['id']) or l.get('caps') or [], **({'bite': l['bite']} if isinstance(l.get('bite'), dict) else {})})
     return {'angle': sc.get('angle'), 'lines': lines, 'vote': sc.get('vote'), 'people': sc.get('people'), 'hunts': staged.get('hunts'), 'stock': staged.get('stock'), 'post': staged.get('post'),
-            'takes': [str(t) for t in sc.get('takes') or [] if isinstance(t, str)][:4]}
+            'takes': [str(t) for t in sc.get('takes') or [] if isinstance(t, str)][:4], 'closing': closing_text(sc.get('closing'))}
 
 
 def split_keep(t):
@@ -788,7 +793,9 @@ def say_text(say):
 
 def apply_patch(base, patch):
     """A correction that came back as changed lines only, set into the plan it corrects. Returns (the plan, lines changed)."""
-    p = json.loads(json.dumps({k: base.get(k) for k in ('angle', 'lines', 'vote', 'people', 'hunts', 'stock', 'post', 'takes')}))      # the whole plan, pictures included
+    p = json.loads(json.dumps({k: base.get(k) for k in ('angle', 'lines', 'vote', 'people', 'hunts', 'stock', 'post', 'takes', 'closing')}))      # the whole plan, pictures included
+    if patch.get('closing'):
+        p['closing'] = closing_text(patch['closing'])
     by, n = {l['id']: l for l in p['lines']}, 0
     for x in patch.get('lines') or []:
         l = by.get(re.sub(r'[^a-z0-9]', '', str(x.get('id', '')).lower())) if isinstance(x, dict) else None
@@ -815,11 +822,42 @@ def apply_patch(base, patch):
     return p, n
 
 
+def closing_text(x):
+    """The writer's closing as one text (it comes as a list of sentences or a string)."""
+    if isinstance(x, list):
+        x = ' '.join(str(s).strip() for s in x if str(s).strip())
+    return re.sub(r'\s+', ' ', str(x or '')).strip()
+
+
+def closing_faults(p, lines, m):
+    """The closing as code can read it: there, short, naming the channel, no new fact, not a closing of another video."""
+    c = closing_text(p.get('closing'))
+    if not c:
+        return ['the video has no closing: write "closing", 1 or 2 sentences that pay off the opening\'s question and send to %s' % brand.B['spoken']]
+    out, flat = [], re.sub(r'[^a-z]', '', c.lower())
+    if re.sub(r'[^a-z]', '', brand.B['spoken'].lower()) not in flat:
+        out.append('the closing does not name %s: it must send the viewer there' % brand.B['spoken'])
+    if words(c) > 26:
+        out.append('the closing has %d words: 24 at most' % words(c))
+    said = ' '.join(l['text'] for l in lines).lower()
+    names = set(re.findall(r'[a-z]+', brand.B['spoken'].lower() + ' ' + brand.B['name'].lower()))
+    new = [w for mo in re.finditer(r'(?<![.!?] )(?<!^)\b[A-Z][a-zA-Z]{2,}\b', c) for w in [mo.group(0)] if w.lower() not in said and w.lower() not in names and not re.match(r'^\s*$|.*[.!?]\s*$', c[:mo.start()])]
+    if new or re.search(r'\d', c):
+        out.append('the closing brings something new (%s): it only pays off what the video told' % (', '.join(new) or 'a number'))
+    if re.search(r'(?i)\bcomment', c):
+        out.append('the closing asks for a comment again: the vote did that; the closing pays off the opening and sends to the site')
+    if m.get('no_page') and re.search(r'(?i)\b(timeline|full story|whole story|this story|receipts? (?:is|are) on)\b', c):
+        out.append('there is no page for this story yet: the closing may send to more stories like it, never to this one')
+    if any(habits.same(c, x, 4) for x in habits.used(m.get('url', ''), 'closing')):
+        out.append('the closing repeats one of our other videos: end this video in its own words')
+    return out
+
+
 def story_for_repair(p):
     """The plan as the corrector reads it: the words and the graphics of each line (which picture goes where is not its business)."""
     lines = [{'id': l['id'], 'text': l['text'], 'overlays': [{k: v for k, v in o.items() if k not in ('beat', 'to', 'drop')} for o in l.get('overlays') or []], 'caps': l.get('caps') or []}
              for l in p.get('lines') or []]
-    return {'angle': p.get('angle'), 'lines': lines, 'vote': p.get('vote'), 'people': p.get('people'), 'hunts': p.get('hunts'), 'stock': p.get('stock'), 'post': p.get('post'), 'takes': p.get('takes') or []}
+    return {'angle': p.get('angle'), 'lines': lines, 'vote': p.get('vote'), 'people': p.get('people'), 'hunts': p.get('hunts'), 'stock': p.get('stock'), 'post': p.get('post'), 'takes': p.get('takes') or [], 'closing': p.get('closing') or ''}
 
 
 DOMAIN_SPOKEN = re.compile(r'(?i)(\S+\s+dot\s+(com|net|news|org|gg|tv|co|io)\b|\S+\.(com|net|news|org|gg|tv|io)\b)')
@@ -894,7 +932,7 @@ def fix_and_check(p, m):
         soft.append('the last line must say both answers ("%s" and "%s") and ask for a comment, in the narrator\'s own words' % (vote['a']['word'], vote['b']['word']))
     if re.search(r'(?i)comment one word', lines[-1]['text']):
         soft.append('the last line uses the stock phrase "Comment one word.": ask for the comment in the narrator\'s own words')
-    soft += take_faults(p, lines, m)
+    soft += take_faults(p, lines, m) + closing_faults(p, lines, m)
     for i, l in enumerate(lines):
         t, low, toks = l['text'], l['text'].lower(), tokens(l['text'])
         for b in BANNED:
@@ -1118,8 +1156,12 @@ def fix_and_check(p, m):
 def add_site_line(p):
     spoken = brand.B['spoken']
     pool = brand.B.get('closings_topic' if p.get('no_page') else 'closings_page') or [brand.B['closing_topic'] if p.get('no_page') else brand.B['closing_page']]      # no page yet: none is promised
-    text = pool[sum(ord(c) for c in str(p.get('url') or p.get('title') or '')) % len(pool)]      # the same words at the end of every video are a template
-    p['lines'].append({'id': 'site', 'text': text % spoken, 'show': {'asset': 'auto', 'mode': 'under'}, 'overlays': [], 'caps': [{'say': spoken, 'show': brand.B['shown']}]})
+    text = pool[sum(ord(c) for c in str(p.get('url') or p.get('title') or '')) % len(pool)] % spoken      # the same words at the end of every video are a template
+    own = closing_text(p.get('closing'))
+    if own and p.get('closing_ok'):                            # the closing written for this video (checked with the plan)
+        text = re.sub(r'(?i)gen ?z ?hype|%s' % re.escape(brand.B['name']), spoken, own)
+    p['closing_used'] = 'written for this video' if own and p.get('closing_ok') else 'a fallback line of the brand'
+    p['lines'].append({'id': 'site', 'text': text, 'show': {'asset': 'auto', 'mode': 'under'}, 'overlays': [], 'caps': [{'say': spoken, 'show': brand.B['shown']}]})
     return p
 
 
@@ -1433,6 +1475,13 @@ def is_take(sentence, plan):
     return bool(s.strip()) and any(s in ' %s ' % norm(t) or ' %s ' % norm(t) in s for t in plan.get('takes') or [] if norm(t))
 
 
+def text_before(text, take):
+    """What a line says before its take (in small plain words)."""
+    a, b = norm(text), norm(take)
+    i = a.find(b)
+    return a[:i] if i > 0 else ''
+
+
 def take_faults(p, lines, m):
     """The narrator's takes, as code can read them: there, short, only a reaction, never a verdict, none in a story about
     wrongdoing, death or health."""
@@ -1456,6 +1505,13 @@ def take_faults(p, lines, m):
             out.append('the take "%s" brings something new (%s): a take only reacts to what was just said' % (t, ', '.join(new) or 'a number'))
         elif VERDICT.search(t) or HEALTH.search(t):
             out.append('the take "%s" judges who is right or touches health: the viewer decides that; react to the fact instead' % t)
+        elif any(habits.same(t, x) for x in habits.used(m.get('url', ''), 'takes')):
+            out.append('the take "%s" was already said in another of our videos: the narrator reacts to THIS fact in new words' % t)
+        elif habits.toks(t)[:1] and [habits.toks(x)[:1] for x in habits.used(m.get('url', ''), 'takes')[-8:]].count(habits.toks(t)[:1]) >= 2:
+            out.append('the take "%s" opens like the takes of the narrator in our other videos ("%s ..."): a tic, not a reaction; open it another way' % (t, t.split()[0]))
+        home = next((l for l in lines if ' %s ' % norm(t) in ' %s ' % norm(l['text'])), None)
+        if home is not None and len(text_before(home['text'], t).split()) < 5:
+            out.append('the take "%s" stands alone in line %s: put it right after the fact it reacts to, as the last sentence of that fact\'s line' % (t, home['id']))
     if len(takes) > 3:
         out.append('%d takes: three at most, the facts carry the video' % len(takes))
     return out
@@ -2056,9 +2112,10 @@ def direct(m, log=print, work=None, budget=None):
         bites = [l for l in plan['lines'] if l.get('bite')]
         if bites:
             log('director: the story\'s own clip speaks %d time(s), %.1f s: %s' % (len(bites), plan.get('bite_s', 0), ' | '.join('after "%s": "%s"' % (l['id'], l['bite']['text'][:70]) for l in bites)))
-        habits.learn(plan)
     if not slang_page:
         soft2 = check(copy(plan), m)[1]                       # read again: the proofs and the faces were put on screen after the last check
+    if not slang_page:                                         # the closing written for this video is used only when it keeps its rules
+        plan['closing_ok'] = not closing_faults(plan, [l for l in plan['lines'] if l.get('id') != 'site'], m)
     plan.update({'url': m['url'], 'title': m['title'], 'no_page': bool(m.get('no_page')), 'model': st['best']['model'], 'assets': {} if slang_page else assets_of(m), 'kind': 'slang' if slang_page else 'meme' if is_meme(m) and any(v.get('usable', True) for v in m['meme_assets'].values()) else 'story',
                  'form': form_of(st.get('cast'), m) if not slang_page else 'slang', 'opening': st.get('opening'), 'left_open': soft2 + (st['best'].get('edit') or []) + (facts or []),
                  'fact_checked': facts is not None, 'unsupported_left': len(facts or [])})
@@ -2068,7 +2125,11 @@ def direct(m, log=print, work=None, budget=None):
         except OSError:
             pass
         log('director: form "%s"; the narrator\'s takes: %s' % (plan['form'], ' | '.join(plan.get('takes') or []) or 'none'))
-    return add_site_line(plan)
+    plan = add_site_line(plan)
+    if not slang_page:                                         # remembered for the next videos (its wordings, takes and closing): saved once the plan has its page and its closing
+        habits.learn(plan)
+        log('director: the closing is %s: "%s"' % (plan.get('closing_used'), plan['lines'][-1]['text']))
+    return plan
 
 
 if __name__ == '__main__':
