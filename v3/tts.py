@@ -105,22 +105,35 @@ async def one(takes, i, text, rate, voice, script=None, line_id=''):
     seed = sum(ord(c) for c in (script or text))
     plan = [prosody(k, len(said), y, line_id, base, seed) for k, y in enumerate(mine)]
 
-    async def say(k):                                     # the sentences of a line are asked for at the same time
+    async def say(k, tries=3):                            # the sentences of a line are asked for at the same time
         r, ph, _ = plan[k]
         tmp = mp3 + '.%d.mp3' % k
-        try:
-            com = edge_tts.Communicate(said[k], voice, rate='%+d%%' % r, pitch='%+dHz' % ph, boundary='WordBoundary')
-        except TypeError:
-            com = edge_tts.Communicate(said[k], voice, rate='%+d%%' % r, pitch='%+dHz' % ph)
-        ws = []
-        with open(tmp, 'wb') as f:
-            async for chunk in com.stream():
-                if chunk['type'] == 'audio':
-                    f.write(chunk['data'])
-                elif chunk['type'] == 'WordBoundary':
-                    ws.append({'w': chunk['text'], 's': chunk['offset'] / 1e7, 'd': chunk['duration'] / 1e7})
-        return tmp, ws
-    got = await asyncio.gather(*(say(k) for k in range(len(said))))
+        for t in range(tries):
+            try:
+                try:
+                    com = edge_tts.Communicate(said[k], voice, rate='%+d%%' % r, pitch='%+dHz' % ph, boundary='WordBoundary')
+                except TypeError:
+                    com = edge_tts.Communicate(said[k], voice, rate='%+d%%' % r, pitch='%+dHz' % ph)
+                ws = []
+                with open(tmp, 'wb') as f:
+                    async for chunk in com.stream():
+                        if chunk['type'] == 'audio':
+                            f.write(chunk['data'])
+                        elif chunk['type'] == 'WordBoundary':
+                            ws.append({'w': chunk['text'], 's': chunk['offset'] / 1e7, 'd': chunk['duration'] / 1e7})
+                return tmp, ws
+            except Exception as e:  # noqa: BLE001
+                if '403' in str(e) or t == tries - 1:
+                    raise
+                await asyncio.sleep(1.5 * (t + 1))
+    try:
+        got = await asyncio.gather(*(say(k) for k in range(len(said))))
+    except Exception as e:  # noqa: BLE001
+        if '403' in str(e) or len(said) == 1:
+            raise
+        said, mine = [text], [script or text]                 # a sentence the service would not say alone: the line is said whole
+        plan = [(base, 0, 0.0)]
+        got = await asyncio.gather(say(0))
     parts, words, t = [], [], 0.0
     for k, (x, y) in enumerate(zip(said, mine)):
         _, _, pause = plan[k]
@@ -250,17 +263,19 @@ def speak(takes, lines):
                 continue
             if refused or over():                         # the service is refusing: the rest goes to the local voice; or the time is up
                 break
-            for attempt in range(4):                      # the free voice service drops a request now and then ("no audio received")
+            for attempt in range(7):                      # the free voice service drops a request now and then ("no audio received"), the home connection too
                 try:
                     if await one(takes, i, sent(i, text), '%+d%%' % rate, ai.CONFIG['voice'], text, lid) > 0:
                         mark_take(takes, i, text, rate)
                         spoken.add(i)
                         break
                 except Exception as e:  # noqa: BLE001
-                    if attempt == 3:
+                    blocked = '403' in str(e)                 # the service refuses this machine: the local voice takes over at once
+                    if blocked or attempt == 6:
                         refused.append(str(e)[:80])
                         break
-                    await asyncio.sleep(2 + 2 * attempt)
+                    print('voice: line %s did not come (%s); asked again in %d s' % (lid, str(e)[:60], 3 * 2 ** min(attempt, 4)), flush=True)
+                    await asyncio.sleep(3 * 2 ** min(attempt, 4))      # 3, 6, 12, 24, 48 s: a dropped connection is waited out
     asyncio.run(synth())
     online = [i for i in spoken if not is_local(takes, i)]
     if refused and online:                                # two voices in one video sound like two videos: the local voice says it all
