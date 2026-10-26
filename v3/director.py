@@ -1127,7 +1127,8 @@ def fix_and_check(p, m):
         soft.append('no proof on screen: show at least one post as a "receipt" or one real quote as a "quote"')
     soft += ['line 1 (the opening): ' + x for x in opening_faults(lines[0]['text'])] + voice_faults(lines) + habits.faults(lines, m.get('url', '')) + private_faults(lines, m)
     first = (split_keep(lines[0]['text']) or [''])[0]
-    if ALLEGED.search(m.get('title', '') + ' ' + m.get('summary', '')) and not SAYS.search(first) and '?' not in first and len(names_of(m)) and any(n in tokens(first) for n in names_of(m)):
+    if (HEAVY.search(first) or ALLEGED.search(m.get('title', ''))) and ALLEGED.search(m.get('title', '') + ' ' + m.get('summary', '')) and not SAYS.search(first) and '?' not in first \
+            and len(names_of(m)) and any(n in tokens(first) for n in names_of(m)):      # a sentence that only sets the scene ("Henry asked who wins") is not an allegation
         soft.append('line 1 states an ALLEGATION about a named person as a fact ("%s"): the same sentence must carry who says it ("He says ...", "X claims ...")' % first[:70])
     said_before = []                                           # A SENTENCE SAID TWICE: the same thing in two lines is a script that ran out of things to say
     for i, l in enumerate(lines[:-1]):
@@ -1596,12 +1597,43 @@ TAKE_JOB = ('You are the narrator of a TikTok voice-over: %s. You get the finish
             'of yours that goes right after one fact of the script. Strict JSON only.')
 
 
+def drop_bad_takes(plan, m, log):
+    """The takes the corrections left at fault (a tic, a repeat, a verdict, standing alone) are taken out of the script,
+    with their picture beat; the words around them stay. -> how many were taken out."""
+    lines = [l for l in plan['lines'] if l.get('id') != 'site']
+    bad = take_faults(plan, lines, m)
+    gone = 0
+    for t in list(plan.get('takes') or []):
+        if not any('"%s"' % t in b for b in bad):
+            continue
+        for l in lines:
+            parts = split_keep(l['text'])
+            keep = [x for x in parts if norm(x) not in norm(t) or not norm(x)]
+            if len(keep) == len(parts) or not keep:
+                continue
+            l['text'] = ' '.join(keep)
+            if l.get('beats'):
+                idx = [k for k, b in enumerate(l['beats']) if norm(b.get('say', '')) and norm(b.get('say', '')) in norm(t)]
+                for k in reversed(idx):
+                    l['beats'].pop(k)
+                    for o in list(l.get('overlays') or []):
+                        if o.get('beat') == k:
+                            l['overlays'].remove(o)
+                        elif isinstance(o.get('beat'), int) and o['beat'] > k:
+                            o['beat'] -= 1
+            plan['takes'] = [x for x in plan['takes'] if x != t]
+            gone += 1
+            log('director: the take "%s" was taken out (%s)' % (t, next(b for b in bad if '"%s"' % t in b)[:70]))
+            break
+    return gone
+
+
 def write_takes(plan, m, log):
     """The narrator reacts: when the corrections left the script without a take, one or two are written for named
     sentences and set right after them (take_faults keeps only the good ones). -> how many were added."""
     lines = [l for l in plan['lines'] if l.get('id') not in ('site', 'vote')]
     grave = HEAVY.search(m.get('title', '') + ' ' + m.get('summary', '')) or SENSITIVE.search(m.get('title', '') + ' ' + m.get('summary', ''))
-    if grave or not NARRATOR or plan.get('takes'):
+    if grave or not NARRATOR or len(plan.get('takes') or []) >= 2:
         return 0
     rows = ['%s.%d  %s' % (l['id'], k + 1, x) for l in lines[1:] for k, x in enumerate(split_keep(l['text']))]
     used = habits.used(m.get('url', ''), 'takes')[-12:]
@@ -2174,6 +2206,7 @@ def direct(m, log=print, work=None, budget=None):
     if not slang_page and not st.get('ends_done'):
         st['ends_done'] = True                                      # the narrator's takes and the closing of THIS video, once the words are final
         bp = st['best']['plan']
+        drop_bad_takes(bp, m, log)
         write_takes(bp, m, log)
         if closing_faults(bp, [l for l in bp['lines'] if l.get('id') != 'site'], m):
             write_closing(bp, m, log)
