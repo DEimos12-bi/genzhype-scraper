@@ -849,7 +849,8 @@ def closing_faults(p, lines, m):
         out.append('the closing asks for a comment again: the vote did that; the closing pays off the opening and sends to the site')
     if m.get('no_page') and re.search(r'(?i)\b(timeline|full story|whole story|this story|receipts? (?:is|are) on)\b', c):
         out.append('there is no page for this story yet: the closing may send to more stories like it, never to this one')
-    if any(habits.same(c, x, 4) for x in habits.used(m.get('url', ''), 'closing')):
+    brandless = lambda t: re.sub(r'(?i)gen ?z ?hype|%s|link in bio|(?:is|are) on' % re.escape(brand.B['name']), ' ', t)      # the channel's name ends every closing: it is not a copied wording
+    if any(habits.same(brandless(c), brandless(x), 4) for x in habits.used(m.get('url', ''), 'closing')):
         out.append('the closing repeats one of our other videos: end this video in its own words')
     return out
 
@@ -1653,7 +1654,7 @@ def write_takes(plan, m, log):
     except ai.AIError:
         return 0
     added = 0
-    for x in ((j or {}).get('takes') or [])[:2]:
+    for x in ((j or {}).get('takes') or [])[:2 - len(plan.get('takes') or [])]:      # two takes in all
         sid, take = str((x or {}).get('after', '')).strip(), re.sub(r'\s+', ' ', str((x or {}).get('take', ''))).strip()
         mo = re.fullmatch(r'([a-z0-9]+)\.(\d+)', sid)
         line = next((l for l in lines if mo and l['id'] == mo.group(1)), None)
