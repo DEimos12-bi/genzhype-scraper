@@ -1569,6 +1569,66 @@ CLOSE_JOB = ('You write the last words of a TikTok voice-over, after the vote. T
              'never an anchor), then sends to %s for the rest. Strict JSON only.')
 
 
+SWEARING = re.compile(r"(?i)\b(f+u+c*k\w*|shit\w*|bitch\w*|nigg\w*|cunt\w*|asshole\w*|motherf\w*|dick\w*|pussy\w*|bastard\w*|retard\w*)\b")
+
+
+def clean_cut(b, most=5.5, least=1.8):
+    """The longest stretch of a bite with no word that would be bleeped, between least and most seconds, ending where a
+    thought ends when it can (the words carry their times in the clip). -> a new bite, or None."""
+    ws = [w for w in b.get('words') or [] if isinstance(w, (list, tuple)) and len(w) >= 3]
+    best = None
+    for i in range(len(ws)):
+        if SWEARING.search(str(ws[i][0])):
+            continue
+        for j in range(i, len(ws)):
+            if SWEARING.search(str(ws[j][0])):
+                break
+            d = float(ws[j][2]) - float(ws[i][1])
+            if d > most:
+                break
+            if d >= least:
+                score = d + (1.5 if re.search(r'[.!?]$', str(ws[j][0])) else 0)
+                if not best or score > best[0]:
+                    best = (score, i, j)
+    if not best:
+        return None
+    _, i, j = best
+    ss = round(float(ws[i][1]) - 0.08, 2)
+    return dict(b, ss=ss, dur=round(float(ws[j][2]) - ss + 0.15, 2), words=ws[i:j + 1], text=' '.join(str(w[0]) for w in ws[i:j + 1]))
+
+
+def cold_open(plan, log):
+    """The video starts on the story's own moment when the writer did not do it: a bite of the subject (5.5 s at most,
+    without words that would be bleeped) moves to the very start, with its sound, and the opening comes right after it.
+    The sentence that handed over to it in its old line ("His words.", "Listen.") goes with it. -> True when moved."""
+    lines = [l for l in plan['lines'] if l.get('id') not in ('site', 'vote')]
+    if not lines or any(isinstance(l.get('bite'), dict) and l['bite'].get('first') for l in lines) or isinstance(lines[0].get('bite'), dict):
+        return False
+    for l in lines[1:]:
+        b = l.get('bite')
+        if not isinstance(b, dict):
+            continue
+        if b.get('dur', 9) > 5.5 or SWEARING.search(str(b.get('text', ''))):      # too long, or a word that would be bleeped: its cleanest stretch
+            b = clean_cut(b)
+            if not b:
+                continue
+            l['bite'] = b
+        parts = split_keep(l['text'])
+        if parts and (HANDOVER.match(parts[-1].strip()) or re.fullmatch(r"(?i)(?:(?:hear|listen to|here are|in) )?(?:his|her|their|the) (?:own )?(?:words|answer|reply|reaction)[.!:…]*|(?:hear|listen)(?: to)? (?:it|him|her|them|this)[.!:…]*", parts[-1].strip())):
+            parts = parts[:-1]
+            if l.get('beats') and len(l['beats']) > len(parts):
+                k = len(l['beats']) - 1
+                l['beats'].pop()
+                l['overlays'] = [o for o in l.get('overlays') or [] if o.get('beat') != k]
+        if not parts:
+            continue
+        l['text'] = ' '.join(parts)
+        lines[0]['bite'] = dict(l.pop('bite'), first=True)
+        log('director: the video opens on the story\'s own moment (%s, %.1f s): "%s"; the opening comes right after it' % (lines[0]['bite'].get('asset'), lines[0]['bite'].get('dur', 0), str(lines[0]['bite'].get('text', ''))[:70]))
+        return True
+    return False
+
+
 def write_closing(plan, m, log):
     """The closing of THIS video, when the writer's did not keep the rules: three tries written from the opening and
     what happened, the first one that keeps them is used (closing_faults). -> True when one was found."""
@@ -2212,6 +2272,7 @@ def direct(m, log=print, work=None, budget=None):
     if not slang_page and not st.get('ends_done'):
         st['ends_done'] = True                                      # the narrator's takes and the closing of THIS video, once the words are final
         bp = st['best']['plan']
+        cold_open(bp, log)
         drop_bad_takes(bp, m, log)
         write_takes(bp, m, log)
         if closing_faults(bp, [l for l in bp['lines'] if l.get('id') != 'site'], m):
