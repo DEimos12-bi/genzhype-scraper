@@ -17,7 +17,21 @@ SOCIAL = re.compile(r'(?:^|[/.@])(?:x\.com|twitter\.com|tiktok\.com|reddit\.com|
 NOT_OUTLETS = re.compile(r'//(?:[^/]+\.)?(?:googleapis\.com|gstatic\.com|giphy\.com|tenor\.com|vsfagency\.tech)(?:/|$)', re.I)      # fonts, GIF hosts, the site's builder: nothing to read there
 
 
-def get(url, timeout=25):
+def get(url, timeout=25, tries=4):
+    """A page's text, waited for when the connection drops (a failed name lookup, a timeout): 5, 10, 20 s, then it fails."""
+    import time
+    for t in range(tries):
+        try:
+            return _get(url, timeout)
+        except urllib.error.HTTPError:
+            raise                                              # the server answered: no point asking again
+        except (urllib.error.URLError, TimeoutError, ConnectionError, OSError):
+            if t == tries - 1:
+                raise
+            time.sleep(5 * 2 ** t)
+
+
+def _get(url, timeout=25):
     """A page's text. Some servers pack it (gzip, deflate, brotli) even when not asked to: it is unpacked, and read in
     the charset the server names. A page that still reads as bytes is refused, never passed on as text."""
     import gzip
