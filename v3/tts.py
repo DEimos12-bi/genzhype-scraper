@@ -495,6 +495,15 @@ def main(work):
         vo, tl, t = speak(takes, lines)
     if hear_back(takes, lines, plan.get('title', ''), lambda *a: print(*a, flush=True)):
         vo, tl, t = speak(takes, lines)
+    short = need - (t + 0.45)
+    if 0 < short <= 4.0:                                  # still short at the slowest pace: a little more breath between the lines, never filler
+        gaps = [k for k, l in enumerate(lines[:-1]) if l[3] < 1.0]
+        if gaps:
+            add = min(0.4, short / len(gaps) + 0.02)
+            for k in gaps:
+                lines[k][3] = round(lines[k][3] + add, 3)
+            print('voice: %.1f s short at the slowest pace; %.2f s more pause after %d lines' % (short, add, len(gaps)), flush=True)
+            vo, tl, t = speak(takes, lines)
     vo = vo / (np.max(np.abs(vo)) + 1e-9) * 0.89
     with wave.open(os.path.join(work, 'vo.wav'), 'wb') as w:
         w.setnchannels(1); w.setsampwidth(2); w.setframerate(SR)
