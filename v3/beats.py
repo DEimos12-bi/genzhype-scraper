@@ -51,12 +51,15 @@ def _inside(c, half, size):
     return size / 2 if size <= 2 * half else min(size - half, max(half, c))
 
 
+MAXUP = 1.6               # screen pixels per pixel of the picture, at most: past that a close-up is visibly soft
+
+
 def close_on(a, s, fy=960, tighter=1.0):
     """The framing of a still close on one subject: [centre x, centre y, zoom], before and after a slow push."""
     w, h = a['w'], a['h']
     fill = max(1080 / w, 1920 / h)
     z = min(fill * 2.7, max(fill * 1.08, 0.62 * 1920 / (max(0.14, float(s.get('h', 0.5))) * h))) * tighter
-    z = min(z, max(fill * 1.08, 3.6))                          # never more than 3.6 times its own size: past that a face is mush, not a close-up
+    z = min(z, MAXUP / 1.1)                                    # never blown up past what the picture holds (the slow push adds 10%): a small picture is framed in a band over its blurred copy instead of filling the screen
     out = []
     for zz in (z, z * 1.1):
         cx = _inside(float(s['x']) * w, 540 / zz, w)
@@ -73,7 +76,7 @@ def window_on(a, s):
     """One of the two stacked windows (1080 x 560): the subject fills it."""
     w, h = a['w'], a['h']
     fill = max(1080 / w, 560 / h)
-    z = min(fill * 3.2, max(fill, 0.86 * 560 / (max(0.1, float(s.get('h', 0.4))) * h)))
+    z = min(fill * 3.2, max(fill, 0.86 * 560 / (max(0.1, float(s.get('h', 0.4))) * h)), MAXUP / 1.1)
     out = []
     for zz in (z, z * 1.1):
         cy = clear_cy(a, s, _inside(float(s['y']) * h, 280 / zz, h), zz, 280, 280)
@@ -289,8 +292,8 @@ def for_line(pl, ln, t0, t1, sup, shots, pick, has_card, card_to, face_ok, log, 
                     s['dim'] = max(s.get('dim', 0.0), 0.14)
             else:
                 ss, x = sup.moment(asset, s1 - s0)
-                tall = A['h'] >= A['w'] * 1.3
-                small = A['w'] > A['h'] and A['h'] <= 720
+                tall = max(1080 / max(1, A['w']), 1920 / max(1, A['h'])) <= MAXUP      # a clip fills the screen only when it holds the pixels for it
+                small = not tall                                                         # else it is shown whole, over its blurred copy
                 if move == 'under':
                     s.update(mode='B', dim=0.3, credit='')
                 else:

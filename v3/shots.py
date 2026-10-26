@@ -131,11 +131,12 @@ def bite_shots(pl, bl, t0, t1, sup):
                     best, bs = round(t, 3), score
         if best:
             cuts = [t0, best, t1]
-    wide = 'W' if a.get('whole') else 'C' if a['w'] > a['h'] else 'F'
+    wide = 'W' if a.get('whole') else 'C' if a['w'] > a['h'] or max(1080 / max(1, a['w']), 1920 / max(1, a['h'])) > 1.6 else 'F'
+    close = 'F' if max(1080 / max(1, a['w']), 1920 / max(1, a['h'])) <= 1.6 else wide      # the close shot fills the screen only when the clip holds the pixels
     out = []
     for k in range(len(cuts) - 1):
         out.append({'id': '%s_v%d' % (pl['id'], k), 'line': bl['id'], 'beats': [], 't0': cuts[k], 't1': cuts[k + 1], 'asset': b['asset'], 'credit': a.get('credit', ''), 'dim': 0.0, 'move': 'bite', 'focus': None,
-                    'card': False, 'mode': wide if k % 2 == 0 else 'F', 'src': 'assets/' + a['file'], 'ss': sync(cuts[k]), 'x': near(cuts[k]), 'w': a['w'], 'h': a['h']})
+                    'card': False, 'mode': wide if k % 2 == 0 else close, 'src': 'assets/' + a['file'], 'ss': sync(cuts[k]), 'x': near(cuts[k]), 'w': a['w'], 'h': a['h']})
     sup.uses[b['asset']] += 1
     return out
 
@@ -271,7 +272,7 @@ def plan_shots(plan, tl, log):
                     s.update(mode='S', img='assets/' + a['file'], k0=[w / 2, h / 2, z * 0.96], k1=[w / 2, h / 2, z], fy=700, dim=0.0 if sharp else 0.4)
             else:
                 ss, x = sup.moment(asset, d)
-                small = a['w'] > a['h'] and a['h'] <= 720
+                small = max(1080 / max(1, a['w']), 1920 / max(1, a['h'])) > 1.6      # filling the screen would blow it up past what it holds: a card instead
                 whole = a.get('whole') or meme                 # a meme is never cropped: its sides and its text are the joke
                 s.update(mode=('W' if whole else 'C' if small else 'F') if sharp else 'B', src='assets/' + a['file'], ss=round(ss, 2), x=x, w=a['w'], h=a['h'])
                 if not sharp:

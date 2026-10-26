@@ -91,6 +91,30 @@ def photograph_reddit(page, post, marks, dest_png, dest_json):
     return boxes
 
 
+def looks_empty(png, meta):
+    """Whether a receipt's screenshot shows nothing to read: mostly one dark or flat colour (a video player that had not
+    loaded, a blocked page), or no contrast where the highlighted words should be. Such a picture is not a proof."""
+    try:
+        from PIL import Image
+        im = Image.open(png).convert('L')
+    except Exception:  # noqa: BLE001
+        return True
+    import statistics
+    px = list(im.resize((80, max(1, int(80 * im.height / max(1, im.width))))).getdata())
+    if not px or statistics.pstdev(px) < 14 or sum(1 for v in px if v < 40) / len(px) > 0.75:
+        return True
+    sx = im.width / max(1, float(meta.get('w') or im.width))
+    spread = []
+    for rects in (meta.get('boxes') or {}).values():
+        for x, y, w, h in rects or []:
+            if w < 40:                                         # the end of a line (a space, a dot): too small to judge
+                continue
+            box = im.crop((int(x * sx), int(y * sx), int((x + w) * sx), int((y + h) * sx)))
+            if box.width > 4 and box.height > 4:
+                spread.append(statistics.pstdev(list(box.getdata())))
+    return bool(spread) and max(spread) < 18                   # where the words should be, one flat colour everywhere: they are not on the picture
+
+
 def main(work, log=lambda *a: print(*a, flush=True)):
     plan = json.load(open(os.path.join(work, 'plan.json'), encoding='utf-8'))
     mat = json.load(open(os.path.join(work, 'material.json'), encoding='utf-8'))
@@ -136,6 +160,13 @@ def main(work, log=lambda *a: print(*a, flush=True)):
     browser.close()
     if pw:
         pw.stop()
+    for name in want:                                          # every screenshot is looked at before it counts as a proof
+        png, js = os.path.join(rdir, name + '.png'), os.path.join(rdir, name + '.json')
+        if name not in failed and os.path.isfile(png) and os.path.isfile(js) and looks_empty(png, json.load(open(js, encoding='utf-8'))):
+            failed.add(name)
+            for f in (png, js):
+                os.remove(f)
+            log('receipt %s: the screenshot shows nothing to read (dark, empty or without the words): not shown' % name)
     if failed:
         for ln in plan['lines']:
             ln['overlays'] = [o for o in ln['overlays'] if not (o['k'] == 'receipt' and o['post'] in failed)]
