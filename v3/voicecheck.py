@@ -67,16 +67,16 @@ def inside(word, heard):
 
 def risky(text):
     """The words of a line the voice has to guess: not in its dictionary (names, mostly)."""
-    return [w for w in dict.fromkeys(re.sub(r"['’]s$", '', w) for w in re.findall(r"[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ'’]*", text)) if not voicewords.known(w)]
+    return [w for w in dict.fromkeys(re.sub(r"['’]s$", '', w) for w in re.findall(r"[A-Za-zÀ-ÿĀ-ſ][A-Za-zÀ-ÿĀ-ſ'’]*", text)) if not voicewords.known(w)]
 
 
 def missed(text, heard_words):
     """The risky words of a line that did not come back from the ear, each with what was heard in its place.
     The line and what was heard are lined up word by word; a risky word inside a stretch that matches is fine."""
-    spans = list(re.finditer(r"[A-Za-zÀ-ÿ0-9][A-Za-zÀ-ÿ0-9'’-]*", text))
+    spans = list(re.finditer(r"[A-Za-zÀ-ÿĀ-ſ0-9][A-Za-zÀ-ÿĀ-ſ0-9'’-]*", text))
     words = [x.group(0) for x in spans]
     said = [plain(w) for w in words]
-    got = [plain(w) for w in re.findall(r"[A-Za-zÀ-ÿ0-9][A-Za-zÀ-ÿ0-9'’-]*", ' '.join(heard_words))]
+    got = [plain(w) for w in re.findall(r"[A-Za-zÀ-ÿĀ-ſ0-9][A-Za-zÀ-ÿĀ-ſ0-9'’-]*", ' '.join(heard_words))]
     want = {plain(w) for w in risky(text)}
     is_risky = lambda k: (said[k] in want or re.sub(r's$', '', said[k]) in want) and bool(skeleton(said[k]))
     joined = lambda k: k and not re.search(r'[.!?,;:]', text[spans[k - 1].end():spans[k].start()])      # two words said in one breath
@@ -156,7 +156,7 @@ def respelled(text, spell):
         base = re.sub(r"['’]s$", '', w)
         r = spell.get(base)
         return (r + w[len(base):]) if r else w
-    return re.sub(r"[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ'’]*", one, text)
+    return re.sub(r"[A-Za-zÀ-ÿĀ-ſ][A-Za-zÀ-ÿĀ-ſ'’]*", one, text)
 
 
 def restore(words, text, sent):

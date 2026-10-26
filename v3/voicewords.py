@@ -59,7 +59,7 @@ def known(word):
         return True
     if w.islower() and any(w[:i] in d and w[i:] in d for i in range(3, len(w) - 2)):      # two known words written as one ("hardcore")
         return True
-    parts = [p for p in re.findall(r'[A-ZÀ-Ý]?[a-zà-ÿ]+|[A-ZÀ-Ý]+(?![a-zà-ÿ])', w)]      # a name written in one word with capitals inside
+    parts = [p for p in re.findall(r'[A-ZÀ-ÝĀ-ſ]?[a-zà-ÿ]+|[A-ZÀ-ÝĀ-ſ]+(?![a-zà-ÿ])', w)]      # a name written in one word with capitals inside
     return len(parts) > 1 and all(len(p) >= 2 and plain(p) for p in parts)
 
 
@@ -96,7 +96,7 @@ def names():
 def learn(texts, about, log=print):
     """The words of these lines the voice does not know and nobody wrote down yet: asked from a light model, once, and kept."""
     have = names()
-    words = list(dict.fromkeys(re.sub(r"['’]s$", '', w) for t in texts for w in re.findall(r"[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ'’]*", re.sub(r'\[[^\]]*\]\([^)]*\)', ' ', t))))
+    words = list(dict.fromkeys(re.sub(r"['’]s$", '', w) for t in texts for w in re.findall(r"[A-Za-zÀ-ÿĀ-ſ][A-Za-zÀ-ÿĀ-ſ'’]*", re.sub(r'\[[^\]]*\]\([^)]*\)', ' ', t))))
     new = [w for w in words if w.lower() not in have and not known(w)][:24]
     if not new:
         return have
@@ -177,7 +177,7 @@ def mark(text, said=None):
         if base != word:                                       # "Cenat's"
             v += 'ᵻz' if v[-1] in 'szʃʒʧʤ' else 's' if v[-1] in 'ptkfθ' else 'z'
         return '[%s](/%s/)' % (word, v)
-    return re.sub(r"[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ'’]*", one, text)
+    return re.sub(r"[A-Za-zÀ-ÿĀ-ſ][A-Za-zÀ-ÿĀ-ſ'’]*", one, text)
 
 
 if __name__ == '__main__':
