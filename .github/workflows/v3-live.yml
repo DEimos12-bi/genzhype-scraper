@@ -136,8 +136,8 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git"
-          git add .social/v3_done.txt .social/v3_failed.txt 2>/dev/null || true
-          [ "$MODE" = "deliver" ] && git add .social/video_done.txt 2>/dev/null || true
+          for f in .social/v3_done.txt .social/v3_failed.txt; do [ -f "$f" ] && git add "$f"; done      # one by one: a missing file must not stop the other
+          if [ "$MODE" = "deliver" ] && [ -f .social/video_done.txt ]; then git add .social/video_done.txt; fi
           git commit -q -m "v3-live: done-list" || { echo "nothing to keep"; exit 0; }
           for i in 1 2 3 4 5; do
             if git pull -q --rebase --autostash origin main && git push -q origin HEAD:main; then echo "kept"; exit 0; fi
