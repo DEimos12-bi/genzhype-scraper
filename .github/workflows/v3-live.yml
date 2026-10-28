@@ -6,8 +6,9 @@ name: v3-live
 #                nothing is posted, the live maker's done-list is not touched. This is the test run of step 3.
 #   mode deliver: the videos go to the site exactly like video-maker.yml sends them (api/video_receive.php, the same
 #                token and fields), so the posters publish them. Step 4 only, on the owner's word.
-# STEP 3 (2026-10-28, owner: "go step 3"): a test video every 3 hours, 8 a day (his goal), in SHADOW mode:
-# a scheduled run has no inputs, so it is always shadow and sends nothing. By hand it can also run a chosen page.
+# STEP 4 (2026-10-29, owner: "go step 4"): a video every 3 hours, 8 a day, DELIVERED to the site (scheduled runs have no
+# inputs, so they deliver); the site's posters publish it. By hand the mode input still chooses (default shadow = a test).
+# The old maker (video-maker.yml) is switched off, not deleted.
 
 on:
   schedule:
@@ -74,7 +75,7 @@ jobs:
       - name: Make the videos
         env:
           VIDEO_FEED_DIR: feed
-          MODE: ${{ github.event.inputs.mode }}
+          MODE: ${{ github.event.inputs.mode || 'deliver' }}
           BATCH: ${{ github.event.inputs.batch }}
           PAGE: ${{ github.event.inputs.page }}
           INGEST_TOKEN: ${{ secrets.INGEST_TOKEN }}
@@ -131,12 +132,28 @@ jobs:
           git commit -q -m "v3 live videos $(date -u +%Y-%m-%dT%H:%M:%SZ)" || echo "nothing to push"
           git push -qf "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" v3-drop || true
 
+      - name: Videos the site refused directly -> the video-drop branch (the server's bridge collects it)
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          [ -d video-drop-out ] && [ -n "$(ls video-drop-out)" ] || { echo "nothing for the video-drop branch"; exit 0; }
+          cd video-drop-out
+          git init -q
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -q -b video-drop
+          git add -A
+          git commit -q -m "v3 drop $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          git push -qf "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" video-drop && echo "pushed to video-drop"
+
       - name: Keep v3's own done-list (never the live maker's, unless mode deliver)
         if: always()
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
-          MODE: ${{ github.event.inputs.mode }}
+          MODE: ${{ github.event.inputs.mode || 'deliver' }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"

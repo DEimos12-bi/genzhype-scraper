@@ -252,8 +252,15 @@ def main():
         made += 1
         if send:
             err = deliver(job, mp4)
-            if err:
-                log('live: page %s: made, but the site did not take it (%s); kept in drop/' % (pid, err))
+            if err:                                        # the site's firewall refuses some GitHub machines: the old maker's backup road, the video-drop branch the server collects every 30 minutes
+                bus = os.path.join(ROOT, 'video-drop-out')
+                os.makedirs(bus, exist_ok=True)
+                with open(mp4, 'rb') as a, open(os.path.join(bus, 'video-%s.mp4' % pid), 'wb') as b:
+                    b.write(a.read())
+                json.dump({'page_id': int(pid), 'slug': job.get('slug') or '', 'mp4': 'video-%s.mp4' % pid, 'sheet': None, 'report': {'maker': 'v3'}, 'reason': 'post failed: %s' % err[:120]},
+                          open(os.path.join(bus, 'drop-meta-%s.json' % pid), 'w', encoding='utf-8'))
+                add_line(LIVE_DONE, pid)
+                log('live: page %s: made; the site did not take it directly (%s), so it goes by the video-drop branch' % (pid, err))
             else:
                 add_line(LIVE_DONE, pid)                   # the old maker skips it from now on
                 log('live: page %s: DELIVERED to the site' % pid)

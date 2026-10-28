@@ -14,6 +14,7 @@ Nothing is posted anywhere. Exit code 0 = video made, 2 = refused (the reason is
 3 = a step stopped at its time budget: run the same command again."""
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -92,6 +93,39 @@ def frames(work, budget):
     return True
 
 
+FONTS = ['/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', '/usr/share/fonts/dejavu/DejaVuSans-Bold.ttf', 'C:/Windows/Fonts/arialbd.ttf', 'C:/Windows/Fonts/segoeuib.ttf']
+
+
+def music_credit_on_screen(work, mp4):
+    """THE CREDIT TRAVELS WITH THE VIDEO (2026-10-29, step 4). A recorded track's licence (CC BY 4.0) asks for a credit;
+    the caption carries it in post.txt, but the site's posters write their own captions, so on TikTok, YouTube and
+    the rest it would be lost. One small line is written on the last five seconds of the video itself. Nothing is
+    written when the synthesised music played (no licence) or when no font is found (the caption credit stands)."""
+    try:
+        song = json.load(open(os.path.join(work, 'music_used.json'), encoding='utf-8'))
+    except Exception:  # noqa: BLE001
+        return False
+    title = re.sub(r'[^A-Za-z0-9 .,&()-]', '', str(song.get('title', ''))).strip()
+    font = next((f for f in FONTS if os.path.isfile(f)), '')
+    if not song.get('credit') or not title or not font:
+        return False
+    work, mp4 = os.path.abspath(work), os.path.abspath(mp4)      # ffmpeg runs inside the work folder (the font and the text are named without a drive)
+    shutil.copy(font, os.path.join(work, 'credit.ttf'))
+    open(os.path.join(work, 'credit.txt'), 'w', encoding='utf-8').write('Music: %s by Kevin MacLeod (incompetech.com), CC BY 4.0' % title)
+    dur = float(subprocess.run(['ffprobe', '-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', mp4], capture_output=True, text=True).stdout.strip() or 0)
+    vf = ("drawtext=fontfile=credit.ttf:textfile=credit.txt:fontsize=26:fontcolor=white:box=1:boxcolor=black@0.55:boxborderw=12"
+          ":x=(w-text_w)/2:y=h-120:enable='gte(t,%.2f)'" % max(0.0, dur - 5))
+    tmp = mp4 + '.credit.mp4'
+    r = subprocess.run(['ffmpeg', '-y', '-v', 'error', '-i', mp4, '-vf', vf, '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '20', '-pix_fmt', 'yuv420p',
+                        '-c:a', 'copy', '-movflags', '+faststart', tmp], cwd=work, capture_output=True, text=True)
+    if r.returncode != 0 or not os.path.isfile(tmp):
+        say('music credit not written on screen (%s): the caption credit stands' % (r.stderr or '')[-160:].strip())
+        return False
+    os.replace(tmp, mp4)
+    say('music credit written on the last 5 seconds: %s' % title)
+    return True
+
+
 def pack(work):
     plan = json.load(open(os.path.join(work, 'plan.json'), encoding='utf-8'))
     comp = json.load(open(os.path.join(work, 'comp.json'), encoding='utf-8'))
@@ -104,6 +138,7 @@ def pack(work):
     open(lst, 'w').write(''.join("file '%s'\n" % f for f in sorted(os.listdir(seg)) if f.endswith('.mp4')))
     subprocess.run(['ffmpeg', '-y', '-v', 'error', '-f', 'concat', '-safe', '0', '-i', lst, '-i', os.path.join(work, 'mix.wav'), '-c:v', 'copy', '-c:a', 'aac', '-b:a', '192k', '-ar', '48000',
                     '-movflags', '+faststart', '-shortest', mp4], check=True)
+    music_credit_on_screen(work, mp4)
     stamp_t = next((c[0] for c in comp['cues']['impact'] if c[0] > 0.3), 1.5) + 0.6          # the cover: the first big word, once it has landed
     subprocess.run(['ffmpeg', '-y', '-v', 'error', '-ss', '%.2f' % stamp_t, '-i', mp4, '-frames:v', '1', '-q:v', '2', os.path.join(out, 'cover.jpg')], check=True)
     dur = float(subprocess.run(['ffprobe', '-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', mp4], capture_output=True, text=True).stdout.strip() or 0)
