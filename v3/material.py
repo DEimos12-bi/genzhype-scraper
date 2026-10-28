@@ -79,18 +79,28 @@ def x_post(tid):
         return None
     if not isinstance(j, dict) or not j.get('text'):
         return None
-    media = []
-    for m in j.get('mediaDetails') or []:
-        item = {'type': m.get('type', ''), 'image': m.get('media_url_https', '')}
-        vi = m.get('video_info') or {}
-        mp4 = [v for v in vi.get('variants', []) if 'mp4' in v.get('content_type', '') and v.get('url')]
-        if mp4:
-            item.update({'type': 'video', 'video': max(mp4, key=lambda v: v.get('bitrate', 0))['url'], 'seconds': round((vi.get('duration_millis') or 0) / 1000)})
-        media.append(item)
+    def media_of(d):
+        out = []
+        for m in d.get('mediaDetails') or []:
+            item = {'type': m.get('type', ''), 'image': m.get('media_url_https', '')}
+            vi = m.get('video_info') or {}
+            mp4 = [v for v in vi.get('variants', []) if 'mp4' in v.get('content_type', '') and v.get('url')]
+            if mp4:
+                item.update({'type': 'video', 'video': max(mp4, key=lambda v: v.get('bitrate', 0))['url'], 'seconds': round((vi.get('duration_millis') or 0) / 1000)})
+            out.append(item)
+        return out
     user = j.get('user') or {}
+    # THE POST IT REACTS TO. SonicFox's refusal quoted the post that showed the AI flyer (2026-10-28 bake-off): the flyer
+    # was the whole story and never came in. What a post quotes or answers comes with it, under its own author.
+    about = []
+    for how, q in (('quotes', j.get('quoted_tweet')), ('answers', j.get('parent'))):
+        if isinstance(q, dict) and q.get('id_str') and media_of(q):
+            qu = q.get('user') or {}
+            about.append({'how': how, 'id': str(q['id_str']), 'handle': '@' + qu.get('screen_name', '?'), 'url': 'https://x.com/%s/status/%s' % (qu.get('screen_name', 'i'), q['id_str']),
+                          'text': re.sub(r'\s+', ' ', q.get('text') or '').strip()[:300], 'media': media_of(q)})
     return {'id': str(tid), 'url': 'https://x.com/%s/status/%s' % (user.get('screen_name', 'i'), tid), 'platform': 'x', 'handle': '@' + user.get('screen_name', '?'),
             'name': user.get('name', ''), 'text': re.sub(r'\s+', ' ', j['text']).strip(), 'date': (j.get('created_at') or '')[:10], 'likes': j.get('favorite_count') or 0,
-            'reply_to': ((j.get('parent') or {}).get('user') or {}).get('screen_name', ''), 'media': media}
+            'reply_to': ((j.get('parent') or {}).get('user') or {}).get('screen_name', ''), 'media': media_of(j), 'about': about}
 
 
 def reddit_post(url):

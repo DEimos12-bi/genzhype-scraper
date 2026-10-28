@@ -6,6 +6,7 @@ clips that are a title card, a talking head nobody asked for, or the wrong thing
 cut evenly (and says so in the log).  usage: eyes.py <work folder>"""
 import json
 import os
+import re
 import subprocess
 import sys
 
@@ -46,6 +47,31 @@ def sheet(clip, dur, out, n, times=None):
     for _, _, f in tiles:
         os.remove(f)
     return [(LETTERS[i], t) for i, t, _ in tiles], labelled
+
+
+def squash(s):
+    return re.sub(r'[^a-z0-9]', '', str(s).lower())
+
+
+def subjects_of(work):
+    """The people and the game the story is about (gather.py wrote them into material.json)."""
+    try:
+        m = json.load(open(os.path.join(work, 'material.json'), encoding='utf-8'))
+    except Exception:  # noqa: BLE001
+        return []
+    return [x for x in (m.get('subjects') or []) + [m.get('game') or ''] if isinstance(x, str) and len(squash(x)) >= 4]
+
+
+def own_subject(a, subjects):
+    """YourRAGE's laugh, posted by @officialyourrage, was called "off topic" twice (2026-10-28 bake-off) while the judge itself
+    wrote "a YourRAGE twitch stream": the story's own subject on screen is never off topic. The subject whose own account
+    posted the clip, or whom the judge names in what it saw; '' when neither."""
+    by, shows = squash(a.get('by', '')), squash((a.get('eyes') or {}).get('shows', ''))
+    for s in subjects:
+        k = squash(s)
+        if (by and k in by) or k in shows:
+            return s
+    return ''
 
 
 def look(work, log=print):
@@ -103,6 +129,10 @@ def look_assets(assets, title, kind, work, log=print, save=None, only=None):
             sc = scene_of.get(str(t.get('n', '')).strip().upper()[:1], 0)
             good.append({'t': sec, 'score': score, 'x': round(x, 2), 'face': bool(t.get('face')), 'what': str(t.get('what', ''))[:70], 'sc': sc, 'ss': a['scenes'][sc][0], 'se': a['scenes'][sc][1]})
         a['eyes'] = {'kind': str(eyes.get('kind', 'other')), 'relevant': bool(eyes.get('relevant', True)), 'exact': bool(eyes.get('exact', eyes.get('relevant', True))), 'shows': str(eyes.get('shows', ''))[:160], 'model': eyes.get('model', '')}
+        who = own_subject(a, subjects_of(work))
+        if not a['eyes']['relevant'] and who:
+            a['eyes']['relevant'] = True                       # the judge's "off topic" is overruled by what it saw itself, or by whose clip it is
+            log('%s: shows %s, a person this story is about (%s): kept, not off topic' % (aid, who, 'their own account' if squash(who) in squash(a.get('by', '')) else 'the judge named them'))
         a['windows'] = sorted([g for g in good if g['score'] >= 2.5], key=lambda g: (-g['score'], g['t']))
         a['tiles'] = [{'t': g['t'], 'score': g['score'], 'x': g['x']} for g in good]      # every moment that was looked at, the dull ones too: the cut keeps off them
         a['usable'] = bool(a['windows']) and (a['eyes']['relevant'] or a['kind'] == 'stock')

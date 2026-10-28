@@ -406,7 +406,9 @@ def listing(m):
             inside += '\n      SAID IN IT, in their own voice (a "bite" may let it speak; copy "from"/"to" out of these words): "%s"' % v['said']['text'][:700]
         return '  %s: %s%s%s. Its post says: "%s"%s' % (k, 'a MOVING clip, %ss' % (v.get('seconds') or int(v.get('dur') or 0)) if v['kind'] == 'clip' else 'a still picture', ' from ' + v['by'], seen, v['about'][:200], inside)
     alist = '\n'.join(one(k, v) for k, v in assets_of(m).items()) or '  (none: every line needs a hunt)'
-    plist = '\n'.join('  post%d: %s (%s), %s, %s likes%s: "%s"' % (i, p['handle'], p['name'], p['date'], p['likes'], ', replying to @' + p['reply_to'] if p.get('reply_to') else '', p['text'][:500]) for i, p in enumerate(m.get('posts', []))) or '  (none)'
+    plist = '\n'.join('  post%d: %s (%s), %s, %s likes%s: "%s"%s' % (i, p['handle'], p['name'], p['date'], p['likes'], ', replying to @' + p['reply_to'] if p.get('reply_to') else '', p['text'][:500],
+                       ''.join('\n     it %s this post of %s (its picture or clip is in the material): "%s"' % (q['how'], q['handle'], q['text'][:200]) for q in p.get('about') or []))
+                       for i, p in enumerate(m.get('posts', []))) or '  (none)'
     slist = '\n\n'.join('%s source%d, %s: "%s"\n%s' % ('PRIMARY PAGE (the subject\'s own site: the better proof)' if x.get('primary') else 'ANOTHER PUBLISHER (never named in the voice, never a picture)', i, x['publisher'], x['title'], x['excerpt'][:3300])
                          for i, x in enumerate(m.get('sources', [])) if 'fonts.' not in x['publisher']) or '(none fetched)'
     ev = m.get('evidence') or []
@@ -2028,6 +2030,49 @@ def cut_statements(p, facts):
     return gone
 
 
+STYLE = [re.compile(r'line (\d+), sentence "(.*?)": (?:fits any story|a desk phrase|says again)'),
+         re.compile(r'line (\d+) says again what line \d+ already said \("(.*?)"\)'),
+         re.compile(r'line (\d+) uses a desk phrase \("(.*?)"\)')]
+
+
+def style_target(fault):
+    """(line index, the flagged words in small plain words) of an editor or check fault that names a sentence; None otherwise."""
+    for rx in STYLE:
+        hit = rx.match(str(fault))
+        if hit and len(norm(hit.group(2))) >= 4:
+            return int(hit.group(1)) - 1, norm(hit.group(2).rstrip('.').rstrip())[:44]
+    return None
+
+
+def cut_style(p, faults):
+    """THE LEFTOVERS GO. After the last correction round a sentence the editor still calls a cliché ("Zero hesitation.",
+    "Clean break."), filler, or a repeat of an earlier line stayed in the SonicFox video (2026-10-28 bake-off). They are
+    cut, like the sentences the fact check refuses: never the first sentence of the opening, never the vote or the
+    closing, never a line's only sentence; a take of the narrator only when it is called a cliché or filler (a fresh take is
+    written after). -> how many sentences were cut"""
+    gone = 0
+    for f in faults or []:
+        t = style_target(f)
+        if not t or not 0 <= t[0] < len(p['lines']):
+            continue
+        li, want = t
+        l = p['lines'][li]
+        if l.get('id') in ('vote', 'site'):
+            continue
+        sents = split_keep(l['text'])
+        k = next((k for k, x in enumerate(sents) if norm(x).startswith(want) or want in norm(x)), None)
+        if k is None or (li == 0 and k == 0) or len(sents) < 2:
+            continue
+        if is_take(sents[k], p):                               # a take the editor calls a cliché ("Clean break.") goes too; write_takes then writes a fresh one
+            if 'says again' in str(f):
+                continue
+            p['takes'] = [t for t in p.get('takes') or [] if not is_take(sents[k], {'takes': [t]})]
+        sents.pop(k)
+        l['text'] = ' '.join(sents)
+        gone += 1
+    return gone
+
+
 def ensure_motion(p, m, log=print):
     """THE ACTION PLAYS. A story that has a clip of its own shows it MOVING under at least a third of its sentences. A
     picture editor that puts a still on every sentence makes a slideshow; a hand cut goes close on a still to name
@@ -2262,6 +2307,19 @@ def direct(m, log=print, work=None, budget=None):
                 'NOT RUN' if gfacts is None else '%d problems' % len(gfacts) if gfacts else 'clean', 'KEPT' if gr < st['best']['rank'] else 'not better: thrown away'))
             if gr < st['best']['rank']:
                 st['best'] = {'plan': copy(g), 'model': st['best']['model'], 'rank': gr, 'facts': gfacts}
+        keep()
+    if not slang_page and not st.get('cut_style'):
+        st['cut_style'] = True                                      # a cliché, a filler or a repeat the corrections left: cut, never rewritten
+        cutp = copy(st['best']['plan'])
+        _, bsoft, _ = check(copy(cutp), m)
+        n = cut_style(cutp, bsoft + (st['best'].get('edit') or []))
+        if n:
+            g, gsoft, ghard = check(cutp, m)
+            left = [e for e in st['best'].get('edit') or [] if style_target(e) is None or style_target(e)[1] in norm(' '.join(l.get('text', '') for l in g['lines']))]
+            gr = rank(g, gsoft + left, ghard, st['best']['facts'])
+            log('director: %d sentence(s) the editor flagged were CUT (cliché, filler or repeat): %d words | %s' % (n, g.get('words', 0), 'KEPT' if gr < st['best']['rank'] else 'not better: thrown away'))
+            if gr < st['best']['rank']:
+                st['best'] = {'plan': copy(g), 'model': st['best']['model'], 'rank': gr, 'facts': st['best']['facts'], 'edit': left}
         keep()
     if not slang_page and not st.get('vote_fixed'):
         st['vote_fixed'] = True                                     # a yes / no vote left by the corrections is written again on its own

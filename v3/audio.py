@@ -369,7 +369,10 @@ def recorded():
     except Exception:  # noqa: BLE001
         used = []
     pool = [t for t in lib['tracks'] if t['mood'] == mood] or lib['tracks']
-    fresh = [t for t in pool if t['file'] not in used[-3:]] or pool
+    fresh = [t for t in pool if t['file'] not in used[-3:]]
+    if not fresh:                                          # every track of this mood played lately ("drive" has three): the one heard longest ago, never the last one again
+        last = {f: i for i, f in enumerate(used)}
+        fresh = sorted(pool, key=lambda t: last.get(t['file'], -1))[:1]
     key = sum(ord(c) for c in C['plan'].get('title', '') or HERE)
     order = fresh[key % len(fresh):] + fresh[:key % len(fresh)] + [t for t in lib['tracks'] if t not in fresh]
     for t in order:

@@ -137,6 +137,13 @@ def main(work, budget=None, log=lambda *a: print(*a, flush=True)):
                                    **({'via': 'supply'} if md.get('via') == 'supply' else {})}
             elif md['type'] == 'photo' and md.get('image') and 'photo%d' % i not in A:
                 A['photo%d' % i] = {'kind': 'photo', 'post': i, 'url': md['image'], 'credit': 'IMAGE · %s / X' % p['handle'].upper(), 'about': p['text'][:240], 'by': p['handle'], 'page': p['url']}
+        for q in p.get('about') or []:                         # 1b. the post it quotes or answers (material.x_post): what it reacts to is on screen, under its own author
+            for md in q.get('media') or []:
+                said = '%s %s: %s' % (p['handle'], 'quotes this post of ' + q['handle'] if q['how'] == 'quotes' else 'answers this post of ' + q['handle'], q['text'][:200])
+                if md['type'] == 'video' and md.get('video') and 'qclip%d' % i not in A:
+                    A['qclip%d' % i] = {'kind': 'clip', 'post': i, 'url': md['video'], 'seconds': md.get('seconds'), 'credit': 'CLIP · %s / X' % q['handle'].upper(), 'about': said, 'by': q['handle'], 'page': q['url']}
+                elif md['type'] == 'photo' and md.get('image') and 'qphoto%d' % i not in A:
+                    A['qphoto%d' % i] = {'kind': 'photo', 'post': i, 'url': md['image'], 'credit': 'IMAGE · %s / X' % q['handle'].upper(), 'about': said, 'by': q['handle'], 'page': q['url']}
     for i, e in enumerate(m.get('events') or []):              # 2a. the site's own screenshots of the sources (the page's proofs)
         src = (e.get('source') or '').strip()
         if e.get('proof') and '.' in src and ' ' not in src and not re.search(r'(?:x|twitter|reddit|tiktok|youtube|twitch|kick|instagram)\.', src, re.I):
