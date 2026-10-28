@@ -56,24 +56,34 @@ def _get(url, timeout=30):
 
 
 def feed():
-    """The job feed, read the way video_maker.py reads it: the checked-out video-feed branch first (VIDEO_FEED_DIR), then
-    the site's own copy (needs INGEST_TOKEN), then the public branch on GitHub (this PC)."""
+    """The job feed. Every copy that can be read is read and the NEWEST one is used ("generated"): the video-feed branch
+    (VIDEO_FEED_DIR), the site's own copy (needs INGEST_TOKEN), the public branch on GitHub. The branch is filled by the
+    server's bridge, which stopped on 2026-10-22 (a PHP error in its export) while the site's own copy kept being
+    written every hour: reading only the branch, both makers saw six old jobs and made nothing."""
+    found = []
     d = os.environ.get('VIDEO_FEED_DIR', '')
     if d and os.path.isfile(os.path.join(d, 'feed.json')):
-        return json.load(open(os.path.join(d, 'feed.json'), encoding='utf-8'))
+        try:
+            found.append(('branch', json.load(open(os.path.join(d, 'feed.json'), encoding='utf-8'))))
+        except Exception:  # noqa: BLE001
+            pass
     token = os.environ.get('INGEST_TOKEN', '').strip()
-    urls = ([BASE + '/media/vfeed-%s.txt' % token, BASE + '/media/vfeed-%s.png' % token, BASE + '/media/vfeed-%s.json' % token] if token else []) + [RAW_FEED]
-    for u in urls:
+    urls = ([('site', BASE + '/media/vfeed-%s.txt' % token), ('site', BASE + '/media/vfeed-%s.png' % token), ('site', BASE + '/media/vfeed-%s.json' % token)] if token else []) + [('github', RAW_FEED)]
+    for where, u in urls:
+        if where == 'site' and any(w == 'site' for w, _ in found):
+            continue
         try:
             b = _get(u)
+            k = b.find(b'GZJSON:')
+            found.append((where, json.loads((b[k + 7:] if k >= 0 else b).decode('utf-8', 'replace'))))
         except Exception:  # noqa: BLE001
             continue
-        k = b.find(b'GZJSON:')
-        try:
-            return json.loads((b[k + 7:] if k >= 0 else b).decode('utf-8', 'replace'))
-        except Exception:  # noqa: BLE001
-            continue
-    raise SystemExit('live: no job feed could be read')
+    found = [(w, j) for w, j in found if isinstance(j, dict) and isinstance(j.get('posts'), list)]
+    if not found:
+        raise SystemExit('live: no job feed could be read')
+    where, best = max(found, key=lambda x: str(x[1].get('generated', '')))
+    log('live: job feed from %s, generated %s (copies read: %s)' % (where, best.get('generated', '?'), ', '.join('%s %s' % (w, str(j.get('generated', '?'))[:16]) for w, j in found)))
+    return best
 
 
 def lines(path):

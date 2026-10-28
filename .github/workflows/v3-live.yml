@@ -6,9 +6,12 @@ name: v3-live
 #                nothing is posted, the live maker's done-list is not touched. This is the test run of step 3.
 #   mode deliver: the videos go to the site exactly like video-maker.yml sends them (api/video_receive.php, the same
 #                token and fields), so the posters publish them. Step 4 only, on the owner's word.
-# Started by hand for now; step 3 adds a schedule.
+# STEP 3 (2026-10-28, owner: "go step 3"): a test video every 3 hours, 8 a day (his goal), in SHADOW mode:
+# a scheduled run has no inputs, so it is always shadow and sends nothing. By hand it can also run a chosen page.
 
 on:
+  schedule:
+    - cron: "47 */3 * * *"
   workflow_dispatch:
     inputs:
       mode:
