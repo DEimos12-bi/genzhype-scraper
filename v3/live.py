@@ -221,6 +221,11 @@ def main():
     batch, wanted, send = int(arg('--batch', '1')), arg('--page'), '--deliver' in sys.argv
     budget = float(arg('--budget', '3000'))
     drop = os.path.join(ROOT, 'drop')
+    try:                                                   # the site's firewall blackholes some GitHub machines ("Network is unreachable", 2026-10-29):
+        _get(BASE + '/', timeout=20)                       # such a run can read nothing and send nothing; it stops here, the next run (another machine) tries,
+    except Exception as e:  # noqa: BLE001                 # and no page is counted as failed for it
+        log('live: this machine cannot reach %s (%s): nothing is tried this run' % (BASE, str(e)[:80]))
+        return 0
     jobs = (feed().get('posts') or [])
     log('live: %d job(s) in the feed, mode %s' % (len(jobs), 'DELIVER (the site gets the video)' if send else 'SHADOW (nothing is sent or posted)'))
     made = 0

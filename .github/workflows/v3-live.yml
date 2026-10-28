@@ -8,7 +8,8 @@ name: v3-live
 #                token and fields), so the posters publish them. Step 4 only, on the owner's word.
 # STEP 4 (2026-10-29, owner: "go step 4"): a video every 3 hours, 8 a day, DELIVERED to the site (scheduled runs have no
 # inputs, so they deliver); the site's posters publish it. By hand the mode input still chooses (default shadow = a test).
-# The old maker (video-maker.yml) is switched off, not deleted.
+# The old maker (video-maker.yml) is switched off, not deleted. A scheduled run makes up to 2 videos: a run on a GitHub
+# machine the site's firewall blocks makes none, and the next run makes up for it.
 
 on:
   schedule:
@@ -105,7 +106,7 @@ jobs:
           extra=""
           [ "$MODE" = "deliver" ] && extra="--deliver"
           [ -n "$PAGE" ] && extra="$extra --page $PAGE"
-          ( timeout 6600 python v3/live.py --batch "${BATCH:-1}" --budget 3300 $extra 2>&1 | tee drop/run.log ) || echo "no video this run (the reason is in drop/run.log)"
+          ( timeout 6600 python v3/live.py --batch "${BATCH:-2}" --budget 3300 $extra 2>&1 | tee drop/run.log ) || echo "no video this run (the reason is in drop/run.log)"
           for w in v3/work/live-*/; do p=$(basename "$w" | sed 's/live-//'); [ -f "$w/out/report.json" ] && mkdir -p "drop/$p" && cp "$w/out/report.json" "drop/$p/" || true; done
           ls -laR drop | head -40
 
