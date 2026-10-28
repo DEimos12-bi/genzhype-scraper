@@ -48,6 +48,7 @@ NVIDIA = {'text': [r'deepseek-v', r'kimi-k3', r'mistral-large-2', r'nemotron-4-3
                     r'deepseek-v', r'mistral-large'],
           'vision': [r'llama-3\.2-90b-vision', r'gemma-4-31b', r'nano-omni', r'llama-3\.2-11b-vision', r'phi-3-vision', r'gemma-3-12b']}
 TABLE = {'gemini': GEMINI, 'nvidia': NVIDIA}
+OPENROUTER = ['openrouter/nvidia/nemotron-3-ultra-550b-a55b:free', 'openrouter/openrouter/free']      # 'nemotron-3-super-120b-a12b:free' answered 404 on 2026-10-28
 LIMIT = re.compile(r'429|quota|resource_exhausted|rate limit|too many requests', re.I)
 
 
@@ -138,6 +139,15 @@ def write():
                            key=lambda n: (place(n, table),) + newest_first(n))
             for n in names:
                 order[kind] += [p + '/' + n for p in keys if '%s|%s' % (n, t) in seen[p] and real(n, seen[p]['%s|%s' % (n, t)])]
+    # the other providers of the site (Groq, Cloudflare, OpenRouter): after every Gemini and NVIDIA key, in the order of the
+    # committed config.json; a model of theirs that fails is put aside during the run like any other (ai.strikes)
+    base = json.load(open(os.path.join(HERE, 'config.json'), encoding='utf-8')).get('ai', {})
+    for kind in ('text', 'light', 'vision'):
+        extra = [m for m in (base.get(kind) or base.get('reader' if kind == 'light' else 'text') or [])
+                 if m.split('/', 1)[0] in ('groq', 'cloudflare', 'openrouter') and ai.key(m.split('/', 1)[0]) and m not in order[kind]]
+        if kind != 'vision' and ai.key('openrouter'):                # the site's free OpenRouter models (its config, 2026-10-28): the very last resort
+            extra += [m for m in OPENROUTER if m not in extra and m not in order[kind]]
+        order[kind] += extra
     order['reader'] = order['light']
     if not order['text'] or not order['vision']:
         print('too few models answer (text %d, pictures %d): the order is NOT changed' % (len(order['text']), len(order['vision'])))

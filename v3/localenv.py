@@ -44,15 +44,44 @@ def load():
         return 0
     s = _settings()
     own, site = own_keys(s), site_keys(s)
-    if any(k in own for k in NAMES[:8]):                       # the videos' own AI keys: of the site's, only the search and stock keys are borrowed
-        site = {k: v for k, v in site.items() if k not in NAMES[:8]}
+    keys = combined(own, site)
     n = 0
-    for name in list(NAMES) + sorted(k for k in own if k not in NAMES):
-        v = own.get(name) or site.get(name)
+    for name in list(NAMES) + sorted(k for k in keys if k not in NAMES):
+        v = keys.get(name)
         if isinstance(v, str) and v.strip() and not os.environ.get(name):
             os.environ[name] = v.strip()
             n += 1
     return n
+
+
+def combined(own, site):
+    """ALL the keys at once (owner, 2026-10-28: "combine the keys I gave you with the ones the system already has, use every
+    API and every model"): the videos' own keys keep their names and come first; each AI key of the site that is not
+    already one of them is added after them. A Gemini or NVIDIA key of the site takes the next free number of its
+    provider (GEMINI_API_KEY_5, NVIDIA_API_KEY_4 ...): every numbered key is one more provider in the rotation (ai.key),
+    so the site's NVIDIA_B and NVIDIA_DIRECTOR keys become numbered NVIDIA keys too. Groq, Cloudflare and OpenRouter
+    keep their own names. The search and stock keys come from the site when the videos have none."""
+    out = {k: v.strip() for k, v in own.items() if isinstance(v, str) and v.strip()}
+    held = set(out.values())
+    slots = {'GEMINI_API_KEY': 'GEMINI', 'NVIDIA_API_KEY': 'NVIDIA', 'NVIDIA_B_API_KEY': 'NVIDIA', 'NVIDIA_DIRECTOR_API_KEY': 'NVIDIA'}
+    for name in NAMES:
+        v = site.get(name, '')
+        v = v.strip() if isinstance(v, str) else ''
+        if not v or v in held:
+            continue
+        if name in slots:
+            fam = slots[name]
+            if fam + '_API_KEY' not in out:
+                out[fam + '_API_KEY'] = v
+            else:
+                k = 2
+                while '%s_API_KEY_%d' % (fam, k) in out:
+                    k += 1
+                out['%s_API_KEY_%d' % (fam, k)] = v
+        elif name not in out:
+            out[name] = v
+        held.add(v)
+    return out
 
 
 def site_keys(s=None):
