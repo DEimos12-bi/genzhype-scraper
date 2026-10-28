@@ -1,0 +1,146 @@
+name: v3-live
+
+# THE PLUG (step 2 of the switch, 2026-10-28): v3 takes the live system's jobs (the same video-feed branch that
+# video-maker.yml reads) and makes their videos with v3/live.py.
+#   mode shadow  (the default): the videos are kept with the run and on branch v3-drop; NOTHING is sent to the site,
+#                nothing is posted, the live maker's done-list is not touched. This is the test run of step 3.
+#   mode deliver: the videos go to the site exactly like video-maker.yml sends them (api/video_receive.php, the same
+#                token and fields), so the posters publish them. Step 4 only, on the owner's word.
+# Started by hand for now; step 3 adds a schedule.
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "shadow (keep the video, send nothing) or deliver (hand it to the site: step 4 only)"
+        required: false
+        default: "shadow"
+      batch:
+        description: "how many jobs in this run"
+        required: false
+        default: "1"
+      page:
+        description: "one page id from the feed (empty = the next job v3 has not made)"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v3-live
+  cancel-in-progress: false
+
+jobs:
+  make:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Fetch the job feed (the live system's video-feed branch)
+        run: |
+          rm -rf feed && mkdir feed
+          if git fetch --depth 1 origin video-feed:video-feed 2>/dev/null; then git archive video-feed | tar -x -C feed; fi
+          ls -la feed | head -10
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Cache the browser and the pip wheels
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/ms-playwright
+            ~/.cache/pip
+            ~/.cache/huggingface
+          key: v3-live-${{ runner.os }}-1
+
+      - name: Install (ffmpeg, Chromium, the voice, the speech model, the clip tools)
+        run: |
+          command -v ffmpeg >/dev/null || { sudo apt-get update -qq >/dev/null 2>&1 || true; sudo timeout 200 apt-get install -y -qq ffmpeg >/dev/null 2>&1 || true; }
+          ffmpeg -version | head -1
+          python -m pip install --upgrade pip 2>&1 | tail -1
+          python -m pip install -r v3/requirements.txt faster-whisper scenedetect brotli soundfile "yt-dlp[default,curl-cffi]" 2>&1 | tail -2
+          python -m playwright install --with-deps chromium 2>&1 | tail -2
+          sudo timeout 120 apt-get install -y -qq fonts-noto-color-emoji >/dev/null 2>&1 || echo "no emoji font"
+
+      - name: Make the videos
+        env:
+          VIDEO_FEED_DIR: feed
+          MODE: ${{ github.event.inputs.mode }}
+          BATCH: ${{ github.event.inputs.batch }}
+          PAGE: ${{ github.event.inputs.page }}
+          INGEST_TOKEN: ${{ secrets.INGEST_TOKEN }}
+          # every AI key at once (owner, 2026-10-28): the site's keys, and the videos' own keys once they are added
+          # as repository secrets under these names (the order of models is in v3/config.json)
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_API_KEY_2: ${{ secrets.GEMINI_API_KEY_2 }}
+          GEMINI_API_KEY_3: ${{ secrets.GEMINI_API_KEY_3 }}
+          GEMINI_API_KEY_4: ${{ secrets.GEMINI_API_KEY_4 }}
+          GEMINI_API_KEY_5: ${{ secrets.GEMINI_API_KEY_5 }}
+          AI_PROBE_NVIDIA: ${{ secrets.AI_PROBE_NVIDIA }}
+          NVIDIA_API_KEY_2: ${{ secrets.NVIDIA_API_KEY_2 }}
+          NVIDIA_API_KEY_3: ${{ secrets.NVIDIA_API_KEY_3 }}
+          NVIDIA_API_KEY_4: ${{ secrets.NVIDIA_API_KEY_4 }}
+          NVIDIA_API_KEY_5: ${{ secrets.AI_PROBE_NVIDIA_DIRECTOR }}
+          AI_PROBE_NVIDIA_DIRECTOR: ${{ secrets.AI_PROBE_NVIDIA_DIRECTOR }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          CF_AI_TOKEN: ${{ secrets.CF_AI_TOKEN }}
+          AI_PROBE_OPENROUTER: ${{ secrets.AI_PROBE_OPENROUTER }}
+          PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
+          YOUTUBE_KEY: ${{ secrets.YOUTUBE_KEY }}
+        run: |
+          mkdir -p drop
+          extra=""
+          [ "$MODE" = "deliver" ] && extra="--deliver"
+          [ -n "$PAGE" ] && extra="$extra --page $PAGE"
+          ( timeout 6600 python v3/live.py --batch "${BATCH:-1}" --budget 3300 $extra 2>&1 | tee drop/run.log ) || echo "no video this run (the reason is in drop/run.log)"
+          for w in v3/work/live-*/; do p=$(basename "$w" | sed 's/live-//'); [ -f "$w/out/report.json" ] && mkdir -p "drop/$p" && cp "$w/out/report.json" "drop/$p/" || true; done
+          ls -laR drop | head -40
+
+      - name: Keep the results with the run
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v3-live-videos
+          path: drop
+          retention-days: 14
+
+      - name: Push the results to the v3-drop branch
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          cd drop
+          git init -q
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -q -b v3-drop
+          git add -A
+          git commit -q -m "v3 live videos $(date -u +%Y-%m-%dT%H:%M:%SZ)" || echo "nothing to push"
+          git push -qf "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" v3-drop || true
+
+      - name: Keep v3's own done-list (never the live maker's, unless mode deliver)
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          MODE: ${{ github.event.inputs.mode }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git"
+          git add .social/v3_done.txt .social/v3_failed.txt 2>/dev/null || true
+          [ "$MODE" = "deliver" ] && git add .social/video_done.txt 2>/dev/null || true
+          git commit -q -m "v3-live: done-list" || { echo "nothing to keep"; exit 0; }
+          for i in 1 2 3 4 5; do
+            if git pull -q --rebase --autostash origin main && git push -q origin HEAD:main; then echo "kept"; exit 0; fi
+            sleep $((i * 4))
+          done
+          echo "::warning::v3 done-list not pushed after 5 attempts"

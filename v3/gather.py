@@ -237,6 +237,27 @@ def main(work, budget=None, log=lambda *a: print(*a, flush=True)):
             keep()
         m['channels_done'] = True
         keep()
+    if m.get('store_clips') and not m.get('store_done'):      # 2d. the clips the live system's hunt kept for this story (live.py, from the job feed)
+        k = sum(1 for a in A if a.startswith('store'))
+        for c in m['store_clips']:
+            if k >= 3 or c['url'] in m.setdefault('store_tried', []):
+                continue
+            room(45, 'a clip the site kept')
+            m['store_tried'].append(c['url'])
+            aid = 'store%d' % (k + 1)
+            meta = supply.fetch(c['url'], os.path.join(adir, aid + '.mp4'), keep=30, log=log)
+            if meta:
+                k += 1
+                name = re.sub(r'[^A-Za-z0-9@._-]', '', (meta.get('author') or c.get('by') or '').lstrip('@'))
+                who = ('@' + name) if name else 'a %s channel' % c['platform']
+                title = (meta.get('title') or '')[:140]
+                A[aid] = {'kind': 'clip', 'file': aid + '.mp4', 'title': title, 'by': who, 'page': c['url'], 'found': True,
+                          'credit': ('CLIP · %s / %s' % (who.upper()[:24], c['platform'].upper())) if name else 'CLIP · %s' % c['platform'].upper(),
+                          'about': '"%s", posted by %s on %s. Kept for this story by the clip search of the site' % (title, who, c['platform'])}
+                log('%s: "%s" by %s, kept by the site for this story' % (aid, title[:60], who))
+            keep()
+        m['store_done'] = True
+        keep()
     if not m.get('hunted') and not m.get('examples'):          # 2e. clips of the story itself, on the platforms this machine can fetch from
         if 'finds' not in m:
             room(50, 'the search for clips')
