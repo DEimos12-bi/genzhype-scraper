@@ -76,16 +76,17 @@ jobs:
           PAGE: ${{ github.event.inputs.page }}
           INGEST_TOKEN: ${{ secrets.INGEST_TOKEN }}
           # every AI key at once (owner, 2026-10-28): the site's keys, and the videos' own keys once they are added
-          # as repository secrets under these names (the order of models is in v3/config.json)
+          # as repository secrets under these names (the order of models is in v3/config.json); four were saved with extra
+          # characters in their names (GEMINI_API_KEYL12 ...): those names are read first, the clean names after
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          GEMINI_API_KEY_2: ${{ secrets.GEMINI_API_KEY_2 }}
-          GEMINI_API_KEY_3: ${{ secrets.GEMINI_API_KEY_3 }}
+          GEMINI_API_KEY_2: ${{ secrets.GEMINI_API_KEY_2L5 || secrets.GEMINI_API_KEY_2 }}
+          GEMINI_API_KEY_3: ${{ secrets.GEMINI_API_KEY_3L12 || secrets.GEMINI_API_KEY_3 }}
           GEMINI_API_KEY_4: ${{ secrets.GEMINI_API_KEY_4 }}
-          GEMINI_API_KEY_5: ${{ secrets.GEMINI_API_KEY_5 }}
+          GEMINI_API_KEY_5: ${{ secrets.GEMINI_API_KEYL12 || secrets.GEMINI_API_KEY_5 }}
           AI_PROBE_NVIDIA: ${{ secrets.AI_PROBE_NVIDIA }}
-          NVIDIA_API_KEY_2: ${{ secrets.NVIDIA_API_KEY_2 }}
+          NVIDIA_API_KEY_2: ${{ secrets.NVIDIA_API_KEY_2L34 || secrets.NVIDIA_API_KEY_2 }}
           NVIDIA_API_KEY_3: ${{ secrets.NVIDIA_API_KEY_3 }}
-          NVIDIA_API_KEY_4: ${{ secrets.NVIDIA_API_KEY_4 }}
+          NVIDIA_API_KEY_4: ${{ secrets.NVIDIA_API_KEYL0 || secrets.NVIDIA_API_KEY_4 }}
           NVIDIA_API_KEY_5: ${{ secrets.AI_PROBE_NVIDIA_DIRECTOR }}
           AI_PROBE_NVIDIA_DIRECTOR: ${{ secrets.AI_PROBE_NVIDIA_DIRECTOR }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
