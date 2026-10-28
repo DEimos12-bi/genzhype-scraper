@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "shadow (keep the video, send nothing) or deliver (hand it to the site: step 4 only)"
+        description: "shadow (keep the video, send nothing), deliver (hand it to the site: step 4 only) or keys (check which AI keys answer, no video)"
         required: false
         default: "shadow"
       batch:
@@ -97,6 +97,7 @@ jobs:
           YOUTUBE_KEY: ${{ secrets.YOUTUBE_KEY }}
         run: |
           mkdir -p drop
+          if [ "$MODE" = "keys" ]; then python v3/keycheck.py 2>&1 | tee drop/keys.log; exit 0; fi
           extra=""
           [ "$MODE" = "deliver" ] && extra="--deliver"
           [ -n "$PAGE" ] && extra="$extra --page $PAGE"
