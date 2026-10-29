@@ -42,6 +42,7 @@ UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:130.0) Gecko/20100101 Firefox
 STATE = os.path.join(ROOT, '.social')
 DONE, FAILED, LIVE_DONE = os.path.join(STATE, 'v3_done.txt'), os.path.join(STATE, 'v3_failed.txt'), os.path.join(STATE, 'video_done.txt')
 FAIL_CAP = 2
+DAILY = int(os.environ.get('V3_DAILY', '8'))   # the owner's goal, 2026-10-28: 8 videos a day (GitHub starts an hourly job only some of the hours, so it runs hourly and stops at 8)
 # pictures of the site's store that may be shown: the site's own files (not its cover card), the subjects' own channels and posts, free photos
 SHOWABLE = re.compile(r'^https://(?:genzhype\.com/(?:assets|media)/(?!covers/)|i\.ytimg\.com/|yt3\.ggpht\.com/|pbs\.twimg\.com/|(?:commons|upload)\.wikimedia\.org/|static-cdn\.jtvnw\.net/|clips-media-assets2\.twitch\.tv/)', re.I)
 
@@ -108,7 +109,7 @@ def failures():
 
 
 def pick(jobs, wanted=None):
-    done, failed = set(lines(DONE)), failures()
+    done, failed = {x.split()[0] for x in lines(DONE)}, failures()
     for j in jobs:
         pid = str(j.get('page_id', ''))
         if wanted and pid != wanted:
@@ -229,6 +230,13 @@ def main():
     jobs = (feed().get('posts') or [])
     log('live: %d job(s) in the feed, mode %s' % (len(jobs), 'DELIVER (the site gets the video)' if send else 'SHADOW (nothing is sent or posted)'))
     made = 0
+    today = time.strftime('%Y-%m-%d', time.gmtime())
+    made_today = sum(1 for x in lines(DONE) if len(x.split()) > 1 and x.split()[1].startswith(today))
+    if not wanted and made_today >= DAILY:
+        log('live: %d video(s) made today already (the cap is %d): nothing more today' % (made_today, DAILY))
+        return 0
+    if not wanted:
+        batch = min(batch, DAILY - made_today)
     for _ in range(batch):
         job = pick(jobs, wanted)
         if not job:
@@ -253,7 +261,7 @@ def main():
                     b.write(a.read())
         json.dump({'page_id': pid, 'slug': job.get('slug', ''), 'title': job.get('title', ''), 'link': job['link'], 'mp4': os.path.basename(mp4), 'mode': 'deliver' if send else 'shadow',
                    'made': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}, open(os.path.join(drop, pid, 'job.json'), 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
-        add_line(DONE, pid)
+        add_line(DONE, '%s %s' % (pid, time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())))      # the time: the daily cap counts it
         made += 1
         if send:
             err = deliver(job, mp4)
