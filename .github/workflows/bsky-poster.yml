@@ -1,6 +1,9 @@
 name: GenZHype Bluesky poster
 on:
   schedule:
+    - cron: '25 15 * * *'      # 2026-10-29 owner: 8 a day (three earlier runs added)
+    - cron: '5 17 * * *'
+    - cron: '45 18 * * *'
     - cron: '25 21 * * *'
     - cron: '5 23 * * *'
     - cron: '45 0 * * *'
