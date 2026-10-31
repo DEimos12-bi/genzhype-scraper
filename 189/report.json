@@ -1,0 +1,266 @@
+{
+ "made": true,
+ "file": "genzhype-dominatrix-shy-sotomayor-alleges-secret-ties-to-kristi-noem-s-husband.mp4",
+ "seconds": 64.0,
+ "words": 153,
+ "shots": 21,
+ "assets_used": [
+  "face_jonmichaelraasch",
+  "face_stephaniemyers",
+  "photo0",
+  "stock1"
+ ],
+ "director_model": "gemini/gemini-3.5-flash-lite",
+ "opening": {
+  "written": [
+   "A dominatrix claims she kept a secret online relationship with Kristi Noem's husband. It allegedly lasted nine whole years. Now those claims are spilling onto podcasts.",
+   "Nine whole years. That is how long a dominatrix claims she stayed in contact with Kristi Noem's husband. Now the internet is arguing over the receipts.",
+   "Kristi Noem built her public image on traditional values. Now an alleged romantic partner claims a nine-year secret relationship with her husband. The claims are dividing social media.",
+   "That is Kristi Noem and her husband. A dominatrix claims she kept a secret nine-year online tie with him. Now those alleged details are spilling out online.",
+   "Critics call it political hypocrisy. Defenders say consensual adult life is private. Both sides are fighting over allegations about Kristi Noem's husband."
+  ],
+  "writer_pick": "That is Kristi Noem and her husband. A dominatrix claims she kept a secret nine-year online tie with him. Now those alleged details are spilling out online.",
+  "in_form": 4,
+  "scores": [
+   [
+    "Nine whole years. That is how long a dominatrix claims she stayed in contact with Kristi Noem's husband. Now the internet is arguing over the receipts.",
+    9.0
+   ],
+   [
+    "Kristi Noem built her public image on traditional values. Now an alleged romantic partner claims a nine-year secret relationship with her husband. The claims are dividing social media.",
+    3.0
+   ],
+   [
+    "That is Kristi Noem and her husband. A dominatrix claims she kept a secret nine-year online tie with him. Now those alleged details are spilling out online.",
+    6.0
+   ],
+   [
+    "Critics call it political hypocrisy. Defenders say consensual adult life is private. Both sides are fighting over allegations about Kristi Noem's husband.",
+    2.0
+   ]
+  ],
+  "why": "It gets straight to the wild dominatrix detail and missing receipts.",
+  "by": "gemini/gemini-3.6-flash",
+  "picked": "Nine whole years. That is how long a dominatrix claims she stayed in contact with Kristi Noem's husband. Now the internet is arguing over the receipts."
+ },
+ "fact_checked": true,
+ "unsupported_left": 0,
+ "left_open": [
+  "lines 2, 4, 5 start cold, on a name or a thing the viewer has not heard yet, with nothing tying it to the line before (\"The controversy first surfaced ...\"): start each from what was just said (a time: \"Same night,\"; a pointer: \"That's ...\", \"The club is ...\", \"His answer:\"; a turn: \"But\", \"Then\", \"So\"; or the question the last line left open) and bring the new name in after it",
+  "line 1 names Noem, a private person: never say the name, say \"husband of Kristi Noem\" instead",
+  "line 4, sentence \"They asked the public for discretion.\": a desk phrase: say what happened instead (generic PR statement phrase)",
+  "line 5, sentence \"Critics point to political hypocrisy.\": fits any story: say a fact only this story has (its name, its number, the real words) (generic political commentary)",
+  "line 5, sentence \"They argue public stances make private behavior newsworthy.\": fits any story: say a fact only this story has (its name, its number, the real words) (generic argument)",
+  "line 6, sentence \"But defenders argue privacy comes first.\": fits any story: say a fact only this story has (its name, its number, the real words) (generic defense)"
+ ],
+ "sensitive": {
+  "flag": false,
+  "why": ""
+ },
+ "ai_calls": [
+  {
+   "model": "gemini/gemini-3.5-flash-lite",
+   "kind": "light",
+   "s": 1.0,
+   "ok": true
+  },
+  {
+   "model": "gemini/gemini-3.5-flash-lite",
+   "kind": "light",
+   "s": 1.2,
+   "ok": true
+  },
+  {
+   "model": "gemini/gemini-3.5-flash-lite",
+   "kind": "light",
+   "s": 1.1,
+   "ok": true
+  },
+  {
+   "model": "gemini/gemini-3.5-flash-lite",
+   "kind": "light",
+   "s": 0.7,
+   "ok": true
+  },
+  {
+   "model": "gemini/gemini-3.5-flash-lite",
+   "kind": "light",
+   "s": 0.9,
+   "ok": true
+  },
+  {
+   "model": "gemini/gemini-3.5-flash-lite",
+   "kind": "light",
+   "s": 1.2,
+   "ok": true
+  },
+  {
+   "model": "gemini/gemini-3.5-flash-lite",
+   "kind": "light",
+   "s": 0.9,
+   "ok": true
+  },
+  {
+   "model": "gemini/gemini-3.5-flash-lite",
+   "kind": "light",
+   "s": 31.0,
+   "ok": true
+  },
+  {
+   "model": "gemini/gemini-3.5-flash-lite",
+   "kind": "light",
+   "s": 0.9,
+   "ok": true
+  },
+  {
+   "model": "gemini/gemini-3.5-flash-lite",
+   "kind": "light",
+   "s": 1.6,
+   "ok": true
+  },
+  {
+   "model": "gemini/gemini-3.5-flash-lite",
+   "kind": "light",
+   "s": 0.7,
+   "ok": true
+  },
+  {
+   "model": "gemini/gemini-3.5-flash-lite",
+   "kind": "vision",
+   "s": 13.9,
+   "ok": true
+  },
+  {
+   "model": "gemini/gemini-3.5-flash-lite",
+   "kind": "vision",
+   "s": 1.4,
+   "ok": true
+  },
+  {
+   "model": "gemini/gemini-3.5-flash-lite",
+   "kind": "vision",
+   "s": 2.6,
+   "ok": true
+  },
+  {
+   "model": "gemini/gemini-3.8-flash",
+   "kind": "text",
+   "s": 65.2,
+   "ok": true
+  },
+  {
+   "model": "gemini/gemini-3.8-flash",
+   "kind": "text",
+   "s": 100.1,
+   "ok": false,
+   "why": "gemini/gemini-3.8-flash: The read operation timed out"
+  },
+  {
+   "model": "gemini/gemini-3.6-flash",
+   "kind": "text",
+   "s": 33.2,
+   "ok": true
+  },
+  {
+   "model": "gemini/gemini-3.6-flash",
+   "kind": "text",
+   "s": 2.7,
+   "ok": true
+  },
+  {
+   "model": "gemini/gemini-3.6-flash",
+   "kind": "text",
+   "s": 100.1,
+   "ok": false,
+   "why": "gemini/gemini-3.6-flash: The read operation timed out"
+  },
+  {
+   "model": "gemini/gemini-3.5-flash",
+   "kind": "text",
+   "s": 0.5,
+   "ok": false,
+   "why": "gemini/gemini-3.5-flash: HTTP 503 [{   \"error\": {     \"code\": 503,     \"message\": \"This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.\",     \"status\": \"UNAVAILABLE\"   } } ]"
+  },
+  {
+   "model": "gemini2/gemini-3.5-flash",
+   "kind": "text",
+   "s": 3.8,
+   "ok": false,
+   "why": "gemini2/gemini-3.5-flash: HTTP 503 [{   \"error\": {     \"code\": 503,     \"message\": \"This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.\",     \"status\": \"UNAVAILABLE\"   } } ]"
+  },
+  {
+   "model": "gemini4/gemini-3.5-flash",
+   "kind": "text",
+   "s": 0.5,
+   "ok": false,
+   "why": "gemini4/gemini-3.5-flash: HTTP 503 [{   \"error\": {     \"code\": 503,     \"message\": \"This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.\",     \"status\": \"UNAVAILABLE\"   } } ]"
+  },
+  {
+   "model": "gemini5/gemini-3.5-flash",
+   "kind": "text",
+   "s": 0.4,
+   "ok": false,
+   "why": "gemini5/gemini-3.5-flash: HTTP 503 [{   \"error\": {     \"code\": 503,     \"message\": \"This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.\",     \"status\": \"UNAVAILABLE\"   } } ]"
+  },
+  {
+   "model": "gemini/gemini-3.5-flash-lite",
+   "kind": "text",
+   "s": 2.7,
+   "ok": true
+  },
+  {
+   "model": "gemini/gemini-3.5-flash-lite",
+   "kind": "text",
+   "s": 0.6,
+   "ok": true
+  },
+  {
+   "model": "gemini/gemini-3.5-flash-lite",
+   "kind": "text",
+   "s": 1.7,
+   "ok": true
+  },
+  {
+   "model": "gemini/gemini-3.5-flash-lite",
+   "kind": "text",
+   "s": 1.5,
+   "ok": true
+  },
+  {
+   "model": "gemini/gemini-3.5-flash-lite",
+   "kind": "text",
+   "s": 0.6,
+   "ok": true
+  },
+  {
+   "model": "gemini/gemini-3.5-flash-lite",
+   "kind": "text",
+   "s": 1.4,
+   "ok": true
+  },
+  {
+   "model": "gemini/gemini-3.5-flash-lite",
+   "kind": "text",
+   "s": 1.5,
+   "ok": true
+  },
+  {
+   "model": "gemini/gemini-3.5-flash-lite",
+   "kind": "text",
+   "s": 0.9,
+   "ok": true
+  },
+  {
+   "model": "gemini/gemini-3.5-flash-lite",
+   "kind": "text",
+   "s": 1.0,
+   "ok": true
+  },
+  {
+   "model": "gemini/gemini-3.5-flash-lite",
+   "kind": "text",
+   "s": 0.7,
+   "ok": true
+  }
+ ]
+}

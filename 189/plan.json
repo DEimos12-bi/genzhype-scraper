@@ -1,0 +1,1280 @@
+{
+ "angle": "A dominatrix claims she had a nine-year secret relationship with Kristi Noem's husband, sparking a public debate over hypocrisy versus personal privacy.",
+ "lines": [
+  {
+   "id": "hook",
+   "text": "Nine years. That is how long the alleged romantic partner claims she stayed in contact with the husband of Kristi Noem. Honestly? Kind of wild.",
+   "beats": [
+    {
+     "say": "Nine years.",
+     "show": {
+      "asset": "photo0",
+      "move": "close",
+      "focus": "s1"
+     },
+     "gfx": [],
+     "t0": 0.0,
+     "t1": 0.95
+    },
+    {
+     "say": "That is how long the alleged romantic partner claims she stayed in contact with the husband of Kristi Noem.",
+     "show": {
+      "asset": "photo0",
+      "move": "close",
+      "focus": "s2"
+     },
+     "gfx": [],
+     "t0": 0.95,
+     "t1": 6.06
+    },
+    {
+     "say": "Honestly?",
+     "show": {
+      "asset": "hunt1",
+      "move": "under"
+     },
+     "gfx": [],
+     "t0": 6.06,
+     "t1": 6.882
+    },
+    {
+     "say": "Kind of wild.",
+     "show": {
+      "asset": "photo0",
+      "move": "auto"
+     },
+     "gfx": [],
+     "t0": 6.882,
+     "t1": 7.867
+    }
+   ],
+   "overlays": [
+    {
+     "k": "stamp",
+     "t": "9 YEARS",
+     "on": "nine",
+     "beat": 0
+    }
+   ],
+   "caps": [
+    {
+     "say": "nine years",
+     "show": "9 YEARS"
+    }
+   ],
+   "show": {
+    "asset": "photo0",
+    "mode": "sharp"
+   }
+  },
+  {
+   "id": "background",
+   "text": "The controversy first surfaced back in March. Reports alleged her husband engaged in secret fetish chats. One post with twenty-six thousand likes warned of potential blackmail risks.",
+   "beats": [
+    {
+     "say": "The controversy first surfaced back in March.",
+     "show": {
+      "asset": "photo0",
+      "move": "whole"
+     },
+     "gfx": [],
+     "t0": 7.867,
+     "t1": 10.488
+    },
+    {
+     "say": "Reports alleged her husband engaged in secret fetish chats.",
+     "show": {
+      "asset": "hunt1",
+      "move": "under"
+     },
+     "gfx": [],
+     "t0": 10.488,
+     "t1": 13.552
+    },
+    {
+     "say": "One post with twenty-six thousand likes warned of potential blackmail risks.",
+     "show": {
+      "asset": "hunt1",
+      "move": "under"
+     },
+     "gfx": [],
+     "t0": 13.552,
+     "t1": 17.679
+    }
+   ],
+   "overlays": [
+    {
+     "k": "chip",
+     "t": "VIA DAILY DOT · MARCH",
+     "on": "march",
+     "beat": 0
+    },
+    {
+     "k": "receipt",
+     "post": "post1",
+     "mark": "National security experts warn it could have opened up the ex-Cabinet member to blackmail",
+     "beat": 2,
+     "on": ""
+    }
+   ],
+   "caps": [
+    {
+     "say": "twenty-six thousand likes",
+     "show": "26K LIKES"
+    }
+   ],
+   "show": {
+    "asset": "photo0",
+    "mode": "under"
+   }
+  },
+  {
+   "id": "allegations",
+   "text": "Then the alleged partner went on a podcast. She described years of private conversations about identity. She claimed the cabinet member's wife once walked in mid-call, asking who he was speaking to.",
+   "beats": [
+    {
+     "say": "Then the alleged partner went on a podcast.",
+     "show": {
+      "asset": "face_stephaniemyers",
+      "move": "close",
+      "focus": "s1"
+     },
+     "gfx": [],
+     "t0": 17.679,
+     "t1": 19.821
+    },
+    {
+     "say": "She described years of private conversations about identity.",
+     "show": {
+      "asset": "photo0",
+      "move": "whole"
+     },
+     "gfx": [],
+     "t0": 19.821,
+     "t1": 22.87
+    },
+    {
+     "say": "She claimed the cabinet member's wife once walked in mid-call, asking who he was speaking to.",
+     "show": {
+      "asset": "photo0",
+      "move": "close",
+      "focus": "s2"
+     },
+     "gfx": [],
+     "t0": 22.87,
+     "t1": 27.38
+    }
+   ],
+   "overlays": [
+    {
+     "k": "tag",
+     "name": "Stephanie Myers",
+     "role": "REPORTER · SOURCE",
+     "on": "partner",
+     "beat": 0
+    }
+   ],
+   "caps": [],
+   "show": {
+    "asset": "face_stephaniemyers",
+    "mode": "sharp"
+   }
+  },
+  {
+   "id": "response",
+   "text": "Representatives previously called similar reports devastating. They asked the public for discretion. Neither spouse has publicly responded to these latest claims.",
+   "beats": [
+    {
+     "say": "Representatives previously called similar reports devastating.",
+     "show": {
+      "asset": "hunt1",
+      "move": "under"
+     },
+     "gfx": [],
+     "t0": 27.38,
+     "t1": 30.701
+    },
+    {
+     "say": "They asked the public for discretion.",
+     "show": {
+      "asset": "hunt1",
+      "move": "under"
+     },
+     "gfx": [],
+     "t0": 30.701,
+     "t1": 32.215
+    },
+    {
+     "say": "Neither spouse has publicly responded to these latest claims.",
+     "show": {
+      "asset": "photo0",
+      "move": "whole"
+     },
+     "gfx": [],
+     "t0": 32.215,
+     "t1": 35.403
+    }
+   ],
+   "overlays": [
+    {
+     "k": "sub",
+     "t": "DISCRETION REQUESTED",
+     "on": "discretion",
+     "beat": 1
+    }
+   ],
+   "caps": [],
+   "show": {
+    "asset": "hunt1",
+    "mode": "sharp"
+   }
+  },
+  {
+   "id": "critics",
+   "text": "Critics point to political hypocrisy. They argue public stances make private behavior newsworthy.",
+   "beats": [
+    {
+     "say": "Critics point to political hypocrisy.",
+     "show": {
+      "asset": "photo0",
+      "move": "whole"
+     },
+     "gfx": [],
+     "t0": 35.403,
+     "t1": 37.681
+    },
+    {
+     "say": "They argue public stances make private behavior newsworthy.",
+     "show": {
+      "asset": "photo0",
+      "move": "whole"
+     },
+     "gfx": [],
+     "t0": 37.681,
+     "t1": 40.733
+    }
+   ],
+   "overlays": [],
+   "caps": [],
+   "show": {
+    "asset": "photo0",
+    "mode": "sharp"
+   }
+  },
+  {
+   "id": "defenders",
+   "text": "But defenders argue privacy comes first. They say legal consensual adult behavior is nobody else's business. To them, personal lives should stay off limits.",
+   "beats": [
+    {
+     "say": "But defenders argue privacy comes first.",
+     "show": {
+      "asset": "photo0",
+      "move": "whole"
+     },
+     "gfx": [],
+     "t0": 40.733,
+     "t1": 43.074
+    },
+    {
+     "say": "They say legal consensual adult behavior is nobody else's business.",
+     "show": {
+      "asset": "photo0",
+      "move": "whole"
+     },
+     "gfx": [],
+     "t0": 43.074,
+     "t1": 47.005
+    },
+    {
+     "say": "To them, personal lives should stay off limits.",
+     "show": {
+      "asset": "photo0",
+      "move": "whole"
+     },
+     "gfx": [],
+     "t0": 47.005,
+     "t1": 49.912
+    }
+   ],
+   "overlays": [],
+   "caps": [],
+   "show": {
+    "asset": "photo0",
+    "mode": "sharp"
+   }
+  },
+  {
+   "id": "vote",
+   "text": "Public hypocrisy, or personal privacy? Expose, or private. Drop one below.",
+   "beats": [
+    {
+     "say": "Public hypocrisy, or personal privacy?",
+     "show": {
+      "asset": "photo0",
+      "move": "two",
+      "focus": "s1",
+      "to": "s2"
+     },
+     "gfx": [],
+     "t0": 49.912,
+     "t1": 52.658
+    },
+    {
+     "say": "Expose, or private.",
+     "show": {
+      "asset": "photo0",
+      "move": "whole"
+     },
+     "gfx": [],
+     "t0": 52.658,
+     "t1": 54.264
+    },
+    {
+     "say": "Drop one below.",
+     "show": {
+      "asset": "photo0",
+      "move": "whole"
+     },
+     "gfx": [],
+     "t0": 54.264,
+     "t1": 55.377
+    }
+   ],
+   "overlays": [],
+   "caps": [],
+   "show": {
+    "asset": "photo0",
+    "mode": "sharp"
+   }
+  },
+  {
+   "id": "site",
+   "text": "Nine years of alleged secrets and zero public answers leave the internet split. For more verified receipts, check Gen Z Hype.",
+   "show": {
+    "asset": "auto",
+    "mode": "under"
+   },
+   "overlays": [],
+   "caps": [
+    {
+     "say": "Gen Z Hype",
+     "show": "GenZHype"
+    }
+   ]
+  }
+ ],
+ "vote": {
+  "question": "Hypocrisy or private?",
+  "a": {
+   "word": "EXPOSE",
+   "sub": "public accountability focus"
+  },
+  "b": {
+   "word": "PRIVATE",
+   "sub": "consensual adult privacy"
+  }
+ },
+ "people": [
+  {
+   "name": "Kristi Noem",
+   "role": "former cabinet member"
+  }
+ ],
+ "hunts": [
+  {
+   "id": "hunt1",
+   "query": "social media post smartphone screen trending news",
+   "must_show": "social media post on a phone screen",
+   "game": "",
+   "tried": [
+    "https://www.reddit.com/r/MeidasTouch/comments/1oe2vrf/kristi_noem_using_ai_to_frame_black_people",
+    "https://www.tiktok.com/@nytimes/video/7490332181668121898",
+    "https://www.tiktok.com/@msnbc/video/7504388758037597482"
+   ]
+  }
+ ],
+ "stock": "news studio desk microphone breaking report",
+ "post": {
+  "caption": "Did Kristi Noem's husband really have a nine-year secret online relationship? Expose or private?",
+  "hashtags": [
+   "dominatrix",
+   "shysotomayor",
+   "bryonnoem",
+   "kristinoem",
+   "fetish",
+   "gossip",
+   "news",
+   "politics",
+   "debate"
+  ],
+  "pinned": "Hypocrisy or private? Vote below, then: receipts on genzhype.com (link in bio)"
+ },
+ "takes": [
+  "Honestly? Kind of wild."
+ ],
+ "closing": "Nine years of alleged secrets and zero public answers leave the internet split. For more verified receipts, check Gen Z Hype.",
+ "lo": 150,
+ "hi": 178,
+ "bite_s": 0.0,
+ "notes": [],
+ "words": 153,
+ "sensitive": {
+  "flag": false,
+  "why": ""
+ },
+ "closing_ok": true,
+ "url": "https://genzhype.com/drama/dominatrix-shy-sotomayor-alleges-secret-ties-to-kristi-noem-s-husband/",
+ "title": "Shy Sotomayor alleges nine‑year relationship with Bryon Noem",
+ "no_page": false,
+ "model": "gemini/gemini-3.5-flash-lite",
+ "assets": {
+  "photo0": {
+   "kind": "photo",
+   "post": 0,
+   "url": "https://pbs.twimg.com/media/HEwrfJMbAAA1Eko.jpg",
+   "credit": "IMAGE · @_STEPHANIEMYERS / X",
+   "about": "NEW: Kristi Noem's representatives respond to the @DailyMail report about her husband's alleged secret double life where he cross-dresses and chats online with fetish models, saying she's devastated and the family is blindsided by this. The",
+   "by": "@_StephanieMyers",
+   "page": "https://x.com/_StephanieMyers/status/2039052574977061175",
+   "file": "photo0.jpg",
+   "w": 1200,
+   "h": 1496,
+   "dur": 0.0,
+   "looked": "gemini/gemini-3.5-flash-lite",
+   "score": 4.0,
+   "subjects": [
+    {
+     "id": "s1",
+     "name": "woman in green beanie and camouflage jacket",
+     "x": 0.49,
+     "y": 0.67,
+     "h": 0.61
+    },
+    {
+     "id": "s2",
+     "name": "man in blue zip-up jacket",
+     "x": 0.77,
+     "y": 0.61,
+     "h": 0.67
+    }
+   ],
+   "seen": "A smiling woman wearing a green beanie and camouflage jacket stands next to a smiling man in a blue zip-up jacket outdoors by the ocean. (text in it: \"NOEM\")",
+   "caption": "",
+   "light": 0.543,
+   "usable": true,
+   "person": "real"
+  },
+  "face_stephaniemyers": {
+   "kind": "photo",
+   "file": "face_stephaniemyers.jpg",
+   "person": "real",
+   "by": "Stephanie Myers",
+   "handle": "@_StephanieMyers",
+   "credit": "PHOTO · @_STEPHANIEMYERS / X",
+   "page": "https://genzhype.com/drama/dominatrix-shy-sotomayor-alleges-secret-ties-to-kristi-noem-s-husband/",
+   "about": "photo of Stephanie Myers (their X profile picture)",
+   "w": 400,
+   "h": 400,
+   "dur": 0.0,
+   "face_of": "Stephanie Myers",
+   "eyes": {
+    "kind": "talking",
+    "relevant": true,
+    "exact": true,
+    "shows": "the face of Stephanie Myers"
+   },
+   "windows": [
+    {
+     "t": 0.0,
+     "score": 4.0,
+     "x": 0.5,
+     "face": true,
+     "what": "the face of Stephanie Myers"
+    }
+   ],
+   "looked": "gemini/gemini-3.5-flash-lite",
+   "score": 4.0,
+   "subjects": [
+    {
+     "id": "s1",
+     "name": "blonde woman with a smiling face",
+     "x": 0.49,
+     "y": 0.58,
+     "h": 0.81
+    }
+   ],
+   "seen": "A blonde woman with a smiling face and a necklace stands before a blurred city skyline backdrop.",
+   "caption": "",
+   "light": 0.377,
+   "usable": true,
+   "logo": false
+  },
+  "face_jonmichaelraasch": {
+   "kind": "photo",
+   "file": "face_jonmichaelraasch.jpg",
+   "person": "real",
+   "by": "Jon Michael Raasch",
+   "handle": "@JMRaasch",
+   "credit": "PHOTO · @JMRAASCH / X",
+   "page": "https://genzhype.com/drama/dominatrix-shy-sotomayor-alleges-secret-ties-to-kristi-noem-s-husband/",
+   "about": "photo of Jon Michael Raasch (their X profile picture)",
+   "w": 400,
+   "h": 400,
+   "dur": 0.0,
+   "face_of": "Jon Michael Raasch",
+   "eyes": {
+    "kind": "talking",
+    "relevant": true,
+    "exact": true,
+    "shows": "the face of Jon Michael Raasch"
+   },
+   "windows": [
+    {
+     "t": 0.0,
+     "score": 4.0,
+     "x": 0.5,
+     "face": true,
+     "what": "the face of Jon Michael Raasch"
+    }
+   ],
+   "looked": "gemini/gemini-3.5-flash-lite",
+   "score": 5.0,
+   "subjects": [
+    {
+     "id": "s1",
+     "name": "man wearing dark suit and blue tie",
+     "x": 0.5,
+     "y": 0.5,
+     "h": 0.9
+    }
+   ],
+   "seen": "A man with dark hair smiles slightly, wearing a dark suit jacket, a white collared shirt, and a blue tie.",
+   "caption": "",
+   "light": 0.601,
+   "usable": true,
+   "logo": false
+  },
+  "hunt1": {
+   "kind": "hunt",
+   "missing": "no usable result or the download was refused",
+   "about": "social media post smartphone screen trending news"
+  },
+  "stock1": {
+   "kind": "stock",
+   "file": "stock1.mp4",
+   "credit": "",
+   "about": "neutral stock footage: news studio desk microphone breaking report",
+   "page": "https://www.pexels.com/video/a-woman-talking-on-a-microphone-7599884/",
+   "by": "cottonbro studio",
+   "w": 2048,
+   "h": 1080,
+   "dur": 68.52,
+   "scenes": [
+    [
+     0.0,
+     68.52
+    ]
+   ],
+   "eyes": {
+    "kind": "other",
+    "relevant": true,
+    "exact": true,
+    "shows": "",
+    "model": "none"
+   },
+   "windows": [
+    {
+     "t": 2.52,
+     "score": 3.0,
+     "x": 0.5,
+     "face": false,
+     "what": "",
+     "sc": 0,
+     "ss": 0.0,
+     "se": 68.52
+    },
+    {
+     "t": 6.75,
+     "score": 3.0,
+     "x": 0.5,
+     "face": false,
+     "what": "",
+     "sc": 0,
+     "ss": 0.0,
+     "se": 68.52
+    },
+    {
+     "t": 10.98,
+     "score": 3.0,
+     "x": 0.5,
+     "face": false,
+     "what": "",
+     "sc": 0,
+     "ss": 0.0,
+     "se": 68.52
+    },
+    {
+     "t": 15.21,
+     "score": 3.0,
+     "x": 0.5,
+     "face": false,
+     "what": "",
+     "sc": 0,
+     "ss": 0.0,
+     "se": 68.52
+    },
+    {
+     "t": 19.45,
+     "score": 3.0,
+     "x": 0.5,
+     "face": false,
+     "what": "",
+     "sc": 0,
+     "ss": 0.0,
+     "se": 68.52
+    },
+    {
+     "t": 23.68,
+     "score": 3.0,
+     "x": 0.5,
+     "face": false,
+     "what": "",
+     "sc": 0,
+     "ss": 0.0,
+     "se": 68.52
+    },
+    {
+     "t": 27.91,
+     "score": 3.0,
+     "x": 0.5,
+     "face": false,
+     "what": "",
+     "sc": 0,
+     "ss": 0.0,
+     "se": 68.52
+    },
+    {
+     "t": 32.14,
+     "score": 3.0,
+     "x": 0.5,
+     "face": false,
+     "what": "",
+     "sc": 0,
+     "ss": 0.0,
+     "se": 68.52
+    },
+    {
+     "t": 36.38,
+     "score": 3.0,
+     "x": 0.5,
+     "face": false,
+     "what": "",
+     "sc": 0,
+     "ss": 0.0,
+     "se": 68.52
+    },
+    {
+     "t": 40.61,
+     "score": 3.0,
+     "x": 0.5,
+     "face": false,
+     "what": "",
+     "sc": 0,
+     "ss": 0.0,
+     "se": 68.52
+    },
+    {
+     "t": 44.84,
+     "score": 3.0,
+     "x": 0.5,
+     "face": false,
+     "what": "",
+     "sc": 0,
+     "ss": 0.0,
+     "se": 68.52
+    },
+    {
+     "t": 49.07,
+     "score": 3.0,
+     "x": 0.5,
+     "face": false,
+     "what": "",
+     "sc": 0,
+     "ss": 0.0,
+     "se": 68.52
+    },
+    {
+     "t": 53.31,
+     "score": 3.0,
+     "x": 0.5,
+     "face": false,
+     "what": "",
+     "sc": 0,
+     "ss": 0.0,
+     "se": 68.52
+    },
+    {
+     "t": 57.54,
+     "score": 3.0,
+     "x": 0.5,
+     "face": false,
+     "what": "",
+     "sc": 0,
+     "ss": 0.0,
+     "se": 68.52
+    },
+    {
+     "t": 61.77,
+     "score": 3.0,
+     "x": 0.5,
+     "face": false,
+     "what": "",
+     "sc": 0,
+     "ss": 0.0,
+     "se": 68.52
+    },
+    {
+     "t": 66.0,
+     "score": 3.0,
+     "x": 0.5,
+     "face": false,
+     "what": "",
+     "sc": 0,
+     "ss": 0.0,
+     "se": 68.52
+    }
+   ],
+   "tiles": [
+    {
+     "t": 2.52,
+     "score": 3.0,
+     "x": 0.5
+    },
+    {
+     "t": 6.75,
+     "score": 3.0,
+     "x": 0.5
+    },
+    {
+     "t": 10.98,
+     "score": 3.0,
+     "x": 0.5
+    },
+    {
+     "t": 15.21,
+     "score": 3.0,
+     "x": 0.5
+    },
+    {
+     "t": 19.45,
+     "score": 3.0,
+     "x": 0.5
+    },
+    {
+     "t": 23.68,
+     "score": 3.0,
+     "x": 0.5
+    },
+    {
+     "t": 27.91,
+     "score": 3.0,
+     "x": 0.5
+    },
+    {
+     "t": 32.14,
+     "score": 3.0,
+     "x": 0.5
+    },
+    {
+     "t": 36.38,
+     "score": 3.0,
+     "x": 0.5
+    },
+    {
+     "t": 40.61,
+     "score": 3.0,
+     "x": 0.5
+    },
+    {
+     "t": 44.84,
+     "score": 3.0,
+     "x": 0.5
+    },
+    {
+     "t": 49.07,
+     "score": 3.0,
+     "x": 0.5
+    },
+    {
+     "t": 53.31,
+     "score": 3.0,
+     "x": 0.5
+    },
+    {
+     "t": 57.54,
+     "score": 3.0,
+     "x": 0.5
+    },
+    {
+     "t": 61.77,
+     "score": 3.0,
+     "x": 0.5
+    },
+    {
+     "t": 66.0,
+     "score": 3.0,
+     "x": 0.5
+    }
+   ],
+   "usable": true
+  },
+  "stock2": {
+   "kind": "stock",
+   "file": "stock2.mp4",
+   "credit": "",
+   "about": "neutral stock footage: news studio desk microphone breaking report",
+   "page": "https://www.pexels.com/video/a-woman-doing-a-podcast-7599935/",
+   "by": "cottonbro studio",
+   "w": 1080,
+   "h": 2048,
+   "dur": 20.92,
+   "scenes": [
+    [
+     0.0,
+     20.92
+    ]
+   ],
+   "eyes": {
+    "kind": "other",
+    "relevant": true,
+    "exact": true,
+    "shows": "",
+    "model": "none"
+   },
+   "windows": [
+    {
+     "t": 1.84,
+     "score": 3.0,
+     "x": 0.5,
+     "face": false,
+     "what": "",
+     "sc": 0,
+     "ss": 0.0,
+     "se": 20.92
+    },
+    {
+     "t": 4.71,
+     "score": 3.0,
+     "x": 0.5,
+     "face": false,
+     "what": "",
+     "sc": 0,
+     "ss": 0.0,
+     "se": 20.92
+    },
+    {
+     "t": 7.59,
+     "score": 3.0,
+     "x": 0.5,
+     "face": false,
+     "what": "",
+     "sc": 0,
+     "ss": 0.0,
+     "se": 20.92
+    },
+    {
+     "t": 10.46,
+     "score": 3.0,
+     "x": 0.5,
+     "face": false,
+     "what": "",
+     "sc": 0,
+     "ss": 0.0,
+     "se": 20.92
+    },
+    {
+     "t": 13.33,
+     "score": 3.0,
+     "x": 0.5,
+     "face": false,
+     "what": "",
+     "sc": 0,
+     "ss": 0.0,
+     "se": 20.92
+    },
+    {
+     "t": 16.21,
+     "score": 3.0,
+     "x": 0.5,
+     "face": false,
+     "what": "",
+     "sc": 0,
+     "ss": 0.0,
+     "se": 20.92
+    },
+    {
+     "t": 19.08,
+     "score": 3.0,
+     "x": 0.5,
+     "face": false,
+     "what": "",
+     "sc": 0,
+     "ss": 0.0,
+     "se": 20.92
+    }
+   ],
+   "tiles": [
+    {
+     "t": 1.84,
+     "score": 3.0,
+     "x": 0.5
+    },
+    {
+     "t": 4.71,
+     "score": 3.0,
+     "x": 0.5
+    },
+    {
+     "t": 7.59,
+     "score": 3.0,
+     "x": 0.5
+    },
+    {
+     "t": 10.46,
+     "score": 3.0,
+     "x": 0.5
+    },
+    {
+     "t": 13.33,
+     "score": 3.0,
+     "x": 0.5
+    },
+    {
+     "t": 16.21,
+     "score": 3.0,
+     "x": 0.5
+    },
+    {
+     "t": 19.08,
+     "score": 3.0,
+     "x": 0.5
+    }
+   ],
+   "usable": true
+  },
+  "stock3": {
+   "kind": "stock",
+   "file": "stock3.mp4",
+   "credit": "",
+   "about": "neutral stock footage: news studio desk microphone breaking report",
+   "page": "https://www.pexels.com/video/a-man-talking-in-microphone-6878205/",
+   "by": "cottonbro studio",
+   "w": 1080,
+   "h": 2048,
+   "dur": 66.56,
+   "scenes": [
+    [
+     0.0,
+     66.56
+    ]
+   ],
+   "eyes": {
+    "kind": "other",
+    "relevant": true,
+    "exact": true,
+    "shows": "",
+    "model": "none"
+   },
+   "windows": [
+    {
+     "t": 2.46,
+     "score": 3.0,
+     "x": 0.5,
+     "face": false,
+     "what": "",
+     "sc": 0,
+     "ss": 0.0,
+     "se": 66.56
+    },
+    {
+     "t": 6.57,
+     "score": 3.0,
+     "x": 0.5,
+     "face": false,
+     "what": "",
+     "sc": 0,
+     "ss": 0.0,
+     "se": 66.56
+    },
+    {
+     "t": 10.68,
+     "score": 3.0,
+     "x": 0.5,
+     "face": false,
+     "what": "",
+     "sc": 0,
+     "ss": 0.0,
+     "se": 66.56
+    },
+    {
+     "t": 14.79,
+     "score": 3.0,
+     "x": 0.5,
+     "face": false,
+     "what": "",
+     "sc": 0,
+     "ss": 0.0,
+     "se": 66.56
+    },
+    {
+     "t": 18.89,
+     "score": 3.0,
+     "x": 0.5,
+     "face": false,
+     "what": "",
+     "sc": 0,
+     "ss": 0.0,
+     "se": 66.56
+    },
+    {
+     "t": 23.0,
+     "score": 3.0,
+     "x": 0.5,
+     "face": false,
+     "what": "",
+     "sc": 0,
+     "ss": 0.0,
+     "se": 66.56
+    },
+    {
+     "t": 27.12,
+     "score": 3.0,
+     "x": 0.5,
+     "face": false,
+     "what": "",
+     "sc": 0,
+     "ss": 0.0,
+     "se": 66.56
+    },
+    {
+     "t": 31.23,
+     "score": 3.0,
+     "x": 0.5,
+     "face": false,
+     "what": "",
+     "sc": 0,
+     "ss": 0.0,
+     "se": 66.56
+    },
+    {
+     "t": 35.34,
+     "score": 3.0,
+     "x": 0.5,
+     "face": false,
+     "what": "",
+     "sc": 0,
+     "ss": 0.0,
+     "se": 66.56
+    },
+    {
+     "t": 39.45,
+     "score": 3.0,
+     "x": 0.5,
+     "face": false,
+     "what": "",
+     "sc": 0,
+     "ss": 0.0,
+     "se": 66.56
+    },
+    {
+     "t": 43.55,
+     "score": 3.0,
+     "x": 0.5,
+     "face": false,
+     "what": "",
+     "sc": 0,
+     "ss": 0.0,
+     "se": 66.56
+    },
+    {
+     "t": 47.66,
+     "score": 3.0,
+     "x": 0.5,
+     "face": false,
+     "what": "",
+     "sc": 0,
+     "ss": 0.0,
+     "se": 66.56
+    },
+    {
+     "t": 51.78,
+     "score": 3.0,
+     "x": 0.5,
+     "face": false,
+     "what": "",
+     "sc": 0,
+     "ss": 0.0,
+     "se": 66.56
+    },
+    {
+     "t": 55.89,
+     "score": 3.0,
+     "x": 0.5,
+     "face": false,
+     "what": "",
+     "sc": 0,
+     "ss": 0.0,
+     "se": 66.56
+    },
+    {
+     "t": 60.0,
+     "score": 3.0,
+     "x": 0.5,
+     "face": false,
+     "what": "",
+     "sc": 0,
+     "ss": 0.0,
+     "se": 66.56
+    },
+    {
+     "t": 64.11,
+     "score": 3.0,
+     "x": 0.5,
+     "face": false,
+     "what": "",
+     "sc": 0,
+     "ss": 0.0,
+     "se": 66.56
+    }
+   ],
+   "tiles": [
+    {
+     "t": 2.46,
+     "score": 3.0,
+     "x": 0.5
+    },
+    {
+     "t": 6.57,
+     "score": 3.0,
+     "x": 0.5
+    },
+    {
+     "t": 10.68,
+     "score": 3.0,
+     "x": 0.5
+    },
+    {
+     "t": 14.79,
+     "score": 3.0,
+     "x": 0.5
+    },
+    {
+     "t": 18.89,
+     "score": 3.0,
+     "x": 0.5
+    },
+    {
+     "t": 23.0,
+     "score": 3.0,
+     "x": 0.5
+    },
+    {
+     "t": 27.12,
+     "score": 3.0,
+     "x": 0.5
+    },
+    {
+     "t": 31.23,
+     "score": 3.0,
+     "x": 0.5
+    },
+    {
+     "t": 35.34,
+     "score": 3.0,
+     "x": 0.5
+    },
+    {
+     "t": 39.45,
+     "score": 3.0,
+     "x": 0.5
+    },
+    {
+     "t": 43.55,
+     "score": 3.0,
+     "x": 0.5
+    },
+    {
+     "t": 47.66,
+     "score": 3.0,
+     "x": 0.5
+    },
+    {
+     "t": 51.78,
+     "score": 3.0,
+     "x": 0.5
+    },
+    {
+     "t": 55.89,
+     "score": 3.0,
+     "x": 0.5
+    },
+    {
+     "t": 60.0,
+     "score": 3.0,
+     "x": 0.5
+    },
+    {
+     "t": 64.11,
+     "score": 3.0,
+     "x": 0.5
+    }
+   ],
+   "usable": true
+  }
+ },
+ "kind": "story",
+ "form": "two sides",
+ "opening": {
+  "written": [
+   "A dominatrix claims she kept a secret online relationship with Kristi Noem's husband. It allegedly lasted nine whole years. Now those claims are spilling onto podcasts.",
+   "Nine whole years. That is how long a dominatrix claims she stayed in contact with Kristi Noem's husband. Now the internet is arguing over the receipts.",
+   "Kristi Noem built her public image on traditional values. Now an alleged romantic partner claims a nine-year secret relationship with her husband. The claims are dividing social media.",
+   "That is Kristi Noem and her husband. A dominatrix claims she kept a secret nine-year online tie with him. Now those alleged details are spilling out online.",
+   "Critics call it political hypocrisy. Defenders say consensual adult life is private. Both sides are fighting over allegations about Kristi Noem's husband."
+  ],
+  "writer_pick": "That is Kristi Noem and her husband. A dominatrix claims she kept a secret nine-year online tie with him. Now those alleged details are spilling out online.",
+  "in_form": 4,
+  "scores": [
+   [
+    "Nine whole years. That is how long a dominatrix claims she stayed in contact with Kristi Noem's husband. Now the internet is arguing over the receipts.",
+    9.0
+   ],
+   [
+    "Kristi Noem built her public image on traditional values. Now an alleged romantic partner claims a nine-year secret relationship with her husband. The claims are dividing social media.",
+    3.0
+   ],
+   [
+    "That is Kristi Noem and her husband. A dominatrix claims she kept a secret nine-year online tie with him. Now those alleged details are spilling out online.",
+    6.0
+   ],
+   [
+    "Critics call it political hypocrisy. Defenders say consensual adult life is private. Both sides are fighting over allegations about Kristi Noem's husband.",
+    2.0
+   ]
+  ],
+  "why": "It gets straight to the wild dominatrix detail and missing receipts.",
+  "by": "gemini/gemini-3.6-flash",
+  "picked": "Nine whole years. That is how long a dominatrix claims she stayed in contact with Kristi Noem's husband. Now the internet is arguing over the receipts."
+ },
+ "left_open": [
+  "lines 2, 4, 5 start cold, on a name or a thing the viewer has not heard yet, with nothing tying it to the line before (\"The controversy first surfaced ...\"): start each from what was just said (a time: \"Same night,\"; a pointer: \"That's ...\", \"The club is ...\", \"His answer:\"; a turn: \"But\", \"Then\", \"So\"; or the question the last line left open) and bring the new name in after it",
+  "line 1 names Noem, a private person: never say the name, say \"husband of Kristi Noem\" instead",
+  "line 4, sentence \"They asked the public for discretion.\": a desk phrase: say what happened instead (generic PR statement phrase)",
+  "line 5, sentence \"Critics point to political hypocrisy.\": fits any story: say a fact only this story has (its name, its number, the real words) (generic political commentary)",
+  "line 5, sentence \"They argue public stances make private behavior newsworthy.\": fits any story: say a fact only this story has (its name, its number, the real words) (generic argument)",
+  "line 6, sentence \"But defenders argue privacy comes first.\": fits any story: say a fact only this story has (its name, its number, the real words) (generic defense)"
+ ],
+ "fact_checked": true,
+ "unsupported_left": 0,
+ "closing_used": "written for this video"
+}

@@ -1,0 +1,191 @@
+live: job feed from site, generated 2026-10-31T19:18:31+00:00 (copies read: branch 2026-10-22T14:27, site 2026-10-31T19:18, github 2026-10-22T14:27)
+live: 8 job(s) in the feed, mode DELIVER (the site gets the video)
+live: === page 189 "Shy Sotomayor alleges nine‑year relationship with Bryon Noem"
+live: page 189, reading https://genzhype.com/drama/dominatrix-shy-sotomayor-alleges-secret-ties-to-kristi-noem-s-husband/
+material: "Shy Sotomayor alleges nine‑year relationship with Bryon Noem" | page text 4388 chars | 2 posts (0 with video, 1 with a picture) | 1 outlet texts (dailydot.com) | 0 examples of the meme (none) | people: (none listed) | 8 timeline events (0 with a proof screenshot) | 1 page pictures
+live: the live system's finds added: 0 picture(s), 0 clip link(s)
+== investigate
+investigator (gemini/gemini-3.5-flash-lite): to look up: Shy Sotomayor's direct post or podcast clip where she alleges the nine (Shy Sotomayor's official social media or) | UNCLOSETED with Spencer Macnaughton podcast details or episode page (podcast official site or YouTube page)
+investigator step 1 (gemini/gemini-3.5-flash-lite): search {"query": "Shy Sotomayor Bryon Noem UNCLOSETED podcast"} -> Results for "Shy Sotomayor Bryon Noem UNCLOSETED podcast": 1. [another publisher] Bryon Noem’s Dominatrix Speaks With Uncloseted Media [WATCH] (2026-0
+  who publishes unclosetedmedia.com: Uncloseted Media -> someone else
+investigator step 2 (gemini/gemini-3.5-flash-lite): open {"url": "https://www.unclosetedmedia.com/p/bryon-noems-dominatrix-speaks-with"} -> OPENED [another publisher: a signpost, not a proof] "Bryon Noem’s Dominatrix Speaks With Uncloseted Media [WATCH]" (14000 characters). Its text: Bryon
+investigator step 3 (gemini/gemini-3.5-flash-lite): note {"claim": "Shy Sotomayor stated in an interview that she had a nine-year online relationship with Bryon Noem w -> NOT KEPT AS PROOF: unclosetedmedia is another publisher. If it says where the subject said or published this, open THAT (their post, their site). Othe
+investigator step 4 (gemini/gemini-3.5-flash-lite): search {"query": "Shy Sotomayor UNCLOSETED podcast YouTube"} -> Results for "Shy Sotomayor UNCLOSETED podcast YouTube": 1. [another publisher] Bryon Noem’s Dominatrix Speaks With Uncloseted Media [WATCH] (2026-06-2
+investigator step 5 (gemini/gemini-3.5-flash-lite): search {"query": "Shy Sotomayor Twitter or X profile"} -> Results for "Shy Sotomayor Twitter or X profile": 1. [another publisher] Who is Shy Sotomayor? Dominatrix at centre of Bryon Noem scandal as texts and
+investigator step 6 (gemini/gemini-3.5-flash-lite): search {"query": "Uncloseted Media podcast Shy Sotomayor youtube"} -> Results for "Uncloseted Media podcast Shy Sotomayor youtube": 1. [a social post] Bryon Noem’s Dominatrix Speaks With Uncloseted Media https://www.yout
+investigator step 7 (gemini/gemini-3.5-flash-lite): open {"url": "https://www.youtube.com/watch?v=HXZFi7hcjNg"} -> OPENED [a social post] "- YouTube" (176 characters). Its text: - YouTube About Press Copyright Contact us Creators Advertise Developers Terms Privacy 
+investigator step 8 (gemini/gemini-3.5-flash-lite):  {} -> Unknown tool "". The tools are: search, open, note, done.
+investigator: 8 step(s), 2 page(s) opened, 0 fact(s) verified | the step limit was reached
+== investigate done in 44 s
+== gather
+  face_stephaniemyers: Stephanie Myers, 400x400 (their X profile picture)
+  face_jonmichaelraasch: Jon Michael Raasch, 400x400 (their X profile picture)
+gather: the page's cover is our own card (no photo credit): it is not material
+gather: private people the story names (said by their role, never by name): Shy Sotomayor (alleged romantic partner), Bryon Noem (husband of Kristi Noem)
+gather: the story is about nobody the page names
+  hunt "Shy Sotomayor alleges nine‑year relationship with Bryon Noem": legs [tiktok=0/8 twitch=0/8 kick=0/8 reddit=5/8], kept 5
+  reddit: not fetched (the post has no video of its own and links to none this machine can fetch)
+  reddit: not fetched (the post has no video of its own and links to none this machine can fetch)
+  reddit: not fetched (the post has no video of its own and links to none this machine can fetch)
+  reddit: not fetched (the post has no video of its own and links to none this machine can fetch)
+  reddit: not fetched (the post has no video of its own and links to none this machine can fetch)
+photo0: fetched from the post of @_StephanieMyers
+  photo0 (photo by @_StephanieMyers): A smiling woman wearing a green beanie and camouflage jacket stands next to a smiling man in a blue zip-up jacket outdoors by the ocean. (text in it: "NOEM")
+  face_stephaniemyers (photo by Stephanie Myers): A blonde woman with a smiling face and a necklace stands before a blurred city skyline backdrop.
+  face_jonmichaelraasch (photo by Jon Michael Raasch): A man with dark hair smiles slightly, wearing a dark suit jacket, a white collared shirt, and a blue tie.
+gather: 3 pieces fetched and looked at, 3 usable (photo0, face_stephaniemyers, face_jonmichaelraasch)
+== gather done in 24 s
+== plan
+director: cast by gemini/gemini-3.8-flash: form "two sides"; opens on photo0 (Smiling photo of Kristi and Bryon Noem); players Kristi Noem=photo0, Bryon Noem=photo0; twist on ?; shape: photo0: Dominatrix Shy Sotom > post1: The March report surf > photo0: Sotomayor reveals Kr > post0: Representatives state > post1: One side calls it bla > photo0: The other side argue
+director: 5 openings written, 4 keep the form; picked by gemini/gemini-3.6-flash: "Nine whole years. That is how long a dominatrix claims she stayed in contact with Kristi Noem's husband. Now the internet is arguing over the receipts."
+director: the words are by gemini/gemini-3.6-flash, the pictures by gemini/gemini-3.5-flash-lite
+director round 1 (gemini/gemini-3.6-flash): 162 words, 7 lines, 1 hunts | fact check: clean | faults: the narrator never reacts: add one or two takes (2 to 8 words, right after the fact they react to) and list them in "takes"; line 1 uses "the internet is": say the fact itself; line 5 uses "the internet is": say the fact itself; line 1 names Noem, a private person: never say the name, say "husband of Kristi Noem" instead; line 3 names Noem, a private person: never say the name, say "husband of Kristi Noem" instead; line 4 names Noem, a private person: never say the name, say "husband of Kristi Noem" instead; line 1, sentence "Now the internet is arguing over the receipts.": a desk phrase: say what happened instead (internet is arguing over receipts is cliché); line 4, sentence "Representatives asked for privacy and prayers.": a desk phrase: say what happened instead (standard PR statement phrase); line 5, sentence "Now the internet is locked in a debate.": a desk phrase: say what happened instead (internet is locked in a debate); line 1, sentence "Nine whole years.": fits any story: say a fact only this story has (its name, its number, the real words) (generic duration opener) | KEPT as the best so far
+director: the correction changed 4 lines (gemini/gemini-3.5-flash-lite)
+director round 2 (gemini/gemini-3.5-flash-lite): 153 words, 7 lines, 1 hunts | fact check: clean | faults: lines 2, 4, 5 start cold, on a name or a thing the viewer has not heard yet, with nothing tying it to the line before ("The controversy first surfaced ..."): start each from what was just said (a time: "Same night,"; a pointer: "That's ...", "The club is ...", "His answer:"; a turn: "But", "Then", "So"; or the question the last line left open) and bring the new name in after it; line 1 names Noem, a private person: never say the name, say "husband of Kristi Noem" instead; line 4, sentence "They asked the public for discretion.": a desk phrase: say what happened instead (generic PR statement phrase); line 5, sentence "Critics point to political hypocrisy.": fits any story: say a fact only this story has (its name, its number, the real words) (generic political commentary); line 5, sentence "They argue public stances make private behavior newsworthy.": fits any story: say a fact only this story has (its name, its number, the real words) (generic argument); line 6, sentence "But defenders argue privacy comes first.": fits any story: say a fact only this story has (its name, its number, the real words) (generic defense) | KEPT as the best so far
+director: the correction changed 4 lines (gemini/gemini-3.5-flash-lite)
+director round 3 (gemini/gemini-3.5-flash-lite): 145 words, 7 lines, 1 hunts | fact check: 1 problems | faults: only 145 spoken words: write 150 to 178 (add one more evidence beat from the material, do not pad); no proof on screen: show at least one post as a "receipt" or one real quote as a "quote"; line 5 sounds like an article ("Users"): say it the way you would tell a friend; line 1 names Noem, a private person: never say the name, say "husband of Kristi Noem" instead; line 5, sentence "Now look at the debate.": a desk phrase: say what happened instead (generic transition); line 1, sentence "That is how long the alleged romantic partner claims she stayed in con": fits any story: say a fact only this story has (its name, its number, the real words) (could fit any affair story); line 6, sentence "They argued consensual adult behavior should remain strictly private.": fits any story: say a fact only this story has (its name, its number, the real words) (generic defense of privacy) | WORSE than the best so far (153 words): thrown away
+director: 3 sentence(s) the editor flagged were CUT (cliché, filler or repeat): 136 words | not better: thrown away
+director: the plan used is the one by gemini/gemini-3.5-flash-lite, 153 words, fact check clean
+  critics: "Jon Michael Raasch" was written over a picture that is not theirs (photo0); the name is taken off
+director: form "two sides"; the narrator's takes: Honestly? Kind of wild.
+director: the closing is written for this video: "Nine years of alleged secrets and zero public answers leave the internet split. For more verified receipts, check Gen Z Hype."
+hook     [photo0 sharp] Nine years. That is how long the alleged romantic partner claims she stayed in contact with the husband of Kristi Noem. Honestly? Kind of wild.
+         stamp:9 YEARS
+background [photo0 under] The controversy first surfaced back in March. Reports alleged her husband engaged in secret fetish chats. One post with twenty-six thousand likes warned of potential blackmail risks.
+         chip:VIA DAILY DOT · MARCH | receipt:post1
+allegations [face_stephaniemyers sharp] Then the alleged partner went on a podcast. She described years of private conversations about identity. She claimed the cabinet member's wife once walked in mid-call, asking who he was speaking to.
+         tag:Stephanie Myers
+response [hunt1 sharp] Representatives previously called similar reports devastating. They asked the public for discretion. Neither spouse has publicly responded to these latest claims.
+         sub:DISCRETION REQUESTED
+critics  [photo0 sharp] Critics point to political hypocrisy. They argue public stances make private behavior newsworthy.
+         
+defenders [photo0 sharp] But defenders argue privacy comes first. They say legal consensual adult behavior is nobody else's business. To them, personal lives should stay off limits.
+         
+vote     [photo0 sharp] Public hypocrisy, or personal privacy? Expose, or private. Drop one below.
+         labels:0
+site     [auto under] Nine years of alleged secrets and zero public answers leave the internet split. For more verified receipts, check Gen Z Hype.
+         
+vote: {"question": "Hypocrisy or private?", "a": {"word": "EXPOSE", "sub": "public accountability focus"}, "b": {"word": "PRIVATE", "sub": "consensual adult privacy"}} | hunts: [{"id": "hunt1", "query": "social media post smartphone screen trending news", "must_show": "social media post on a phone screen", "game": ""}] | stock: news studio desk microphone breaking report | sensitive: {'flag': False, 'why': ''}
+== plan done in 319 s
+== footage
+  hunt "Kristi Noem social media post smartphone screen trending new": legs [tiktok=3/8 twitch=0/8 kick=0/8 reddit=3/8], kept 3
+  reddit: not fetched (the post has no video of its own and links to none this machine can fetch)
+  tiktok: not fetched (download: HTTP Error 403: Forbidden)
+  tiktok: not fetched (download: HTTP Error 403: Forbidden)
+hunt1: YouTube searches are off here; "social media post smartphone screen trending news" is not fetched
+little footage (0 clips, 0 s): adding neutral stock, used blurred only
+  stock "news studio desk microphone breaking report": 3 clips
+footage: photo0 1200x1496 0s, face_stephaniemyers 400x400 0s, face_jonmichaelraasch 400x400 0s, stock1 2048x1080 69s, stock2 1080x2048 21s, stock3 1080x2048 67s | missing: hunt1
+== footage done in 5 s
+== eyes
+stock1: other, shows exactly it, 1 scene(s), 16 of 16 moments usable: 
+stock2: other, shows exactly it, 1 scene(s), 7 of 7 moments usable: 
+stock3: other, shows exactly it, 1 scene(s), 16 of 16 moments usable: 
+== eyes done in 10 s
+== repair
+repair: the sentences written for missing footage (hunt1) cannot be dropped without shortening the video too much: the main clip plays under them
+== repair done in 0 s
+== voice
+voice: 63.6 s, 8 lines, 174 words
+== voice done in 72 s
+== receipts
+receipt post1 (@JMRaasch): 548x783, words found: yes
+/home/runner/work/genzhype-scraper/genzhype-scraper/v3/receipts.py:103: DeprecationWarning: Image.Image.getdata is deprecated and will be removed in Pillow 14 (2027-10-15). Use get_flattened_data instead.
+  px = list(im.resize((80, max(1, int(80 * im.height / max(1, im.width))))).getdata())
+/home/runner/work/genzhype-scraper/genzhype-scraper/v3/receipts.py:114: DeprecationWarning: Image.Image.getdata is deprecated and will be removed in Pillow 14 (2027-10-15). Use get_flattened_data instead.
+  spread.append(statistics.pstdev(list(box.getdata())))
+== receipts done in 4 s
+== site
+site: the page on a PC, a tablet and a phone (desktop 1440x2300, tablet 820x2300, phone 780x5200)
+== site done in 11 s
+== cut
+  vote: the two windows asked for on photo0 would show the same part of it; shown whole
+cut: 21 shots over 64.0 s, footage under 100% of it | sharp 0, blurred 2, pictures 19 | assets used: face_jonmichaelraasch, face_stephaniemyers, photo0, stock1
+== cut done in 3 s
+== layout
+transitions: 17.68 glitch (background_2 > allegations_0), 40.73 glitch (critics_0 > defenders_0), 55.38 chromatic-split (vote_0 > site_0)
+layout: 27 moments read
+picture errors: 0 | page errors: none
+layout check 1: clean
+== layout done in 4 s
+== gate
+== gate done in 0 s
+== frames
+frames 0..449 in 71s (158 ms each)
+picture errors: 0 | page errors: none
+frames 0-450 of 1921 done (83 s so far)
+frames 450..899 in 71s (157 ms each)
+picture errors: 0 | page errors: none
+frames 450-900 of 1921 done (164 s so far)
+frames 900..1349 in 72s (161 ms each)
+picture errors: 0 | page errors: none
+frames 900-1350 of 1921 done (249 s so far)
+frames 1350..1799 in 79s (175 ms each)
+picture errors: 0 | page errors: none
+frames 1350-1800 of 1921 done (339 s so far)
+frames 1800..1920 in 22s (181 ms each)
+picture errors: 0 | page errors: none
+frames 1800-1921 of 1921 done (364 s so far)
+== frames done in 364 s
+== sound
+music: "Darkling" (tense), real recording
+length 64.04s
+voice rms while speaking -16.3 dB | music under voice -32.8 dB | game under voice -180.0 dB | effects peak 1.19
+share of time with voice 95% | mix rms in the gaps -20.2 dB | mix rms overall -15.4 dB
+== sound done in 7 s
+== pack
+music credit written on the last 5 seconds: Darkling
+DONE /home/runner/work/genzhype-scraper/genzhype-scraper/v3/work/live-189/out/genzhype-dominatrix-shy-sotomayor-alleges-secret-ties-to-kristi-noem-s-husband.mp4  64.0 s
+== pack done in 42 s
+live: page 189: DELIVERED to the site
+live: === page 188 "Chrisean Rock & Blueface Co‑Parenting Feud Escalates with Grandma Karlissa"
+live: page 188, reading https://genzhype.com/drama/chrisean-rock-blueface-co-parenting-feud-escalates-with-grandma-karlissa/
+material: "Chrisean Rock & Blueface Co‑Parenting Feud Escalates with Gr" | page text 2652 chars | 0 posts (0 with video, 0 with a picture) | 2 outlet texts (theshaderoom.com, allhiphop.com) | 0 examples of the meme (none) | people: (none listed) | 4 timeline events (0 with a proof screenshot) | 1 page pictures
+live: the live system's finds added: 0 picture(s), 0 clip link(s)
+== investigate
+investigator (gemini2/gemini-3.5-flash-lite): to look up: Blueface's original X post denying paternity or discussing the co-pare (Blueface's X account) | Karlissa Saffold Harvey's Instagram post about Chrisean Rock (Karlissa Saffold Harvey's Instagram)
+investigator step 1 (gemini/gemini-3.5-flash-lite): search {"query": "Blueface Twitter paternity claim Chrisean Jr March 2026"} -> Results for "Blueface Twitter paternity claim Chrisean Jr March 2026": 1. [another publisher] Blueface Denies AGAIN He's the Biological Dad of Chrisea
+investigator step 2 (gemini/gemini-3.5-flash-lite): search {} -> A search needs 3 to 8 plain words.
+investigator step 3 (gemini/gemini-3.5-flash-lite): search {"query": "Blueface X post Chrisean Jr paternity March 2026"} -> Results for "Blueface X post Chrisean Jr paternity March 2026": 1. [another publisher] Blueface Denies AGAIN He's the Biological Dad of Chrisean's Son
+investigator step 4 (gemini/gemini-3.5-flash-lite): search {"query": "Blueface Twitter post March 2026 Jr not my son"} -> Results for "Blueface Twitter post March 2026 Jr not my son": 1. [another publisher] Blueface Denies AGAIN He's the Biological Dad of Chrisean's Son (
+investigator step 5 (gemini/gemini-3.5-flash-lite): search {"query": "Karlissa Saffold Instagram post Chrisean Rock June 2026"} -> Results for "Karlissa Saffold Instagram post Chrisean Rock June 2026": 1. [a social post] The Shade Room - Whew! Karlissa has jumped into the drama,..
+investigator step 6 (gemini/gemini-3.5-flash-lite):  {} -> Unknown tool "". The tools are: search, open, note, done.
+investigator step 7 (gemini/gemini-3.5-flash-lite): done: Searched for Blueface's X post and Karlissa's Instagram post, but only found news outlets and social media aggregators (TMZ, The Shade Room) rather than the dir
+investigator: 6 step(s), 0 page(s) opened, 0 fact(s) verified | Searched for Blueface's X post and Karlissa's Instagram post, but only found news outlets and social media aggregators (
+== investigate done in 11 s
+== gather
+gather: the page's cover is our own card (no photo credit): it is not material
+gather: private people the story names (said by their role, never by name): Karlissa (Blueface's mother), Ronnie (Chrisean's late ex-boyfriend)
+gather: the story is about Chrisean Rock, Blueface
+channel: twitch.tv/chriseanrock has no watched clips this month; nothing is taken
+  hunt "Chrisean Rock Blueface Chrisean Rock & Blueface Co‑Parenting": legs [tiktok=1/8 twitch=0/8 kick=4/8 reddit=5/8], kept 5
+found: the TikTok of @insidethekettle is somebody else's video about the story (a publisher's or another creator's): not taken
+  reddit: not fetched (the post has no video of its own and links to none this machine can fetch)
+  reddit: not fetched (the post has no video of its own and links to none this machine can fetch)
+  reddit: fetched 360x640 30s in 1s by @Cozie_Gamer
+found1: "Karlissa clarifies that Blueface did not see Chrisean Sr, sh" by r/ExposingChriseanRock, found on reddit
+  kick: fetched 1920x1080 26s in 4s by @Blueface
+found2: "BLUE TAKING JEWELRY BACK" by @Blueface, found on kick
+  found1: filmed in the dark (brightness 49 of 255): it is lifted when shown
+  found2: filmed in the dark (brightness 68 of 255): it is lifted when shown
+found1: stream, shows exactly it, 1 scene(s), 8 of 8 moments usable: Grandma Karlissa clarifies details about the co-parenting feud on a livestream.
+found2: stream, shows exactly it, 2 scene(s), 6 of 6 moments usable: Blueface taking jewelry back from Chrisean Rock inside a car.
+gather: 2 pieces fetched and looked at, 2 usable (found1, found2)
+== gather done in 24 s
+== plan
+director: cast by gemini/gemini-3.5-flash-lite: form "how it happened"; opens on found1 (Grandma Karlissa clarifies the co-parent); players Chrisean Rock=found1, Blueface=found2, Karlissa Saffold Harvey=found1; twist on found1; shape: March 7: Blueface denies pat > June 23: Chrisean shares DMs > June 23: Karlissa posts Inst > June 23: Blueface celebrates > The co-parenting feud escala
+director: 5 openings written, 5 keep the form; picked by gemini/gemini-3.5-flash-lite: "This is Grandma Karlissa on a livestream. Defending her son while Chrisean blocks him entirely."
+director: the words are by gemini/gemini-3.5-flash-lite, the pictures by gemini/gemini-3.5-flash-lite
+director round 1 (gemini/gemini-3.5-flash-lite): 168 words, 8 lines, 0 hunts | fact check: 2 problems | faults: the closing repeats one of our other videos: end this video in its own words; line 1 needs a "stamp" on one of its sentences: the key number or the two key words of the opening; no proof on screen: show at least one post as a "receipt" or one real quote as a "quote"; line 5 has words that fit any story ("the situation"): say the fact itself, with its name, its number or the real words; line 1 names Karlissa, a private person: never say the name, say "Blueface's mother" instead; line 3 names Ronnie, a private person: never say the name, say "Chrisean's late ex-boyfriend" instead; line 5 names Karlissa, a private person: never say the name, say "Blueface's mother" instead; line 4, sentence "June twenty-third brought a massive breaking point for both creators.": a desk phrase: say what happened instead (massive breaking point is a stock phrase); line 5, sentence "Heavy family drama.": a desk phrase: say what happened instead (heavy family drama is a stock label); line 2, sentence "Their co-parenting dynamic has completely fallen apart over months.": fits any story: say a fact only this story has (its name, its number, the real words) (generic description of a messy relationship); line 5, sentence "She wrote that the situation is not love.": fits any story: say a fact only this story has (its name, its number, the real words) (vague statement, lacks specific facts) | KEPT as the best so far
+director: the correction changed 6 lines (gemini2/gemini-3.5-flash-lite)
+director round 2 (gemini2/gemini-3.5-flash-lite): 135 words, 8 lines, 0 hunts | fact check: 2 problems | faults: only 135 spoken words: write 150 to 178 (add one more evidence beat from the material, do not pad); the narrator never reacts: add one or two takes (2 to 8 words, right after the fact they react to) and list them in "takes"; no proof on screen: show at least one post as a "receipt" or one real quote as a "quote"; 3 lines start with "that's": start them differently; line 1 names Karlissa, a private person: never say the name, say "Blueface's mother" instead; line 7, sentence "The messy feud keeps escalating without any clear resolution in sight.": fits any story: say a fact only this story has (its name, its number, the real words) (generic summary of a messy feud) | WORSE than the best so far (168 words): thrown away
+director: the correction changed 5 lines (gemini2/gemini-3.5-flash-lite)
+director round 3 (gemini2/gemini-3.5-flash-lite): 142 words, 8 lines, 0 hunts | fact check: 3 problems | faults: only 142 spoken words: write 150 to 178 (add one more evidence beat from the material, do not pad); the narrator never reacts: add one or two takes (2 to 8 words, right after the fact they react to) and list them in "takes"; the closing repeats one of our other videos: end this video in its own words; no proof on screen: show at least one post as a "receipt" or one real quote as a "quote"; line 2, sentence "Their co-parenting feud has hit a wall over months.": a desk phrase: say what happened instead (hit a wall is a stock phrase); line 6, sentence "He shared photos and captioned the post about the hard realities of fa": a desk phrase: say what happened instead (hard realities of fatherhood is a stock phrase); line 7, sentence "The messy feud keeps escalating without any clear resolution in sight.": a desk phrase: say what happened instead (without any clear resolution in sight is a stock phrase); line 7, sentence "Four separate timeline events are documented across two verified sourc": fits any story: say a fact only this story has (its name, its number, the real words) (meta commentary about sources adds nothing to the story) | WORSE than the best so far (168 words): thrown away
+director: 1 sentence(s) the second reading refused were CUT (nothing rewritten): 167 words | fact check: 4 problems | not better: thrown away
+director: 4 sentence(s) the editor flagged were CUT (cliché, filler or repeat): 138 words | not better: thrown away
+director: the narrator reacts after claim.2 (gemini2/gemini-3.5-flash-lite): "Bro really chose violence on main."
+director: the closing written for this video (gemini2/gemini-3.5-flash-lite): "Turns out blocking him didn't stop Grandma Karlissa from chiming in. Get the rest of the family receipts on Gen Z Hype."
+PLAN REFUSED: 2 statements are still in the script that the second reading refused (not in the material, or a verdict on a cause or a group): line 2 says "streaming live in Baltimore. And Blueface posting online from Los Ange": not in the material (loc | line 5 says "Honestly? Heavy family drama.": not in the material (narrator take/prediction); say only what the
+REFUSED: PLAN REFUSED: 2 statements are still in the script that the second reading refused (not in the material, or a verdict on a cause or a group): line 2 says "streaming live in Baltimore. And Blueface posting online from Los Ange": not in the material (loc | line 5 says "Honestly? Heavy family drama.": not in the material (narrator take/prediction); say only what the
+live: page 188: NO VIDEO (PLAN REFUSED: 2 statements are still in the script that the second reading refused (not in the material, or a verdict on a cause or a group): line 2 says "streaming live in Baltimore. And Blueface posting online from Los Ange": not in the material (loc | line 5 says "Honestly? Heavy family drama.": ); failure 1 of 2
+live: 1 video(s) made
