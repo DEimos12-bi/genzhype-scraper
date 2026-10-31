@@ -1,0 +1,567 @@
+{
+  "ok": true,
+  "schema_version": "1",
+  "data": [
+    {
+      "id": "2052907802109034787",
+      "text": "UFC media + kick streamer Nina Drama 🎤 https://t.co/IwpYqbSTHF",
+      "author": {
+        "id": "1987637714586628096",
+        "name": "MMA Babes",
+        "screenName": "MMA_Babes",
+        "profileImageUrl": "https://pbs.twimg.com/profile_images/2020846449869942784/lxy0iQl__normal.jpg",
+        "verified": true
+      },
+      "metrics": {
+        "likes": 1673,
+        "retweets": 32,
+        "replies": 36,
+        "quotes": 0,
+        "views": 88128,
+        "bookmarks": 345
+      },
+      "createdAt": "Sat May 09 00:25:35 +0000 2026",
+      "createdAtLocal": "2026-05-09 00:25",
+      "createdAtISO": "2026-05-09T00:25:35+00:00",
+      "media": [
+        {
+          "type": "video",
+          "url": "https://video.twimg.com/amplify_video/2052907739303608321/vid/avc1/1080x1920/MV1VKYQzHlRlF7Yx.mp4?tag=27",
+          "width": 1080,
+          "height": 1920
+        }
+      ],
+      "urls": [],
+      "isRetweet": false,
+      "retweetedBy": null,
+      "lang": "pl",
+      "score": null,
+      "isSubscriberOnly": false,
+      "isPromoted": false
+    },
+    {
+      "id": "2074631068884631572",
+      "text": "UFC media + kick streamer Nina Drama 🎤 https://t.co/gLslwiAvH3",
+      "author": {
+        "id": "1987637714586628096",
+        "name": "MMA Babes",
+        "screenName": "MMA_Babes",
+        "profileImageUrl": "https://pbs.twimg.com/profile_images/2020846449869942784/lxy0iQl__normal.jpg",
+        "verified": true
+      },
+      "metrics": {
+        "likes": 3141,
+        "retweets": 84,
+        "replies": 20,
+        "quotes": 5,
+        "views": 289130,
+        "bookmarks": 1507
+      },
+      "createdAt": "Tue Jul 07 23:06:06 +0000 2026",
+      "createdAtLocal": "2026-07-07 23:06",
+      "createdAtISO": "2026-07-07T23:06:06+00:00",
+      "media": [
+        {
+          "type": "video",
+          "url": "https://video.twimg.com/amplify_video/2074631009044398080/vid/avc1/480x638/-v9mKYHlps7PdT2d.mp4?tag=28",
+          "width": 480,
+          "height": 638
+        }
+      ],
+      "urls": [],
+      "isRetweet": false,
+      "retweetedBy": null,
+      "lang": "pl",
+      "score": null,
+      "isSubscriberOnly": false,
+      "isPromoted": false
+    },
+    {
+      "id": "2077891372422684879",
+      "text": "Twitch streamer Ezee responds to the roommate drama with Skai Jackson and explains why she wanted to switch rooms https://t.co/cw1open5jE",
+      "author": {
+        "id": "1198332306546520064",
+        "name": "She’s Fishy ➐",
+        "screenName": "ShesFishy",
+        "profileImageUrl": "https://pbs.twimg.com/profile_images/1687686783780503553/8OZETa5B_normal.jpg",
+        "verified": true
+      },
+      "metrics": {
+        "likes": 8104,
+        "retweets": 126,
+        "replies": 77,
+        "quotes": 15,
+        "views": 478857,
+        "bookmarks": 1914
+      },
+      "createdAt": "Thu Jul 16 23:01:23 +0000 2026",
+      "createdAtLocal": "2026-07-16 23:01",
+      "createdAtISO": "2026-07-16T23:01:23+00:00",
+      "media": [
+        {
+          "type": "video",
+          "url": "https://video.twimg.com/amplify_video/2077891053399715840/vid/avc1/1920x1080/1kwUQA4mttkUFl20.mp4?tag=16",
+          "width": 1920,
+          "height": 1080
+        }
+      ],
+      "urls": [],
+      "isRetweet": false,
+      "retweetedBy": null,
+      "lang": "en",
+      "score": null,
+      "isSubscriberOnly": false,
+      "isPromoted": false
+    },
+    {
+      "id": "2009432768225399150",
+      "text": "RaKai’s mood instantly changed after finding out he will be participating in MrBeast’s event alongside Ironmouse even though they have unsolved drama from the Streamer Awards 😭 https://t.co/0MaSPbH69l",
+      "author": {
+        "id": "1543390894258356224",
+        "name": "ryan 🤿",
+        "screenName": "scubaryan_",
+        "profileImageUrl": "https://pbs.twimg.com/profile_images/1609037429024907264/DvAUf762_normal.jpg",
+        "verified": true
+      },
+      "metrics": {
+        "likes": 8248,
+        "retweets": 116,
+        "replies": 97,
+        "quotes": 10,
+        "views": 806644,
+        "bookmarks": 1104
+      },
+      "createdAt": "Fri Jan 09 01:11:20 +0000 2026",
+      "createdAtLocal": "2026-01-09 01:11",
+      "createdAtISO": "2026-01-09T01:11:20+00:00",
+      "media": [
+        {
+          "type": "video",
+          "url": "https://video.twimg.com/amplify_video/2009431852462034946/vid/avc1/932x720/RFd9c_s1Ga_FEu8G.mp4?tag=14",
+          "width": 1236,
+          "height": 954
+        }
+      ],
+      "urls": [],
+      "isRetweet": false,
+      "retweetedBy": null,
+      "lang": "en",
+      "score": null,
+      "isSubscriberOnly": false,
+      "isPromoted": false
+    },
+    {
+      "id": "1636145249214152705",
+      "text": "“Now, you as a viewer going on and attacking her and commenting on things online, that does not help anyone.\"\n\nAlinity called out viewers for attacking JustaMinx after drama at the Streamer Awards https://t.co/mmqsOsib2v",
+      "author": {
+        "id": "76766018",
+        "name": "Dexerto",
+        "screenName": "Dexerto",
+        "profileImageUrl": "https://pbs.twimg.com/profile_images/1714301666445402112/5U5myYFv_normal.jpg",
+        "verified": false
+      },
+      "metrics": {
+        "likes": 1524,
+        "retweets": 24,
+        "replies": 137,
+        "quotes": 18,
+        "views": 439368,
+        "bookmarks": 112
+      },
+      "createdAt": "Wed Mar 15 23:20:00 +0000 2023",
+      "createdAtLocal": "2023-03-15 23:20",
+      "createdAtISO": "2023-03-15T23:20:00+00:00",
+      "media": [
+        {
+          "type": "video",
+          "url": "https://video.twimg.com/amplify_video/1636051978185850932/vid/1920x1080/tzGCfxvKKceI43FF.mp4?tag=16",
+          "width": 1920,
+          "height": 1080
+        }
+      ],
+      "urls": [],
+      "isRetweet": false,
+      "retweetedBy": null,
+      "lang": "en",
+      "score": null,
+      "isSubscriberOnly": false,
+      "isPromoted": false
+    },
+    {
+      "id": "2115265932415393792",
+      "text": "GARA-GARA TALI BIKINI KETARIK PAS LIVE, INTERNET LANGSUNG BIKIN DRAMA. 😭💀\n\nStreamer Twitch bernama Brattygbaby lagi siaran dari kolam renang ketika seorang cowok di belakangnya menarik bagian bikininya.\n\nDia langsung nutup dada sambil protes, \"Kenapa lo ngelakuin itu?\" Si cowok bilang nggak sengaja, bahkan sempat minta Twitch jangan nge-ban dia. WKWKWK.\n\nYang lebih absurd, videonya malah disebar pakai narasi kalau cowok itu saudara kandungnya dan punya Down syndrome.\n\nPadahal identitas serta hubungan mereka belum terkonfirmasi.\n\nGue heran, sekarang bikin caption kadang lebih liar daripada kejadian aslinya.\n\nVideonya cuma beberapa detik, tapi karangan netizen bisa sepanjang sinetron 200 episode. 💀 https://t.co/dl1tBOnN2d",
+      "author": {
+        "id": "1781618112259076096",
+        "name": "Fatahillah",
+        "screenName": "Fatahilah03",
+        "profileImageUrl": "https://pbs.twimg.com/profile_images/2096278058156392448/bqCWDsVc_normal.jpg",
+        "verified": true
+      },
+      "metrics": {
+        "likes": 56,
+        "retweets": 1,
+        "replies": 1,
+        "quotes": 0,
+        "views": 54183,
+        "bookmarks": 48
+      },
+      "createdAt": "Wed Oct 28 02:14:32 +0000 2026",
+      "createdAtLocal": "2026-10-28 02:14",
+      "createdAtISO": "2026-10-28T02:14:32+00:00",
+      "media": [
+        {
+          "type": "video",
+          "url": "https://video.twimg.com/amplify_video/2114893626148823040/vid/avc1/956x720/vYrYikMM-I4__HaC.mp4?tag=29",
+          "width": 956,
+          "height": 720
+        }
+      ],
+      "urls": [],
+      "isRetweet": false,
+      "retweetedBy": null,
+      "lang": "in",
+      "score": null,
+      "isSubscriberOnly": false,
+      "isPromoted": false
+    },
+    {
+      "id": "2035183622504792186",
+      "text": "UFC media + kick streamer Nina Drama 🎤 https://t.co/EqNqfU8KVG",
+      "author": {
+        "id": "1987637714586628096",
+        "name": "MMA Babes",
+        "screenName": "MMA_Babes",
+        "profileImageUrl": "https://pbs.twimg.com/profile_images/2020846449869942784/lxy0iQl__normal.jpg",
+        "verified": true
+      },
+      "metrics": {
+        "likes": 2727,
+        "retweets": 55,
+        "replies": 15,
+        "quotes": 0,
+        "views": 75907,
+        "bookmarks": 352
+      },
+      "createdAt": "Sat Mar 21 02:36:02 +0000 2026",
+      "createdAtLocal": "2026-03-21 02:36",
+      "createdAtISO": "2026-03-21T02:36:02+00:00",
+      "media": [
+        {
+          "type": "photo",
+          "url": "https://pbs.twimg.com/media/HD5st6ObMAAxWjB.jpg",
+          "width": 640,
+          "height": 1359
+        }
+      ],
+      "urls": [],
+      "isRetweet": false,
+      "retweetedBy": null,
+      "lang": "pl",
+      "score": null,
+      "isSubscriberOnly": false,
+      "isPromoted": false
+    },
+    {
+      "id": "2029390317661605932",
+      "text": "UFC media + kick streamer Nina Drama 🎤 https://t.co/fLFSEluQFQ",
+      "author": {
+        "id": "1987637714586628096",
+        "name": "MMA Babes",
+        "screenName": "MMA_Babes",
+        "profileImageUrl": "https://pbs.twimg.com/profile_images/2020846449869942784/lxy0iQl__normal.jpg",
+        "verified": true
+      },
+      "metrics": {
+        "likes": 5708,
+        "retweets": 129,
+        "replies": 25,
+        "quotes": 2,
+        "views": 510708,
+        "bookmarks": 1789
+      },
+      "createdAt": "Thu Mar 05 02:55:30 +0000 2026",
+      "createdAtLocal": "2026-03-05 02:55",
+      "createdAtISO": "2026-03-05T02:55:30+00:00",
+      "media": [
+        {
+          "type": "photo",
+          "url": "https://pbs.twimg.com/media/HCnXvQHW8AAxAxX.jpg",
+          "width": 640,
+          "height": 1080
+        },
+        {
+          "type": "photo",
+          "url": "https://pbs.twimg.com/media/HCnXvQJXEAAgpYU.jpg",
+          "width": 640,
+          "height": 1116
+        }
+      ],
+      "urls": [],
+      "isRetweet": false,
+      "retweetedBy": null,
+      "lang": "pl",
+      "score": null,
+      "isSubscriberOnly": false,
+      "isPromoted": false
+    },
+    {
+      "id": "2017716561214050628",
+      "text": "DrDisrespect CRASHED OUT on streamer over the highguard drama with this funny skit. https://t.co/whYoGGk7hd",
+      "author": {
+        "id": "807355480188141568",
+        "name": "DramaAlert",
+        "screenName": "DramaAlert",
+        "profileImageUrl": "https://pbs.twimg.com/profile_images/807356568182222848/cA3XE1W3_normal.jpg",
+        "verified": false
+      },
+      "metrics": {
+        "likes": 1948,
+        "retweets": 98,
+        "replies": 257,
+        "quotes": 30,
+        "views": 255005,
+        "bookmarks": 365
+      },
+      "createdAt": "Sat Jan 31 21:48:10 +0000 2026",
+      "createdAtLocal": "2026-01-31 21:48",
+      "createdAtISO": "2026-01-31T21:48:10+00:00",
+      "media": [
+        {
+          "type": "video",
+          "url": "https://video.twimg.com/amplify_video/2017716320498769920/vid/avc1/1280x720/9fAuZlGnSfhHmQIj.mp4?tag=21",
+          "width": 1280,
+          "height": 720
+        }
+      ],
+      "urls": [],
+      "isRetweet": false,
+      "retweetedBy": null,
+      "lang": "en",
+      "score": null,
+      "isSubscriberOnly": false,
+      "isPromoted": false
+    },
+    {
+      "id": "2105506141275144516",
+      "text": "Kai Cenat CALLS OUT every streamer who went live just to react to the drama and labels all of them FAKE 😳\n\n• YourRage\n• BruceDropEmOff \n• Silky \n• Jasontheween\n• PlaqueboyMax\n• Raud \n• Tbvnks\nand others https://t.co/HGDlbufu7z",
+      "author": {
+        "id": "1842055932835975168",
+        "name": "ᴠᴏɪᴅ 💿",
+        "screenName": "voiddmp4",
+        "profileImageUrl": "https://pbs.twimg.com/profile_images/2070129548360863745/LGmYCxI1_normal.jpg",
+        "verified": true
+      },
+      "metrics": {
+        "likes": 15408,
+        "retweets": 412,
+        "replies": 379,
+        "quotes": 93,
+        "views": 2185455,
+        "bookmarks": 4655
+      },
+      "createdAt": "Thu Oct 01 03:52:37 +0000 2026",
+      "createdAtLocal": "2026-10-01 03:52",
+      "createdAtISO": "2026-10-01T03:52:37+00:00",
+      "media": [
+        {
+          "type": "video",
+          "url": "https://video.twimg.com/amplify_video/2105506039667867648/vid/avc1/1920x1080/GSSy1zR5-HvvCUyE.mp4?tag=29",
+          "width": 1920,
+          "height": 1080
+        }
+      ],
+      "urls": [],
+      "isRetweet": false,
+      "retweetedBy": null,
+      "lang": "en",
+      "score": null,
+      "isSubscriberOnly": false,
+      "isPromoted": false
+    },
+    {
+      "id": "1978283514832298287",
+      "text": "🔹 cinna: I hope I see sykkuno at twitchcon. I've been threatening to beat him up. \n\n🔹 bonnie: he's so sweet. why would you do that?\n\n🔹 cinna: I wanted to pick a fight with a random streamer cause I've never been in streamer drama before https://t.co/2Gu24cymTb",
+      "author": {
+        "id": "1769903488962863104",
+        "name": "sykkuno archive",
+        "screenName": "sykkive",
+        "profileImageUrl": "https://pbs.twimg.com/profile_images/2039561448654057472/yhk8I7R0_normal.jpg",
+        "verified": false
+      },
+      "metrics": {
+        "likes": 1800,
+        "retweets": 23,
+        "replies": 10,
+        "quotes": 1,
+        "views": 122038,
+        "bookmarks": 149
+      },
+      "createdAt": "Wed Oct 15 02:15:19 +0000 2025",
+      "createdAtLocal": "2025-10-15 02:15",
+      "createdAtISO": "2025-10-15T02:15:19+00:00",
+      "media": [
+        {
+          "type": "video",
+          "url": "https://video.twimg.com/amplify_video/1978282655545454592/vid/avc1/1920x1080/w-LoeNLN-ASDChPs.mp4?tag=21",
+          "width": 1920,
+          "height": 1080
+        }
+      ],
+      "urls": [],
+      "isRetweet": false,
+      "retweetedBy": null,
+      "lang": "en",
+      "score": null,
+      "isSubscriberOnly": false,
+      "isPromoted": false
+    },
+    {
+      "id": "2063006793362813175",
+      "text": "YourRAGE says he’s done collaborating with newer creators after the recent drama involving Streamer 'Kathelina' cheating on her ex-boyfriend with her cousin https://t.co/6yQOcBUe7W",
+      "author": {
+        "id": "745708855481425920",
+        "name": "yoxic",
+        "screenName": "yoxics",
+        "profileImageUrl": "https://pbs.twimg.com/profile_images/1603159442249248768/APJLtkBZ_normal.jpg",
+        "verified": true
+      },
+      "metrics": {
+        "likes": 825,
+        "retweets": 13,
+        "replies": 16,
+        "quotes": 2,
+        "views": 66366,
+        "bookmarks": 115
+      },
+      "createdAt": "Fri Jun 05 21:15:23 +0000 2026",
+      "createdAtLocal": "2026-06-05 21:15",
+      "createdAtISO": "2026-06-05T21:15:23+00:00",
+      "media": [
+        {
+          "type": "video",
+          "url": "https://video.twimg.com/amplify_video/2063002912188416000/vid/avc1/1920x1080/lXbQlDbnYaVQcOU7.mp4?tag=27",
+          "width": 1920,
+          "height": 1080
+        }
+      ],
+      "urls": [],
+      "isRetweet": false,
+      "retweetedBy": null,
+      "lang": "en",
+      "score": null,
+      "isSubscriberOnly": false,
+      "isPromoted": false
+    },
+    {
+      "id": "1999571222548332966",
+      "text": "There has been non stop streamer drama for the past week meanwhile ExtraEmily has been in her own world 😭🤣 https://t.co/3d1gvQWaTZ",
+      "author": {
+        "id": "1817335730550530049",
+        "name": "ExtraEmily Updates",
+        "screenName": "ExEmUpdates",
+        "profileImageUrl": "https://pbs.twimg.com/profile_images/2060321112475463688/t3zKYz5K_normal.jpg",
+        "verified": false
+      },
+      "metrics": {
+        "likes": 1451,
+        "retweets": 55,
+        "replies": 9,
+        "quotes": 2,
+        "views": 21087,
+        "bookmarks": 73
+      },
+      "createdAt": "Fri Dec 12 20:05:04 +0000 2025",
+      "createdAtLocal": "2025-12-12 20:05",
+      "createdAtISO": "2025-12-12T20:05:04+00:00",
+      "media": [
+        {
+          "type": "video",
+          "url": "https://video.twimg.com/amplify_video/1999570898819387394/vid/avc1/1280x720/Czxg6tOQZYRhhBc3.mp4?tag=14",
+          "width": 1920,
+          "height": 1080
+        }
+      ],
+      "urls": [],
+      "isRetweet": false,
+      "retweetedBy": null,
+      "lang": "en",
+      "score": null,
+      "isSubscriberOnly": false,
+      "isPromoted": false
+    },
+    {
+      "id": "2078933483066696140",
+      "text": "Jynxzi was disgusted and horrified while reacting to the Lacy and PayBae drama that happened yesterday at streamer university 👀😬 https://t.co/xEpBY25sHf",
+      "author": {
+        "id": "1571440382759817216",
+        "name": "Streamer Updates",
+        "screenName": "streamupdates_",
+        "profileImageUrl": "https://pbs.twimg.com/profile_images/2027531680031150080/r9b_jda-_normal.jpg",
+        "verified": true
+      },
+      "metrics": {
+        "likes": 12539,
+        "retweets": 206,
+        "replies": 111,
+        "quotes": 3,
+        "views": 323197,
+        "bookmarks": 2354
+      },
+      "createdAt": "Sun Jul 19 20:02:21 +0000 2026",
+      "createdAtLocal": "2026-07-19 20:02",
+      "createdAtISO": "2026-07-19T20:02:21+00:00",
+      "media": [
+        {
+          "type": "video",
+          "url": "https://video.twimg.com/amplify_video/2078933282113413120/vid/avc1/720x456/f_9pv9ZoHjmOLBjl.mp4?tag=29",
+          "width": 720,
+          "height": 456
+        }
+      ],
+      "urls": [],
+      "isRetweet": false,
+      "retweetedBy": null,
+      "lang": "en",
+      "score": null,
+      "isSubscriberOnly": false,
+      "isPromoted": false
+    },
+    {
+      "id": "1999105161059295373",
+      "text": "Tylil refuses to address the Streamer Awards drama amid Jourdin Pauline's allegations that he SA'd her at the after-party. https://t.co/LaAwmAsbaj",
+      "author": {
+        "id": "1529892677294206995",
+        "name": "Neverclipx",
+        "screenName": "NeverclipsonX",
+        "profileImageUrl": "https://pbs.twimg.com/profile_images/1963932001108447232/GeLre_Co_normal.jpg",
+        "verified": true
+      },
+      "metrics": {
+        "likes": 669,
+        "retweets": 17,
+        "replies": 72,
+        "quotes": 10,
+        "views": 215282,
+        "bookmarks": 132
+      },
+      "createdAt": "Thu Dec 11 13:13:06 +0000 2025",
+      "createdAtLocal": "2025-12-11 13:13",
+      "createdAtISO": "2025-12-11T13:13:06+00:00",
+      "media": [
+        {
+          "type": "video",
+          "url": "https://video.twimg.com/ext_tw_video/1999105028351553536/pu/vid/avc1/720x794/griSp1eIIwoOZ_Wq.mp4?tag=19",
+          "width": 720,
+          "height": 794
+        }
+      ],
+      "urls": [],
+      "isRetweet": false,
+      "retweetedBy": null,
+      "lang": "en",
+      "score": null,
+      "isSubscriberOnly": false,
+      "isPromoted": false
+    }
+  ]
+}

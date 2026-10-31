@@ -1,0 +1,26 @@
+== rdt status ==
+"ok": !!bool "true"
+"schema_version": "1"
+"data":
+  "authenticated": !!bool "false"
+  "cookie_count": !!int "10"
+  "credential_file": "/home/runner/.config/rdt-cli/credential.json"
+  "source": "ci-secret"
+  "username": !!null "null"
+  "capabilities":
+  - "read"
+  - "write"
+  "modhash_present": !!bool "true"
+  "last_verified_at": !!null "null"
+  "error": "Access forbidden: Resource"
+
+exit=0
+== rdt sub OutOfTheLoop --limit 25 ==
+"ok": !!bool "false"
+"schema_version": "1"
+"error":
+  "code": "forbidden"
+  "message": "Access forbidden: Resource"
+
+exit=1
+json exit=1 bytes=130
