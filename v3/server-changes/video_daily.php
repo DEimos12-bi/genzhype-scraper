@@ -99,12 +99,45 @@ foreach ($pages as $id => $p) {
 $ranked = []; $same = [];
 if ($cands) {
     $w = producer_weights($pdo);
-    $trend = producer_trend_index($pdo);
-    $outliers = producer_outlier_index($pdo);
     $yield = producer_lane_yield($pdo);
     $arousal = producer_arousal($pdo, array_slice($cands, 0, 30));
+    // STRICTER DEMAND (owner, 2026-11-01, "deploy then improve", fix 1). The producer counts demand word by word, so one
+    // generic word was enough: "a rival video on 'home' pulled 3.2M views". Here a rival video or a feed item counts for
+    // a page only when it shares TWO of the page's topic words (a slang/meme page: its term itself). The producer's own
+    // score is then computed on those items alone, so its demand, its reasons and its numbers mean the same story.
+    $cut = time() - 48 * 3600;
+    $feed = [];
+    foreach ($pdo->query("SELECT name, created_at FROM candidates WHERE created_at > DATE_SUB(NOW(), INTERVAL 14 DAY)")->fetchAll(PDO::FETCH_ASSOC) as $r) {
+        $feed[] = ['kw' => producer_keywords((string)$r['name'], 8), 'recent' => strtotime((string)$r['created_at']) >= $cut];
+    }
+    $rival = [];
+    try {
+        foreach ($pdo->query("SELECT title, views FROM vid_rival_post WHERE published_at > DATE_SUB(NOW(), INTERVAL 60 DAY) ORDER BY views DESC LIMIT 120")->fetchAll(PDO::FETCH_ASSOC) as $r) {
+            $rival[] = ['kw' => producer_keywords((string)$r['title'], 6), 'views' => (int)$r['views']];
+        }
+    } catch (Throwable $e) { /* engine table absent: no appetite signal */ }
     $scored = [];
-    foreach ($cands as $c) { $scored[] = ['c' => $c, 's' => producer_score($c, $w, $trend, $outliers, $yield, $arousal)]; }
+    foreach ($cands as $c) {
+        $kw = producer_keywords((string)($c['match'] ?? $c['title']), 6);
+        $termKw = ($c['lane'] !== 'drama' && !empty($c['term'])) ? producer_keywords((string)$c['term'], 4) : [];
+        $same = function (array $itemKw) use ($kw, $termKw): bool {
+            if ($termKw) { return count(array_intersect($termKw, $itemKw)) === count($termKw); }
+            return count(array_intersect($kw, $itemKw)) >= 2;
+        };
+        $trend = ['recent' => [], 'base' => [], 'sample' => count($feed)];
+        foreach ($feed as $f) {
+            if (!$same($f['kw'])) { continue; }
+            foreach (array_intersect($kw, $f['kw']) as $k) {
+                if ($f['recent']) { $trend['recent'][$k] = ($trend['recent'][$k] ?? 0) + 1; } else { $trend['base'][$k] = ($trend['base'][$k] ?? 0) + 1; }
+            }
+        }
+        $outliers = [];
+        foreach ($rival as $rv) {
+            if (!$same($rv['kw'])) { continue; }
+            foreach (array_intersect($kw, $rv['kw']) as $k) { $outliers[$k] = max($outliers[$k] ?? 0, $rv['views']); }
+        }
+        $scored[] = ['c' => $c, 's' => producer_score($c, $w, $trend, $outliers, $yield, $arousal)];
+    }
     usort($scored, fn($a, $b) => $b['s']['score'] <=> $a['s']['score']);
     // ONE TOPIC, ONE VIDEO: a shared person, or two shared topic words, is the same story
     $taken = [];
