@@ -94,7 +94,10 @@ def daily(day, n=10):
     token = os.environ.get('INGEST_TOKEN', '').strip()
     if not token:
         raise SystemExit('live: the daily list needs INGEST_TOKEN')
-    d = json.loads(_get(BASE + '/api/video_daily.php?token=%s&day=%s&n=%d' % (token, day, n), timeout=150).decode('utf-8', 'replace'))
+    try:
+        d = json.loads(_get(BASE + '/api/video_daily.php?token=%s&day=%s&n=%d' % (token, day, n), timeout=150).decode('utf-8', 'replace'))
+    except Exception as e:  # noqa: BLE001
+        raise SystemExit('live: the daily list could not be read (%s): no video this run; old pages are never used instead' % str(e)[:90])
     if not d.get('ok'):
         raise SystemExit('live: the daily list answered %s' % str(d)[:160])
     picks = d.get('picks') or []
