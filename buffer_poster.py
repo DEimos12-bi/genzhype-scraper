@@ -262,7 +262,7 @@ def channels():
     org = orgs[0]["id"]
     data, err = gql(
         "query($o:OrganizationId!){ channels(input:{organizationId:$o})"
-        "{ id name displayName service } }", {"o": org})
+        "{ id name displayName service isDisconnected isLocked isQueuePaused } }", {"o": org})
     if err or not data:
         log("Buffer: channels query failed:", json.dumps(err)[:300])
         return []
@@ -347,7 +347,7 @@ def post(channel, v):
         pid = (res.get("post") or {}).get("id")
         log(f"  SCHEDULED on {service} as {'reel' if as_reel else 'post'}"
             f" for {due} (buffer post {pid})")
-        return True
+        return pid or True
     return False
 
 
@@ -386,16 +386,74 @@ def main():
         if not todo:
             log(f"{code}: nothing new")
             continue
-        v = todo[0]
-        log(f"{code}: queueing page {v['page_id']} ({v['slug']})")
-        if post(c, v):
-            done.add(str(v["page_id"]))
-            save_done(code, done)
-            bump_today(code)
-            register(code, v["page_id"])
-        else:
-            rc = 1
+        ok, why = channel_healthy(c, code)
+        if not ok:
+            log(f"{code}: CHANNEL NOT HEALTHY - {why}")
+            if "paused" in why or "disconnected" in why or "locked" in why:
+                continue
+            todo = todo[:1]          # its last posts failed: ONE post this run as a probe, never a whole day into a broken channel
+        # 2026-11-01 (owner): the day's videos are booked at once, every free slot up to the cap, instead of one per run:
+        # GitHub skips most scheduled runs, and one booking per run left most slots empty.
+        for v in todo:
+            if sent_today(code) >= cap:
+                log(f"{code}: daily cap reached ({sent_today(code)}/{cap})")
+                break
+            log(f"{code}: queueing page {v['page_id']} ({v['slug']})")
+            pid = post(c, v)
+            if pid:
+                done.add(str(v["page_id"]))
+                save_done(code, done)
+                bump_today(code)
+                register(code, v["page_id"])
+                remember(code, pid)
+            else:
+                rc = 1
+                break                # no free slot or a refusal: the next run tries again
     return rc
+
+
+def _recent_path(code):
+    return f"{STATE}/buffer_recent_{code}.json"
+
+
+def remember(code, post_id):
+    """The posts this poster booked on a channel, newest last: channel_healthy() reads how they ended."""
+    try:
+        ids = json.load(open(_recent_path(code)))
+    except Exception:  # noqa: BLE001
+        ids = []
+    ids = (ids + [post_id])[-12:]
+    json.dump(ids, open(_recent_path(code), "w"))
+
+
+def channel_healthy(channel, code):
+    """BEFORE BOOKING, CHECK THE CHANNEL (owner, 2026-11-01: "after checking all Buffer endpoints work, no problems").
+    Buffer's own flags (disconnected, locked, queue paused), then how this channel's last three DUE posts ended:
+    TikTok's ban and Facebook's "unable to process the media" only show up there, after the fact.
+    -> (True, '') or (False, why)."""
+    if channel.get("isDisconnected"):
+        return False, "Buffer says the channel is disconnected (reconnect it in Buffer)"
+    if channel.get("isLocked"):
+        return False, "Buffer says the channel is locked"
+    if channel.get("isQueuePaused"):
+        return False, "the channel's queue is paused in Buffer"
+    try:
+        ids = json.load(open(_recent_path(code)))
+    except Exception:  # noqa: BLE001
+        ids = []
+    ended = []
+    for pid in reversed(ids):
+        data, err = gql("query($i:PostInput!){ post(input:$i){ status error { message } } }", {"i": {"id": pid}})
+        p = (data or {}).get("post") or {}
+        if p.get("status") in ("sent", "error"):
+            ended.append(p)
+        if len(ended) >= 3:
+            break
+    bad = [p for p in ended if p.get("status") == "error"]
+    if len(ended) >= 2 and len(bad) == len(ended):
+        msg = ((bad[0].get("error") or {}).get("message") or "")[:160]
+        return False, f"its last {len(ended)} posts all failed: {msg}"
+    return True, ""
 
 
 if __name__ == "__main__":

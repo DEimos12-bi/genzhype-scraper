@@ -213,10 +213,10 @@ def main():
         # unfiltered would quietly re-open the dead zone the grid exists to
         # avoid. Inside the window the learning still applies.
         in_window = [h for h in learned
-                     if 0 <= h <= 23 and (h >= 21 or h <= 5)]
+                     if 0 <= h <= 23 and (h >= 16 or h <= 2)]   # 2026-11-01: the US-Eastern window 11am-9pm (UTC-5)
         dropped = sorted(set(learned) - set(in_window))
         if dropped:
-            log(f"YT: learned hour(s) {dropped} outside the 21:00-05:00 window; ignored")
+            log(f"YT: learned hour(s) {dropped} outside the 16:00-02:00 UTC window; ignored")
         merged = sorted(set(slots) | set(in_window))
         if merged != sorted(set(slots)):
             log(f"YT: slots {sorted(set(slots))} + learned {sorted(set(learned) - set(slots))}"
@@ -237,13 +237,13 @@ def main():
             last = float(open(LAST).read().strip()) if os.path.exists(LAST) else 0.0
         except (OSError, ValueError):
             last = 0.0
-        in_window = hour >= 21 or hour <= 5
+        in_window = hour >= 16 or hour <= 2          # 2026-11-01: the US-Eastern window 11am-9pm (UTC-5)
         gap_h = (time.time() - last) / 3600.0
         if in_window and gap_h >= CATCHUP_GAP_H:
             log(f"YT: hour {hour} is not a slot {slots}, but no upload for {gap_h:.1f}h inside the night window; catching up")
         else:
             log(f"YT: hour {hour} is not a slot {slots} and nothing is hot; waiting"
-                + ("" if in_window else " (outside the 21:00-05:00 window)"))
+                + ("" if in_window else " (outside the 16:00-02:00 UTC window)"))
             return 0
     token = access_token()
     if not token:
