@@ -87,6 +87,24 @@ def feed():
     return best
 
 
+def daily(day, n=10):
+    """THE DAY'S PAGES (owner, 2026-11-01): the pages published on `day` (UTC), ranked by the site's producer score
+    (demand x quality: trend velocity in our rival feed, rival outliers, arousal, lane yield x footage, exclusivity,
+    freshness), one page per topic, best first: api/video_daily.php. The site computes a finished day once."""
+    token = os.environ.get('INGEST_TOKEN', '').strip()
+    if not token:
+        raise SystemExit('live: the daily list needs INGEST_TOKEN')
+    d = json.loads(_get(BASE + '/api/video_daily.php?token=%s&day=%s&n=%d' % (token, day, n), timeout=150).decode('utf-8', 'replace'))
+    if not d.get('ok'):
+        raise SystemExit('live: the daily list answered %s' % str(d)[:160])
+    picks = d.get('picks') or []
+    log('live: day %s: %s page(s) published, %s could make a video, %d ranked picks (%d dropped as the same topic)%s'
+        % (day, d.get('pages_that_day', '?'), d.get('candidates', '?'), len(picks), len(d.get('same_topic') or []), ' [kept list]' if d.get('cached') else ''))
+    for i, x in enumerate(picks, 1):
+        log('live:   %d. page %s  score %.3f (demand %.2f x quality %.2f)  %s' % (i, x['page_id'], x['score'], x['demand'], x['quality'], str(x['title'])[:70]))
+    return [{'page_id': x['page_id'], 'slug': x['slug'], 'link': x['link'], 'title': x['title'], 'rank': i} for i, x in enumerate(picks, 1)]
+
+
 def lines(path):
     try:
         return [x.strip() for x in open(path, encoding='utf-8') if x.strip()]
@@ -220,6 +238,8 @@ def main():
     sys.stdout.reconfigure(encoding='utf-8')
     arg = lambda k, d=None: sys.argv[sys.argv.index(k) + 1] if k in sys.argv and sys.argv.index(k) + 1 < len(sys.argv) else d
     batch, wanted, send = int(arg('--batch', '1')), arg('--page'), '--deliver' in sys.argv
+    source = arg('--source', 'feed')                      # daily = the day's pages ranked by trend (owner, 2026-11-01); feed = the old job list
+    day = arg('--day') or time.strftime('%Y-%m-%d', time.gmtime(time.time() - 86400))      # the last FINISHED day: its pages are all out
     budget = float(arg('--budget', '3000'))
     drop = os.path.join(ROOT, 'drop')
     try:                                                   # the site's firewall blackholes some GitHub machines ("Network is unreachable", 2026-10-29):
@@ -227,13 +247,16 @@ def main():
     except Exception as e:  # noqa: BLE001                 # and no page is counted as failed for it
         log('live: this machine cannot reach %s (%s): nothing is tried this run' % (BASE, str(e)[:80]))
         return 0
-    jobs = (feed().get('posts') or [])
-    log('live: %d job(s) in the feed, mode %s' % (len(jobs), 'DELIVER (the site gets the video)' if send else 'SHADOW (nothing is sent or posted)'))
+    jobs = daily(day) if source == 'daily' else (feed().get('posts') or [])
+    log('live: %d job(s) from %s, mode %s' % (len(jobs), 'the pages of %s' % day if source == 'daily' else 'the feed', 'DELIVER (the site gets the video)' if send else 'SHADOW (nothing is sent or posted)'))
     made = 0
     today = time.strftime('%Y-%m-%d', time.gmtime())
-    made_today = sum(1 for x in lines(DONE) if len(x.split()) > 1 and x.split()[1].startswith(today))
+    if source == 'daily':                                  # the cap counts the videos made FOR that day's pages
+        made_today = sum(1 for x in lines(DONE) if ('day=' + day) in x.split())
+    else:
+        made_today = sum(1 for x in lines(DONE) if len(x.split()) > 1 and x.split()[1].startswith(today))
     if not wanted and made_today >= DAILY:
-        log('live: %d video(s) made today already (the cap is %d): nothing more today' % (made_today, DAILY))
+        log('live: %d video(s) made already for %s (the cap is %d): nothing more' % (made_today, day if source == 'daily' else 'today', DAILY))
         return 0
     if not wanted:
         batch = min(batch, DAILY - made_today)
@@ -261,7 +284,7 @@ def main():
                     b.write(a.read())
         json.dump({'page_id': pid, 'slug': job.get('slug', ''), 'title': job.get('title', ''), 'link': job['link'], 'mp4': os.path.basename(mp4), 'mode': 'deliver' if send else 'shadow',
                    'made': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}, open(os.path.join(drop, pid, 'job.json'), 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
-        add_line(DONE, '%s %s' % (pid, time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())))      # the time: the daily cap counts it
+        add_line(DONE, '%s %s%s' % (pid, time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()), (' day=' + day) if source == 'daily' else ''))      # the time and the page day: the caps count them
         made += 1
         if send:
             err = deliver(job, mp4)
