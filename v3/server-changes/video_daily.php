@@ -28,15 +28,30 @@ require_once $APP . '/helpers.php';
 require_once $APP . '/db.php';
 if (is_file($APP . '/ai.php')) { require_once $APP . '/ai.php'; }   // the arousal reading; without it producer.php falls back to VADER
 require_once $APP . '/producer.php';
-header('Content-Type: application/json');
+if (PHP_SAPI !== 'cli') { header('Content-Type: application/json'); }
 // The first call of a day ranks the pages (one AI reading of their feeling, up to a few minutes): it finishes and
 // keeps the list even when the caller stops waiting, so the next call answers at once from the kept list.
 ignore_user_abort(true);
 @set_time_limit(600);
 
-$tok = (string)($_GET['token'] ?? $_POST['token'] ?? '');
-if (!hash_equals(($CONFIG['ingest_token'] ?? '') ?: random_bytes(32), $tok)) {
-    http_response_code(403); echo json_encode(['error' => 'bad token']); exit;
+// BUILT ON THE SERVER, READ BY GITHUB (2026-11-01): over the web the site's CDN cuts a call at 60 s and the host then
+// stops the script, so the first ranking of a day never finished. The server's own 30-minute bridge job builds it from
+// the command line instead:  php public_html/api/video_daily.php --build [YYYY-MM-DD]   (default: yesterday, UTC)
+// and every web call afterwards answers in a second from the kept list.
+if (PHP_SAPI === 'cli') {
+    $_GET = ['day' => (string)($argv[2] ?? ''), 'n' => '10'] + (in_array('--fresh', $argv, true) ? ['fresh' => '1'] : []);
+    if (($argv[1] ?? '') !== '--build') { fwrite(STDERR, "usage: php video_daily.php --build [YYYY-MM-DD]
+"); exit(2); }
+} else {
+    $tok = (string)($_GET['token'] ?? $_POST['token'] ?? '');
+    if (!hash_equals(($CONFIG['ingest_token'] ?? '') ?: random_bytes(32), $tok)) {
+        http_response_code(403); echo json_encode(['error' => 'bad token']); exit;
+    }
+    // a day that is not kept yet is NOT ranked over the web (the CDN would cut it): the bridge job builds it
+    $d0 = preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)($_GET['day'] ?? '')) ? (string)$_GET['day'] : gmdate('Y-m-d', time() - 86400);
+    if (!is_file($APP . '/cache/video_daily-' . $d0 . '.json') && $d0 < gmdate('Y-m-d') && empty($_GET['fresh'])) {
+        http_response_code(503); echo json_encode(['ok' => false, 'error' => 'the list of ' . $d0 . ' is being built on the server; ask again in a few minutes']); exit;
+    }
 }
 $day = (string)($_GET['day'] ?? '');
 if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $day)) { $day = gmdate('Y-m-d', time() - 86400); }
