@@ -17,7 +17,7 @@ on:
     # r128: 8 night runs so the booking loop can fill IG's five slots, FB's
     # three and TikTok's two; the per-service caps + booked-slot state make
     # extra runs harmless (they log 'cap reached' and exit).
-    - cron: '35 13,14,15,16,17,18,19,20,21,22,23,0,1,2 * * *'   # 2026-10-29 owner: 8 a day per channel; hourly from 13:35 so a run GitHub skips costs no slot (each run books the next free slot, the daily cap stops at 8)
+    - cron: '35 13,14,15,16,17,18,19,20,21,22,23,0,1,2,3 * * *'   # 2026-10-29 owner: 8 a day per channel; hourly from 13:35 so a run GitHub skips costs no slot (each run books the next free slot, the daily cap stops at 8)
   workflow_dispatch:
   push:
     paths:
@@ -48,6 +48,8 @@ jobs:
         env:
           SOCIAL_BASE: 'https://genzhype.com'
           INGEST_TOKEN: ${{ secrets.INGEST_TOKEN }}
+          # Facebook is posted at its slot from a GitHub release copy that is deleted right after (buffer_poster.post_facebook_now)
+          GH_TOKEN: ${{ github.token }}
           # 2026-11-01 owner: 8 a day per channel, timed for the US audience (Eastern = UTC-5 since 2026-11-01):
           # TikTok 11:00-21:30 ET every 90 min, Instagram 20 min later, Facebook 40 min later. One run books every free slot.
           BUFFER_DAILY_CAP_TT: '8'

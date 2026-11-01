@@ -24,6 +24,7 @@ Env: SOCIAL_BASE, INGEST_TOKEN, BUFFER_TOKEN (fetched by the workflow).
 """
 import json
 import os
+import shutil
 import subprocess
 import time
 
@@ -351,6 +352,93 @@ def post(channel, v):
     return False
 
 
+# FACEBOOK FROM A COPY THAT EXISTS FOR ONE MINUTE (owner, 2026-11-01). Facebook's servers download the video from the
+# link Buffer gives them, and our host's firewall blocks many of them ("Facebook was unable to process the media" on
+# most days since mid-September; the same files posted fine from GitHub). The repository is public, so a video must not
+# sit there before it is posted: at a due Facebook slot the video is copied to the release, Buffer posts it NOW, the
+# poster waits until Facebook has it (sent or error), and the copy is deleted whatever happened.
+FB_VIA_GITHUB = os.environ.get("BUFFER_FB_VIA_GITHUB", "1") == "1"
+GH_REPO = os.environ.get("GITHUB_REPOSITORY", "DEimos12-bi/genzhype-scraper")
+RELEASE = "social-media"
+
+
+def _due_slot(service):
+    """The latest slot of today (UTC) whose time has come (at most 3 hours ago) and that is not used yet; None if none."""
+    offset = {"tiktok": 0, "instagram": 7, "facebook": 14}.get(service, 0)
+    booked = _booked_slots(service)
+    now = time.gmtime()
+    mins = now.tm_hour * 60 + now.tm_min
+    due = []
+    for s in SERVICE_SLOTS.get(service, "").split(","):
+        s = s.strip()
+        if not s or s in booked:
+            continue
+        h, m = (int(x) for x in s.split(":"))
+        t = h * 60 + m + offset
+        if 0 <= mins - t <= 180:
+            due.append((t, s))
+    return max(due)[1] if due else None
+
+
+def _gh(*args):
+    r = subprocess.run(["gh", *args, "-R", GH_REPO], capture_output=True, text=True, timeout=600)
+    return r.returncode == 0, (r.stderr or r.stdout or "").strip()[-200:]
+
+
+def post_facebook_now(channel, v):
+    """-> the Buffer post id when Facebook took it, None when no slot is due yet, False on a failure."""
+    slot = _due_slot("facebook")
+    if not slot:
+        log("fb: no Facebook slot is due right now; waiting for the next one")
+        return None
+    pid = str(v["page_id"])
+    path = f"/tmp/fb-{pid}.mp4"
+    got = subprocess.run(["curl", "-s", "-f", "-L", "--max-time", "300", "-A", "Mozilla/5.0", "-o", path, v["video"]], timeout=330)
+    if got.returncode != 0 or not os.path.exists(path) or os.path.getsize(path) < 200000:
+        log(f"fb: page {pid}: the video could not be read from our site from this machine; the next run tries again")
+        return False
+    asset = f"{pid}.mp4"
+    shutil.copy(path, f"/tmp/{asset}")
+    ok, why = _gh("release", "upload", RELEASE, f"/tmp/{asset}", "--clobber")
+    if not ok:
+        log(f"fb: page {pid}: the copy could not be put on GitHub ({why})")
+        return False
+    url = f"https://github.com/{GH_REPO}/releases/download/{RELEASE}/{asset}"
+    post_id, status, err = None, "", ""
+    try:
+        text = v.get("fb_caption") or v["caption"]
+        for as_reel in (True, False):
+            data, e = gql(MUTATION, {"i": {
+                "channelId": channel["id"], "text": text, "schedulingType": "automatic", "mode": "shareNow",
+                "needsApproval": False, "metadata": _meta("facebook", v, as_reel),
+                "assets": [{"video": {"url": url, "metadata": {"thumbnailOffset": COVER_OFFSET_MS}}}]}})
+            res = (data or {}).get("createPost") or {}
+            if e or res.get("message"):
+                err = json.dumps(e)[:200] if e else res["message"][:200]
+                log(f"  refused as {'reel' if as_reel else 'post'}: {err}")
+                continue
+            post_id = (res.get("post") or {}).get("id")
+            break
+        for _ in range(24):                         # Facebook downloads within a minute or two; wait for the verdict
+            if not post_id:
+                break
+            d, _e = gql("query($i:PostInput!){ post(input:$i){ status error { message } } }", {"i": {"id": post_id}})
+            p = (d or {}).get("post") or {}
+            status, err = p.get("status") or "", ((p.get("error") or {}).get("message") or "")
+            if status in ("sent", "error"):
+                break
+            time.sleep(10)
+    finally:
+        gone, why = _gh("release", "delete-asset", RELEASE, asset, "-y")
+        log(f"fb: the GitHub copy of page {pid} {'is deleted' if gone else 'could NOT be deleted: ' + why}")
+    if status == "sent":
+        _book_slot("facebook", slot)
+        log(f"  POSTED on facebook at slot {slot} (buffer post {post_id})")
+        return post_id
+    log(f"fb: page {pid}: not posted ({status or 'no answer'}{': ' + err if err else ''})")
+    return False
+
+
 def main():
     global TOKEN
     os.makedirs(STATE, exist_ok=True)
@@ -392,6 +480,21 @@ def main():
             if "paused" in why or "disconnected" in why or "locked" in why:
                 continue
             todo = todo[:1]          # its last posts failed: ONE post this run as a probe, never a whole day into a broken channel
+        if code == "fb" and FB_VIA_GITHUB:           # Facebook cannot fetch from our host: posted at its slot from a GitHub copy, deleted at once
+            if sent_today(code) >= cap:
+                log(f"{code}: daily cap reached ({sent_today(code)}/{cap})")
+                continue
+            v = todo[0]
+            pid = post_facebook_now(c, v)
+            if pid:
+                done.add(str(v["page_id"]))
+                save_done(code, done)
+                bump_today(code)
+                register(code, v["page_id"])
+                remember(code, pid)
+            elif pid is False:
+                rc = 1
+            continue
         # 2026-11-01 (owner): the day's videos are booked at once, every free slot up to the cap, instead of one per run:
         # GitHub skips most scheduled runs, and one booking per run left most slots empty.
         for v in todo:

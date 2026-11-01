@@ -2,7 +2,7 @@ name: v3-live
 
 # THE PLUG (step 2 of the switch, 2026-10-28): v3 takes the live system's jobs (the same video-feed branch that
 # video-maker.yml reads) and makes their videos with v3/live.py.
-#   mode shadow  (the default): the videos are kept with the run and on branch v3-drop; NOTHING is sent to the site,
+#   mode shadow  (the default): the video is kept with the run for one day (never on a branch); NOTHING is sent to the site,
 #                nothing is posted, the live maker's done-list is not touched. This is the test run of step 3.
 #   mode deliver: the videos go to the site exactly like video-maker.yml sends them (api/video_receive.php, the same
 #                token and fields), so the posters publish them. Step 4 only, on the owner's word.
@@ -110,13 +110,23 @@ jobs:
           for w in v3/work/live-*/; do p=$(basename "$w" | sed 's/live-//'); [ -f "$w/out/report.json" ] && mkdir -p "drop/$p" && cp "$w/out/report.json" "drop/$p/" || true; done
           ls -laR drop | head -40
 
+      - name: Videos never stay on public GitHub (owner, 2026-11-01)
+        if: always()
+        env:
+          MODE: ${{ github.event.inputs.mode || 'deliver' }}
+        run: |
+          # the repository is public: a finished video must not be downloadable here before it is posted.
+          # Delivered videos live on the site only; a shadow test keeps its video with the run for one day (to watch it).
+          if [ "$MODE" != "shadow" ]; then find drop -type f \( -name '*.mp4' -o -name 'cover.jpg' \) -delete 2>/dev/null || true; fi
+          ls -laR drop | head -30
+
       - name: Keep the results with the run
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: v3-live-videos
+          name: v3-live-results
           path: drop
-          retention-days: 14
+          retention-days: 1
 
       - name: Push the results to the v3-drop branch
         if: always()
@@ -129,8 +139,9 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git checkout -q -b v3-drop
+          find . -type f \( -name '*.mp4' -o -name '*.jpg' \) -delete 2>/dev/null || true      # logs and reports only, never a video
           git add -A
-          git commit -q -m "v3 live videos $(date -u +%Y-%m-%dT%H:%M:%SZ)" || echo "nothing to push"
+          git commit -q -m "v3 live results $(date -u +%Y-%m-%dT%H:%M:%SZ)" || echo "nothing to push"
           git push -qf "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" v3-drop || true
 
       - name: Videos the site refused directly -> the video-drop branch (the server's bridge collects it)
