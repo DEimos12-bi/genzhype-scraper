@@ -29,6 +29,10 @@ require_once $APP . '/db.php';
 if (is_file($APP . '/ai.php')) { require_once $APP . '/ai.php'; }   // the arousal reading; without it producer.php falls back to VADER
 require_once $APP . '/producer.php';
 header('Content-Type: application/json');
+// The first call of a day ranks the pages (one AI reading of their feeling, up to a few minutes): it finishes and
+// keeps the list even when the caller stops waiting, so the next call answers at once from the kept list.
+ignore_user_abort(true);
+@set_time_limit(600);
 
 $tok = (string)($_GET['token'] ?? $_POST['token'] ?? '');
 if (!hash_equals(($CONFIG['ingest_token'] ?? '') ?: random_bytes(32), $tok)) {
@@ -52,18 +56,44 @@ if (empty($_GET['fresh']) && is_file($cache)) {
 
 $pdo = db();
 $st = $pdo->prepare("SELECT id, slug, path, h1, type, published_at FROM pages
-                      WHERE status='published' AND robots='index'
+                      WHERE status='published' AND robots='index' AND cover<>''
                         AND published_at >= ? AND published_at < DATE_ADD(?, INTERVAL 1 DAY)");
 $st->execute([$day . ' 00:00:00', $day . ' 00:00:00']);
 $pages = [];
 foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $p) { $pages[(int)$p['id']] = $p; }
 
-$cands = array_values(array_filter(producer_intake($pdo), fn($c) => isset($pages[(int)$c['page_id']])));
-$in = array_flip(array_map(fn($c) => (int)$c['page_id'], $cands));
-$notVideoable = [];
+// EVERY indexed page of the day competes. producer_intake() keeps the OLD maker's entry rules (a drama timeline
+// needed >= 4 dated events, a term video >= 3): on 2026-10-31 that let 2 of 10 pages in. The new maker (v3) builds
+// from the page, its posts and the clips it finds, so a page with few events is not excluded: it simply scores
+// lower on QUALITY. The candidate fields are the ones producer_intake() builds, without its thresholds.
+$cands = []; $notVideoable = [];
 foreach ($pages as $id => $p) {
-    if (!isset($in[$id])) { $notVideoable[] = ['page_id' => $id, 'title' => (string)$p['h1'], 'why' => 'too few dated events or sources for a video, or a video exists'];
+    $c = ['page_id' => $id, 'title' => (string)$p['h1'], 'slug' => (string)$p['slug'], 'follow_up' => false,
+          'dated' => 0, 'sourced' => 0, 'newest' => '', 'clips' => 0, 'people' => [], 'lane' => 'drama'];
+    $d = $pdo->prepare("SELECT d.id did, d.people_json,
+                (SELECT COUNT(*) FROM events e WHERE e.drama_id=d.id AND e.event_date IS NOT NULL AND e.video_only=0) dated,
+                (SELECT COUNT(*) FROM events e WHERE e.drama_id=d.id AND (e.source_id IS NOT NULL OR e.embed_html<>'')) sourced,
+                (SELECT MAX(e.event_date) FROM events e WHERE e.drama_id=d.id) newest
+              FROM dramas d WHERE d.page_id=? LIMIT 1");
+    $d->execute([$id]);
+    $t = $pdo->prepare("SELECT term, lane, citations, origin_date, short_def, why_trending FROM terms WHERE page_id=? LIMIT 1");
+    $t->execute([$id]);
+    if ($tr = $t->fetch(PDO::FETCH_ASSOC)) {                       // slang / meme / gaming term page
+        $dated = 0;
+        foreach ((array)json_decode((string)$tr['citations'], true) as $ct) { if (!empty($ct['date']) && strtotime((string)$ct['date'])) { $dated++; } }
+        $od = trim((string)($tr['origin_date'] ?? ''));
+        if (preg_match('/^\d{4}-\d{2}-\d{2}/', $od)) { $dated++; } else { $od = ''; }
+        $c = array_merge($c, ['lane' => (string)($tr['lane'] ?: 'term'), 'dated' => $dated, 'sourced' => $dated, 'newest' => $od,
+              'term' => (string)$tr['term'], 'match' => (string)$tr['term'],
+              'brief' => trim((string)$tr['term'] . ' — ' . mb_substr(trim((string)$tr['short_def']), 0, 220) . ' ' . mb_substr(producer_first_str($tr['why_trending']), 0, 280))]);
+    } elseif ($dr = $d->fetch(PDO::FETCH_ASSOC)) {                 // drama / news page
+        $c = array_merge($c, ['dated' => (int)$dr['dated'], 'sourced' => (int)$dr['sourced'], 'newest' => (string)($dr['newest'] ?? ''),
+              'people' => (array)(json_decode((string)($dr['people_json'] ?? '[]'), true) ?: [])]);
+    } else {
+        $notVideoable[] = ['page_id' => $id, 'title' => (string)$p['h1'], 'why' => 'neither a story nor a term page'];
+        continue;
     }
+    $cands[] = $c;
 }
 
 $ranked = []; $same = [];
