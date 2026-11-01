@@ -88,8 +88,10 @@ def access_token():
     return tok.get("access_token", "")
 
 
-def upload(v, token):
-    """Resumable upload: init -> PUT bytes. Returns True on success."""
+def upload(v, token, publish_at=None):
+    """Resumable upload: init -> PUT bytes. Returns True on success.
+    publish_at (ISO, UTC): uploaded PRIVATE with that publish time, and YouTube itself makes it public then
+    (2026-11-01, owner: every platform on time; GitHub starts this hourly job only some of the hours)."""
     blob = site_get(v["video"], binary=True)
     log(f"downloaded {len(blob) // 1024}KB")
     meta = {
@@ -108,6 +110,9 @@ def upload(v, token):
             "containsSyntheticMedia": True,
         },
     }
+    if publish_at:
+        meta["status"]["privacyStatus"] = "private"          # the API publishes a scheduled video from private only
+        meta["status"]["publishAt"] = publish_at
     init_url = ("https://www.googleapis.com/upload/youtube/v3/videos"
                 "?uploadType=resumable&part=snippet,status")
     req = urllib.request.Request(init_url, data=json.dumps(meta).encode(),
@@ -133,12 +138,46 @@ def upload(v, token):
         log("YT upload failed:", json.dumps(res)[:400])
         return False
     priv = (res.get("status") or {}).get("privacyStatus", "?")
-    log(f"YT UPLOADED https://youtube.com/shorts/{vid} privacy={priv}"
-        + ("  (audit not passed yet -> locked private)" if priv != "public" else ""))
+    if publish_at:
+        got = (res.get("status") or {}).get("publishAt", "")
+        log(f"YT SCHEDULED https://youtube.com/shorts/{vid} goes public at {got or publish_at}"
+            + ("" if got else "  (YouTube did not confirm the publish time)"))
+    else:
+        log(f"YT UPLOADED https://youtube.com/shorts/{vid} privacy={priv}"
+            + ("  (audit not passed yet -> locked private)" if priv != "public" else ""))
     register_post(BASE, INGEST, "yt", v["page_id"], vid,
                   f"https://youtube.com/shorts/{vid}")
-    first_comment(vid, v, token)
+    if publish_at:
+        log("  first comment skipped: a scheduled video is private until its time")
+    else:
+        first_comment(vid, v, token)
     return True
+
+
+SLOTS_F = f"{STATE}/yt_slots.json"
+
+
+def next_yt_slot(hours):
+    """The next free slot hour (UTC) at least 30 minutes ahead, today or the next two days; each slot used once.
+    -> ISO publish time, or None when every slot of three days is taken."""
+    try:
+        booked = json.load(open(SLOTS_F))
+    except Exception:  # noqa: BLE001
+        booked = {}
+    now = time.time()
+    today0 = now - now % 86400
+    for off in (0, 1, 2):
+        day0 = today0 + off * 86400
+        day = time.strftime("%Y-%m-%d", time.gmtime(day0))
+        for h in sorted(set(hours)):
+            t = day0 + h * 3600
+            if t < now + 1800 or h in booked.get(day, []):
+                continue
+            booked.setdefault(day, []).append(h)
+            booked = {k: v for k, v in booked.items() if k >= time.strftime("%Y-%m-%d", time.gmtime(today0))}
+            json.dump(booked, open(SLOTS_F, "w"))
+            return time.strftime("%Y-%m-%dT%H:00:00Z", time.gmtime(t))
+    return None
 
 
 def first_comment(vid, v, token):
@@ -194,69 +233,31 @@ def main():
         log("YT: nothing new")
         return 0
 
-    # Slot logic (Shorts rulebook): this runs hourly, but publishes only in
-    # the two US-audience slots — UNLESS the story is fresh news (<12h),
-    # where freshness is an official ranking factor and waiting costs reach.
-    hour = time.gmtime().tm_hour
+    # 2026-11-01 (owner): EVERY PLATFORM ON TIME. Waiting for an hourly run to land inside a slot hour posted late or
+    # not at all (GitHub starts this job only some of the hours: 2 uploads instead of 5 on 2026-10-29). Now every ready
+    # video is uploaded at once, PRIVATE, with the next free slot as its publish time: YouTube publishes it itself, on
+    # time. A hot story (fresh news) still goes public at once.
     slots = [int(h) for h in os.environ.get("YT_SLOT_HOURS", "16,23").split(",")]
-    # r114: the intelligence engine measures which hours this lane actually
-    # publishes in, and the site serves that as policy.slot_hours next to the
-    # copy. It is ADDITIVE (the engine adds at most one well-evidenced rival
-    # hour to ours) and it never shrinks our windows — so a bad or empty rule
-    # can only ever leave the hardcoded slots exactly as they were.
-    learned = [int(h) for h in (POLICY.get("slot_hours") or [])
-               if isinstance(h, int) or str(h).isdigit()]
-    if learned:
-        # r122: the learned hour must still respect the posting window. The
-        # channel moved to a 21:00-05:00 UTC night grid, and the engine's
-        # measured rival hour (19 UTC) predates that decision — merging it
-        # unfiltered would quietly re-open the dead zone the grid exists to
-        # avoid. Inside the window the learning still applies.
-        in_window = [h for h in learned
-                     if 0 <= h <= 23 and (h >= 16 or h <= 2)]   # 2026-11-01: the US-Eastern window 11am-9pm (UTC-5)
-        dropped = sorted(set(learned) - set(in_window))
-        if dropped:
-            log(f"YT: learned hour(s) {dropped} outside the 16:00-02:00 UTC window; ignored")
-        merged = sorted(set(slots) | set(in_window))
-        if merged != sorted(set(slots)):
-            log(f"YT: slots {sorted(set(slots))} + learned {sorted(set(learned) - set(slots))}"
-                f" -> {merged}")
-        slots = merged
-    hot = [v for v in todo if v.get("hot")]
-    if hour in slots:
-        todo = hot + [v for v in todo if not v.get("hot")]
-    elif hot:
-        log(f"YT: hot story outside slots (hour {hour}) — publishing now")
-        todo = hot
-    else:
-        # 2026-10-15 CATCH-UP. GitHub starts this hourly job only 4-5 times a day, at random minutes, so from Oct 13 23:24
-        # to Oct 15 not one of 9 runs landed on a slot hour and nothing was posted with 215 videos waiting. Inside the
-        # 21:00-05:00 night window, a run that finds no upload in the last CATCHUP_GAP_H hours posts now: the same grid,
-        # at most one post per 2 hours, never outside the window.
-        try:
-            last = float(open(LAST).read().strip()) if os.path.exists(LAST) else 0.0
-        except (OSError, ValueError):
-            last = 0.0
-        in_window = hour >= 16 or hour <= 2          # 2026-11-01: the US-Eastern window 11am-9pm (UTC-5)
-        gap_h = (time.time() - last) / 3600.0
-        if in_window and gap_h >= CATCHUP_GAP_H:
-            log(f"YT: hour {hour} is not a slot {slots}, but no upload for {gap_h:.1f}h inside the night window; catching up")
-        else:
-            log(f"YT: hour {hour} is not a slot {slots} and nothing is hot; waiting"
-                + ("" if in_window else " (outside the 16:00-02:00 UTC window)"))
-            return 0
     token = access_token()
     if not token:
         log("YT: token refresh failed")
         return 1
-    v = todo[0]
-    log(f"YT: posting page {v['page_id']} ({v['slug']})")
-    if not upload(v, token):
-        return 1
-    done.add(str(v["page_id"]))
-    open(DONE, "w").write("\n".join(sorted(done)) + "\n")
-    open(LAST, "w").write("%d\n" % int(time.time()))
-    return 0
+    hot = [v for v in todo if v.get("hot")]
+    rest = [v for v in todo if not v.get("hot")]
+    rc = 0
+    for v in hot[:1] + rest:
+        when = None if v.get("hot") else next_yt_slot(slots)
+        if not v.get("hot") and not when:
+            log("YT: every slot of the next three days is taken; the rest waits")
+            break
+        log(f"YT: page {v['page_id']} ({v['slug']}) " + (f"scheduled for {when}" if when else "is hot news: public now"))
+        if not upload(v, token, publish_at=when):
+            rc = 1
+            break                                   # the slot stays booked: an empty slot is better than a double post
+        done.add(str(v["page_id"]))
+        open(DONE, "w").write("\n".join(sorted(done)) + "\n")
+        open(LAST, "w").write("%d\n" % int(time.time()))
+    return rc
 
 
 if __name__ == "__main__":
