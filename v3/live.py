@@ -41,7 +41,7 @@ RECEIVE_URL = os.environ.get('VIDEO_RECEIVE_URL', BASE + '/api/video_receive.php
 UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:130.0) Gecko/20100101 Firefox/130.0'
 STATE = os.path.join(ROOT, '.social')
 DONE, FAILED, LIVE_DONE = os.path.join(STATE, 'v3_done.txt'), os.path.join(STATE, 'v3_failed.txt'), os.path.join(STATE, 'video_done.txt')
-FAIL_CAP = 2
+FAIL_CAP = 3                                  # the old maker's bounded retries (video_maker.FAIL_CAP): three tries, then the page is parked
 DAILY = int(os.environ.get('V3_DAILY', '8'))   # the owner's goal, 2026-10-28: 8 videos a day (GitHub starts an hourly job only some of the hours, so it runs hourly and stops at 8)
 # pictures of the site's store that may be shown: the site's own files (not its cover card), the subjects' own channels and posts, free photos
 SHOWABLE = re.compile(r'^https://(?:genzhype\.com/(?:assets|media)/(?!covers/)|i\.ytimg\.com/|yt3\.ggpht\.com/|pbs\.twimg\.com/|(?:commons|upload)\.wikimedia\.org/|static-cdn\.jtvnw\.net/|clips-media-assets2\.twitch\.tv/)', re.I)
@@ -136,11 +136,13 @@ def failures():
     return out
 
 
-def pick(jobs, wanted=None):
+def pick(jobs, wanted=None, skip=()):
     done, failed = {x.split()[0] for x in lines(DONE)}, failures()
     for j in jobs:
         pid = str(j.get('page_id', ''))
         if wanted and pid != wanted:
+            continue
+        if pid in skip:                                   # the old maker's _MADE_THIS_RUN: never the same page twice in one run
             continue
         if not j.get('link') or not pid:
             continue
@@ -244,6 +246,31 @@ def deliver(job, mp4):
     return last
 
 
+PERMANENT = re.compile(r'PLAN REFUSED|REFUSED|under 6\d s|long: under|HTTP Error 404|not found', re.I)
+
+
+def hb(stage, pid=0, note=''):
+    """The old maker's status line (video_maker._hb_post): one POST to the site's receive address, which appends it to
+    media/heartbeat.log. Best effort: a run that cannot reach the site cannot report either."""
+    token = os.environ.get('INGEST_TOKEN', '').strip()
+    if not token:
+        return
+    try:
+        body = json.dumps({'token': token, 'action': 'heartbeat', 'page_id': int(pid or 0), 'stage': stage, 'elapsed': 0, 'note': ('v3 ' + note)[:700]}).encode()
+        urllib.request.urlopen(urllib.request.Request(RECEIVE_URL, data=body, headers={'Content-Type': 'application/json', 'User-Agent': UA}), timeout=15).read()
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def more_to_do(flag):
+    """drop/next.txt tells the workflow whether to start the next run at once (the chain)."""
+    try:
+        os.makedirs(os.path.join(ROOT, 'drop'), exist_ok=True)
+        open(os.path.join(ROOT, 'drop', 'next.txt'), 'w').write('more' if flag else 'done')
+    except OSError:
+        pass
+
+
 def main():
     sys.stdout.reconfigure(encoding='utf-8')
     arg = lambda k, d=None: sys.argv[sys.argv.index(k) + 1] if k in sys.argv and sys.argv.index(k) + 1 < len(sys.argv) else d
@@ -256,6 +283,7 @@ def main():
         _get(BASE + '/', timeout=20)                       # such a run can read nothing and send nothing; it stops here, the next run (another machine) tries,
     except Exception as e:  # noqa: BLE001                 # and no page is counted as failed for it
         log('live: this machine cannot reach %s (%s): nothing is tried this run' % (BASE, str(e)[:80]))
+        more_to_do(True)                                   # another machine may get through: the chain tries again
         return 0
     jobs = daily(day) if source == 'daily' else (feed().get('posts') or [])
     log('live: %d job(s) from %s, mode %s' % (len(jobs), 'the pages of %s' % day if source == 'daily' else 'the feed', 'DELIVER (the site gets the video)' if send else 'SHADOW (nothing is sent or posted)'))
@@ -267,21 +295,30 @@ def main():
         made_today = sum(1 for x in lines(DONE) if len(x.split()) > 1 and x.split()[1].startswith(today))
     if not wanted and made_today >= DAILY:
         log('live: %d video(s) made already for %s (the cap is %d): nothing more' % (made_today, day if source == 'daily' else 'today', DAILY))
+        more_to_do(False)
         return 0
     if not wanted:
         batch = min(batch, DAILY - made_today)
+    hb('V3_START', 0, 'day=%s made=%d/%d batch=%d' % (day, made_today, DAILY, batch))
+    tried = set()
     for _ in range(batch):
-        job = pick(jobs, wanted)
+        job = pick(jobs, wanted, tried)
         if not job:
             log('live: no job left that v3 has not made')
             break
         pid = str(job['page_id'])
+        tried.add(pid)
         log('live: === page %s "%s"' % (pid, str(job.get('title', ''))[:80]))
+        hb('V3_PAGE', pid, str(job.get('title', ''))[:120])
         mp4, why = make(job, budget)
         if not mp4:
-            n = failures().get(pid, 0) + 1
+            # the old maker's classification: a refusal (the fact check, the length gate, a missing page) will fail the same
+            # way again, so the page is parked at once; anything else (a network drop, a crash) is one try of three
+            permanent = bool(PERMANENT.search(why or ''))
+            n = FAIL_CAP if permanent else failures().get(pid, 0) + 1
             add_line(FAILED, '%s %d' % (pid, n))
-            log('live: page %s: NO VIDEO (%s); failure %d of %d' % (pid, why, n, FAIL_CAP))
+            log('live: page %s: NO VIDEO (%s); %s' % (pid, why, 'PARKED (it would fail the same way again); the next pick is made instead' if permanent else 'try %d of %d' % (n, FAIL_CAP)))
+            hb('V3_FAILED', pid, ('parked: ' if permanent else 'try %d: ' % n) + (why or '')[:300])
             if wanted:
                 break
             continue
@@ -310,11 +347,18 @@ def main():
             else:
                 add_line(LIVE_DONE, pid)                   # the old maker skips it from now on
                 log('live: page %s: DELIVERED to the site' % pid)
+                hb('V3_DELIVERED', pid, 'day=%s' % day)
         else:
             log('live: page %s: made, kept in drop/%s (shadow: not sent)' % (pid, pid))
         if wanted:
             break
     log('live: %d video(s) made' % made)
+    if source == 'daily' and not wanted:
+        done_day = sum(1 for x in lines(DONE) if ('day=' + day) in x.split())
+        left = pick(jobs)                                  # a pick still to make (not made, not parked)
+        more_to_do(done_day < DAILY and left is not None)
+        log('live: %d of %d made for %s; %s' % (done_day, DAILY, day, 'the next run starts now' if done_day < DAILY and left else 'nothing more to do for this day'))
+        hb('V3_END', 0, 'day=%s made=%d/%d this_run=%d more=%s' % (day, done_day, DAILY, made, 'yes' if done_day < DAILY and left else 'no'))
     return 0 if made or not jobs else 1
 
 

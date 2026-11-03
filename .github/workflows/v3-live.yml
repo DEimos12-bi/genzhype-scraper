@@ -12,7 +12,10 @@ name: v3-live
 # machine the site's firewall blocks makes none, and the next run makes up for it.
 
 on:
-  schedule:
+  push:                      # THE RELIABLE CLOCK (2026-11-03): the server's 30-minute bridge job pushes .social/v3_poke when the day still needs videos
+    branches: [main]
+    paths: ['.social/v3_poke']
+  schedule:                  # GitHub's own timer: only a backup (it is late or dropped under load)
     - cron: "47 0-13 * * *"   # 2026-11-01 owner: after the day's pages are finished (UTC day), making runs 00:47-13:47 UTC, so the videos are ready before the US posting window (16:00 UTC); live.py stops at 8
   workflow_dispatch:
     inputs:
@@ -24,6 +27,14 @@ on:
         description: "how many jobs in this run"
         required: false
         default: "1"
+      day:
+        description: "the page day to make videos for, YYYY-MM-DD (empty = yesterday, the last finished day)"
+        required: false
+        default: ""
+      hop:
+        description: "how many runs this chain has started already (the chain stops at 12)"
+        required: false
+        default: "0"
       page:
         description: "one page id from the feed (empty = the next job v3 has not made)"
         required: false
@@ -31,6 +42,7 @@ on:
 
 permissions:
   contents: write
+  actions: write             # the chain: a run starts the next one
 
 concurrency:
   group: v3-live
@@ -79,6 +91,7 @@ jobs:
           MODE: ${{ github.event.inputs.mode || 'deliver' }}
           BATCH: ${{ github.event.inputs.batch }}
           PAGE: ${{ github.event.inputs.page }}
+          DAY: ${{ github.event.inputs.day }}
           INGEST_TOKEN: ${{ secrets.INGEST_TOKEN }}
           # every AI key at once (owner, 2026-10-28): the site's keys, and the videos' own keys once they are added
           # as repository secrets under these names (the order of models is in v3/config.json); four were saved with extra
@@ -106,6 +119,7 @@ jobs:
           extra=""
           [ "$MODE" = "deliver" ] && extra="--deliver"
           [ -n "$PAGE" ] && extra="$extra --page $PAGE"
+          [ -n "$DAY" ] && extra="$extra --day $DAY"
           ( timeout 6600 python v3/live.py --source daily --batch "${BATCH:-2}" --budget 3300 $extra 2>&1 | tee drop/run.log ) || echo "no video this run (the reason is in drop/run.log)"
           for w in v3/work/live-*/; do p=$(basename "$w" | sed 's/live-//'); [ -f "$w/out/report.json" ] && mkdir -p "drop/$p" && cp "$w/out/report.json" "drop/$p/" || true; done
           ls -laR drop | head -40
@@ -178,3 +192,20 @@ jobs:
             sleep $((i * 4))
           done
           echo "::warning::v3 done-list not pushed after 5 attempts"
+
+      - name: The chain - start the next run while the day still needs videos
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MODE: ${{ github.event.inputs.mode || 'deliver' }}
+          HOP: ${{ github.event.inputs.hop || '0' }}
+          DAY: ${{ github.event.inputs.day }}
+        run: |
+          # work until done (2026-11-03): the first run of the day keeps the day going, run after run, until its 8 videos
+          # exist or every pick is made or parked; at most 12 runs in one chain
+          next=$(cat drop/next.txt 2>/dev/null || echo done)
+          if [ "$MODE" = "deliver" ] && [ "$next" = "more" ] && [ "${HOP:-0}" -lt 12 ]; then
+            gh workflow run v3-live.yml -R "$GITHUB_REPOSITORY" -f mode=deliver -f batch=2 -f day="$DAY" -f hop=$(( ${HOP:-0} + 1 )) && echo "next run started (hop $(( ${HOP:-0} + 1 )))"
+          else
+            echo "no next run: next=$next mode=$MODE hop=${HOP:-0}"
+          fi
