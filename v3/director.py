@@ -2338,6 +2338,23 @@ def direct(m, log=print, work=None, budget=None):
         keep()
     plan, soft2, hard = check(copy(st['best']['plan']), m)
     facts = st['best']['facts']
+    # LAST CUT BEFORE A REFUSAL (2026-11-05, owner "fix the 2 top pages"): the day's two best pages were never made because
+    # one or two refused sentences stayed in (the earlier cut is thrown away when the shorter script ranks lower, and a take
+    # written after it can be refused too), so the whole video was refused and the page parked for good. Before refusing,
+    # those sentences are cut once more; the cut plan is used if the reader then finds fewer problems and it is still long
+    # enough. What is cut is never rewritten.
+    if facts and not slang_page:
+        cutp = copy(st['best']['plan'])
+        n = cut_statements(cutp, facts)
+        if n:
+            g2, s2, h2 = check(cutp, m)
+            f2 = read(g2, h2)
+            if f2 is not None and len(f2) < len(facts) and g2.get('words', 0) >= g2.get('lo', lo) - 25:
+                log('director: last cut before refusing: %d refused sentence(s) removed, %d words, %s' % (
+                    n, g2.get('words', 0), '%d problems left' % len(f2) if f2 else 'fact check clean'))
+                st['best'] = {'plan': copy(g2), 'model': st['best']['model'], 'rank': rank(g2, s2, h2, f2), 'facts': f2}
+                keep()
+                plan, soft2, hard, facts = g2, s2, h2, f2
     if plan.get('incomplete'):
         hard.append('the plan still lacks lines the format needs')
     if plan.get('words', 0) < plan.get('lo', lo) - 25:
