@@ -1428,12 +1428,21 @@ def labels_causes(plan, m):
             % (str(x.get('item', '?'))[:14], str(x.get('text', ''))[:70]) for x in j.get('problems', []) if isinstance(x, dict)][:8]
 
 
+def post_counts(p):
+    """A post's date and counts as the checker must see them (2026-11-05: "311,000 likes" and "13,000 likes" were TRUE numbers
+    of the posts, but the checker only saw the posts' text, refused them, and the day's two best pages were never made)."""
+    bits = [str(p.get('date') or '')] + ['{:,} {}'.format(int(p[k]), k) for k in ('likes', 'views', 'reposts', 'comments')
+                                         if str(p.get(k) or '').isdigit() and int(p[k]) > 0]
+    bits = [b for b in bits if b]
+    return ' (%s)' % ', '.join(bits) if bits else ''
+
+
 def unsupported(plan, m):
     """A second, adversarial reading: every spoken sentence and on-screen text against the material. Returns the reasons to fix."""
     def screen(o):
         return ' '.join([str(o.get('t') or o.get('name') or ' / '.join(str(o.get(x) or '') for x in ('a', 'b') if o.get(x)))] + [r.get('t', '') for r in o.get('rows', [])] + [x.get('label', '') + ' ' + x.get('big', '') for x in o.get('items', [])]).strip()
     script = '\n'.join('%d. %s  [on screen: %s]' % (i + 1, l['text'], ' / '.join(screen(o) for o in l['overlays'])) for i, l in enumerate(plan['lines']))
-    mat = 'OUR PAGE:\n%s\n\nPOSTS:\n%s\n\nOUTLETS:\n%s' % (m['page_text'][:6500] if not m.get('no_page') else '(there is no page yet: only the posts and the pages below count)', '\n'.join('%s: %s' % (p['handle'], p['text'][:500]) for p in m.get('posts', [])), '\n\n'.join(s['excerpt'][:2600] for s in m.get('sources', [])))
+    mat = 'OUR PAGE:\n%s\n\nPOSTS:\n%s\n\nOUTLETS:\n%s' % (m['page_text'][:6500] if not m.get('no_page') else '(there is no page yet: only the posts and the pages below count)', '\n'.join('%s%s: %s' % (p['handle'], post_counts(p), p['text'][:500]) for p in m.get('posts', [])), '\n\n'.join(s['excerpt'][:2600] for s in m.get('sources', [])))
     shown = ['%s by %s%s%s' % (v.get('from'), v.get('by'), ', posted with the words "%s"' % v['title'][:160] if v.get('title') else '', '. A picture model saw in it: %s' % v['seen'] if v.get('seen') else '')
              for v in (m.get('meme_assets') or {}).values() if v.get('usable', True)]
     if said_of(m):
