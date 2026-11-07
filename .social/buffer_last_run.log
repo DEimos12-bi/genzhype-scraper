@@ -1,4 +1,34 @@
-vault unreachable from this runner (attempt 1): curl 28 for https://genzhype.com/api/creds.php
-vault unreachable from this runner (attempt 2): curl 28 for https://genzhype.com/api/creds.php
-vault unreachable from this runner (attempt 3): curl 28 for https://genzhype.com/api/creds.php
-Buffer: no token this run; the next scheduled run will retry
+channels: tiktok:genzhype0, instagram:therealgenzhype_, facebook:Genzhypee
+tt: queueing page 5600 (mr-popo-censored-in-french-dragon-ball-daima-release)
+  SCHEDULED on tiktok as reel for 2026-11-07T17:30:00.000Z (buffer post 6aee86429214322f68c44ae4)
+tt: queueing page 5624 (marvel-rivals-season-11-release-date-start-times-new-heroes)
+  SCHEDULED on tiktok as reel for 2026-11-07T19:00:00.000Z (buffer post 6aee8643a7751de7c9bd5775)
+tt: queueing page 5610 (warzone-season-1-adds-1m-nuke-purchase-in-rally-point)
+  SCHEDULED on tiktok as reel for 2026-11-07T20:30:00.000Z (buffer post 6aee8644af7e526d43f402aa)
+tt: queueing page 5606 (ps6-development-progresses-as-scheduled-ps5-nears-100m-sales)
+  SCHEDULED on tiktok as reel for 2026-11-07T22:00:00.000Z (buffer post 6aee8645229bf05daf2105df)
+tt: queueing page 5603 (sony-confirms-ps6-development-on-schedule-memory-secured)
+  SCHEDULED on tiktok as reel for 2026-11-07T23:30:00.000Z (buffer post 6aee8647004e4879a72a13b1)
+tt: queueing page 5604 (nier-automata-update-triggers-366gb-storage-bug)
+  SCHEDULED on tiktok as reel for 2026-11-07T02:30:00.000Z (buffer post 6aee86489214322f68c44e13)
+tt: queueing page 5607 (zelda-ocarina-of-time-remake-runs-on-pc-emulator-hours-after-launch)
+  SCHEDULED on tiktok as reel for 2026-11-08T16:00:00.000Z (buffer post 6aee8649229bf05daf21083b)
+tt: queueing page 5622 (fortnite-pirate-shop-token-lottery-sparks-boycott-calls-and-ftc-complaints)
+  SCHEDULED on tiktok as reel for 2026-11-08T17:30:00.000Z (buffer post 6aee864a9214322f68c44f0c)
+ig: queueing page 5600 (mr-popo-censored-in-french-dragon-ball-daima-release)
+  SCHEDULED on instagram as reel for 2026-11-07T16:27:00.000Z (buffer post 6aee864c9214322f68c4526b)
+ig: queueing page 5624 (marvel-rivals-season-11-release-date-start-times-new-heroes)
+  SCHEDULED on instagram as reel for 2026-11-07T17:57:00.000Z (buffer post 6aee864d004e4879a72a14f9)
+ig: queueing page 5610 (warzone-season-1-adds-1m-nuke-purchase-in-rally-point)
+  SCHEDULED on instagram as reel for 2026-11-07T19:27:00.000Z (buffer post 6aee864e229bf05daf210ace)
+ig: queueing page 5606 (ps6-development-progresses-as-scheduled-ps5-nears-100m-sales)
+  SCHEDULED on instagram as reel for 2026-11-07T20:57:00.000Z (buffer post 6aee864f229bf05daf210b3f)
+ig: queueing page 5603 (sony-confirms-ps6-development-on-schedule-memory-secured)
+  SCHEDULED on instagram as reel for 2026-11-07T22:27:00.000Z (buffer post 6aee8650004e4879a72a16db)
+ig: queueing page 5604 (nier-automata-update-triggers-366gb-storage-bug)
+  SCHEDULED on instagram as reel for 2026-11-07T23:57:00.000Z (buffer post 6aee86519214322f68c45446)
+ig: queueing page 5607 (zelda-ocarina-of-time-remake-runs-on-pc-emulator-hours-after-launch)
+  SCHEDULED on instagram as reel for 2026-11-07T02:57:00.000Z (buffer post 6aee8653229bf05daf210c1f)
+ig: queueing page 5622 (fortnite-pirate-shop-token-lottery-sparks-boycott-calls-and-ftc-complaints)
+  SCHEDULED on instagram as reel for 2026-11-08T16:27:00.000Z (buffer post 6aee86549214322f68c45524)
+fb: daily cap reached (0/0) - skipping
