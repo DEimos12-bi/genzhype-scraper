@@ -22,6 +22,7 @@ requests/24h — we use ~6.
 Token lives in the server vault (key "buffer"); repo is public.
 Env: SOCIAL_BASE, INGEST_TOKEN, BUFFER_TOKEN (fetched by the workflow).
 """
+import calendar
 import json
 import os
 import shutil
@@ -46,6 +47,26 @@ STATE = ".social"
 # One route per platform = the r122 double-posting cannot return.
 # If you change this map, update THIS comment in the same commit.
 WANTED = {"tiktok": "tt", "instagram": "ig", "facebook": "fb"}
+
+# WORDS TIKTOK HOLDS BACK (owner, 2026-11-05): a video whose title or caption reads like a scam or a sale (an account for a
+# price, a trick to play early, "fake" IDs, redeem codes, "pays up to $X") got 2-30 TikTok views instead of 600+, while the
+# same video did normally elsewhere. Such a video skips TikTok and still goes to the other networks. Rules: v3/platform_safe.py
+try:
+    import sys as _sys
+    _sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "v3"))
+    import platform_safe
+except Exception:  # noqa: BLE001
+    platform_safe = None
+
+
+def tiktok_risky(v):
+    if not platform_safe:
+        return ""
+    for k in ("title", "tt_caption", "caption", "yt_title"):
+        why = platform_safe.risky(v.get(k) or "")
+        if why:
+            return why
+    return ""
 
 # r129: ALL FIVE TikTok posts are Buffer-direct now — fully automatic, zero
 # owner taps. Buffer's own measured ceiling is 25/day (dailyPostingLimits,
@@ -305,8 +326,55 @@ def _meta(service, v, as_reel=True):
     return {}
 
 
-def post(channel, v):
+# TRENDING SOUND BY HAND (owner, 2026-11-07): EVERY TikTok video is booked as a Buffer REMINDER (schedulingType
+# "notification": "Buffer reminds someone to publish the post by hand"). At the slot the owner's Buffer app opens the
+# post in TikTok, he attaches a trending sound from TikTok's business library with its volume at 0 (our voice stays the
+# only audio, the video still sits on the sound's page), and publishes.
+# Our API cannot attach a TikTok sound, and a song inside our own file would get muted or struck on the other networks.
+# The account is a Business account: only the Commercial Music Library is open to it.
+# The number = reminders per day, best-ranked first (0 = off, everything automatic again; 99 = all).
+# NOTHING IS LOST IF HE IS BUSY (owner, same day): the reminder rings REMIND_BEFORE_MIN before the video's slot. At the
+# slot, a reminder not marked as published in Buffer is deleted and the video is posted normally (settle_reminders()).
+# So after posting by hand he must tap "mark as published" in Buffer, or the video goes out a second time.
+# Reminders stay out of channel_healthy() (an untapped reminder is not a failure).
+TT_SOUND_DRAFTS = int(os.environ.get("BUFFER_TT_SOUND_DRAFTS", "99"))
+REMIND_BEFORE_MIN = int(os.environ.get("BUFFER_TT_REMIND_BEFORE_MIN", "45"))
+
+
+def _manual_path():
+    return f"{STATE}/buffer_tt_manual_{time.strftime('%Y-%m-%d', time.gmtime())}.txt"
+
+
+def manual_today():
+    try:
+        return int(open(_manual_path()).read().strip() or 0)
+    except Exception:  # noqa: BLE001
+        return 0
+
+
+def bump_manual():
+    n = manual_today() + 1
+    open(_manual_path(), "w").write(str(n))
+    return n
+
+
+def daily_rank():
+    """page_id -> place in the kept daily list (0 = best), from the same ranking that chose the videos; {} if unreachable."""
+    rank = {}
+    for back in (1, 2):
+        day = time.strftime('%Y-%m-%d', time.gmtime(time.time() - back * 86400))
+        try:
+            j = curl_json(f"{BASE}/api/video_daily.php?token={INGEST}&day={day}&n=40")
+        except Exception:  # noqa: BLE001
+            continue
+        for i, p in enumerate(j.get("picks") or []):
+            rank.setdefault(str(p.get("page_id")), i + (back - 1) * 100)
+    return rank
+
+
+def post(channel, v, manual=False):
     """Queue one video on one channel. Returns True on success.
+    manual=True books it as a Buffer reminder the owner publishes by hand (TikTok trending sound).
     Falls back reel -> plain video post if the network refuses (FB Reels
     cap at 90s; a long timeline would otherwise be dropped entirely)."""
     service = (channel.get("service") or "").lower()
@@ -325,11 +393,18 @@ def post(channel, v):
     if due is None:
         log(f"{service}: every slot today and tomorrow is already booked; skipping")
         return False
+    when = due
+    if manual:                   # the reminder rings REMIND_BEFORE_MIN before the slot; the slot itself is the fallback
+        slot_t = calendar.timegm(time.strptime(due[:19], "%Y-%m-%dT%H:%M:%S"))
+        if slot_t - time.time() < (REMIND_BEFORE_MIN + 5) * 60:
+            manual = False       # too close to the slot to leave time to add a sound: posted normally
+        else:
+            when = time.strftime("%Y-%m-%dT%H:%M:00.000Z", time.gmtime(slot_t - REMIND_BEFORE_MIN * 60))
     for as_reel in (True, False):
         data, err = gql(MUTATION, {"i": {
             "channelId": channel["id"], "text": text,
-            "schedulingType": "automatic", "mode": "customScheduled",
-            "dueAt": due,
+            "schedulingType": "notification" if manual else "automatic", "mode": "customScheduled",
+            "dueAt": when,
             "needsApproval": False,
             "metadata": _meta(service, v, as_reel),
             # cover = frame 0 = our title card. IG's thumb_offset is in ms
@@ -346,10 +421,74 @@ def post(channel, v):
                 res["message"][:200])
             continue
         pid = (res.get("post") or {}).get("id")
-        log(f"  SCHEDULED on {service} as {'reel' if as_reel else 'post'}"
-            f" for {due} (buffer post {pid})")
+        log(f"  {'REMINDER (add a trending sound by hand) at ' + when + ', posted normally at ' if manual else 'SCHEDULED for '}"
+            f"{due} on {service} as {'reel' if as_reel else 'post'} (buffer post {pid})")
+        if manual and pid:
+            rem = _reminders()
+            rem.append({"pid": pid, "slot": due, "page_id": v["page_id"], "channel": channel["id"], "service": service,
+                        "text": text, "video": v["video"], "reel": as_reel})
+            _save_reminders(rem)
+            return pid, "reminder"
         return pid or True
     return False
+
+
+def _reminders():
+    try:
+        return json.load(open(f"{STATE}/buffer_tt_reminders.json"))
+    except Exception:  # noqa: BLE001
+        return []
+
+
+def _save_reminders(rem):
+    json.dump(rem, open(f"{STATE}/buffer_tt_reminders.json", "w"))
+
+
+def settle_reminders():
+    """At or after its slot, a reminder the owner has not marked as published in Buffer is DELETED (so it can no longer
+    be posted by hand, no double post) and the same video is posted normally at once. Returns the new post ids by code."""
+    keep, out = [], {}
+    for r in _reminders():
+        slot_t = calendar.timegm(time.strptime(r["slot"][:19], "%Y-%m-%dT%H:%M:%S"))
+        if time.time() < slot_t:
+            keep.append(r)
+            continue
+        if not r.get("deleted"):
+            data, err = gql("query($i:PostInput!){ post(input:$i){ status notificationStatus } }", {"i": {"id": r["pid"]}})
+            p = (data or {}).get("post") or {}
+            if p.get("notificationStatus") == "markedAsPublished":
+                log(f"tt: page {r['page_id']} was posted by hand with a sound - nothing to do")
+                continue
+            if err and not p:
+                log("  reminder unreadable, kept for the next run:", json.dumps(err)[:200])
+                keep.append(r)
+                continue
+            data, err = gql("mutation($i:DeletePostInput!){ deletePost(input:$i){ __typename ... on MutationError { message } } }",
+                            {"i": {"id": r["pid"]}})
+            refused = ((data or {}).get("deletePost") or {}).get("message")
+            if err or refused:
+                if time.time() - slot_t > 12 * 3600:
+                    log(f"tt: page {r['page_id']}: reminder still not deletable 12 h after its slot - given up:", refused or err)
+                    continue
+                log("  could not delete the reminder, kept for the next run:", refused or json.dumps(err)[:200])
+                keep.append(r)
+                continue
+            r["deleted"] = True
+        data, err = gql(MUTATION, {"i": {
+            "channelId": r["channel"], "text": r["text"], "schedulingType": "automatic", "mode": "shareNow",
+            "needsApproval": False, "metadata": _meta(r["service"], {}, r.get("reel", True)),
+            "assets": [{"video": {"url": r["video"], "metadata": {"thumbnailOffset": COVER_OFFSET_MS}}}]}})
+        pid = (((data or {}).get("createPost") or {}).get("post") or {}).get("id")
+        if pid:
+            log(f"tt: page {r['page_id']} had no sound added by its slot - posted normally now (buffer post {pid})")
+            out.setdefault(WANTED.get(r["service"], r["service"]), []).append(pid)
+        elif time.time() - slot_t > 12 * 3600:
+            log(f"tt: page {r['page_id']}: normal post after the reminder still failing 12 h later - given up:", json.dumps(err or data)[:200])
+        else:
+            log("  normal post after the reminder failed, retried next run:", json.dumps(err or data)[:200])
+            keep.append(r)
+    _save_reminders(keep)
+    return out
 
 
 # FACEBOOK FROM A COPY THAT EXISTS FOR ONE MINUTE (owner, 2026-11-01). Facebook's servers download the video from the
@@ -448,6 +587,11 @@ def main():
         log("Buffer: no token this run; the next scheduled run will retry")
         return 0
 
+    # reminders whose slot has come and that were not posted by hand: posted normally now
+    for code, pids in settle_reminders().items():
+        for pid in pids:
+            remember(code, pid)
+
     q = curl_json(f"{BASE}/api/video_social_next.php?token={INGEST}")
     vids = q.get("videos", [])
     if not vids:
@@ -497,18 +641,33 @@ def main():
             continue
         # 2026-11-01 (owner): the day's videos are booked at once, every free slot up to the cap, instead of one per run:
         # GitHub skips most scheduled runs, and one booking per run left most slots empty.
+        by_hand = set()
+        if code == "tt" and TT_SOUND_DRAFTS > manual_today():
+            rank = daily_rank()
+            fit = [v for v in todo if not tiktok_risky(v)]
+            fit.sort(key=lambda v: rank.get(str(v["page_id"]), 999))
+            by_hand = {str(v["page_id"]) for v in fit[:TT_SOUND_DRAFTS - manual_today()]}
         for v in todo:
             if sent_today(code) >= cap:
                 log(f"{code}: daily cap reached ({sent_today(code)}/{cap})")
                 break
-            log(f"{code}: queueing page {v['page_id']} ({v['slug']})")
-            pid = post(c, v)
+            if code == "tt" and tiktok_risky(v):
+                log(f"{code}: page {v['page_id']} skipped on TikTok: its words read like {tiktok_risky(v)} (TikTok holds those back)")
+                done.add(str(v["page_id"]))
+                save_done(code, done)
+                continue
+            manual = str(v["page_id"]) in by_hand and manual_today() < TT_SOUND_DRAFTS
+            log(f"{code}: queueing page {v['page_id']} ({v['slug']}){' as a trending-sound reminder' if manual else ''}")
+            pid = post(c, v, manual=manual)
             if pid:
                 done.add(str(v["page_id"]))
                 save_done(code, done)
                 bump_today(code)
                 register(code, v["page_id"])
-                remember(code, pid)
+                if isinstance(pid, tuple):
+                    bump_manual()        # a reminder is not a failure if left untapped: kept out of channel_healthy()
+                else:
+                    remember(code, pid)
             else:
                 rc = 1
                 break                # no free slot or a refusal: the next run tries again
