@@ -1,8 +1,9 @@
 name: reddit_radar
 
+# 2026-11-07: timer off. Reddit now lets visitors who are not logged in make 1 request a minute, so reading 11
+# subreddits one by one ran into the 12-minute limit and every run from 2026-10-31 was cancelled. The GenZHype server
+# now reads Reddit itself, one combined feed per hour (app/reddit_radar.php reddit_collect_run). Run by hand only.
 on:
-  schedule:
-    - cron: "0 */4 * * *"
   workflow_dispatch: {}
 
 concurrency:
