@@ -235,6 +235,21 @@ NARRATOR = ("THE NARRATOR (the same person in every video): " + brand.B['persona
 - Every take is new: never one the other videos used (listed with the material), not even with two words changed.
 - List every take, word for word as it stands in the script, in "takes".""") if brand.B.get('persona') else ''
 
+# THE FUNNY-FRIEND STYLE (owner, 2026-11-08: "we sound like the news, that's why we don't get attention"; TikTok in the US
+# pushes jokes over information). Our numbers agree: the funny memes did 57,542 and 7,014 views, the newsreader gaming
+# videos sit at ~240 with viewers gone after 4-6 s. Same facts, same fact check: only the narrator changes.
+# Switched on by V3_STYLE=funny (a test first; the daily videos keep the dry narrator until the owner decides).
+STYLE = os.environ.get('V3_STYLE', '').strip().lower()
+if STYLE == 'funny' and NARRATOR:
+    NARRATOR = """THE NARRATOR (the same person in every video): a funny Gen Z guy who lives online and is telling his friend the wildest thing he saw today. People follow HIM, not the news.
+- He talks like he's on FaceTime with a friend: contractions, plain words, and slang a twenty-year-old really says ("bro", "nah", "lowkey", "deadass"; two at most in a video). He makes real jokes: a funny comparison, an exaggeration everybody gets, a punchline right after a fact.
+- He has OPINIONS about harmless things and says them out loud: a price, a trailer, a game, a meme, a company's choice ("That price is a crime.", "Whoever approved this needs a nap."). On a crime, a death, health, an accusation against a person, or a private person he picks NO side and makes NO joke: that part is told straight.
+- TAKES: three to five times he REACTS to the fact he just said, in its own short sentence of 2 to 10 words, funny or shocked: "Bro. Ten dollars. For a hat.", "Nah, that's a crime.", "Sony, please.", "I'd quit too.", "Respectfully? No." A take reacts only: no new fact, name or number.
+- A take goes RIGHT AFTER the fact it reacts to, in the SAME line, as that line's last sentence. Every take is new: never one the other videos used.
+- THE OPENING is his reaction, a joke or the shock, never a headline: "Sony really said PS6 is on schedule. Sure, Sony.", "Somebody paid ten grand. For a Fortnite account. Bro."
+- He is never a news anchor, never a report, never a school essay ("reports indicate", "in a statement", "the complete timeline").
+- List every take, word for word as it stands in the script, in "takes"."""
+
 FORMS = {
     'two sides': 'Two people or camps disagree, each in their own words. Open on the clash. Give each side its strongest real words, one after the other. End by asking which side the viewer is on.',
     'the moment': 'The story IS one moment caught on camera (a reaction, a clip, a live slip). Open inside that moment. Step back: how it got there, in two or three quick beats. Come back to the moment, now that the viewer gets it. End on what happens next.',
@@ -285,7 +300,7 @@ OPENING = """THE OPENING (line 1) decides everything
 VOICE = """THE VOICE (study the examples: this exact rhythm)
 - You are telling a friend who has not seen it. Short sentences, one idea each: most have 3 to 10 words, none has more than 18. A line is 2 to 4 of them. Fragments are good ("Not bonuses. Wages."). No semicolons, no dashes that join two ideas: a new idea is a new sentence.
 - Every line brings ONE new thing, with its name, its number or its quote. One line in the middle is the turn and starts with "But", "Then", "Now", "Same night" or "Meanwhile".
-- Never sound like an article: no "explained", "phenomenon", "showcases", "garnered", "sparks debate", "amid", "users", "netizens", "widespread", "refers to", "various", "numerous", "moreover", "furthermore", "notably", "continues to". No filler, no hype words, no questions to "fans", no "official source". Present tense where possible.
+- Never sound like an article: no "explained", "phenomenon", "showcases", "garnered", "sparks debate", "amid", "users", "netizens", "widespread", "refers to", "various", "numerous", "moreover", "furthermore", "notably", "continues to". No filler, no hype words, no questions to "fans", no "official source".%(hype_note)s Present tense where possible.
 - %(wmin)d to %(wmax)d spoken words in total, in 6 to 7 lines of 12 to 26 words. Count them. (Short on purpose: our viewers leave around second 20 to 30; a video they finish beats a longer one.)
 - Numbers are written as spoken words ("three hundred thousand euros", "twenty-fourteen"), never in digits.
 - An account name with digits or symbols in it (@jay_4471, @mo.edits99) is NEVER spoken, not even spelled out in words: say "a TikTok creator", "one account", "the animator". The screen shows the name.
@@ -395,7 +410,8 @@ def system_for(job, m):
     screen = SCREEN + (SCREEN_MEME if kind == 'meme' else '')
     parts = {'writer': [SHAPE[kind], VIEWER, NARRATOR, OPENING, VOICE, OUT_WRITE], 'picture editor': [STAGE_JOB, screen, OUT_STAGE], 'director': [SHAPE[kind], VIEWER, NARRATOR, OPENING, VOICE, screen, OUT_FULL],
              'corrector': [SHAPE[kind], VIEWER, NARRATOR, OPENING, VOICE, screen, OUT_PATCH]}[job]
-    return (HEAD % job) + '\n\n' + '\n\n'.join(parts) % {'wmin': CFG['length']['words_min'], 'wmax': CFG['length']['words_max'], 'hunts': 2 if kind == 'meme' else CFG['footage']['max_hunts'], 'brand': brand.B['spoken']}
+    return (HEAD % job) + '\n\n' + '\n\n'.join(parts) % {'wmin': CFG['length']['words_min'], 'wmax': CFG['length']['words_max'], 'hunts': 2 if kind == 'meme' else CFG['footage']['max_hunts'], 'brand': brand.B['spoken'],
+                                                         'hype_note': ' (the funny narrator may say two at most, inside his takes)' if STYLE == 'funny' else ''}
 
 
 def listing(m):
@@ -652,7 +668,7 @@ def voice_faults(lines):
                    'a pointer: "That\'s ...", "The club is ...", "His answer:"; a turn: "But", "Then", "So"; or the question the last line left open) and bring the new name in after it'
                    % (', '.join(str(i + 1) for i in cold), ' '.join(lines[cold[0]]['text'].split()[:4])))
     hype = [x.group(0).lower() for l in lines for x in HYPE.finditer(l['text'])]
-    if len(hype) >= 3:                                         # a fact told with three "insane" and "massive" is not believed
+    if len(hype) >= (5 if STYLE == 'funny' else 3):            # a fact told with three "insane" and "massive" is not believed (the funny friend may say a few)
         out.append('the script leans on %d hype words (%s): cut every one, the fact is stronger without them' % (len(hype), ', '.join(dict.fromkeys(hype))))
     for i, l in enumerate(lines):
         if VAGUE.search(l['text']):

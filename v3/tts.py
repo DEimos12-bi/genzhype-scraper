@@ -99,7 +99,7 @@ def prosody(k, n, sentence, line_id, rate, seed):
 # feeling: "!" and the opening are pushed (faster, higher), a question lifts clearly, a take is dry (slower, lower), a turn
 # ("But", "Then", "Now") gets a beat before it. A cloned voice converted from this narration keeps its melody, so the
 # feeling carries into it.
-EXPRESSIVE = os.environ.get('V3_EXPRESSIVE', '') == '1'
+EXPRESSIVE = os.environ.get('V3_EXPRESSIVE', '') == '1' or os.environ.get('V3_STYLE', '').strip().lower() == 'funny'   # the funny narrator talks with feeling
 
 
 def expressive(r, ph, pause, sentence, line_id, k, rate):

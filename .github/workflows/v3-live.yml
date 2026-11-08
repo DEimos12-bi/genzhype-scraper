@@ -39,6 +39,10 @@ on:
         description: "one page id from the feed (empty = the next job v3 has not made)"
         required: false
         default: ""
+      style:
+        description: "narrator style for this run: empty = the normal dry narrator, funny = the funny-friend test (owner, 2026-11-08)"
+        required: false
+        default: ""
 
 permissions:
   contents: write
@@ -92,6 +96,7 @@ jobs:
           BATCH: ${{ github.event.inputs.batch }}
           PAGE: ${{ github.event.inputs.page }}
           DAY: ${{ github.event.inputs.day }}
+          V3_STYLE: ${{ github.event.inputs.style }}
           INGEST_TOKEN: ${{ secrets.INGEST_TOKEN }}
           # every AI key at once (owner, 2026-10-28): the site's keys, and the videos' own keys once they are added
           # as repository secrets under these names (the order of models is in v3/config.json); four were saved with extra
