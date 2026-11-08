@@ -66,6 +66,10 @@ def tiktok_risky(v):
         why = platform_safe.risky(v.get(k) or "")
         if why:
             return why
+    for k in ("title", "tt_caption", "caption", "yt_title"):   # 2026-11-08 owner: politics skips TikTok (v3/platform_safe.py)
+        why = getattr(platform_safe, "political", lambda t: "")(v.get(k) or "")
+        if why:
+            return why
     return ""
 
 # r129: ALL FIVE TikTok posts are Buffer-direct now — fully automatic, zero

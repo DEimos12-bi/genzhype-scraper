@@ -27,6 +27,23 @@ def risky(text):
     return ''
 
 
+# POLITICS SKIPS TIKTOK (owner, 2026-11-08). TikTok keeps political videos up but rarely recommends them, and an account
+# that keeps posting videos it will not recommend can be made un-recommendable as a whole. Our "Woke 3" meme (a politician
+# named in a satire meme) got 5 views while the same night's other videos caught up to 90-800. Used by the POSTER only:
+# such a video still goes to Instagram and YouTube. The director is not told to avoid these words (the facts stay).
+POLITICS = re.compile(
+    r'\b(?:trump|biden|kamala|harris\s+campaign|vance|obama|ocasio[- ]cortez|aoc|pelosi|schumer|desantis|newsom|mamdani|mcconnell)\b'
+    r'|\b(?:elections?|electoral|ballots?|midterms?|primaries|congress(?:man|woman)?|senators?|the senate|white house|capitol hill)\b'
+    r'|\b(?:democrats?|democratic party|republicans?|gop|maga|liberals?|conservatives?|left[- ]wing|right[- ]wing|leftists?)\b'
+    r'|\bwoke\b(?!\s+up)|\b(?:who are you )?voting for\b|\bvote for (?:trump|biden|harris|him|her|them)\b'
+    r'|\b(?:presidential|the president|president (?:trump|biden|obama|harris|vance))\b', re.I)
+
+
+def political(text):
+    """'politics' if the text is about politicians, parties or elections (TikTok rarely recommends those), else ''."""
+    return 'politics' if POLITICS.search(str(text or '')) else ''
+
+
 RULE = """PLATFORM-SAFE WORDS (TikTok silently holds back a video whose screen or caption reads like a scam or a sale; ours got
 2 to 30 views instead of 600+): never put on screen, in a stamp, or in the opening line: a price for an account ("$10,000 FOR 1
 ACCOUNT"), "fake" with an address, ID or account, a trick to play or get something early or free, redeem / promo "codes", an
