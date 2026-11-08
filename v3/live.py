@@ -285,7 +285,7 @@ def main():
         log('live: this machine cannot reach %s (%s): nothing is tried this run' % (BASE, str(e)[:80]))
         more_to_do(True)                                   # another machine may get through: the chain tries again
         return 0
-    jobs = daily(day) if source == 'daily' else (feed().get('posts') or [])
+    jobs = daily(day, 60 if wanted else 10) if source == 'daily' else (feed().get('posts') or [])
     log('live: %d job(s) from %s, mode %s' % (len(jobs), 'the pages of %s' % day if source == 'daily' else 'the feed', 'DELIVER (the site gets the video)' if send else 'SHADOW (nothing is sent or posted)'))
     made = 0
     today = time.strftime('%Y-%m-%d', time.gmtime())

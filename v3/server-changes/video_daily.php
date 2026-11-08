@@ -55,7 +55,7 @@ if (PHP_SAPI === 'cli') {
 }
 $day = (string)($_GET['day'] ?? '');
 if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $day)) { $day = gmdate('Y-m-d', time() - 86400); }
-$n = max(1, min(20, (int)($_GET['n'] ?? 10)));
+$n = max(1, min(60, (int)($_GET['n'] ?? 10)));   // 60: a run for one chosen page reads deep into the list
 
 $cacheDir = getenv('VD_CACHE_DIR') ?: $APP . '/cache';          // a test run writes its list elsewhere, never over the live one
 if (!is_dir($cacheDir)) { @mkdir($cacheDir, 0755, true); }
