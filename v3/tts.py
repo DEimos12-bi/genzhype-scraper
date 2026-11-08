@@ -89,7 +89,32 @@ def prosody(k, n, sentence, line_id, rate, seed):
         pause = .18
     if k == n - 1:
         pause = 0.0                                       # the line's own pause comes after it (main)
+    if EXPRESSIVE:
+        r, ph, pause = expressive(r, ph, pause, sentence, line_id, k, rate)
     return r, ph, pause
+
+
+# EXPRESSIVE DELIVERY (owner, 2026-11-05: "I need more feelings in the voice"). Off unless V3_EXPRESSIVE=1, so the live
+# videos keep their voice. On: the swings of pace and pitch above are about doubled, and the words themselves set the
+# feeling: "!" and the opening are pushed (faster, higher), a question lifts clearly, a take is dry (slower, lower), a turn
+# ("But", "Then", "Now") gets a beat before it. A cloned voice converted from this narration keeps its melody, so the
+# feeling carries into it.
+EXPRESSIVE = os.environ.get('V3_EXPRESSIVE', '') == '1'
+
+
+def expressive(r, ph, pause, sentence, line_id, k, rate):
+    r = rate + (r - rate) * 2.0
+    ph = ph * 2.2
+    s = sentence.strip()
+    if s.endswith('!'):
+        r, ph = r + 8, ph + 12
+    if line_id == 'hook' and k == 0:
+        r, ph = r + 6, ph + 8
+    if s.rstrip('"”’\'').endswith('?'):
+        ph = max(ph, 14)
+    if re.match(r'(?i)(but|then|now|meanwhile|same night)\b', s):
+        pause = max(pause, 0.32)
+    return int(max(rate - 16, min(rate + 24, r))), int(max(-24, min(28, ph))), pause
 
 
 async def one(takes, i, text, rate, voice, script=None, line_id=''):

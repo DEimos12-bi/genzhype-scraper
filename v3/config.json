@@ -274,10 +274,10 @@
  },
  "voice": "en-US-AndrewMultilingualNeural",
  "length": {
-  "min_s": 61,
-  "max_s": 75,
-  "words_min": 150,
-  "words_max": 178
+  "min_s": 38,
+  "max_s": 52,
+  "words_min": 105,
+  "words_max": 125
  },
  "footage": {
   "min_share": 0.97,

@@ -21,7 +21,8 @@ def open_browser():
     except Exception:  # noqa: BLE001
         from playwright.sync_api import sync_playwright
         pw = sync_playwright().start()
-        return pw.chromium.launch(headless=True), pw
+        args = os.environ.get('V3_BROWSER_ARGS', '').split()   # a machine whose headless WebGL fails: --use-angle=swiftshader --enable-unsafe-swiftshader
+        return pw.chromium.launch(headless=True, args=args), pw
 
 
 class Quiet(SimpleHTTPRequestHandler):

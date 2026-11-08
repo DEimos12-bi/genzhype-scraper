@@ -16,6 +16,7 @@ import ai
 import brand
 import beats
 import habits
+import platform_safe
 from beats import squash
 from investigate import names_of, outlets_of
 
@@ -185,6 +186,24 @@ def assets_of(m):
 HEAD = ('You are the %s of ' + brand.B['name'] + '\'s TikTok videos (vertical, 61 to 75 seconds, one male voice-over, footage under everything). ' + brand.B['about']
         + (' ' + brand.B['angle'] if brand.B['angle'] else '') + '\nA machine builds the video from your JSON with nobody checking, so follow the format exactly.')
 
+# 2026-11-05 (owner: "redo the scripts based on the studies"): three rules from the attention research, measured against our
+# own numbers (viewers leave at 17-34 s of 63 s; a test lost them in 5-10 s). Self-relevance holds attention (TikTok fMRI,
+# Su et al. 2021); surprise and an open question renew it mid-video (event boundaries); a reason to come back builds the
+# narrator's following (parasocial research).
+ATTENTION = """- THE VIEWER'S OWN LIFE: once, in the first three lines, one plain sentence ties something nearly every viewer has done or felt
+  to THIS story's own thing, both in the same sentence, so it never fits any other story ("Everyone's fallen asleep on a flight;
+  she woke up to a stranger's photo.", "Most of us paid for a skin once. This account costs ten thousand dollars.", "Waiting for a
+  game is normal. Blade's team waited nineteen months for staff."). A statement, never an order or a tease ("Imagine...", "You
+  won't believe..."). Never about a victim's pain.
+- THE MIDDLE RE-HOOK: around the middle of the video, one line ENDS on the question the viewer now has, asked plainly with the
+  story's own words ("So why freeze hiring for nineteen months?"), and the very next line opens with its answer ("One chest in
+  seven hundred thousand."). Never announced ("The real question?", "But wait"). When the answer is one side's claim or
+  accusation, the answer says whose it is ("The union's answer: ..."), and the closing never repeats a claim as a fact.
+  The question itself carries NO new fact or premise, only words the video already said ("So why did he use AI?", never
+  "So why use AI if he has the budget?" when no source says he has the budget).
+- A STORY STILL DEVELOPING (its status says so, or the material has no outcome yet): the closing also says plainly what is not
+  known yet, as the reason to come back ("Delta hasn't said a word yet. Part two lands here when it does.")."""
+
 SHAPE = {'story': """HOW THE VIDEO WORKS
 - Line 1 is THE OPENING (rules below). It plays on real footage, with its key number or word stamped on screen.
 - After the opening the video follows THE CASTING (given with the material): this story's own material decides the order, never a fixed plan. Say who or what this is in one breath, early. Every line brings its proof: a post, the subject's own words, a number.
@@ -194,6 +213,7 @@ SHAPE = {'story': """HOW THE VIDEO WORKS
 - The last line asks the viewer to answer in the comments: one question, two answers of ONE or TWO words each, taken from the story's real conflict (never "yes / no"). Say it in the narrator's own words, the way the FORM ends (never the stock phrase "Comment one word."): both answers are in the line, and it asks for a comment ("Brutal, or fair? Drop one below.", "Team Gotaga or team Kameto? Comments.").
 - Every sentence is cut to its OWN picture. The material lists each picture and clip with who or what is in it: write sentences that NAME what the viewer is looking at, one thing per sentence. Bring each player in at the moment the story needs them, tied to what was just said ("That's Reggie.", "The club is Karmine Corp."): never a list of who is who.
 - One line is the turn: the fact the viewer could not have guessed. The FACT itself tells it. It is never announced: no "Here's the twist", "One problem", "Now it gets deeper", "Then came the debate", "But wait".
+""" + ATTENTION + """
 - After the vote comes THE CLOSING ("closing" in the output): written for this video, it pays off the opening's question and sends to the site (rules with the output).""",
          'meme': """THIS STORY IS A MEME. The video shows the meme itself from the first second to the last: its real pictures are listed in the material, each with what it shows.
 - Line 1 is THE OPENING (rules below): it points at the meme on screen and says the strangest true thing about it.
@@ -202,6 +222,7 @@ SHAPE = {'story': """HOW THE VIDEO WORKS
 - The last line asks the viewer to answer in the comments: one question, two answers of ONE or TWO words each, taken from the meme's own argument (never "yes / no"), said in the narrator's own words with both answers in it (never the stock phrase "Comment one word.").
 - Every sentence is cut to its OWN picture. The material lists each picture and clip with who or what is in it: write sentences that NAME what the viewer is looking at, one thing per sentence. Bring each player in at the moment the story needs them, tied to what was just said ("That's Reggie.", "The club is Karmine Corp."): never a list of who is who.
 - One line is the turn: the fact the viewer could not have guessed. The FACT itself tells it. It is never announced: no "Here's the twist", "One problem", "Now it gets deeper", "Then came the debate", "But wait".
+""" + ATTENTION + """
 - After the vote comes THE CLOSING ("closing" in the output): written for this video, it pays off the opening and sends to the site (rules with the output)."""}
 
 VIEWER = "WHO IS WATCHING\n" + brand.B['viewer']
@@ -241,7 +262,7 @@ def form_of(c, m):
     return 'how it happened' if len(m.get('events') or []) >= 4 else 'two sides'
 
 OPENING = """THE OPENING (line 1) decides everything
-- 2 to 5 short sentences (a fragment counts: "One problem."), 10 to 30 words in all. The FIRST sentence has 10 words at most. It puts the strangest TRUE thing of the story in front of the viewer: a number, a name, or the thing they are looking at.
+- 2 to 5 short sentences (a fragment counts: "One problem."), 10 to 30 words in all. The FIRST sentence has 7 words at most and carries the key number or name: most viewers who leave, leave in the first one or two seconds, and that sentence must work alone, with the sound off, as the stamp on screen. It puts the strangest TRUE thing of the story in front of the viewer: a number, a name, or the thing they are looking at.
 - It is built on THE FACT THE OPENING SAYS (given in the casting): that fact, with its number or its name, is in the opening.
 - SPECIFIC BEATS VIVID: a stock picture that fits any story of its kind ("the crowd was roaring", "silenced the stadium", "flipped the script", "the internet exploded", "jaws dropped") is not an opening. Say the fact only THIS story has.
 - Every sentence is literally true as said. Never fuse a picture and a fact into something that did not happen ("silenced the stadium four to one": a score does not silence anyone).
@@ -265,7 +286,7 @@ VOICE = """THE VOICE (study the examples: this exact rhythm)
 - You are telling a friend who has not seen it. Short sentences, one idea each: most have 3 to 10 words, none has more than 18. A line is 2 to 4 of them. Fragments are good ("Not bonuses. Wages."). No semicolons, no dashes that join two ideas: a new idea is a new sentence.
 - Every line brings ONE new thing, with its name, its number or its quote. One line in the middle is the turn and starts with "But", "Then", "Now", "Same night" or "Meanwhile".
 - Never sound like an article: no "explained", "phenomenon", "showcases", "garnered", "sparks debate", "amid", "users", "netizens", "widespread", "refers to", "various", "numerous", "moreover", "furthermore", "notably", "continues to". No filler, no hype words, no questions to "fans", no "official source". Present tense where possible.
-- %(wmin)d to %(wmax)d spoken words in total, in 8 to 9 lines of 12 to 32 words. Count them.
+- %(wmin)d to %(wmax)d spoken words in total, in 6 to 7 lines of 12 to 26 words. Count them. (Short on purpose: our viewers leave around second 20 to 30; a video they finish beats a longer one.)
 - Numbers are written as spoken words ("three hundred thousand euros", "twenty-fourteen"), never in digits.
 - An account name with digits or symbols in it (@jay_4471, @mo.edits99) is NEVER spoken, not even spelled out in words: say "a TikTok creator", "one account", "the animator". The screen shows the name.
 - A news outlet or a gossip site is NEVER named in the voice: it is another publisher, and the screen credits it once, small. Say "one report", "in an interview", "a gaming site". What IS named: the person's own post or clip ("his own post"), a company's own page ("its own press release"), a court, the police.
@@ -318,6 +339,9 @@ THE GRAPHICS ("gfx"), for a sentence: few and big. Each appears on ONE word of t
 - Show the proof: every post that matters appears once as a "receipt"; the strongest real quote appears as a "quote"; a song or a slogan is shown word for word as "rows".
 - "caps": every number that is spoken in words, with the digits the caption shows."""
 
+SCREEN += '\n\n' + platform_safe.RULE
+OPENING += '\n- ' + platform_safe.RULE.replace('\n', ' ')      # the writer writes the opening without seeing SCREEN
+
 SCREEN_MEME = """
 - THIS IS A MEME: its own pictures and clips ("meme0", "gif5"...) carry the whole video. Close-ups to name who is in it, its clips for the action, its other versions when the words speak of them. Use at most THREE cards (rows / quote / blocks) in the whole video, so the meme stays visible. Hunts: only the meme's ORIGINAL video by its exact name, or the game, show or film it comes from."""
 
@@ -331,7 +355,7 @@ OUT_WRITE = """OUTPUT: strict JSON, nothing around it. Write the five openings F
  "people":[{"name":"","role":""}]}
 Every "say" is a list of 2 or 3 SENTENCES (the opening may have 4): ONE sentence per string, each of 3 to 16 words (only a real quote may be longer). A string never holds two ideas.
 ALL the lines together: %(wmin)d to %(wmax)d words, which is about 19 words a line. A script that runs longer gets sentences removed by a machine, so choose what matters yourself.
-"closing":["the last words of the video, after the vote: 1 or 2 sentences, at most 24 words"],
+"closing":["the last words of the video, after the vote: 1 to 3 sentences, at most 30 words"],
 "closing" ends THIS video, from what happened in it: it pays off the question the opening left open (or calls back to the opening's picture, number or words) with what the viewer now knows, then sends to %(brand)s for the rest, in the narrator's voice. It names %(brand)s, adds no new fact, name or number, and never repeats a closing of the other videos. It is not a fixed line: two videos never end with the same words.
 "pick" is the number (1 to 5) of the strongest opening. The first line's id is "hook", the last line's id is "vote". You write only what is SPOKEN: no pictures, no graphics. A "bite" is optional and only for a clip whose SAID parts are listed: "from" and "to" are part ids (b1, b2...). Choose the parts that say the claim in the fewest seconds, whole thoughts only."""
 
@@ -580,8 +604,8 @@ def opening_faults(text):
         out.append('it has %d sentence%s: write 2 to 5 short ones' % (len(ss), '' if len(ss) == 1 else 's'))
     if not 8 <= words(text) <= 34:
         out.append('it has %d words: write 10 to 30' % words(text))
-    if ss and words(ss[0]) > 12:
-        out.append('its first sentence has %d words: 10 at most' % words(ss[0]))
+    if ss and words(ss[0]) > 8:
+        out.append('its first sentence has %d words: 7 at most' % words(ss[0]))
     if re.match(r'(the|a new|in|on|recently|today|according|there (?:is|are))\b', low):
         out.append('it starts with "%s": start with the thing itself' % low.split()[0])
     if re.match(r'(pick|guess|watch|imagine|meet|check out|get ready|wait|stop|listen|choose)\b', low):
@@ -840,8 +864,8 @@ def closing_faults(p, lines, m):
     out, flat = [], re.sub(r'[^a-z]', '', c.lower())
     if re.sub(r'[^a-z]', '', brand.B['spoken'].lower()) not in flat:
         out.append('the closing does not name %s: it must send the viewer there' % brand.B['spoken'])
-    if words(c) > 26:
-        out.append('the closing has %d words: 24 at most' % words(c))
+    if words(c) > 32:
+        out.append('the closing has %d words: 30 at most' % words(c))
     said = ' '.join(l['text'] for l in lines).lower()
     names = set(re.findall(r'[a-z]+', brand.B['spoken'].lower() + ' ' + brand.B['name'].lower()))
     new = [w for mo in re.finditer(r'(?<![.!?] )(?<!^)\b[A-Z][a-zA-Z]{2,}\b', c) for w in [mo.group(0)] if w.lower() not in said and w.lower() not in names and not re.match(r'^\s*$|.*[.!?]\s*$', c[:mo.start()])]
@@ -928,8 +952,8 @@ def fix_and_check(p, m):
         soft.append('only %d spoken words: write %d to %d (add one more evidence beat from the material, do not pad)' % (total, lo, hi))
     if total > hi + 12:
         soft.append('%d spoken words: cut to %d at most' % (total, hi))
-    if not 7 <= len(lines) <= 10:
-        soft.append('%d lines: write 8 or 9' % len(lines))
+    if not 6 <= len(lines) <= 9:
+        soft.append('%d lines: write 6 or 7' % len(lines))
     hunts = {h['id']: h for h in (p.get('hunts') or [])[:2 if meme else CFG['footage']['max_hunts']] if isinstance(h, dict) and re.fullmatch(r'hunt\d+', str(h.get('id', ''))) and len(str(h.get('query', '')).split()) >= 2}
     p['hunts'] = list(hunts.values())
     vote = p.get('vote') or {}
@@ -941,6 +965,11 @@ def fix_and_check(p, m):
     if re.search(r'(?i)comment one word', lines[-1]['text']):
         soft.append('the last line uses the stock phrase "Comment one word.": ask for the comment in the narrator\'s own words')
     soft += take_faults(p, lines, m) + closing_faults(p, lines, m)
+    for i, l in enumerate(lines):                              # words TikTok holds back (platform_safe.py): on screen, never; in the opening, never
+        texts = [json.dumps(g, ensure_ascii=False) for b in l.get('beats') or [] for g in (b.get('gfx') or [])] +                 [json.dumps(o, ensure_ascii=False) for o in l.get('overlays') or []] + ([l.get('text', '')] if i == 0 else [])
+        why = next((platform_safe.risky(x) for x in texts if platform_safe.risky(x)), '')
+        if why:
+            soft.append('line %d puts %s on screen or in the opening (TikTok holds such videos back): say the fact plainly in the voice and stamp the thing, not the sale' % (i + 1, why))
     for i, l in enumerate(lines):
         t, low, toks = l['text'], l['text'].lower(), tokens(l['text'])
         for b in BANNED:
