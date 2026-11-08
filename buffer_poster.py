@@ -341,7 +341,7 @@ def _meta(service, v, as_reel=True):
 # slot, a reminder not marked as published in Buffer is deleted and the video is posted normally (settle_reminders()).
 # So after posting by hand he must tap "mark as published" in Buffer, or the video goes out a second time.
 # Reminders stay out of channel_healthy() (an untapped reminder is not a failure).
-TT_SOUND_DRAFTS = int(os.environ.get("BUFFER_TT_SOUND_DRAFTS", "99"))
+TT_SOUND_DRAFTS = int(os.environ.get("BUFFER_TT_SOUND_DRAFTS", "0"))   # 0 since 2026-11-08: the phone reminder opens TikTok without the video
 REMIND_BEFORE_MIN = int(os.environ.get("BUFFER_TT_REMIND_BEFORE_MIN", "45"))
 
 
@@ -471,12 +471,10 @@ def settle_reminders():
                             {"i": {"id": r["pid"]}})
             refused = ((data or {}).get("deletePost") or {}).get("message")
             if err or refused:
-                if time.time() - slot_t > 12 * 3600:
-                    log(f"tt: page {r['page_id']}: reminder still not deletable 12 h after its slot - given up:", refused or err)
-                    continue
-                log("  could not delete the reminder, kept for the next run:", refused or json.dumps(err)[:200])
-                keep.append(r)
-                continue
+                # 2026-11-08: Buffer refuses to delete a reminder once it has gone off ("Account is not allowed to perform this
+                # action on post"), and the owner's phone flow only opens TikTok without the video: the video is posted
+                # normally anyway, a reminder that was never published must not cost the post
+                log(f"tt: page {r['page_id']}: Buffer would not delete the reminder ({refused or json.dumps(err)[:120]}) - posting normally anyway")
             r["deleted"] = True
         data, err = gql(MUTATION, {"i": {
             "channelId": r["channel"], "text": r["text"], "schedulingType": "automatic", "mode": "shareNow",
