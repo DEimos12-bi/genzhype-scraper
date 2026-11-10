@@ -52,14 +52,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           # 2026-11-01 owner: 8 a day per channel, timed for the US audience (Eastern = UTC-5 since 2026-11-01):
           # TikTok 11:00-21:30 ET every 90 min, Instagram 20 min later, Facebook 40 min later. One run books every free slot.
-          BUFFER_DAILY_CAP_TT: '9'   # ONE-RUN EXCEPTION (owner, 2026-11-10): the Blu and Dots test video goes out today; put back to 8 right after
-          BUFFER_DAILY_CAP_IG: '9'   # ONE-RUN EXCEPTION (owner, 2026-11-10); put back to 8 right after
+          BUFFER_DAILY_CAP_TT: '8'
+          BUFFER_DAILY_CAP_IG: '8'
           # 2026-11-05 owner "pause fb": Meta limited the page ("temporarily limited how often this account can post... posting
           # again too soon can make this temporary limit last longer"); every hourly retry made it worse. 0 = no Facebook
           # attempt at all. Put it back (start at 3, not 8) after 2026-11-07 18:00 UTC.
           BUFFER_DAILY_CAP_FB: '0'
-          BUFFER_SLOTS_TT: '20:24,16:00,17:30,19:00,20:30,22:00,23:30,1:00,2:30'
-          BUFFER_SLOTS_IG: '20:24,16:20,17:50,19:20,20:50,22:20,23:50,1:20,2:50'
+          BUFFER_SLOTS_TT: '16:00,17:30,19:00,20:30,22:00,23:30,1:00,2:30'
+          BUFFER_SLOTS_IG: '16:20,17:50,19:20,20:50,22:20,23:50,1:20,2:50'
           BUFFER_SLOTS_FB: '16:40,18:10,19:40,21:10,22:40,0:10,1:40,3:10'
         run: |
           set -o pipefail
