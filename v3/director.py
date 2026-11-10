@@ -2084,14 +2084,14 @@ def cut_statements(p, facts):
     return gone
 
 
-STYLE = [re.compile(r'line (\d+), sentence "(.*?)": (?:fits any story|a desk phrase|says again)'),
-         re.compile(r'line (\d+) says again what line \d+ already said \("(.*?)"\)'),
-         re.compile(r'line (\d+) uses a desk phrase \("(.*?)"\)')]
+STYLE_FAULTS = [re.compile(r'line (\d+), sentence "(.*?)": (?:fits any story|a desk phrase|says again)'),
+                re.compile(r'line (\d+) says again what line \d+ already said \("(.*?)"\)'),
+                re.compile(r'line (\d+) uses a desk phrase \("(.*?)"\)')]
 
 
 def style_target(fault):
     """(line index, the flagged words in small plain words) of an editor or check fault that names a sentence; None otherwise."""
-    for rx in STYLE:
+    for rx in STYLE_FAULTS:
         hit = rx.match(str(fault))
         if hit and len(norm(hit.group(2))) >= 4:
             return int(hit.group(1)) - 1, norm(hit.group(2).rstrip('.').rstrip())[:44]
