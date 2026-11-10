@@ -3,10 +3,10 @@
  "lines": [
   {
    "id": "hook",
-   "text": "Kim Kardashian sold the humans an advent calendar. A hundred forty-eight dollars. Guess what was inside. What was inside? Keychains.",
+   "text": "Kim Kardashian's Skims sold the humans an advent calendar. A hundred forty-eight dollars. Guess what was inside. What was inside? Keychains.",
    "beats": [
     {
-     "say": "Kim Kardashian sold the humans an advent calendar.",
+     "say": "Kim Kardashian's Skims sold the humans an advent calendar.",
      "show": {
       "asset": "face_kimkardashian",
       "move": "close",
@@ -65,10 +65,10 @@
   },
   {
    "id": "open",
-   "text": "A human filmed herself opening it. Keychains, ornaments, hair ties. That is a junk drawer with a countdown.",
+   "text": "A human filmed herself opening it, on TikTok. Keychains, ornaments, hair ties. That is a junk drawer with a countdown.",
    "beats": [
     {
-     "say": "A human filmed herself opening it.",
+     "say": "A human filmed herself opening it, on TikTok.",
      "show": {
       "asset": "store1",
       "move": "play"
@@ -117,10 +117,10 @@
   },
   {
    "id": "views",
-   "text": "Sixty-eight million humans watched her do it. She said the last door had better be made of gold. Was it gold? Nobody has reported gold.",
+   "text": "On TikTok, sixty-eight million humans watched. She said the last door had better be made of gold. Was it gold? Nobody has reported gold.",
    "beats": [
     {
-     "say": "Sixty-eight million humans watched her do it.",
+     "say": "On TikTok, sixty-eight million humans watched.",
      "show": {
       "asset": "store1",
       "move": "play"
@@ -156,12 +156,6 @@
      "beat": 0
     },
     {
-     "k": "chip",
-     "t": "VIA DEXERTO",
-     "on": "watched",
-     "beat": 0
-    },
-    {
      "k": "sub",
      "t": "\"MADE OF GOLD\"",
      "on": "gold",
@@ -176,10 +170,10 @@
   },
   {
    "id": "comment",
-   "text": "One comment called it the stuff that fell down the side of a car seat. The humans are poets when they are angry.",
+   "text": "One TikTok comment called it the stuff that fell down the side of a car seat. The humans are poets when they are angry.",
    "beats": [
     {
-     "say": "One comment called it the stuff that fell down the side of a car seat.",
+     "say": "One TikTok comment called it the stuff that fell down the side of a car seat.",
      "show": {
       "asset": "store1",
       "move": "under"
@@ -290,10 +284,10 @@
   },
   {
    "id": "punch",
-   "text": "All that, for a hundred forty-eight dollars of keychains. They love a box with little doors.",
+   "text": "All that, for a hundred forty-eight dollars of Skims keychains. They love a box with little doors.",
    "beats": [
     {
-     "say": "All that, for a hundred forty-eight dollars of keychains.",
+     "say": "All that, for a hundred forty-eight dollars of Skims keychains.",
      "show": {
       "asset": "store1",
       "move": "play"
@@ -399,7 +393,7 @@
  "hi": 125,
  "bite_s": 0.0,
  "notes": [],
- "words": 151,
+ "words": 155,
  "sensitive": {
   "flag": false,
   "why": ""
