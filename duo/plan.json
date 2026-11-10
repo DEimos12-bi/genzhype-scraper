@@ -170,10 +170,10 @@
   },
   {
    "id": "comment",
-   "text": "One TikTok comment called it the stuff that fell down the side of a car seat. The humans are poets when they are angry.",
+   "text": "One comment called it the stuff that fell down the side of a car seat. The humans are poets when they are angry.",
    "beats": [
     {
-     "say": "One TikTok comment called it the stuff that fell down the side of a car seat.",
+     "say": "One comment called it the stuff that fell down the side of a car seat.",
      "show": {
       "asset": "store1",
       "move": "under"
@@ -393,7 +393,7 @@
  "hi": 125,
  "bite_s": 0.0,
  "notes": [],
- "words": 155,
+ "words": 154,
  "sensitive": {
   "flag": false,
   "why": ""
