@@ -70,25 +70,8 @@ jobs:
           YOUTUBE_KEY: ${{ secrets.YOUTUBE_KEY }}
         run: |
           mkdir -p drop
-          cd v3
-          W=work/duo
-          mkdir -p "$W"
-          cp ../duo/material.json "$W/material.json"      # read on the server: the site refuses GitHub's machines now and then
-          {
-            for i in 1 2 3; do
-              [ -f "$W/material.json" ] && break
-              python material.py "$LINK" "$W" && [ -f "$W/material.json" ] && break
-              echo "duo: the page could not be read (try $i); again in 30 s"; sleep 30
-            done
-            [ -f "$W/material.json" ] || { echo "duo: no material: the site did not answer this machine"; exit 0; }
-            t0=$(date +%s); rc=3; n=0
-            while [ $rc -eq 3 ] && [ $n -lt 10 ] && [ $(( $(date +%s) - t0 )) -lt 5400 ]; do
-              timeout 3000 python make.py "$W"; rc=$?; n=$((n+1))
-              echo "duo: make.py call $n ended with code $rc after $(( $(date +%s) - t0 )) s"
-              ls "$W"/out/*.mp4 >/dev/null 2>&1 && break
-            done
-          } 2>&1 | tee ../drop/run.log
-          ls -la "$W" "$W/out" 2>/dev/null | head -60
+          bash duo/run.sh 2>&1 | tee drop/run.log
+          ls -la v3/work/duo v3/work/duo/assets 2>/dev/null | head -60
 
       - name: Pack the result, encrypted (the video is never readable here)
         if: always()
@@ -97,7 +80,7 @@ jobs:
           [ -d "$W" ] || { echo "nothing to pack"; exit 0; }
           mkdir -p pack
           cp -r "$W/out" pack/ 2>/dev/null || true
-          for f in plan.json timeline.json material.json comp.json render_errors.txt; do [ -f "$W/$f" ] && cp "$W/$f" pack/ || true; done
+          for f in plan.json timeline.json material.json comp.json render_errors.txt steps.json plan_refused.txt; do [ -f "$W/$f" ] && cp "$W/$f" pack/ || true; done
           tar -czf out.tgz -C pack .
           openssl rand -hex 32 > k.txt
           openssl enc -aes-256-cbc -pbkdf2 -salt -pass file:k.txt -in out.tgz -out drop/out.enc
