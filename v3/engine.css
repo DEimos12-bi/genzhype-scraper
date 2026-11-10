@@ -113,13 +113,13 @@ html,body{background:#000;overflow:hidden}
 /* THE TWO AIs (V3_STYLE=duo): the pair under the captions; Blu's words in his blue */
 #capline.blu span.on{background:#2F6BFF;box-shadow:7px 7px 0 var(--ink)}
 #capline.blu span.em{color:#9CC0FF}
-#duo{position:absolute;left:0;top:1432px;width:1080px;height:330px;pointer-events:none}
-#duoBack{position:absolute;left:150px;top:-20px;width:780px;height:380px;border-radius:50%;background:radial-gradient(ellipse at 50% 55%,rgba(0,0,0,.62) 0,rgba(0,0,0,.34) 45%,rgba(0,0,0,0) 70%)}
+#duo{position:absolute;left:0;top:1418px;width:1080px;height:420px;pointer-events:none}
+#duoBack{position:absolute;left:90px;top:-30px;width:900px;height:470px;border-radius:50%;background:radial-gradient(ellipse at 50% 55%,rgba(0,0,0,.62) 0,rgba(0,0,0,.34) 45%,rgba(0,0,0,0) 70%)}
 .dchar{position:absolute;transform-origin:50% 92%}
-#duoD{left:238px;top:0}
-#duoB{left:584px;top:10px}
-.dplate{position:absolute;top:268px;transform:translateX(-50%);font:700 21px Mono;letter-spacing:.1em;color:#fff;background:rgba(10,9,8,.82);padding:6px 10px 5px;border-radius:4px;white-space:nowrap}
+#duoD{left:158px;top:0}
+#duoB{left:590px;top:12px}
+.dplate{position:absolute;top:340px;transform:translateX(-50%);font:700 24px Mono;letter-spacing:.1em;color:#fff;background:rgba(10,9,8,.82);padding:7px 11px 6px;border-radius:4px;white-space:nowrap}
 .dplate i{display:inline-block;width:13px;height:13px;border-radius:50%;margin-right:8px;vertical-align:-1px}
-#duoPD{left:384px} #duoPD i{background:#FF4A3A}
-#duoPB{left:709px} #duoPB i{background:#2F6BFF}
+#duoPD{left:344px} #duoPD i{background:#FF4A3A}
+#duoPB{left:749px} #duoPB i{background:#2F6BFF}
 .dplate.on{background:#fff;color:var(--ink)}
