@@ -1,0 +1,157 @@
+"""THE EYES: every clip is looked at before it is cut. A sheet of small pictures of the clip (one every few seconds,
+each with a letter and its second) goes to a model that reads pictures; it says what each one shows, how good it is
+as footage for this story, where the subject sits, and whether the clip shows what was asked for.
+From that: the seconds worth cutting to (best first), the side-to-side position of the 9:16 window, and a refusal of
+clips that are a title card, a talking head nobody asked for, or the wrong thing. Without a picture model the clip is
+cut evenly (and says so in the log).  usage: eyes.py <work folder>"""
+import json
+import os
+import re
+import subprocess
+import sys
+
+import ai
+import scenes
+
+LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWX'
+SYSTEM = ('You check video footage for a short news video. You get ONE contact sheet: small pictures taken from one clip, in order, each labelled with a letter and its second. '
+          'Answer with strict JSON only.')
+
+
+def sheet(clip, dur, out, n, times=None):
+    times = times or [round(dur * (0.04 + 0.92 * i / max(1, n - 1)), 2) for i in range(n)]
+    tiles = []
+    for i, t in enumerate(times):
+        f = '%s.t%02d.jpg' % (out, i)
+        subprocess.run(['ffmpeg', '-y', '-v', 'error', '-ss', '%.2f' % t, '-i', clip, '-frames:v', '1', '-vf', 'scale=320:180:force_original_aspect_ratio=decrease,pad=320:180:(ow-iw)/2:(oh-ih)/2:black', '-q:v', '4', f], timeout=40)
+        if os.path.isfile(f):
+            tiles.append((i, t, f))
+    try:
+        from PIL import Image, ImageDraw
+        cols = 4
+        rows = (len(tiles) + cols - 1) // cols
+        im = Image.new('RGB', (cols * 320, rows * 180), 'black')
+        d = ImageDraw.Draw(im)
+        for k, (i, t, f) in enumerate(tiles):
+            x, y = (k % cols) * 320, (k // cols) * 180
+            im.paste(Image.open(f), (x, y))
+            d.rectangle([x, y, x + 96, y + 26], fill='black')
+            d.text((x + 6, y + 6), '%s  %ds' % (LETTERS[i], int(t)), fill='white')
+        im.save(out, quality=85)
+        labelled = True
+    except Exception:  # noqa: BLE001  (no Pillow: an unlabelled grid, read in order)
+        lst = out + '.txt'
+        open(lst, 'w').write(''.join("file '%s'\n" % f.replace('\\', '/') for _, _, f in tiles))
+        subprocess.run(['ffmpeg', '-y', '-v', 'error', '-f', 'concat', '-safe', '0', '-i', lst, '-vf', 'tile=4x%d' % ((len(tiles) + 3) // 4), '-frames:v', '1', '-q:v', '4', out], timeout=60)
+        labelled = False
+    for _, _, f in tiles:
+        os.remove(f)
+    return [(LETTERS[i], t) for i, t, _ in tiles], labelled
+
+
+def squash(s):
+    return re.sub(r'[^a-z0-9]', '', str(s).lower())
+
+
+def subjects_of(work):
+    """The people and the game the story is about (gather.py wrote them into material.json)."""
+    try:
+        m = json.load(open(os.path.join(work, 'material.json'), encoding='utf-8'))
+    except Exception:  # noqa: BLE001
+        return []
+    return [x for x in (m.get('subjects') or []) + [m.get('game') or ''] if isinstance(x, str) and len(squash(x)) >= 4]
+
+
+def own_subject(a, subjects):
+    """YourRAGE's laugh, posted by @officialyourrage, was called "off topic" twice (2026-10-28 bake-off) while the judge itself
+    wrote "a YourRAGE twitch stream": the story's own subject on screen is never off topic. The subject whose own account
+    posted the clip, or whom the judge names in what it saw; '' when neither."""
+    by, shows = squash(a.get('by', '')), squash((a.get('eyes') or {}).get('shows', ''))
+    for s in subjects:
+        k = squash(s)
+        if (by and k in by) or k in shows:
+            return s
+    return ''
+
+
+def look(work, log=print):
+    plan = json.load(open(os.path.join(work, 'plan.json'), encoding='utf-8'))
+    look_assets(plan['assets'], plan['title'], plan.get('kind'), work, log, save=lambda: json.dump(plan, open(os.path.join(work, 'plan.json'), 'w', encoding='utf-8'), ensure_ascii=False, indent=1))
+
+
+def look_assets(assets, title, kind, work, log=print, save=None, only=None):
+    """The clips of `assets` that nobody looked at yet (or just the ids in `only`); save() is called after each one."""
+    edir = os.path.join(work, 'eyes'); os.makedirs(edir, exist_ok=True)
+    for aid, a in assets.items():
+        if not a.get('file') or a['kind'] == 'photo' or a.get('eyes') or (only is not None and aid not in only):
+            continue
+        path = os.path.join(work, 'assets', a['file'])
+        if 'scenes' not in a:                                  # where the clip cuts (scenes.py): one picture of EVERY scene is looked at, not one every few seconds
+            a['scenes'] = scenes.of(path, a['dur']) if a['kind'] != 'stock' else [[0.0, round(a['dur'], 2)]]
+        picks = scenes.sample(a['scenes'], a['dur'])
+        # A MEME has one look. What a search brings under its name is often a remake (a rhythm game, another animation): the
+        # judge is told what the page's own pictures of it look like, and a remake does not count as the meme itself.
+        own = [v['eyes']['shows'] for v in assets.values() if v.get('whole') and v.get('usable', True) and (v.get('eyes') or {}).get('kind') == 'meme' and v['eyes'].get('shows')][:4]
+        look = ('\nTHE MEME\'S OWN PICTURES look like this (described by a model that cannot name its characters): %s\n"exact" is true only when this clip shows what was searched in THAT SAME FORM, the same drawing and the same scene. '
+                'A remake in another style (a rhythm game, a different animation, an edit with other characters) is "relevant" but NOT "exact".' % ' | '.join(own)) if kind == 'meme' and own and a['kind'] == 'hunt' and not a.get('game') else ''
+        out = os.path.join(edir, aid + '.jpg')
+        tiles, labelled = sheet(path, a['dur'], out, len(picks), [t for t, _ in picks])
+        tsec = dict(tiles)
+        scene_of = {LETTERS[i]: sc for i, (_, sc) in enumerate(picks)}
+        user = ('THE STORY: %s\nTHIS CLIP: %s\n%s\nThe sheet has %d pictures%s.\n'
+                'For each picture: "n" its letter, "what" it shows in at most 10 words, "score" 0 to 5 as footage for THIS story (5 = clear, lively, shows the subject; 3 = usable background; '
+                '1 = dull or unclear; 0 = black or very dark, a title or text screen, an ad, a logo, unrelated), "x" where the main subject sits from 0 (left edge) to 1 (right edge), '
+                '"text" true if big burned-in text, captions or a channel banner cover it, "face" true if a real person\'s face is the main subject.\n'
+                'Then for the whole clip: "kind" one of gameplay, trailer, event, stream, talking, other; "relevant" true if it shows the game, people, product or event of THIS story at all (false for a different game, a fan concept, an ad, an unrelated video); "exact" true if it shows exactly this: %s; "shows" one sentence.\n'
+                '%s\nJSON: {"tiles":[{"n":"A","what":"","score":0,"x":0.5,"text":false,"face":false}],"kind":"","relevant":true,"exact":true,"shows":""}'
+                % (title, a.get('about', '')[:300], 'It was searched to show: ' + a['must_show'] if a.get('must_show') else '', len(tiles),
+                   ', each labelled with its letter and second' if labelled else ', unlabelled: letter them A, B, C... left to right, top to bottom', a.get('must_show') or 'something of this story', look))
+        eyes = None
+        if a['kind'] != 'stock':
+            try:
+                eyes, model = ai.ask_json(SYSTEM, user, images=[out], temperature=0.2, timeout=ai.CONFIG['ai'].get('timeout', 100), max_tokens=6000)
+                eyes['model'] = model
+            except Exception as e:  # noqa: BLE001
+                log('%s: no picture model answered (%s); cut evenly' % (aid, str(e)[-90:]))
+        if not eyes or not isinstance(eyes.get('tiles'), list):
+            eyes = {'tiles': [{'n': l, 'what': '', 'score': 3, 'x': 0.5, 'text': False, 'face': False} for l, _ in tiles], 'kind': 'other', 'relevant': True, 'shows': '', 'model': 'none'}
+        good = []
+        for t in eyes['tiles']:
+            sec = tsec.get(str(t.get('n', '')).strip().upper()[:1])
+            if sec is None:
+                continue
+            try:
+                score, x = float(t.get('score', 0)), min(0.85, max(0.15, float(t.get('x', 0.5))))
+            except (TypeError, ValueError):
+                score, x = 0.0, 0.5
+            if t.get('text'):
+                score -= 1.5
+            sc = scene_of.get(str(t.get('n', '')).strip().upper()[:1], 0)
+            good.append({'t': sec, 'score': score, 'x': round(x, 2), 'face': bool(t.get('face')), 'what': str(t.get('what', ''))[:70], 'sc': sc, 'ss': a['scenes'][sc][0], 'se': a['scenes'][sc][1]})
+        a['eyes'] = {'kind': str(eyes.get('kind', 'other')), 'relevant': bool(eyes.get('relevant', True)), 'exact': bool(eyes.get('exact', eyes.get('relevant', True))), 'shows': str(eyes.get('shows', ''))[:160], 'model': eyes.get('model', '')}
+        who = own_subject(a, subjects_of(work))
+        if not a['eyes']['relevant'] and who:
+            a['eyes']['relevant'] = True                       # the judge's "off topic" is overruled by what it saw itself, or by whose clip it is
+            log('%s: shows %s, a person this story is about (%s): kept, not off topic' % (aid, who, 'their own account' if squash(who) in squash(a.get('by', '')) else 'the judge named them'))
+        a['windows'] = sorted([g for g in good if g['score'] >= 2.5], key=lambda g: (-g['score'], g['t']))
+        a['tiles'] = [{'t': g['t'], 'score': g['score'], 'x': g['x']} for g in good]      # every moment that was looked at, the dull ones too: the cut keeps off them
+        a['usable'] = bool(a['windows']) and (a['eyes']['relevant'] or a['kind'] == 'stock')
+        if look and a['usable'] and not a['eyes']['exact']:
+            a['usable'] = False
+            log('%s: a remake of the meme, not the meme itself: not shown (the meme\'s own clip plays where it was asked for)' % aid)
+        if save:
+            save()                                             # kept clip by clip: a stopped run does not look twice
+        log('%s: %s, %s, %d scene(s), %d of %d moments usable: %s' % (aid, a['eyes']['kind'], ('shows exactly it' if a['eyes']['exact'] else 'on topic') if a['eyes']['relevant'] else 'OFF TOPIC', len(a['scenes']), len(a['windows']), len(good), a['eyes']['shows'][:90]))
+    if save:
+        save()
+
+
+if __name__ == '__main__':
+    sys.stdout.reconfigure(encoding='utf-8')
+    import localenv
+    localenv.load()
+    try:
+        look(sys.argv[1])
+    except ai.OutOfTime as e:                                  # the caller's time for this call is up: what was looked at is kept
+        print('eyes: %s; run again' % e, flush=True)
+        sys.exit(3)

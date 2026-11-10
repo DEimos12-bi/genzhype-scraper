@@ -1,0 +1,309 @@
+"""VIDEO SYSTEM v3: one story in, one finished TikTok video out, with nobody in the loop.
+    python make.py <work folder> --url https://genzhype.com/...      (the owner's PC: reads the public page)
+    python make.py <work folder>                                     (a material.json is already in the folder: the server feed)
+    python make.py <work folder> --topic "a few words"               (a story that has no page yet: topic.py searches, reads and lays it out)
+Steps, each one a file in this folder; a run can be stopped and started again, finished steps are kept:
+    material -> investigate (investigate.py: an agent that searches, opens pages and keeps only facts it can quote: the primary source, the context)
+    -> gather (gather.py: every piece the page gives, fetched, looked at AND heard (ears.py) BEFORE a word is written) -> plan (director.py: the casting, the
+    script, the pictures) -> footage (footage.py: the hunts) -> eyes (eyes.py) -> repair (a sentence whose footage never came is dropped) -> voice (tts.py) -> receipts (receipts.py)
+    -> site (site.py: the page on a PC, a tablet and a phone, for the closing) -> cut (shots.py) -> layout (render.py + check.py, repaired) -> gate (check.py) -> frames (render.py, in batches)
+    -> sound (audio.py) -> pack (mp4, cover.jpg, post.txt, report.json in <work>/out)
+Options: --brand ID  the channel the video is made for (brands/ID.json; kept with the work folder)      --steps a,b,c  only these steps      --from STEP  this step and the ones after it      --approved  the owner read
+the plan of a sensitive story      --budget N  seconds a step may spend before it stops to be run again (frames, footage)      --limit N  the caller cuts ONE call of this command after N seconds: no step is started that cannot end in time
+Nothing is posted anywhere. Exit code 0 = video made, 2 = refused (the reason is printed and written to report.json),
+3 = a step stopped at its time budget: run the same command again."""
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+import time
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)
+import ai          # noqa: E402
+import localenv    # noqa: E402
+
+STEPS = ['material', 'investigate', 'gather', 'plan', 'footage', 'eyes', 'repair', 'voice', 'receipts', 'site', 'cut', 'layout', 'gate', 'frames', 'sound', 'pack']
+BATCH = 450
+
+
+def say(*a):
+    print(*a, flush=True)
+
+
+def browser_python():
+    """The Python that can open a browser: this one, or on the owner's PC the one named in config.json (CloakBrowser lives there)."""
+    alt = ai.CONFIG.get('local_browser_python', '')
+    return alt if alt and os.path.isfile(alt) and not os.environ.get('GITHUB_ACTIONS') else sys.executable
+
+
+def py(script, *args, timeout=None):
+    exe = browser_python() if script in ('render.py', 'receipts.py', 'site.py') else sys.executable
+    try:
+        r = subprocess.run([exe, os.path.join(HERE, script)] + [str(a) for a in args], timeout=timeout)
+    except subprocess.TimeoutExpired:                          # what it had finished is saved: the same command goes on from there
+        print('%s did not finish in %d s and was stopped' % (script, timeout), flush=True)
+        return 3
+    return r.returncode
+
+
+def done(work, step):
+    f = {'material': 'material.json', 'plan': 'plan.json', 'voice': 'timeline.json', 'cut': 'comp.json', 'sound': 'mix.wav'}.get(step)
+    if f:
+        return os.path.isfile(os.path.join(work, f))
+    marks = json.load(open(os.path.join(work, 'steps.json'))) if os.path.isfile(os.path.join(work, 'steps.json')) else {}
+    return bool(marks.get(step))
+
+
+def mark(work, step, value=True):
+    p = os.path.join(work, 'steps.json')
+    marks = json.load(open(p)) if os.path.isfile(p) else {}
+    marks[step] = value
+    json.dump(marks, open(p, 'w'))
+
+
+def refuse(work, why):
+    os.makedirs(os.path.join(work, 'out'), exist_ok=True)
+    json.dump({'made': False, 'why': why, 'ai': ai.LOG}, open(os.path.join(work, 'out', 'report.json'), 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
+    say('REFUSED:', '; '.join(why) if isinstance(why, list) else why)
+    sys.exit(2)
+
+
+def frames(work, budget):
+    """Draws and encodes the picture in batches (a batch is deleted once it is a video segment: little disk is used)."""
+    comp = json.load(open(os.path.join(work, 'comp.json'), encoding='utf-8'))
+    total, t0 = comp['frames'], time.time()
+    seg = os.path.join(work, 'segments'); os.makedirs(seg, exist_ok=True)
+    for a in range(0, total, BATCH):
+        b, out = min(total, a + BATCH), os.path.join(seg, 's%05d.mp4' % a)
+        if os.path.isfile(out):
+            continue
+        if budget and time.time() - t0 > budget:
+            return False
+        shutil.rmtree(os.path.join(work, 'frames'), ignore_errors=True)
+        if py('render.py', work, 'frames', a, b) != 0:
+            refuse(work, 'the picture could not be drawn (frames %d to %d): see render_errors.txt' % (a, b))
+        subprocess.run(['ffmpeg', '-y', '-v', 'error', '-framerate', '30', '-start_number', str(a), '-i', os.path.join(work, 'frames', 'f%05d.jpg'), '-frames:v', str(b - a),
+                        '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '21', '-pix_fmt', 'yuv420p', '-r', '30', out + '.tmp.mp4'], check=True)
+        os.replace(out + '.tmp.mp4', out)
+        shutil.rmtree(os.path.join(work, 'frames'), ignore_errors=True)
+        say('frames %d-%d of %d done (%.0f s so far)' % (a, b, total, time.time() - t0))
+    return True
+
+
+FONTS = ['/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', '/usr/share/fonts/dejavu/DejaVuSans-Bold.ttf', 'C:/Windows/Fonts/arialbd.ttf', 'C:/Windows/Fonts/segoeuib.ttf']
+
+
+def music_credit_on_screen(work, mp4):
+    """THE CREDIT TRAVELS WITH THE VIDEO (2026-10-29, step 4). A recorded track's licence (CC BY 4.0) asks for a credit;
+    the caption carries it in post.txt, but the site's posters write their own captions, so on TikTok, YouTube and
+    the rest it would be lost. One small line is written on the last five seconds of the video itself. Nothing is
+    written when the synthesised music played (no licence) or when no font is found (the caption credit stands)."""
+    try:
+        song = json.load(open(os.path.join(work, 'music_used.json'), encoding='utf-8'))
+    except Exception:  # noqa: BLE001
+        return False
+    title = re.sub(r'[^A-Za-z0-9 .,&()-]', '', str(song.get('title', ''))).strip()
+    font = next((f for f in FONTS if os.path.isfile(f)), '')
+    if not song.get('credit') or not title or not font:
+        return False
+    work, mp4 = os.path.abspath(work), os.path.abspath(mp4)      # ffmpeg runs inside the work folder (the font and the text are named without a drive)
+    shutil.copy(font, os.path.join(work, 'credit.ttf'))
+    open(os.path.join(work, 'credit.txt'), 'w', encoding='utf-8').write('Music: %s by Kevin MacLeod (incompetech.com), CC BY 4.0' % title)
+    dur = float(subprocess.run(['ffprobe', '-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', mp4], capture_output=True, text=True).stdout.strip() or 0)
+    vf = ("drawtext=fontfile=credit.ttf:textfile=credit.txt:fontsize=26:fontcolor=white:box=1:boxcolor=black@0.55:boxborderw=12"
+          ":x=(w-text_w)/2:y=h-120:enable='gte(t,%.2f)'" % max(0.0, dur - 5))
+    tmp = mp4 + '.credit.mp4'
+    r = subprocess.run(['ffmpeg', '-y', '-v', 'error', '-i', mp4, '-vf', vf, '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '20', '-pix_fmt', 'yuv420p',
+                        '-c:a', 'copy', '-movflags', '+faststart', tmp], cwd=work, capture_output=True, text=True)
+    if r.returncode != 0 or not os.path.isfile(tmp):
+        say('music credit not written on screen (%s): the caption credit stands' % (r.stderr or '')[-160:].strip())
+        return False
+    os.replace(tmp, mp4)
+    say('music credit written on the last 5 seconds: %s' % title)
+    return True
+
+
+def pack(work):
+    plan = json.load(open(os.path.join(work, 'plan.json'), encoding='utf-8'))
+    comp = json.load(open(os.path.join(work, 'comp.json'), encoding='utf-8'))
+    out = os.path.join(work, 'out'); os.makedirs(out, exist_ok=True)
+    slug = (plan['url'].rstrip('/').split('/')[-1] or 'video')[:70]
+    import brand
+    mp4 = os.path.join(out, '%s-%s.mp4' % (brand.load()['file'], slug))
+    seg = os.path.join(work, 'segments')
+    lst = os.path.join(seg, 'list.txt')
+    open(lst, 'w').write(''.join("file '%s'\n" % f for f in sorted(os.listdir(seg)) if f.endswith('.mp4')))
+    subprocess.run(['ffmpeg', '-y', '-v', 'error', '-f', 'concat', '-safe', '0', '-i', lst, '-i', os.path.join(work, 'mix.wav'), '-c:v', 'copy', '-c:a', 'aac', '-b:a', '192k', '-ar', '48000',
+                    '-movflags', '+faststart', '-shortest', mp4], check=True)
+    music_credit_on_screen(work, mp4)
+    stamp_t = next((c[0] for c in comp['cues']['impact'] if c[0] > 0.3), 1.5) + 0.6          # the cover: the first big word, once it has landed
+    subprocess.run(['ffmpeg', '-y', '-v', 'error', '-ss', '%.2f' % stamp_t, '-i', mp4, '-frames:v', '1', '-q:v', '2', os.path.join(out, 'cover.jpg')], check=True)
+    dur = float(subprocess.run(['ffprobe', '-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', mp4], capture_output=True, text=True).stdout.strip() or 0)
+    post, used = plan.get('post') or {}, sorted({s['asset'] for s in comp['shots']})
+    credits = '\n'.join('- %s: %s  %s' % (k, plan['assets'][k].get('credit') or 'stock footage (Pexels), blurred', plan['assets'][k].get('page', '')) for k in used if k in plan['assets']) \
+        or '- none: this video is drawn (motion graphics), no outside footage'
+    mat = json.load(open(os.path.join(work, 'material.json'), encoding='utf-8'))
+    try:                                                  # a recorded track is credited in the caption (its licence asks for it)
+        song = json.load(open(os.path.join(work, 'music_used.json'), encoding='utf-8'))
+    except Exception:  # noqa: BLE001
+        song = {}
+    if song.get('credit'):
+        post = dict(post, caption=(post.get('caption', '') + ' | ' + song['credit']).strip(' |'))
+
+    def shown(o):
+        if o.get('t'):
+            return str(o['t'])
+        ref = str(o.get('post', ''))
+        if ref.startswith('source') and ref[6:].isdigit() and int(ref[6:]) < len(mat.get('sources') or []):
+            src = mat['sources'][int(ref[6:])]
+            return 'the %s %s, the sentence "%s"' % ("subject's own page" if src.get('primary') else 'page of', src['url'], str(o.get('mark', ''))[:90])
+        if ref.startswith('post') and ref[4:].isdigit() and int(ref[4:]) < len(mat.get('posts') or []):
+            return 'the post ' + mat['posts'][int(ref[4:])]['url']
+        return ref or '?'
+    proof = '\n'.join(['- %s' % shown(o) for l in plan['lines'] for o in l['overlays'] if o['k'] in ('quote', 'receipt') and not o.get('drop')] +
+                      ['- in their own voice (%s, %.1f s): "%s"' % (l['bite']['asset'], l['bite']['dur'], l['bite']['text'][:120]) for l in plan['lines'] if l.get('bite')] +
+                      ['- verified by the researcher: %s [%s]' % (e['claim'][:140], e['url']) for e in mat.get('evidence') or []])
+    open(os.path.join(out, 'post.txt'), 'w', encoding='utf-8').write(
+        'VIDEO   %s   (%.1f s, 1080x1920)\nPAGE    %s\n\nCAPTION\n%s\n\nHASHTAGS\n%s\n\nPINNED COMMENT\n%s\n\nTHE SCRIPT\n%s\n\nPROOF SHOWN\n%s\n\nFOOTAGE\n%s\n\nVoice: edge-tts. %s. Effects: made in code for this video.\nWritten by %s; clips looked at by the picture model before cutting. Nobody checked this video: watch it once before posting.\n'
+        % (os.path.basename(mp4), dur, plan['url'] if not plan.get('no_page') else '(no page on the site yet; made from the topic "%s")' % mat.get('topic', ''), post.get('caption', ''), ' '.join('#' + str(t).lstrip('#') for t in post.get('hashtags', [])), post.get('pinned', ''),
+           '\n'.join(l['text'] for l in plan['lines']), proof or '- (none)', credits, song.get('credit') or 'Music: made in code for this video', plan.get('model', '?')))
+    report = {'made': True, 'file': os.path.basename(mp4), 'seconds': round(dur, 1), 'words': plan.get('words'), 'shots': len(comp['shots']), 'assets_used': used,
+              'director_model': plan.get('model'), 'opening': plan.get('opening'), 'fact_checked': plan.get('fact_checked'), 'unsupported_left': plan.get('unsupported_left'), 'left_open': plan.get('left_open', []), 'sensitive': plan.get('sensitive'),
+              'ai_calls': [json.loads(x) for x in open(os.environ['V3_AI_LOG'], encoding='utf-8')] if os.path.isfile(os.environ.get('V3_AI_LOG', '')) else []}
+    json.dump(report, open(os.path.join(out, 'report.json'), 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
+    shutil.copy(os.path.join(work, 'plan.json'), os.path.join(out, 'plan.json'))
+    say('DONE %s  %.1f s' % (mp4, dur))
+
+
+def main():
+    args = sys.argv[1:]
+    work = os.path.abspath(args[0])
+    opt = lambda name: args[args.index(name) + 1] if name in args else None
+    os.makedirs(work, exist_ok=True)
+    bfile = os.path.join(work, 'brand')                        # the channel this video is made for stays with its folder (brand.py)
+    if opt('--brand'):
+        open(bfile, 'w', encoding='utf-8').write(opt('--brand'))
+    if os.path.isfile(bfile):
+        os.environ['V3_BRAND'] = open(bfile, encoding='utf-8').read().strip()
+    localenv.load()
+    os.environ['V3_AI_LOG'] = os.path.join(work, 'ai_log.jsonl')
+    os.environ['V3_AI_STRIKES'] = os.path.join(os.path.dirname(os.path.abspath(work)), 'ai_strikes.json')   # one file for every run: a model that is out stays aside in the next run too
+    steps = STEPS
+    if opt('--steps'):
+        steps = [s for s in STEPS if s in opt('--steps').split(',')]
+    elif opt('--from'):
+        steps = STEPS[STEPS.index(opt('--from')):]
+        for s in steps:
+            mark(work, s, False)
+    budget = float(opt('--budget')) if opt('--budget') else None
+    limit = float(opt('--limit')) if opt('--limit') else None      # the caller's hard limit for this one call of the command, in seconds
+    if limit:
+        os.environ['V3_CALL_END'] = '%.0f' % (time.time() + limit)      # every model call of every step knows it (ai.deadline)
+    forced = bool(opt('--steps') or opt('--from'))
+    for f in ('comp.html', 'engine.js', 'engine.css', 'build.js', 'slang.js'):
+        shutil.copy(os.path.join(HERE, f), os.path.join(work, f))
+    shutil.copytree(os.path.join(HERE, 'fonts'), os.path.join(work, 'fonts'), dirs_exist_ok=True)
+    began = time.time()
+    for step in steps:
+        if not forced and done(work, step):
+            continue
+        if budget and time.time() - began > budget:            # a caller with a time limit: stop between steps, the same command continues
+            say('STOPPED at the time budget before "%s": run the same command again' % step); sys.exit(3)
+        t = time.time()
+        say('== %s' % step)
+        if step == 'material':
+            if not os.path.isfile(os.path.join(work, 'material.json')) and opt('--topic'):      # a story with no page yet: the desk builds the material from a few words (topic.py)
+                rc = py('topic.py', opt('--topic'), work, *([max(budget, 60)] if budget else []), timeout=900)
+                if rc == 3:
+                    say('STOPPED at the time budget: run the same command again'); sys.exit(3)
+                if rc != 0:
+                    refuse(work, 'no story could be built from the topic (see the lines above)')
+            elif not os.path.isfile(os.path.join(work, 'material.json')):
+                if not opt('--url'):
+                    refuse(work, 'no material.json in the folder and no --url given')
+                if py('material.py', opt('--url'), work, timeout=180) != 0:
+                    refuse(work, 'the page could not be read')
+        elif step == 'investigate':
+            rc = py('investigate.py', work, *([max(budget, 40)] if budget else []), timeout=900)
+            if rc == 3:
+                say('STOPPED at the time budget: run the same command again'); sys.exit(3)
+            mark(work, step)                                   # whatever it found; a story it could not research is written from the page, as before
+        elif step == 'gather':
+            rc = py('gather.py', work, *([budget] if budget else []), timeout=900)
+            if rc == 3:
+                say('STOPPED at the time budget: run the same command again'); sys.exit(3)
+            if rc != 0:
+                refuse(work, 'the material could not be gathered (see the lines above)')
+            mark(work, step)
+        elif step == 'plan':
+            rc = py('director.py', work, *([budget] if budget else []), timeout=900)
+            if rc == 3:
+                say('STOPPED at the time budget: run the same command again'); sys.exit(3)
+            if rc != 0:
+                why = os.path.join(work, 'plan_refused.txt')
+                refuse(work, open(why, encoding='utf-8').read() if os.path.isfile(why) else 'the director gave no usable plan (see the lines above)')
+        elif step == 'voice':
+            left = limit - (time.time() - began) if limit else None
+            if left is not None and left < 50:                 # a batch of the local voice needs its minute: not started in what is left of this call
+                say('STOPPED before "voice": %d s of this call are left; run the same command again' % left); sys.exit(3)
+            rc = py('tts.py', work, *([max(budget, 60)] if budget else [600] if left is not None else []), *([left] if left is not None else []), timeout=900)
+            if rc == 3:
+                say('STOPPED at the time budget: run the same command again'); sys.exit(3)
+            if rc != 0:
+                refuse(work, 'the voice could not be made')
+        elif step in ('footage', 'eyes', 'repair', 'receipts') and json.load(open(os.path.join(work, 'plan.json'), encoding='utf-8')).get('format') == 'slang':
+            say('(the slang format is drawn: no footage, nothing to look at, no posts to photograph)'); mark(work, step)
+        elif step == 'footage':
+            rc = py('footage.py', work, *([max(budget, 75)] if budget else []))      # a download needs room: under 40 s left it would never start one
+            if rc == 3:
+                say('STOPPED at the time budget: run the same command again'); sys.exit(3)
+            if rc != 0:                                        # a crash is not "done": it is said, and the step is run again next time
+                refuse(work, 'the footage step failed (exit %d): see the lines above' % rc)
+            mark(work, step)
+        elif step == 'eyes':
+            if py('eyes.py', work, timeout=900) == 3:
+                say('STOPPED at the time limit of this call: run the same command again'); sys.exit(3)
+            mark(work, step)
+        elif step == 'repair':
+            py('repair.py', work, timeout=300); mark(work, step)
+        elif step == 'receipts':
+            py('receipts.py', work, timeout=400); mark(work, step)
+        elif step == 'site':
+            py('site.py', work, timeout=300); mark(work, step)
+        elif step == 'cut':
+            if py('shots.py', work, timeout=1500) != 0:
+                refuse(work, 'no footage to cut: nothing usable was fetched for this story')
+        elif step == 'layout':
+            import check
+            for round_ in range(3):
+                if py('render.py', work, 'layout', timeout=600) != 0:
+                    refuse(work, 'the layout could not be read: see render_errors.txt')
+                n = check.repair_layout(work, say)
+                say('layout check %d: %s' % (round_ + 1, '%d problems repaired' % n if n else 'clean'))
+                if not n:
+                    break
+            mark(work, step)
+        elif step == 'gate':
+            import check
+            why = check.gate(work, allow_sensitive='--approved' in args)
+            if why:
+                refuse(work, why)
+            mark(work, step)
+        elif step == 'frames':
+            if not frames(work, budget):
+                say('STOPPED at the time budget: run the same command again'); sys.exit(3)
+            mark(work, step)
+        elif step == 'sound':
+            if py('audio.py', work, timeout=600) != 0:
+                refuse(work, 'the sound could not be mixed')
+        elif step == 'pack':
+            pack(work); mark(work, step)
+        say('== %s done in %.0f s' % (step, time.time() - t))
+
+
+if __name__ == '__main__':
+    sys.stdout.reconfigure(encoding='utf-8')
+    main()

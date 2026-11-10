@@ -1,0 +1,366 @@
+"""THE PLUG (step 2 of the switch, 2026-10-28): v3 takes the LIVE system's jobs and hands its videos back the same way.
+
+The live system stays as it is: the site's director writes one job per story into the job feed (the video-feed branch,
+feed.json, and the same JSON on the site), video_maker.py renders it, and api/video_receive.php takes the video, from
+where the posters (YouTube, Facebook, Instagram, Bluesky) publish it. This file lets v3 stand where video_maker.py
+stands, without touching anything else:
+
+    python live.py                      the next job v3 has not made yet, in SHADOW mode (the default): the video is
+                                        made and kept in drop/ (the workflow keeps it with the run and on branch v3-drop);
+                                        nothing is sent to the site, nothing is posted, the live done-list is not touched
+    python live.py --batch 2            two jobs in one go
+    python live.py --page 4874          that job (it must be in the feed)
+    python live.py --deliver            hands the video to the site like video_maker.py (step 4 only, on the owner's word):
+                                        the same receive address, the same token, the same fields; then the page goes on
+                                        the live done-list too, so the old maker never makes it twice
+
+What v3 takes from a job: the page address ("link") and the live system's own finds for that story: the pictures the
+site keeps for it ("visuals", with what each shows) and the clips its hunt kept ("clip_files"). They go into
+material.json next to what v3 reads from the page itself; v3's eyes look at them like at any other picture or clip.
+The site's receipt cards are not taken (v3 draws its own from the posts), nor a publisher's article picture (an
+outlet is never shown: competitors are not promoted).
+
+Its own done-list: .social/v3_done.txt (pages made), .social/v3_failed.txt ("page_id count": a page that failed
+FAIL_CAP times is not tried again, like the live maker's parking).
+"""
+import base64
+import json
+import os
+import re
+import subprocess
+import sys
+import time
+import urllib.parse
+import urllib.request
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(HERE)
+BASE = 'https://genzhype.com'
+RAW_FEED = 'https://raw.githubusercontent.com/DEimos12-bi/genzhype-scraper/video-feed/feed.json'
+RECEIVE_URL = os.environ.get('VIDEO_RECEIVE_URL', BASE + '/api/video_receive.php')
+UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:130.0) Gecko/20100101 Firefox/130.0'
+STATE = os.path.join(ROOT, '.social')
+DONE, FAILED, LIVE_DONE = os.path.join(STATE, 'v3_done.txt'), os.path.join(STATE, 'v3_failed.txt'), os.path.join(STATE, 'video_done.txt')
+FAIL_CAP = 3                                  # the old maker's bounded retries (video_maker.FAIL_CAP): three tries, then the page is parked
+DAILY = int(os.environ.get('V3_DAILY', '8'))   # the owner's goal, 2026-10-28: 8 videos a day (GitHub starts an hourly job only some of the hours, so it runs hourly and stops at 8)
+# pictures of the site's store that may be shown: the site's own files (not its cover card), the subjects' own channels and posts, free photos
+SHOWABLE = re.compile(r'^https://(?:genzhype\.com/(?:assets|media)/(?!covers/)|i\.ytimg\.com/|yt3\.ggpht\.com/|pbs\.twimg\.com/|(?:commons|upload)\.wikimedia\.org/|static-cdn\.jtvnw\.net/|clips-media-assets2\.twitch\.tv/)', re.I)
+
+
+def log(*a):
+    print(*a, flush=True)
+
+
+def _get(url, timeout=30):
+    req = urllib.request.Request(url, headers={'User-Agent': UA})
+    return urllib.request.urlopen(req, timeout=timeout).read()
+
+
+def feed():
+    """The job feed. Every copy that can be read is read and the NEWEST one is used ("generated"): the video-feed branch
+    (VIDEO_FEED_DIR), the site's own copy (needs INGEST_TOKEN), the public branch on GitHub. The branch is filled by the
+    server's bridge, which stopped on 2026-10-22 (a PHP error in its export) while the site's own copy kept being
+    written every hour: reading only the branch, both makers saw six old jobs and made nothing."""
+    found = []
+    d = os.environ.get('VIDEO_FEED_DIR', '')
+    if d and os.path.isfile(os.path.join(d, 'feed.json')):
+        try:
+            found.append(('branch', json.load(open(os.path.join(d, 'feed.json'), encoding='utf-8'))))
+        except Exception:  # noqa: BLE001
+            pass
+    token = os.environ.get('INGEST_TOKEN', '').strip()
+    urls = ([('site', BASE + '/media/vfeed-%s.txt' % token), ('site', BASE + '/media/vfeed-%s.png' % token), ('site', BASE + '/media/vfeed-%s.json' % token)] if token else []) + [('github', RAW_FEED)]
+    for where, u in urls:
+        if where == 'site' and any(w == 'site' for w, _ in found):
+            continue
+        try:
+            b = _get(u)
+            k = b.find(b'GZJSON:')
+            found.append((where, json.loads((b[k + 7:] if k >= 0 else b).decode('utf-8', 'replace'))))
+        except Exception:  # noqa: BLE001
+            continue
+    found = [(w, j) for w, j in found if isinstance(j, dict) and isinstance(j.get('posts'), list)]
+    if not found:
+        raise SystemExit('live: no job feed could be read')
+    where, best = max(found, key=lambda x: str(x[1].get('generated', '')))
+    log('live: job feed from %s, generated %s (copies read: %s)' % (where, best.get('generated', '?'), ', '.join('%s %s' % (w, str(j.get('generated', '?'))[:16]) for w, j in found)))
+    return best
+
+
+def daily(day, n=10):
+    """THE DAY'S PAGES (owner, 2026-11-01): the pages published on `day` (UTC), ranked by the site's producer score
+    (demand x quality: trend velocity in our rival feed, rival outliers, arousal, lane yield x footage, exclusivity,
+    freshness), one page per topic, best first: api/video_daily.php. The site computes a finished day once."""
+    token = os.environ.get('INGEST_TOKEN', '').strip()
+    if not token:
+        raise SystemExit('live: the daily list needs INGEST_TOKEN')
+    d, last = None, ''
+    for attempt in range(5):                   # the FIRST call of a day ranks the pages (1-3 minutes); the site's CDN cuts a call at
+        try:                                   # 60 s, but the site finishes and keeps the list: the next try answers at once
+            d = json.loads(_get(BASE + '/api/video_daily.php?token=%s&day=%s&n=%d' % (token, day, n), timeout=70).decode('utf-8', 'replace'))
+            break
+        except Exception as e:  # noqa: BLE001
+            last = str(e)[:90]
+            log('live: the daily list is not ready yet (%s); asking again in 60 s' % last)
+            time.sleep(60)
+    if d is None:
+        raise SystemExit('live: the daily list could not be read (%s): no video this run; old pages are never used instead' % last)
+    if not d.get('ok'):
+        raise SystemExit('live: the daily list answered %s' % str(d)[:160])
+    picks = d.get('picks') or []
+    log('live: day %s: %s page(s) published, %s could make a video, %d ranked picks (%d dropped as the same topic)%s'
+        % (day, d.get('pages_that_day', '?'), d.get('candidates', '?'), len(picks), len(d.get('same_topic') or []), ' [kept list]' if d.get('cached') else ''))
+    for i, x in enumerate(picks, 1):
+        log('live:   %d. page %s  score %.3f (demand %.2f x quality %.2f)  %s' % (i, x['page_id'], x['score'], x['demand'], x['quality'], str(x['title'])[:70]))
+    return [{'page_id': x['page_id'], 'slug': x['slug'], 'link': x['link'], 'title': x['title'], 'rank': i} for i, x in enumerate(picks, 1)]
+
+
+def lines(path):
+    try:
+        return [x.strip() for x in open(path, encoding='utf-8') if x.strip()]
+    except OSError:
+        return []
+
+
+def add_line(path, text):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, 'a', encoding='utf-8') as f:
+        f.write(text + '\n')
+
+
+def failures():
+    out = {}
+    for x in lines(FAILED):
+        pid, _, n = x.partition(' ')
+        out[pid] = max(out.get(pid, 0), int(n) if n.isdigit() else 1)
+    return out
+
+
+def pick(jobs, wanted=None, skip=()):
+    done, failed = {x.split()[0] for x in lines(DONE)}, failures()
+    for j in jobs:
+        pid = str(j.get('page_id', ''))
+        if wanted and pid != wanted:
+            continue
+        if pid in skip:                                   # the old maker's _MADE_THIS_RUN: never the same page twice in one run
+            continue
+        if not j.get('link') or not pid:
+            continue
+        if not wanted and (pid in done or failed.get(pid, 0) >= FAIL_CAP):
+            continue
+        return j
+    return None
+
+
+def who_of(url):
+    p = urllib.parse.urlparse(url)
+    parts = [x for x in p.path.split('/') if x]
+    host = p.netloc.lower().replace('www.', '')
+    plat = host.split('.')[0] if host else 'web'
+    name = next((x for x in parts if x.startswith('@')), '') or (parts[0] if parts and host in ('twitch.tv', 'kick.com', 'clips.twitch.tv') and parts[0] != 'clip' else '')
+    return plat, ('@' + name.lstrip('@')) if name else ''
+
+
+def merge(m, job):
+    """The live system's finds for this story, added to what v3 read from the page."""
+    have = {im.get('url') for im in m.get('images') or []}
+    titles = job.get('visual_titles') or []
+    added = 0
+    for i, u in enumerate(job.get('visuals') or []):
+        if isinstance(u, str) and SHOWABLE.match(u) and u not in have:
+            t = titles[i] if i < len(titles) and isinstance(titles[i], str) else ''
+            m.setdefault('images', []).append({'url': u, 'alt': (t or 'a picture the site keeps for this story')[:200], 'store': True})
+            have.add(u)
+            added += 1
+    seen, clips = set(), []
+    for u in list((job.get('clip_files') or {}).keys()) + [c.get('url', '') if isinstance(c, dict) else str(c) for c in job.get('clips') or []]:
+        base = u.split('#')[0]
+        if base and base.startswith('http') and base not in seen:
+            seen.add(base)
+            plat, who = who_of(base)
+            clips.append({'url': base, 'platform': plat, 'by': who})
+    m['store_clips'] = clips[:4]
+    m['live_job'] = {'page_id': str(job.get('page_id')), 'slug': job.get('slug', ''), 'hook': job.get('hook', ''), 'gravity': job.get('gravity', '')}
+    return added, len(m['store_clips'])
+
+
+def py(*args, timeout=None):
+    return subprocess.run([sys.executable] + list(args), cwd=HERE, timeout=timeout).returncode
+
+
+def make(job, budget):
+    pid, link = str(job['page_id']), job['link']
+    work = os.path.join(HERE, 'work', 'live-' + pid)
+    os.makedirs(work, exist_ok=True)
+    mfile = os.path.join(work, 'material.json')
+    if not os.path.isfile(mfile):
+        log('live: page %s, reading %s' % (pid, link))
+        if py('material.py', link, work, timeout=240) != 0 or not os.path.isfile(mfile):
+            return None, 'the page could not be read'
+        m = json.load(open(mfile, encoding='utf-8'))
+        pics, clips = merge(m, job)
+        json.dump(m, open(mfile, 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
+        log('live: the live system\'s finds added: %d picture(s), %d clip link(s)' % (pics, clips))
+    t0 = time.time()
+    while time.time() - t0 < budget:                       # make.py resumes where it stopped: called again while it asks for it
+        rc = py('make.py', work, timeout=max(60, int(budget - (time.time() - t0))))
+        out = [f for f in os.listdir(os.path.join(work, 'out')) if f.endswith('.mp4')] if os.path.isdir(os.path.join(work, 'out')) else []
+        if out:
+            return os.path.join(work, 'out', out[0]), ''
+        if rc != 3:                                        # 3 = "run me again" (a step ran out of its time); anything else is final
+            break
+    rep = os.path.join(work, 'out', 'report.json')
+    why = ''
+    if os.path.isfile(rep):
+        try:
+            why = str(json.load(open(rep, encoding='utf-8')).get('why') or '')[:300]
+        except Exception:  # noqa: BLE001
+            why = ''
+    return None, why or 'no video (see the log)'
+
+
+def deliver(job, mp4):
+    """The same hand-over as video_maker.post_video: JSON with the token, the page, the slug and the video in base64."""
+    token = os.environ.get('INGEST_TOKEN', '').strip()
+    if not token:
+        return 'INGEST_TOKEN is not set'
+    body = json.dumps({'token': token, 'page_id': int(job['page_id']), 'slug': job.get('slug') or '',
+                       'video_b64': base64.b64encode(open(mp4, 'rb').read()).decode('ascii'), 'report': {'maker': 'v3'}}).encode('utf-8')
+    last = ''
+    for attempt in (1, 2):
+        try:
+            try:
+                from curl_cffi import requests as cffi       # what the live maker uses: the site's firewall lets a browser-like client through
+                r = cffi.post(RECEIVE_URL, data=body, headers={'Content-Type': 'application/json', 'User-Agent': UA}, impersonate='firefox', timeout=60)
+                code, text = r.status_code, r.text
+            except ImportError:
+                req = urllib.request.Request(RECEIVE_URL, data=body, headers={'Content-Type': 'application/json', 'User-Agent': UA})
+                with urllib.request.urlopen(req, timeout=60) as r:
+                    code, text = r.status, r.read().decode('utf-8', 'replace')
+            if code == 200 and json.loads(text).get('ok'):
+                return ''
+            last = 'HTTP %s %s' % (code, text[:160])
+        except Exception as e:  # noqa: BLE001
+            last = str(e)[:160]
+        time.sleep(5)
+    return last
+
+
+PERMANENT = re.compile(r'PLAN REFUSED|REFUSED|under 6\d s|long: under|HTTP Error 404|not found', re.I)
+
+
+def hb(stage, pid=0, note=''):
+    """The old maker's status line (video_maker._hb_post): one POST to the site's receive address, which appends it to
+    media/heartbeat.log. Best effort: a run that cannot reach the site cannot report either."""
+    token = os.environ.get('INGEST_TOKEN', '').strip()
+    if not token:
+        return
+    try:
+        body = json.dumps({'token': token, 'action': 'heartbeat', 'page_id': int(pid or 0), 'stage': stage, 'elapsed': 0, 'note': ('v3 ' + note)[:700]}).encode()
+        urllib.request.urlopen(urllib.request.Request(RECEIVE_URL, data=body, headers={'Content-Type': 'application/json', 'User-Agent': UA}), timeout=15).read()
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def more_to_do(flag):
+    """drop/next.txt tells the workflow whether to start the next run at once (the chain)."""
+    try:
+        os.makedirs(os.path.join(ROOT, 'drop'), exist_ok=True)
+        open(os.path.join(ROOT, 'drop', 'next.txt'), 'w').write('more' if flag else 'done')
+    except OSError:
+        pass
+
+
+def main():
+    sys.stdout.reconfigure(encoding='utf-8')
+    arg = lambda k, d=None: sys.argv[sys.argv.index(k) + 1] if k in sys.argv and sys.argv.index(k) + 1 < len(sys.argv) else d
+    batch, wanted, send = int(arg('--batch', '1')), arg('--page'), '--deliver' in sys.argv
+    source = arg('--source', 'feed')                      # daily = the day's pages ranked by trend (owner, 2026-11-01); feed = the old job list
+    day = arg('--day') or time.strftime('%Y-%m-%d', time.gmtime(time.time() - 86400))      # the last FINISHED day: its pages are all out
+    budget = float(arg('--budget', '3000'))
+    drop = os.path.join(ROOT, 'drop')
+    try:                                                   # the site's firewall blackholes some GitHub machines ("Network is unreachable", 2026-10-29):
+        _get(BASE + '/', timeout=20)                       # such a run can read nothing and send nothing; it stops here, the next run (another machine) tries,
+    except Exception as e:  # noqa: BLE001                 # and no page is counted as failed for it
+        log('live: this machine cannot reach %s (%s): nothing is tried this run' % (BASE, str(e)[:80]))
+        more_to_do(True)                                   # another machine may get through: the chain tries again
+        return 0
+    jobs = daily(day, 60 if wanted else 10) if source == 'daily' else (feed().get('posts') or [])
+    log('live: %d job(s) from %s, mode %s' % (len(jobs), 'the pages of %s' % day if source == 'daily' else 'the feed', 'DELIVER (the site gets the video)' if send else 'SHADOW (nothing is sent or posted)'))
+    made = 0
+    today = time.strftime('%Y-%m-%d', time.gmtime())
+    if source == 'daily':                                  # the cap counts the videos made FOR that day's pages
+        made_today = sum(1 for x in lines(DONE) if ('day=' + day) in x.split())
+    else:
+        made_today = sum(1 for x in lines(DONE) if len(x.split()) > 1 and x.split()[1].startswith(today))
+    if not wanted and made_today >= DAILY:
+        log('live: %d video(s) made already for %s (the cap is %d): nothing more' % (made_today, day if source == 'daily' else 'today', DAILY))
+        more_to_do(False)
+        return 0
+    if not wanted:
+        batch = min(batch, DAILY - made_today)
+    hb('V3_START', 0, 'day=%s made=%d/%d batch=%d' % (day, made_today, DAILY, batch))
+    tried = set()
+    for _ in range(batch):
+        job = pick(jobs, wanted, tried)
+        if not job:
+            log('live: no job left that v3 has not made')
+            break
+        pid = str(job['page_id'])
+        tried.add(pid)
+        log('live: === page %s "%s"' % (pid, str(job.get('title', ''))[:80]))
+        hb('V3_PAGE', pid, str(job.get('title', ''))[:120])
+        mp4, why = make(job, budget)
+        if not mp4:
+            # the old maker's classification: a refusal (the fact check, the length gate, a missing page) will fail the same
+            # way again, so the page is parked at once; anything else (a network drop, a crash) is one try of three
+            permanent = bool(PERMANENT.search(why or ''))
+            n = FAIL_CAP if permanent else failures().get(pid, 0) + 1
+            add_line(FAILED, '%s %d' % (pid, n))
+            log('live: page %s: NO VIDEO (%s); %s' % (pid, why, 'PARKED (it would fail the same way again); the next pick is made instead' if permanent else 'try %d of %d' % (n, FAIL_CAP)))
+            hb('V3_FAILED', pid, ('parked: ' if permanent else 'try %d: ' % n) + (why or '')[:300])
+            if wanted:
+                break
+            continue
+        os.makedirs(os.path.join(drop, pid), exist_ok=True)
+        out = os.path.dirname(mp4)
+        for f in os.listdir(out):
+            src = os.path.join(out, f)
+            if os.path.isfile(src):
+                with open(src, 'rb') as a, open(os.path.join(drop, pid, f), 'wb') as b:
+                    b.write(a.read())
+        json.dump({'page_id': pid, 'slug': job.get('slug', ''), 'title': job.get('title', ''), 'link': job['link'], 'mp4': os.path.basename(mp4), 'mode': 'deliver' if send else 'shadow',
+                   'made': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}, open(os.path.join(drop, pid, 'job.json'), 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
+        add_line(DONE, '%s %s%s' % (pid, time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()), (' day=' + day) if source == 'daily' else ''))      # the time and the page day: the caps count them
+        made += 1
+        if send:
+            err = deliver(job, mp4)
+            if err:                                        # the site's firewall refuses some GitHub machines: the old maker's backup road, the video-drop branch the server collects every 30 minutes
+                bus = os.path.join(ROOT, 'video-drop-out')
+                os.makedirs(bus, exist_ok=True)
+                with open(mp4, 'rb') as a, open(os.path.join(bus, 'video-%s.mp4' % pid), 'wb') as b:
+                    b.write(a.read())
+                json.dump({'page_id': int(pid), 'slug': job.get('slug') or '', 'mp4': 'video-%s.mp4' % pid, 'sheet': None, 'report': {'maker': 'v3'}, 'reason': 'post failed: %s' % err[:120]},
+                          open(os.path.join(bus, 'drop-meta-%s.json' % pid), 'w', encoding='utf-8'))
+                add_line(LIVE_DONE, pid)
+                log('live: page %s: made; the site did not take it directly (%s), so it goes by the video-drop branch' % (pid, err))
+            else:
+                add_line(LIVE_DONE, pid)                   # the old maker skips it from now on
+                log('live: page %s: DELIVERED to the site' % pid)
+                hb('V3_DELIVERED', pid, 'day=%s' % day)
+        else:
+            log('live: page %s: made, kept in drop/%s (shadow: not sent)' % (pid, pid))
+        if wanted:
+            break
+    log('live: %d video(s) made' % made)
+    if source == 'daily' and not wanted:
+        done_day = sum(1 for x in lines(DONE) if ('day=' + day) in x.split())
+        left = pick(jobs)                                  # a pick still to make (not made, not parked)
+        more_to_do(done_day < DAILY and left is not None)
+        log('live: %d of %d made for %s; %s' % (done_day, DAILY, day, 'the next run starts now' if done_day < DAILY and left else 'nothing more to do for this day'))
+        hb('V3_END', 0, 'day=%s made=%d/%d this_run=%d more=%s' % (day, done_day, DAILY, made, 'yes' if done_day < DAILY and left else 'no'))
+    return 0 if made or not jobs else 1
+
+
+if __name__ == '__main__':
+    sys.exit(main())

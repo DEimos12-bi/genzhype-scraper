@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Layout</title>
+<link rel="stylesheet" href="engine.css">
+</head>
+<body>
+<div id="stage">
+  <div id="cam">
+    <img id="stillbg" alt=""><img id="base" alt=""><img id="still" alt="">
+    <div id="dual"><div class="win" id="winA"><img alt=""></div><div class="win" id="winB"><img alt=""></div></div>
+  </div>
+  <div id="shade"></div>
+  <div id="dim"></div>
+  <div id="items"></div>
+  <div id="caps"><div id="capline" class="ring"></div></div>
+  <div id="duo" style="display:none">
+    <div id="duoBack"></div>
+    <div class="dchar" id="duoD"><svg viewBox="0 0 400 360" width="292" height="263">
+      <defs><linearGradient id="ddg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FF7A62"/><stop offset="1" stop-color="#D4281A"/></linearGradient></defs>
+      <ellipse cx="200" cy="342" rx="150" ry="12" fill="rgba(0,0,0,.55)"/>
+      <circle id="ddL" cx="62" cy="232" r="52" fill="url(#ddg)" stroke="#141210" stroke-width="8"/>
+      <circle id="ddR" cx="338" cy="232" r="52" fill="url(#ddg)" stroke="#141210" stroke-width="8"/>
+      <circle cx="200" cy="196" r="110" fill="url(#ddg)" stroke="#141210" stroke-width="8"/>
+      <ellipse cx="160" cy="124" rx="40" ry="16" fill="rgba(255,255,255,.3)"/>
+      <ellipse id="ddEL" cx="162" cy="182" rx="25" ry="34" fill="#fff" stroke="#141210" stroke-width="5"/><ellipse id="ddER" cx="238" cy="182" rx="25" ry="34" fill="#fff" stroke="#141210" stroke-width="5"/>
+      <circle id="ddPL" cx="162" cy="182" r="14" fill="#141210"/><circle id="ddPR" cx="238" cy="182" r="14" fill="#141210"/>
+      <line id="ddBL" x1="138" y1="132" x2="186" y2="132" stroke="#141210" stroke-width="9" stroke-linecap="round"/>
+      <line id="ddBR" x1="214" y1="132" x2="262" y2="132" stroke="#141210" stroke-width="9" stroke-linecap="round"/>
+      <ellipse id="ddMo" cx="200" cy="250" rx="20" ry="5" fill="#141210"/>
+    </svg></div>
+    <div class="dchar" id="duoB"><svg viewBox="0 0 360 360" width="250" height="250">
+      <defs><linearGradient id="dbg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5C9BFF"/><stop offset="1" stop-color="#1F52E0"/></linearGradient></defs>
+      <ellipse cx="180" cy="342" rx="122" ry="12" fill="rgba(0,0,0,.55)"/>
+      <rect id="dbCur" x="168" y="10" width="24" height="36" rx="5" fill="#fff"/>
+      <rect x="40" y="54" width="280" height="262" rx="86" fill="url(#dbg)" stroke="#141210" stroke-width="8"/>
+      <rect x="70" y="76" width="120" height="34" rx="17" fill="rgba(255,255,255,.2)"/>
+      <ellipse id="dbEL" cx="130" cy="176" rx="32" ry="42" fill="#fff"/><ellipse id="dbER" cx="230" cy="176" rx="32" ry="42" fill="#fff"/>
+      <circle id="dbPL" cx="130" cy="176" r="17" fill="#141210"/><circle id="dbPR" cx="230" cy="176" r="17" fill="#141210"/>
+      <line id="dbBL" x1="100" y1="116" x2="160" y2="116" stroke="#141210" stroke-width="10" stroke-linecap="round"/>
+      <line id="dbBR" x1="200" y1="116" x2="260" y2="116" stroke="#141210" stroke-width="10" stroke-linecap="round"/>
+      <ellipse id="dbMo" cx="180" cy="258" rx="24" ry="5" fill="#141210"/>
+    </svg></div>
+    <div class="dplate" id="duoPD"><i></i>DOTS · AI</div>
+    <div class="dplate" id="duoPB"><i></i>BLU · AI</div>
+  </div>
+  <div id="credit"></div>
+  <div id="flash"></div>
+  <div id="grain"></div>
+</div>
+<script src="comp.js"></script>
+<script src="engine.js"></script>
+<script src="build.js"></script>
+<script src="slang.js"></script>
+<script src="duo.js"></script>
+<script>start();</script>
+</body>
+</html>

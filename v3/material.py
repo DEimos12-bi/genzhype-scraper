@@ -1,0 +1,297 @@
+"""What a story offers the director: the page's own text, the posts it cites (with their pictures and videos) and the
+text of the outlets it cites.
+  from_url(url)  reads the public page (a run on the owner's PC; GitHub's machines are refused by the host)
+  A server feed can drop the same material.json in the work folder instead; make.py then skips this step.
+usage: material.py <page url> <work folder>"""
+import html
+import json
+import os
+import re
+import sys
+import time
+import urllib.parse
+import urllib.request
+
+UA ='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36'
+SOCIAL = re.compile(r'(?:^|[/.@])(?:x\.com|twitter\.com|tiktok\.com|reddit\.com|instagram\.com|youtube\.com|youtu\.be|facebook\.com|threads\.net|bsky\.app|twitch\.tv|kick\.com)', re.I)
+NOT_OUTLETS = re.compile(r'//(?:[^/]+\.)?(?:googleapis\.com|gstatic\.com|giphy\.com|tenor\.com|vsfagency\.tech)(?:/|$)', re.I)      # fonts, GIF hosts, the site's builder: nothing to read there
+
+
+def get(url, timeout=25, tries=4):
+    """A page's text, waited for when the connection drops (a failed name lookup, a timeout): 5, 10, 20 s, then it fails."""
+    import time
+    for t in range(tries):
+        try:
+            return _get(url, timeout)
+        except urllib.error.HTTPError:
+            raise                                              # the server answered: no point asking again
+        except (urllib.error.URLError, TimeoutError, ConnectionError, OSError):
+            if t == tries - 1:
+                raise
+            time.sleep(5 * 2 ** t)
+
+
+def _get(url, timeout=25):
+    """A page's text. Some servers pack it (gzip, deflate, brotli) even when not asked to: it is unpacked, and read in
+    the charset the server names. A page that still reads as bytes is refused, never passed on as text."""
+    import gzip
+    import zlib
+    req = urllib.request.Request(url, headers={'User-Agent': UA, 'Accept-Language': 'en-US,en;q=0.9', 'Accept-Encoding': 'gzip, deflate'})
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        raw, enc = r.read(), (r.headers.get('Content-Encoding') or '').lower()
+        cs = r.headers.get_content_charset() or 'utf-8'
+    if 'gzip' in enc or raw[:2] == b'\x1f\x8b':
+        raw = gzip.decompress(raw)
+    elif 'deflate' in enc:
+        try:
+            raw = zlib.decompress(raw)
+        except zlib.error:
+            raw = zlib.decompress(raw, -zlib.MAX_WBITS)
+    elif 'br' in enc:
+        try:
+            import brotli
+            raw = brotli.decompress(raw)
+        except ImportError:
+            raise RuntimeError('the page is packed with brotli and this machine cannot unpack it')
+    try:
+        text = raw.decode(cs, 'replace')
+    except LookupError:
+        text = raw.decode('utf-8', 'replace')
+    head = text[:4000]
+    if head and (head.count('�') + sum(1 for c in head if ord(c) < 32 and c not in '\r\n\t')) / len(head) > 0.05:
+        raise RuntimeError('the page came as unreadable bytes')
+    return text
+
+
+def text_of(fragment):
+    s = re.sub(r'(?is)<(script|style|noscript|svg|form|nav|footer|aside)[^>]*>.*?</\1>', ' ', fragment)
+    s = re.sub(r'(?i)<(br|/p|/div|/li|/h[1-6]|/blockquote|/tr|/section|/article)[^>]*>', '\n', s)
+    s = html.unescape(re.sub(r'<[^>]+>', ' ', s))
+    s = re.sub(r'[ \t\r\f\v]+', ' ', s)
+    return re.sub(r'\n\s*\n+', '\n', s).strip()
+
+
+def x_post(tid):
+    """One public X post through X's own embed data: text, author, date, likes, pictures, the best mp4 of a video."""
+    try:
+        j = json.loads(get('https://cdn.syndication.twimg.com/tweet-result?id=%s&token=4&lang=en' % tid, 15))
+    except Exception:  # noqa: BLE001
+        return None
+    if not isinstance(j, dict) or not j.get('text'):
+        return None
+    def media_of(d):
+        out = []
+        for m in d.get('mediaDetails') or []:
+            item = {'type': m.get('type', ''), 'image': m.get('media_url_https', '')}
+            vi = m.get('video_info') or {}
+            mp4 = [v for v in vi.get('variants', []) if 'mp4' in v.get('content_type', '') and v.get('url')]
+            if mp4:
+                item.update({'type': 'video', 'video': max(mp4, key=lambda v: v.get('bitrate', 0))['url'], 'seconds': round((vi.get('duration_millis') or 0) / 1000)})
+            out.append(item)
+        return out
+    user = j.get('user') or {}
+    # THE POST IT REACTS TO. SonicFox's refusal quoted the post that showed the AI flyer (2026-10-28 bake-off): the flyer
+    # was the whole story and never came in. What a post quotes or answers comes with it, under its own author.
+    about = []
+    for how, q in (('quotes', j.get('quoted_tweet')), ('answers', j.get('parent'))):
+        if isinstance(q, dict) and q.get('id_str') and media_of(q):
+            qu = q.get('user') or {}
+            about.append({'how': how, 'id': str(q['id_str']), 'handle': '@' + qu.get('screen_name', '?'), 'url': 'https://x.com/%s/status/%s' % (qu.get('screen_name', 'i'), q['id_str']),
+                          'text': re.sub(r'\s+', ' ', q.get('text') or '').strip()[:300], 'media': media_of(q)})
+    return {'id': str(tid), 'url': 'https://x.com/%s/status/%s' % (user.get('screen_name', 'i'), tid), 'platform': 'x', 'handle': '@' + user.get('screen_name', '?'),
+            'name': user.get('name', ''), 'text': re.sub(r'\s+', ' ', j['text']).strip(), 'date': (j.get('created_at') or '')[:10], 'likes': j.get('favorite_count') or 0,
+            'reply_to': ((j.get('parent') or {}).get('user') or {}).get('screen_name', ''), 'media': media_of(j), 'about': about}
+
+
+def reddit_post(url):
+    """One public Reddit post through Reddit's own embed page (supply.resolve_reddit): what it says, where, by whom,
+    when; and whether it carries a video (its own, or a clip it shares) that the gather step can fetch."""
+    import supply
+    r = supply.resolve_reddit(url)
+    if not r:
+        return None
+    has = bool(r.get('video')) or bool(r.get('link') and supply.fetchable(r['link']))
+    return {'id': r['id'], 'url': url.split('?')[0], 'platform': 'reddit', 'handle': r['sub'], 'name': ('u/' + r['author']) if r.get('author') else '', 'text': r['title'], 'date': r.get('date', ''),
+            'likes': 0, 'comments': r.get('comments') or 0, 'reply_to': '', 'link': r.get('link', ''),
+            'media': [{'type': 'video', 'video': url.split('?')[0], 'seconds': r.get('seconds') or 0, 'via': 'supply'}] if has else []}
+
+
+def examples_of(main):
+    """The meme itself, as the page links it: GIPHY GIFs and the TikTok / YouTube posts that use it. For each one, where
+    its picture is (GIPHY's own mp4; the public embed data of TikTok and YouTube) and the words posted with it."""
+    said = {}                                                  # link -> (the name, the date) the page prints next to it
+    for fig in re.findall(r'(?is)<figure[^>]*>.*?</figure>', main):
+        href = re.search(r'href="(https?://[^"#]+)"', fig)
+        if href:
+            name = text_of((re.search(r'(?is)class="rc-who"[^>]*>(.*?)</', fig) or [None, ''])[1]) or (re.search(r'\((@[^)]+)\)', text_of(fig)) or [None, ''])[1]
+            said[html.unescape(href.group(1))] = (name.strip(), (re.search(r'datetime="([^"]+)"', fig) or [None, ''])[1])
+    for href, label in re.findall(r'(?is)<a[^>]+href="(https?://[^"#]+)"[^>]*>(.*?)</a>', main):      # a credit link outside a figure: "Via GIPHY (@name)"
+        who = re.search(r'\((@[^)]+)\)', text_of(label))
+        if who:
+            said.setdefault(html.unescape(href), (who.group(1), ''))
+    out = []
+    for u in dict.fromkeys(html.unescape(h) for h in re.findall(r'href="(https?://[^"#]+)', main)):
+        name, date = said.get(u, ('', ''))
+        g = re.search(r'giphy\.com/gifs/(?:[^/?]*-)?([A-Za-z0-9]{8,})/?(?:\?|$)', u)
+        t = re.search(r'tiktok\.com/@([^/?]+)/video/(\d+)', u)
+        y = re.search(r'(?:youtube\.com/(?:watch\?v=|shorts/)|youtu\.be/)([A-Za-z0-9_-]{11})', u)
+        ex = None
+        if g:
+            ex = {'kind': 'gif', 'id': g.group(1), 'by': name or 'GIPHY', 'title': ' '.join(u.rstrip('/').split('/')[-1].split('-')[:-1]), 'video': 'https://media.giphy.com/media/%s/giphy.mp4' % g.group(1)}
+        elif t or y:
+            j = None
+            for pause in (1.5, 3, 5, 0):                       # the embed data answers "busy" now and then: asked up to four times
+                try:
+                    j = json.loads(get(('https://www.tiktok.com/oembed?url=' if t else 'https://www.youtube.com/oembed?format=json&url=') + urllib.parse.quote(u, safe=''), 15))
+                    break
+                except Exception:  # noqa: BLE001
+                    time.sleep(pause)
+            if not isinstance(j, dict):
+                continue
+            ex = {'kind': 'tiktok' if t else 'youtube', 'id': t.group(2) if t else y.group(1), 'by': '@' + t.group(1) if t else str(j.get('author_name') or name), 'title': re.sub(r'\s+', ' ', str(j.get('title') or '')).strip()[:300]}
+            if t and j.get('thumbnail_url'):
+                ex['image'] = j['thumbnail_url']
+            elif t:
+                continue
+        if ex:
+            out.append(dict(ex, page=u, date=date))
+    return out[:10]
+
+
+NOT_NAMES = set('The This That These Those There Then They Their What When Where Which While Because Some Others Other People Published Updated Status Type Category Lane Meme Memes Explained '
+                'Peaking Tracking Live Seen Tone Every Each Also With From Into Over Under About After Before Since Until Through Variants Frequently Asked Related Sources Read Next Via '
+                'January February March April June July August September October November December Monday Tuesday Wednesday Thursday Friday Saturday Sunday '
+                'Instagram TikTok Twitter YouTube Reddit Facebook Google'.split())      # words with a capital that name no meme
+
+
+def giphy_search(text, have, limit=5):
+    """Moving pictures of a meme: GIPHY's own search page for the names the page uses most (the meme's characters, its
+    game). YouTube and TikTok often refuse a download; a GIF of the thing itself is the motion a video about it needs.
+    What comes back is only a candidate: each one is looked at, and sorted on or off topic, like the page's own examples."""
+    names = [w for w in re.findall(r'\b[A-Z][a-z]{3,}\b', text[:4000]) if w not in NOT_NAMES]
+    top = [w for w, _ in sorted({w: names.count(w) for w in names}.items(), key=lambda kv: -kv[1])[:3]]
+    out, seen = [], set(have)
+    for query in ('-'.join(top[:3]), '-'.join(top[:2])) if len(top) >= 2 else ():
+        try:
+            page = get('https://giphy.com/search/' + urllib.parse.quote(query.lower()), 20)
+        except Exception:  # noqa: BLE001
+            continue
+        for slug in dict.fromkeys(re.findall(r'giphy\.com/gifs/([a-z0-9-]+-[A-Za-z0-9]{10,22})(?=["\\/? ])', page)):
+            gid = slug.split('-')[-1]
+            if gid in seen or len(out) >= limit:
+                continue
+            seen.add(gid)
+            out.append({'kind': 'gif', 'id': gid, 'by': 'GIPHY', 'title': ' '.join(slug.split('-')[:-1]), 'video': 'https://media.giphy.com/media/%s/giphy.mp4' % gid,
+                        'page': 'https://giphy.com/gifs/' + slug, 'date': '', 'found': 'search: ' + query})
+    return out
+
+
+def events_of(main, base):
+    """The page's timeline: dated events, each with what happened, the outlet it rests on, the post it embeds and the
+    screenshot of the source the site already took (its proofs). This is the spine a story video follows."""
+    out = []
+    tl = re.search(r'(?is)<ol[^>]+class="timeline"[^>]*>(.*?)</ol>', main)
+    for li in re.findall(r'(?is)<li[^>]+class="event"[^>]*>(.*?)</li>', tl.group(1) if tl else ''):
+        date = (re.search(r'datetime="([^"]+)"', li) or [None, ''])[1][:10]
+        title = text_of((re.search(r'(?is)<h3[^>]*>(.*?)</h3>', li) or [None, ''])[1])
+        text = text_of((re.search(r'(?is)<p[^>]*>(.*?)</p>', li) or [None, ''])[1])
+        src = re.search(r'class="src"[^>]+title="Source:\s*([^"]+)"', li)
+        post = re.search(r'(?:x|twitter)\.com/[^/"\s]+/status/(\d+)', li)
+        proof = re.search(r'(?is)<figure[^>]+class="proof"[^>]*>.*?<img[^>]+src="([^"?]+)', li)
+        cap = text_of((re.search(r'(?is)<figcaption[^>]*>(.*?)</figcaption>', li) or [None, ''])[1])
+        if title or text:
+            out.append({'date': date, 'title': title[:160], 'text': re.sub(r'\s*\[\d+\]\s*$', '', text)[:600], 'source': html.unescape(src.group(1)).strip() if src else '',
+                        'post': post.group(1) if post else '', 'proof': (base + html.unescape(proof.group(1))) if proof and proof.group(1).startswith('/') else html.unescape(proof.group(1)) if proof else '',
+                        'proof_caption': re.sub(r'\s*Source \[\d+\]\s*$', '', cap)[:160]})
+    return out[:12]
+
+
+def from_url(url):
+    page = get(url)
+    m = re.search(r'(?is)<main[^>]*>(.*?)</main>', page)
+    main = m.group(1) if m else page
+    for cut in ('class="related', 'class="next"', 'class="next ', 'class="rail-col'):      # what follows is other stories
+        i = main.find(cut)
+        if i > 2000:
+            main = main[:i]
+    title = text_of((re.search(r'(?is)<h1[^>]*>(.*?)</h1>', page) or [None, ''])[1])
+    desc = html.unescape((re.search(r'(?is)<meta[^>]+name="description"[^>]+content="([^"]*)"', page) or [None, ''])[1])
+    people, published = [], ''
+    for blk in re.findall(r'(?is)<script type="application/ld\+json">(.*?)</script>', page):
+        try:
+            j = json.loads(blk)
+        except Exception:  # noqa: BLE001
+            continue
+        for node in (j.get('@graph') if isinstance(j, dict) and '@graph' in j else [j] if isinstance(j, dict) else j):
+            if not isinstance(node, dict):
+                continue
+            published = published or str(node.get('datePublished') or '')[:10]
+            for k in ('about', 'mentions'):
+                for x in node.get(k) or [] if isinstance(node.get(k), list) else [node.get(k)] if node.get(k) else []:
+                    if isinstance(x, dict) and x.get('name') and x.get('@type') in ('Person', 'Organization', 'Thing', None):
+                        people.append(str(x['name']))
+    # the page's own "Sources" list comes first: on meme and word pages it sits below the "read next" block, after the cut above
+    declared = [html.unescape(h) for blk in re.findall(r'(?is)<ol[^>]+class="sources"[^>]*>(.*?)</ol>', page) for h in re.findall(r'href="(https?://[^"#]+)', blk)]
+    links = list(dict.fromkeys(declared + [html.unescape(h) for h in re.findall(r'href="(https?://[^"#]+)', main)]))
+    images = []                                                # the page's own content pictures: a meme's examples first, then the cover
+    for tag in re.findall(r'(?is)<img[^>]+>', main):
+        src, alt = re.search(r'src="([^"]+)"', tag), re.search(r'alt="([^"]*)"', tag)
+        if src and re.search(r'/assets/(memes|covers|proofs|events)/', src.group(1)):
+            u = html.unescape(src.group(1))
+            images.append({'url': u if u.startswith('http') else url.split('/', 3)[0] + '//' + url.split('/')[2] + u, 'alt': html.unescape(alt.group(1)) if alt else ''})
+    images = sorted({i['url']: i for i in images}.values(), key=lambda i: '/covers/' in i['url'])[:6]
+    cap = re.search(r'(?is)<p class="cap">\s*<a href="(https://commons\.wikimedia\.org/wiki/File:([^"]+))"[^>]*>\s*Photo:\s*(.*?)\s*,?\s*via Wikimedia Commons', main)
+    credited = bool(re.search(r'(?is)<p class="cap">\s*(?:<a[^>]*>)?\s*Photo\b', main))
+    for im in images:                                          # a cover with no photo credit is the card the site drew itself: never material
+        if '/covers/' in im['url'] and not credited:
+            im['own_card'] = True
+    if cap:                                                    # the page's own photo is a Wikimedia Commons file: its name says who is in it, its line who made it
+        who = re.sub(r'\.\w+$', '', urllib.parse.unquote(cap.group(2)))
+        who = re.sub(r'\s+', ' ', re.sub(r'\(.*?\)|\b(?:19|20)\d\d\b|\d+|cropped', ' ', re.sub(r'[_\-]+', ' ', who))).strip()
+        for im in images:
+            if '/covers/' in im['url']:
+                im.update(commons=cap.group(2), who=who, credit=text_of(cap.group(3)))
+    post_ids = list(dict.fromkeys(re.findall(r'(?:x|twitter)\.com/[^/"\s]+/status/(\d+)', main)))      # one post = one id, however it is linked
+    posts = [p for p in (x_post(t) for t in post_ids[:8]) if p]
+    reddit = {}                                                # the Reddit posts the page embeds or links: often the clip the whole story is about
+    for u in re.findall(r'https?://(?:www\.|old\.)?reddit\.com/r/[^/"\s<>]+/comments/[a-z0-9]+(?:/[^/"\s?#<>]*)?', main):
+        reddit.setdefault(re.search(r'/comments/([a-z0-9]+)', u).group(1), html.unescape(u))
+    posts += [p for p in (reddit_post(u) for u in list(reddit.values())[:3]) if p]
+    sources = []
+    for u in links:
+        if 'genzhype.com' in u or SOCIAL.search(u) or NOT_OUTLETS.search(u) or re.search(r'\.(png|jpe?g|webp|gif|svg|css|js)(\?|$)', u):
+            continue
+        if len(sources) >= 4:
+            break
+        try:
+            art = get(u, 20)
+        except Exception:  # noqa: BLE001
+            continue
+        bodies = sorted((text_of(b) for _, b in re.findall(r'(?is)<(article|main)[^>]*>(.*?)</\1>', art)), key=len)
+        body = bodies[-1] if bodies and len(bodies[-1]) >= 400 else text_of(art)      # an empty <article> shell: the whole page is read instead
+        h1 = text_of((re.search(r'(?is)<h1[^>]*>(.*?)</h1>', art) or [None, ''])[1])
+        if len(h1.split()) >= 4 and 0 < body.find(h1) < len(body) * 0.4:
+            body = body[body.find(h1):]                         # what stands above a real headline is the site's menu (a short h1 is the site's logo)
+        if len(body) < 200:
+            continue                                           # nothing to read: it does not take the place of an outlet that answers
+        t = (h1 if len(h1.split()) >= 4 else '') or text_of((re.search(r'(?is)<title[^>]*>(.*?)</title>', art) or [None, ''])[1]) or h1
+        sources.append({'url': u, 'publisher': re.sub(r'^www\.', '', u.split('/')[2]), 'title': t[:200], 'excerpt': body[:5000]})
+    base = url.split('/', 3)[0] + '//' + url.split('/')[2]
+    events = events_of(main, base)
+    examples = examples_of(main) if '/meme/' in url else []
+    if '/meme/' in url:                                         # the meme in motion, beyond what the page links
+        examples += giphy_search(text_of(main), [e['id'] for e in examples if e['kind'] == 'gif'])
+    return {'url': url, 'title': title, 'summary': desc, 'published': published, 'people': list(dict.fromkeys(people))[:12], 'page_text': text_of(main)[:9000],
+            'posts': posts, 'sources': sources, 'images': images, 'examples': examples, 'events': events}
+
+
+if __name__ == '__main__':
+    sys.stdout.reconfigure(encoding='utf-8')
+    mat = from_url(sys.argv[1])
+    os.makedirs(sys.argv[2], exist_ok=True)
+    json.dump(mat, open(os.path.join(sys.argv[2], 'material.json'), 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
+    print('material: "%s" | page text %d chars | %d posts (%d with video, %d with a picture) | %d outlet texts (%s) | %d examples of the meme (%s) | people: %s | %d timeline events (%d with a proof screenshot) | %d page pictures' % (
+        mat['title'][:60], len(mat['page_text']), len(mat['posts']), sum(any(m['type'] == 'video' for m in p['media']) for p in mat['posts']),
+        sum(any(m['type'] == 'photo' for m in p['media']) for p in mat['posts']), len(mat['sources']), ', '.join(s['publisher'] for s in mat['sources']) or 'none',
+        len(mat['examples']), ', '.join('%s by %s' % (e['kind'], e['by']) for e in mat['examples']) or 'none', ', '.join(mat['people'][:8]) or '(none listed)',
+        len(mat['events']), sum(1 for e in mat['events'] if e.get('proof')), len(mat['images'])))

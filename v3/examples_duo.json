@@ -1,0 +1,32 @@
+[
+ {
+  "slug": "skims-advent-calendar-refunds",
+  "kind": "story",
+  "about": "a celebrity brand's $148 advent calendar that held keychains and hair ties",
+  "lines": [
+   "Kim Kardashian's brand sold an advent calendar for a hundred forty-eight dollars. Inside: keychains and hair ties. And the humans paid first.",
+   "The brand is Skims, and the buyers filmed what was behind every little door. One word kept coming back in the videos: junk. That is a junk drawer with a countdown.",
+   "TikTok did the rest. The clips spread for days, and the calendar became the joke of the week.",
+   "Then Skims answered. A spokesperson said the calendar did not meet expectations. That is one way to say it.",
+   "So now every buyer can get a full refund or store credit, per USA Today. And the listing is gone from the site. Gone. Very quietly.",
+   "A hundred forty-eight dollars, for a lesson. Would you have kept it, or sent it back? Keep, or refund. Tell us."
+  ],
+  "takes": ["And the humans paid first.", "That is a junk drawer with a countdown.", "That is one way to say it.", "Gone. Very quietly."],
+  "vote": ["KEEP", "REFUND"]
+ },
+ {
+  "slug": "nier-automata-update-storage-bug",
+  "kind": "story",
+  "about": "a game update that made a fifty-gigabyte game ask for seven times more space",
+  "lines": [
+   "A game about robots just asked the humans for three hundred sixty-six gigabytes. Last week it was fifty. Ambitious, for an update.",
+   "The game is Nier Automata. Thursday it got its first update in five years, and all it added was three languages. Languages do not weigh that much.",
+   "So players opened the list of add-ons. Per Automaton, every add-on now counts as the whole game. Even a wallpaper pack. A very heavy wallpaper.",
+   "Eight add-ons, plus the game itself. That is nine copies of one game. So nobody checked.",
+   "Square Enix apologized the same day and says it is investigating. Until the fix: untick the add-ons, and it is fifty again.",
+   "A game about androids, that cannot count. Honest bug, or lazy update? Your call."
+  ],
+  "takes": ["Ambitious, for an update.", "Languages do not weigh that much.", "A very heavy wallpaper.", "So nobody checked."],
+  "vote": ["HONEST BUG", "LAZY UPDATE"]
+ }
+]
