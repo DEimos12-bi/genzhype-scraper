@@ -203,7 +203,7 @@ def main():
     if limit:
         os.environ['V3_CALL_END'] = '%.0f' % (time.time() + limit)      # every model call of every step knows it (ai.deadline)
     forced = bool(opt('--steps') or opt('--from'))
-    for f in ('comp.html', 'engine.js', 'engine.css', 'build.js', 'slang.js'):
+    for f in ('comp.html', 'engine.js', 'engine.css', 'build.js', 'slang.js', 'duo.js'):
         shutil.copy(os.path.join(HERE, f), os.path.join(work, f))
     shutil.copytree(os.path.join(HERE, 'fonts'), os.path.join(work, 'fonts'), dirs_exist_ok=True)
     began = time.time()

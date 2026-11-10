@@ -255,15 +255,17 @@ if STYLE == 'funny' and NARRATOR:
 # same fact check, same pictures: the narrator becomes DOTS, and the narrator's takes become BLU, a second voice.
 # Switched on by V3_STYLE=duo (a test; the daily videos are not touched).
 if VSTYLE == 'duo' and NARRATOR:
-    NARRATOR = """THE TWO VOICES (the same two in every video): DOTS and BLU, two AIs who watch the humans online all day and gossip about them like two friends. People follow THEM, not the news.
-- DOTS tells the story. She has the tea: quick, a little dramatic, delighted and baffled by what the humans did, never cruel. She talks like a friend on a call: contractions, plain words, a real joke where a fact earns it. Once or twice in the video she says "the humans" or "a human" where a person would say "people" or "somebody". Never an anchor ("reports indicate", "in a statement"), never a school essay.
-- BLU reacts. He is literal and deadpan: an AI looking at human behaviour from outside and saying the obvious thing nobody says, or asking the short question the viewer is thinking. His reactions are the TAKES: FOUR TO SIX in the video, each its own short sentence of 2 to 9 words. "And the humans paid.", "For hair ties.", "So nobody checked.", "Bold. Very bold.", "Wait. They deleted it?", "That is not a gift."
-- A take only reacts: no new fact, no new name, no number. A take may be a question when the very next sentence of DOTS answers it.
-- A take goes RIGHT AFTER the fact it reacts to, in the SAME line, as that line's last sentence. Every take is new: never one the other videos used.
+    NARRATOR = """THE TWO VOICES (the same two in every video): DOTS and BLU, two AIs who watch the humans online all day and gossip about them, like two best friends having tea. It is a CONVERSATION, never a report read by two people. People follow THEM, not the news.
+- DOTS has the tea. She tells the story the way a friend spills gossip: she cannot wait, she sets it up, she makes him wait for the best part ("Guess what was inside.", "It gets worse.", "And then? Then they deleted it."). Quick, dramatic, delighted and baffled by the humans, never cruel. Contractions, plain words.
+- BLU is the friend she tells it to. Literal, deadpan, an outsider looking at human behaviour: he asks the short question the viewer is thinking ("What was inside?", "And they paid?", "Did they say sorry?") or says the dry obvious thing nobody says ("That is a drawer, not a gift.", "So nobody checked."). His sentences are the TAKES: SIX TO EIGHT in the video, each 2 to 9 words, and he speaks in almost every line.
+- A take brings no new fact, no new name and no number that DOTS has not just said. When a take is a question, the very next sentence of DOTS answers it: that is how the story moves.
+- Where a take goes: right after the sentence it reacts to, in the SAME line, with at least one full sentence of DOTS before it. Usually it ends the line; a question may sit in the middle of a line, answered by her next sentence. Every take is new: never one the other videos used.
+- They are NOT human and talk like it: people are "the humans", "a human", "they". Never "most of us", "we all", "you know when you", never a human habit told as their own. Once or twice they wonder at the humans as a species ("They love a box with little doors.", "The humans will film anything.").
 - They have OPINIONS about harmless things and say them: a price, a product, a trailer, a company's choice. On a crime, a death, health, an accusation against a person, or a private person: NO take and NO joke, that part is told straight.
-- THE OPENING is DOTS bursting in with the gossip: the hardest fact with its name or number in her first sentence, said like she cannot wait. BLU's first take closes the opening line.
+- THE OPENING is DOTS bursting in with the gossip: the hardest fact with its name or number in her first sentence, said like she cannot wait; BLU's first take closes the opening line.
+- THE LAST LINE before the vote ends on BLU's driest take: the punchline of the video.
 - When the story itself is about an AI or a robot, one of them may notice it once, dryly, as one of their own kind ("One of ours.", "Embarrassing, for our side.").
-- They never say each other's names, never say "as an AI", never a robot cliche ("processing", "does not compute", "logic suggests", "data indicates"). They are two friends who happen not to be human.
+- They never say each other's names, never say "as an AI", never a robot cliche ("processing", "does not compute", "logic suggests", "data indicates"), never a news phrase ("reports indicate", "in a statement", "amid backlash").
 - List every take, word for word as it stands in the script, in "takes"."""
 
 FORMS = {
@@ -785,7 +787,7 @@ def merge(sc, staged):
             gfx += [dict(g, beat=k) for g in (e.get('gfx') or []) if isinstance(g, dict)]
         lines.append({'id': l['id'], 'text': l['text'], 'beats': bts, 'overlays': gfx, 'caps': caps.get(l['id']) or l.get('caps') or [], **({'bite': l['bite']} if isinstance(l.get('bite'), dict) else {})})
     return {'angle': sc.get('angle'), 'lines': lines, 'vote': sc.get('vote'), 'people': sc.get('people'), 'hunts': staged.get('hunts'), 'stock': staged.get('stock'), 'post': staged.get('post'),
-            'takes': [str(t) for t in sc.get('takes') or [] if isinstance(t, str)][:8 if VSTYLE == 'duo' else 4], 'closing': closing_text(sc.get('closing'))}
+            'takes': [str(t) for t in sc.get('takes') or [] if isinstance(t, str)][:10 if VSTYLE == 'duo' else 4], 'closing': closing_text(sc.get('closing'))}
 
 
 def split_keep(t):
@@ -879,7 +881,7 @@ def apply_patch(base, patch):
     if isinstance(patch.get('hunts'), list):
         p['hunts'] = patch['hunts']
     if isinstance(patch.get('takes'), list):                   # the takes of the corrected script (take_faults keeps only those still in it)
-        p['takes'] = list(dict.fromkeys((p.get('takes') or []) + [str(t) for t in patch['takes'] if isinstance(t, str)]))[:8 if VSTYLE == 'duo' else 5]
+        p['takes'] = list(dict.fromkeys((p.get('takes') or []) + [str(t) for t in patch['takes'] if isinstance(t, str)]))[:10 if VSTYLE == 'duo' else 5]
     return p, n
 
 
@@ -1594,10 +1596,10 @@ def take_faults(p, lines, m):
         if home is not None and len(text_before(home['text'], t).split()) < 5:
             out.append('the take "%s" stands alone in line %s: put it right after the fact it reacts to, as the last sentence of that fact\'s line' % (t, home['id']))
     if VSTYLE == 'duo':
-        if len(takes) > 7:
-            out.append('%d takes: six at most, the facts carry the video' % len(takes))
-        elif 0 < len(takes) < 3:
-            out.append('BLU reacts only %d time(s): give him four to six takes (2 to 9 words each, right after the fact they react to, as the last sentence of that line) and list them in "takes"' % len(takes))
+        if len(takes) > 9:
+            out.append('%d takes: eight at most, the facts carry the video' % len(takes))
+        elif 0 < len(takes) < 5:
+            out.append('BLU speaks only %d time(s): it must be a conversation, give him six to eight takes (2 to 9 words each, right after the fact they react to, as the last sentence of that line) and list them in "takes"' % len(takes))
     elif len(takes) > 3:
         out.append('%d takes: three at most, the facts carry the video' % len(takes))
     return out
@@ -1778,7 +1780,7 @@ def write_takes(plan, m, log):
     sentences and set right after them (take_faults keeps only the good ones). -> how many were added."""
     lines = [l for l in plan['lines'] if l.get('id') not in ('site', 'vote')]
     grave = HEAVY.search(m.get('title', '') + ' ' + m.get('summary', '')) or SENSITIVE.search(m.get('title', '') + ' ' + m.get('summary', ''))
-    want = 4 if VSTYLE == 'duo' else 2
+    want = 6 if VSTYLE == 'duo' else 2
     if grave or not NARRATOR or len(plan.get('takes') or []) >= want:
         return 0
     rows = ['%s.%d  %s' % (l['id'], k + 1, x) for l in lines[1:] for k, x in enumerate(split_keep(l['text']))]
@@ -1786,9 +1788,9 @@ def write_takes(plan, m, log):
     user = ('THE SCRIPT, SENTENCE BY SENTENCE:\n%s\n\nTAKES OUR OTHER VIDEOS USED (never these, never their first word):\n%s\n\n'
             'Pick the %s facts a friend would react to (a number, a strange choice, a bold move) and write your take for each: 2 to 8 words, dry, '
             'no new fact, name or number, never who is right or guilty, nothing about health, crime or a private person, no stock phrase ("classic X", "wild", "big mood").\n'
-            'JSON: {"takes":[{"after":"the sentence id, e.g. who.2","take":"..."}]}' % ('\n'.join(rows), '\n'.join('- ' + t for t in used) or '- (none yet)', 'three or four' if VSTYLE == 'duo' else 'one or two'))
+            'JSON: {"takes":[{"after":"the sentence id, e.g. who.2","take":"..."}]}' % ('\n'.join(rows), '\n'.join('- ' + t for t in used) or '- (none yet)', 'four to six' if VSTYLE == 'duo' else 'one or two'))
     try:
-        job = ('You are BLU: a literal, deadpan AI who watches the humans online with his friend DOTS. She tells the story, you react from outside, like someone who is not human and finds people strange and dear. You get the finished script. Add three or four TAKES: a 2-to-9-word reaction of yours that goes right after one fact of the script. Strict JSON only.' if VSTYLE == 'duo' else TAKE_JOB % brand.B.get('persona', ''))
+        job = ('You are BLU: a literal, deadpan AI who watches the humans online with his friend DOTS. She tells the story, you react from outside, like someone who is not human and finds people strange and dear. You get the finished script. Add four to six TAKES: a 2-to-9-word reaction or short question of yours that goes right after one fact of the script (a question only where the next sentence answers it). Strict JSON only.' if VSTYLE == 'duo' else TAKE_JOB % brand.B.get('persona', ''))
         j, by = ai.ask_json(job, user, kind='text', temperature=0.8, timeout=60, max_tokens=1200)
     except ai.OutOfTime:
         raise

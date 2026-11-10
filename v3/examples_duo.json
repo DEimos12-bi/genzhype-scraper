@@ -11,22 +11,66 @@
    "So now every buyer can get a full refund or store credit, per USA Today. And the listing is gone from the site. Gone. Very quietly.",
    "A hundred forty-eight dollars, for a lesson. Would you have kept it, or sent it back? Keep, or refund. Tell us."
   ],
-  "takes": ["And the humans paid first.", "That is a junk drawer with a countdown.", "That is one way to say it.", "Gone. Very quietly."],
-  "vote": ["KEEP", "REFUND"]
+  "takes": [
+   "And the humans paid first.",
+   "That is a junk drawer with a countdown.",
+   "That is one way to say it.",
+   "Gone. Very quietly."
+  ],
+  "vote": [
+   "KEEP",
+   "REFUND"
+  ]
  },
  {
   "slug": "nier-automata-update-storage-bug",
   "kind": "story",
   "about": "a game update that made a fifty-gigabyte game ask for seven times more space",
   "lines": [
-   "A game about robots just asked the humans for three hundred sixty-six gigabytes. Last week it was fifty. Ambitious, for an update.",
-   "The game is Nier Automata. Thursday it got its first update in five years, and all it added was three languages. Languages do not weigh that much.",
-   "So players opened the list of add-ons. Per Automaton, every add-on now counts as the whole game. Even a wallpaper pack. A very heavy wallpaper.",
-   "Eight add-ons, plus the game itself. That is nine copies of one game. So nobody checked.",
-   "Square Enix apologized the same day and says it is investigating. Until the fix: untick the add-ons, and it is fifty again.",
-   "A game about androids, that cannot count. Honest bug, or lazy update? Your call."
+   "A game about robots just asked the humans for three hundred sixty-six gigabytes. Last week it was fifty. What happened in a week?",
+   "One update. The first in five years. And guess what it added. Go on. Three languages. Languages do not weigh that much.",
+   "It gets better. Players opened the list of add-ons, and per Automaton, every single one now counts as the whole game. Even the wallpaper? Even the wallpaper. Forty gigabytes of wallpaper.",
+   "Eight add-ons, plus the game itself. So that is nine copies of one game. And nobody checked.",
+   "Square Enix apologized the same day and says it is looking into it. Did they fix it? Not yet. For now the humans untick the add-ons, and it is fifty again.",
+   "A game about androids, and it cannot count. Embarrassing, for our side.",
+   "So, honest bug, or lazy update? Tell us which."
   ],
-  "takes": ["Ambitious, for an update.", "Languages do not weigh that much.", "A very heavy wallpaper.", "So nobody checked."],
-  "vote": ["HONEST BUG", "LAZY UPDATE"]
+  "takes": [
+   "What happened in a week?",
+   "Go on.",
+   "Languages do not weigh that much.",
+   "Even the wallpaper?",
+   "And nobody checked.",
+   "Did they fix it?",
+   "Embarrassing, for our side."
+  ],
+  "vote": [
+   "HONEST BUG",
+   "LAZY UPDATE"
+  ]
+ },
+ {
+  "slug": "streamer-ten-thousand-dollar-donation-refund",
+  "kind": "story",
+  "about": "a streamer who thanked a fan for a huge donation that was refunded the next day",
+  "lines": [
+   "A human gave a streamer ten thousand dollars, live, in front of forty thousand people. The streamer cried. Wait for it.",
+   "He thanked him for six minutes. He called him family. He promised him a tattoo of his name. A tattoo.",
+   "Next morning, the money was gone. Gone where? Back to the fan. He asked his bank to take it back.",
+   "And the streamer found out on stream, reading his own balance out loud. In front of everyone. In front of everyone.",
+   "His answer, that night: no more thank-yous over a thousand dollars until the money clears. The humans invented a waiting period for gratitude.",
+   "So who was wrong here, the fan, or the streamer who promised a tattoo? Pick one."
+  ],
+  "takes": [
+   "Wait for it.",
+   "A tattoo.",
+   "Gone where?",
+   "In front of everyone.",
+   "The humans invented a waiting period for gratitude."
+  ],
+  "vote": [
+   "THE FAN",
+   "THE STREAMER"
+  ]
  }
 ]
