@@ -1,2 +1,32 @@
-YT lane gate: 27 off-lane story(ies) held back, 0 fit
-YT: nothing new
+YT lane gate: 26 off-lane story(ies) held back, 4 fit
+YT: page 4697 (yeat-prime-years-memes) scheduled for 2026-11-11T02:00:00Z
+downloaded 34281KB
+YT SCHEDULED https://youtube.com/shorts/OJ8HtWC85d8 goes public at 2026-11-11T02:00:00Z
+registry: {"ok":true}
+  first comment skipped: a scheduled video is private until its time
+YT: page 4829 (binkusuno-sake-yohohoho-remix) scheduled for 2026-11-11T16:00:00Z
+downloaded 35992KB
+YT SCHEDULED https://youtube.com/shorts/Xbt37CGD8Vk goes public at 2026-11-11T16:00:00Z
+registry: {"ok":true}
+  first comment skipped: a scheduled video is private until its time
+YT: page 4137 (boo-trend-prank) scheduled for 2026-11-11T17:00:00Z
+downloaded 40219KB
+YT SCHEDULED https://youtube.com/shorts/g9ZWWuTEj4Q goes public at 2026-11-11T17:00:00Z
+registry: {"ok":true}
+  first comment skipped: a scheduled video is private until its time
+YT: page 4136 (homer-haminations-meme) scheduled for 2026-11-11T19:00:00Z
+downloaded 45572KB
+YT init failed: {
+  "error": {
+    "code": 400,
+    "message": "The user has exceeded the number of videos they may upload.",
+    "errors": [
+      {
+        "message": "The user has exceeded the number of videos they may upload.",
+        "domain": "youtube.video",
+        "reason": "uploadLimitExceeded"
+      }
+    ]
+  }
+}
+
