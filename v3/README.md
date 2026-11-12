@@ -88,3 +88,5 @@ stopped run continues instead of starting again. If no model answers the repair 
 what it left open is written in `report.json`. A script that comes out a little short is spoken a little slower.
 
 Local runs started with `make.py --topic` post nothing: the finished files stay in the work folder's `out/` directory.
+
+Finished videos are vertical, 1080 by 1920.
