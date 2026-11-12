@@ -86,3 +86,5 @@ Free quotas run out (about ten requests a video). A model that fails is passed o
 `ai.text` / `ai.vision` answers, and the plan step keeps its progress after every answer (`plan_progress.json`), so a
 stopped run continues instead of starting again. If no model answers the repair round twice, the last plan stands and
 what it left open is written in `report.json`. A script that comes out a little short is spoken a little slower.
+
+Local runs started with `make.py --topic` post nothing: the finished files stay in the work folder's `out/` directory.
