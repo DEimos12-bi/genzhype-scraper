@@ -188,6 +188,47 @@ def py(*args, timeout=None):
     return subprocess.run([sys.executable] + list(args), cwd=HERE, timeout=timeout).returncode
 
 
+def server_clips(pid, m):
+    """THE SERVER'S CLIPS (2026-11-11, owner: "do all 3"). TikTok refuses GitHub's machines, so the site fetches each new
+    story's own clips itself (app/vclips.php: the whole clip, or five highlights of a long one) and lists them at
+    api/video_clips.php. They go into this machine's clip store under the address supply.fetch() looks up, and onto the
+    story's "store_clips", so gather.py takes them like any clip the site kept, from the store. -> how many were added."""
+    token = os.environ.get('INGEST_TOKEN', '').strip()
+    if not token:
+        return 0
+    try:
+        req = urllib.request.Request(BASE + '/api/video_clips.php', data=json.dumps({'token': token, 'page_id': int(pid)}).encode('utf-8'),
+                                     headers={'Content-Type': 'application/json', 'User-Agent': UA})
+        d = json.loads(urllib.request.urlopen(req, timeout=40).read().decode('utf-8', 'replace'))
+    except Exception as e:  # noqa: BLE001
+        log('live: the server\'s clips could not be read (%s)' % str(e)[:80])
+        return 0
+    import supply
+    have = {c.get('url') for c in m.get('store_clips') or []}
+    added = []
+    for c in (d.get('clips') or [])[:3]:
+        url, f = str(c.get('url') or ''), str(c.get('file') or '')
+        if not url or not f.startswith(BASE + '/media/') or url in have:
+            continue
+        dest = supply.store_path(url)
+        try:
+            if not (os.path.isfile(dest) and os.path.getsize(dest) > 100000):
+                data = urllib.request.urlopen(urllib.request.Request(f, headers={'User-Agent': UA}), timeout=120).read()
+                if len(data) < 100000 or b'ftyp' not in data[:32]:
+                    continue
+                open(dest, 'wb').write(data)
+            json.dump({'author': str(c.get('by') or '').lstrip('@'), 'title': '', 'duration': c.get('seconds'), 'fetched': 'by the site (vclips)'},
+                      open(dest[:-4] + '.json', 'w', encoding='utf-8'))
+        except Exception as e:  # noqa: BLE001
+            log('live: a server clip did not come (%s)' % str(e)[:80])
+            continue
+        added.append({'url': url, 'platform': str(c.get('platform') or 'web'), 'by': str(c.get('by') or '')})
+    if added:
+        m['store_clips'] = (added + [x for x in m.get('store_clips') or [] if x.get('url') not in {a['url'] for a in added}])[:4]
+        log('live: %d clip(s) the site fetched for this story are in the clip store' % len(added))
+    return len(added)
+
+
 def make(job, budget):
     pid, link = str(job['page_id']), job['link']
     work = os.path.join(HERE, 'work', 'live-' + pid)
@@ -199,6 +240,7 @@ def make(job, budget):
             return None, 'the page could not be read'
         m = json.load(open(mfile, encoding='utf-8'))
         pics, clips = merge(m, job)
+        clips += server_clips(pid, m)
         json.dump(m, open(mfile, 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
         log('live: the live system\'s finds added: %d picture(s), %d clip link(s)' % (pics, clips))
     t0 = time.time()
