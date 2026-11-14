@@ -9,6 +9,7 @@ cp ../duo/material.json "$W/material.json"
 cp ../duo/store/* store/clips/ 2>/dev/null && echo "duo: $(ls ../duo/store | wc -l) file(s) put in the clip store (fetched on the server: TikTok refuses this machine)"
 MODE=$(cat ../duo/mode 2>/dev/null || echo full)
 echo "duo: mode $MODE, style $V3_STYLE"
+if [ "$MODE" = "transcribe" ]; then cd .. && python duo/transcribe.py; exit 0; fi
 timeout 1500 python make.py "$W" --steps material,investigate,gather; echo "duo: gather ended with code $?"
 if [ "$MODE" = "plan" ]; then
   timeout 1500 python make.py "$W" --steps plan; echo "duo: plan ended with code $?"
