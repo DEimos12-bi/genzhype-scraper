@@ -1,5 +1,1 @@
-channels: tiktok:genzhype0, instagram:therealgenzhype_, facebook:Genzhypee
-tt: queueing page 6360 (microsoft-service-outage-global-disruption-continues)
-tiktok: every slot today and tomorrow is already booked; skipping
-ig: nothing new
-fb: daily cap reached (0/0) - skipping
+Buffer: organizations query failed: [{"message": "Too many requests from this client. Please try again later. You can raise your Buffer API limit: https://publish.buffer.com/settings/api?cta=publicApi-rateLimit-hint-upgrade-1&upgradePathName=apiRateLimit-upgrade", "extensions": {"code": "RATE_LIMIT_EXCEEDED", "window": "30d"}}]
