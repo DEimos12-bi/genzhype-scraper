@@ -50,7 +50,7 @@ jobs:
       - name: Make the video (two voices)
         env:
           V3_STYLE: duo
-          LINK: https://genzhype.com/drama/skims-advent-calendar-refunds-amid-viral-backlash/
+          LINK: https://genzhype.com/topic/adin-ross-gta-6-early-copy-no-disc/
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GEMINI_API_KEY_2: ${{ secrets.GEMINI_API_KEY_2L5 || secrets.GEMINI_API_KEY_2 }}
           GEMINI_API_KEY_3: ${{ secrets.GEMINI_API_KEY_3L12 || secrets.GEMINI_API_KEY_3 }}
