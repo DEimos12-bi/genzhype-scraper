@@ -1,0 +1,712 @@
+{
+ "angle": "Adin Ross paid $10,000 for early GTA 6 access, only to find no disc and leak the download code live on stream.",
+ "lines": [
+  {
+   "id": "hook",
+   "text": "Adin Ross paid ten thousand dollars for GTA 6. Six days early. And he opened it live?",
+   "beats": [
+    {
+     "say": "Adin Ross paid ten thousand dollars for GTA 6.",
+     "show": {
+      "asset": "clip0",
+      "move": "play"
+     }
+    },
+    {
+     "say": "Six days early.",
+     "show": {
+      "asset": "clip0",
+      "move": "play"
+     }
+    },
+    {
+     "say": "And he opened it live?",
+     "show": {
+      "asset": "clip0",
+      "move": "play"
+     }
+    }
+   ],
+   "overlays": [
+    {
+     "k": "tag",
+     "name": "Adin Ross",
+     "role": "STREAMER · KICK",
+     "on": "adin",
+     "beat": 0
+    },
+    {
+     "k": "stamp",
+     "t": "$10,000",
+     "on": "thousand",
+     "beat": 0
+    },
+    {
+     "k": "sub",
+     "t": "6 DAYS EARLY",
+     "on": "six",
+     "beat": 1
+    }
+   ],
+   "caps": [],
+   "show": {
+    "asset": "clip0",
+    "mode": "sharp"
+   },
+   "bite": {
+    "asset": "clip0",
+    "ss": 6.7,
+    "dur": 3.6,
+    "first": true,
+    "text": "",
+    "words": [],
+    "who": "Adin Ross"
+   }
+  },
+  {
+   "id": "open",
+   "text": "Live on Kick, Adin Ross opens the case. No disc. No disc? Just a download code.",
+   "beats": [
+    {
+     "say": "Live on Kick, Adin Ross opens the case.",
+     "show": {
+      "asset": "clip0",
+      "move": "play"
+     }
+    },
+    {
+     "say": "No disc.",
+     "show": {
+      "asset": "clip0",
+      "move": "play"
+     }
+    },
+    {
+     "say": "No disc?",
+     "show": {
+      "asset": "clip0",
+      "move": "play"
+     }
+    },
+    {
+     "say": "Just a download code.",
+     "show": {
+      "asset": "clip0",
+      "move": "play"
+     }
+    }
+   ],
+   "overlays": [
+    {
+     "k": "stamp",
+     "t": "NO DISC",
+     "on": "disc",
+     "beat": 1
+    }
+   ],
+   "caps": [],
+   "show": {
+    "asset": "clip0",
+    "mode": "sharp"
+   }
+  },
+  {
+   "id": "code",
+   "text": "And Adin held it right up to the camera. In front of the whole stream.",
+   "beats": [
+    {
+     "say": "And Adin held it right up to the camera.",
+     "show": {
+      "asset": "clip1",
+      "move": "play"
+     }
+    },
+    {
+     "say": "In front of the whole stream.",
+     "show": {
+      "asset": "clip1",
+      "move": "play"
+     }
+    }
+   ],
+   "overlays": [
+    {
+     "k": "chip",
+     "t": "ON CAMERA · LIVE",
+     "on": "camera",
+     "beat": 0
+    }
+   ],
+   "caps": [],
+   "show": {
+    "asset": "clip1",
+    "mode": "sharp"
+   }
+  },
+  {
+   "id": "viral",
+   "text": "One clip of Adin losing it crossed nineteen thousand likes on X. The humans clip everything.",
+   "beats": [
+    {
+     "say": "One clip of Adin losing it crossed nineteen thousand likes on X.",
+     "show": {
+      "asset": "clip1",
+      "move": "play"
+     }
+    },
+    {
+     "say": "The humans clip everything.",
+     "show": {
+      "asset": "clip0",
+      "move": "play"
+     }
+    }
+   ],
+   "overlays": [
+    {
+     "k": "quote",
+     "t": "Adin Ross LOSES IT after he saw the GTA 6 Disc was Missing",
+     "who": "@DIRK_MP4 ON X · 19,000+ LIKES",
+     "label": "THE VIRAL POST",
+     "beat": 0
+    }
+   ],
+   "caps": [],
+   "show": {
+    "asset": "clip1",
+    "mode": "sharp"
+   }
+  },
+  {
+   "id": "june",
+   "text": "Back in June, Adin Ross reportedly offered up to a quarter of a million dollars for an early copy. Prices are coming down.",
+   "beats": [
+    {
+     "say": "Back in June, Adin Ross reportedly offered up to a quarter of a million dollars for an early copy.",
+     "show": {
+      "asset": "face_adinross",
+      "move": "whole"
+     }
+    },
+    {
+     "say": "Prices are coming down.",
+     "show": {
+      "asset": "face_adinross",
+      "move": "whole"
+     }
+    }
+   ],
+   "overlays": [
+    {
+     "k": "stamp",
+     "t": "$250,000",
+     "on": "quarter",
+     "beat": 0
+    },
+    {
+     "k": "chip",
+     "t": "REPORTEDLY · JUNE 2026",
+     "on": "june",
+     "beat": 0
+    }
+   ],
+   "caps": [],
+   "show": {
+    "asset": "face_adinross",
+    "mode": "sharp"
+   }
+  },
+  {
+   "id": "punch",
+   "text": "And GTA 6 unlocks for everyone on November nineteenth. So Adin Ross paid ten grand for six days.",
+   "beats": [
+    {
+     "say": "And GTA 6 unlocks for everyone on November nineteenth.",
+     "show": {
+      "asset": "clip0",
+      "move": "play"
+     }
+    },
+    {
+     "say": "So Adin Ross paid ten grand for six days.",
+     "show": {
+      "asset": "clip0",
+      "move": "play"
+     }
+    }
+   ],
+   "overlays": [
+    {
+     "k": "stamp",
+     "t": "NOV 19",
+     "on": "november",
+     "beat": 0
+    }
+   ],
+   "caps": [],
+   "show": {
+    "asset": "clip0",
+    "mode": "sharp"
+   }
+  },
+  {
+   "id": "vote",
+   "text": "Was it worth it for Adin, or not? Tell us below.",
+   "beats": [
+    {
+     "say": "Was it worth it for Adin, or not?",
+     "show": {
+      "asset": "clip0",
+      "move": "play"
+     }
+    },
+    {
+     "say": "Tell us below.",
+     "show": {
+      "asset": "clip0",
+      "move": "play"
+     }
+    }
+   ],
+   "overlays": [],
+   "caps": [],
+   "show": {
+    "asset": "clip0",
+    "mode": "sharp"
+   }
+  },
+  {
+   "id": "site",
+   "text": "Follow Gen Z Hype for the next one.",
+   "show": {
+    "asset": "auto",
+    "mode": "under"
+   },
+   "overlays": [],
+   "caps": [
+    {
+     "say": "Gen Z Hype",
+     "show": "GenZHype"
+    }
+   ]
+  }
+ ],
+ "vote": {
+  "question": "Worth $10,000?",
+  "a": {
+   "word": "WORTH IT",
+   "sub": "six days early"
+  },
+  "b": {
+   "word": "NOT WORTH IT",
+   "sub": "just wait"
+  }
+ },
+ "people": [
+  {
+   "name": "Adin Ross",
+   "role": "Kick streamer"
+  }
+ ],
+ "hunts": [],
+ "stock": "gta 6 gaming",
+ "post": {
+  "caption": "Adin Ross paid $10,000 for GTA 6 six days early. No disc inside.",
+  "hashtags": [
+   "adinross",
+   "gta6",
+   "kick"
+  ],
+  "pinned": "Worth $10,000 or not?"
+ },
+ "takes": [
+  "And he opened it live?",
+  "No disc?",
+  "In front of the whole stream.",
+  "The humans clip everything.",
+  "Prices are coming down.",
+  "So Adin Ross paid ten grand for six days."
+ ],
+ "closing": "Follow GenZHype for the next one.",
+ "lo": 105,
+ "hi": 125,
+ "bite_s": 0.0,
+ "notes": [],
+ "words": 124,
+ "sensitive": {
+  "flag": false,
+  "why": ""
+ },
+ "closing_ok": true,
+ "url": "https://genzhype.com/topic/adin-ross-gta-6-early-copy-no-disc/",
+ "title": "Adin Ross opens his $10,000 early GTA 6 copy on stream: no disc, and the code on camera",
+ "no_page": true,
+ "model": "directed by hand on the machine's material (owner order 2026-11-14)",
+ "assets": {
+  "clip0": {
+   "kind": "clip",
+   "post": 0,
+   "url": "https://x.com/DenzoLLC/status/2121141453338411161",
+   "seconds": 25,
+   "credit": "CLIP · @DENZOLLC / X",
+   "about": "Adin Ross accidentally leaks his early release Gta 6 code on stream which he paid $10,000 for",
+   "by": "@DenzoLLC",
+   "page": "https://x.com/DenzoLLC/status/2121141453338411161",
+   "via": "supply",
+   "file": "clip0.mp4",
+   "w": 1920,
+   "h": 1080,
+   "dur": 25.066667,
+   "luma": 75.4,
+   "scenes": [
+    [
+     0.0,
+     25.07
+    ]
+   ],
+   "eyes": {
+    "kind": "stream",
+    "relevant": true,
+    "exact": true,
+    "shows": "Adin Ross opens his early GTA 6 copy on stream and looks at the code inside.",
+    "model": "gemini/gemini-3.5-flash-lite"
+   },
+   "windows": [
+    {
+     "t": 2.4,
+     "score": 4.0,
+     "x": 0.5,
+     "face": true,
+     "what": "holding the case",
+     "sc": 0,
+     "ss": 0.0,
+     "se": 6.4
+    },
+    {
+     "t": 11.4,
+     "score": 4.0,
+     "x": 0.5,
+     "face": true,
+     "what": "the empty case interior",
+     "sc": 1,
+     "ss": 10.4,
+     "se": 12.4
+    },
+    {
+     "t": 14.5,
+     "score": 4.0,
+     "x": 0.5,
+     "face": true,
+     "what": "looking inside the case",
+     "sc": 2,
+     "ss": 13.0,
+     "se": 16.4
+    },
+    {
+     "t": 18.9,
+     "score": 4.0,
+     "x": 0.5,
+     "face": true,
+     "what": "looking at the code, loud",
+     "sc": 3,
+     "ss": 17.4,
+     "se": 20.1
+    },
+    {
+     "t": 23.6,
+     "score": 4.0,
+     "x": 0.5,
+     "face": true,
+     "what": "reacting",
+     "sc": 4,
+     "ss": 22.6,
+     "se": 24.6
+    },
+    {
+     "t": 4.6,
+     "score": 4.0,
+     "x": 0.5,
+     "face": true,
+     "what": "holding the case",
+     "sc": 5,
+     "ss": 3.0,
+     "se": 6.4
+    },
+    {
+     "t": 15.6,
+     "score": 4.0,
+     "x": 0.5,
+     "face": true,
+     "what": "looking inside",
+     "sc": 6,
+     "ss": 14.0,
+     "se": 16.4
+    },
+    {
+     "t": 19.4,
+     "score": 4.0,
+     "x": 0.5,
+     "face": true,
+     "what": "looking at the code",
+     "sc": 7,
+     "ss": 18.4,
+     "se": 20.1
+    }
+   ],
+   "tiles": [
+    {
+     "t": 2.42,
+     "score": 5.0,
+     "x": 0.15
+    },
+    {
+     "t": 6.47,
+     "score": 5.0,
+     "x": 0.36
+    },
+    {
+     "t": 10.51,
+     "score": 4.0,
+     "x": 0.55
+    },
+    {
+     "t": 14.56,
+     "score": 5.0,
+     "x": 0.85
+    },
+    {
+     "t": 18.6,
+     "score": 5.0,
+     "x": 0.15
+    },
+    {
+     "t": 22.65,
+     "score": 5.0,
+     "x": 0.36
+    }
+   ],
+   "usable": true,
+   "said": {
+    "by": "",
+    "lang": "",
+    "words": []
+   },
+   "stills_cut": true
+  },
+  "clip1": {
+   "kind": "clip",
+   "post": 1,
+   "url": "https://x.com/Dirk_mp4/status/2121142026985230443",
+   "seconds": 27,
+   "credit": "CLIP · @DIRK_MP4 / X",
+   "about": "Adin Ross LOSES IT after he saw the GTA 6 Disc was Missing from his Case and then noticed he LEAKED the GTA 6 Code on stream",
+   "by": "@Dirk_mp4",
+   "page": "https://x.com/Dirk_mp4/status/2121142026985230443",
+   "via": "supply",
+   "file": "clip1.mp4",
+   "w": 1080,
+   "h": 1080,
+   "dur": 27.144127,
+   "luma": 73.1,
+   "scenes": [
+    [
+     0.0,
+     27.14
+    ]
+   ],
+   "eyes": {
+    "kind": "stream",
+    "relevant": true,
+    "exact": true,
+    "shows": "Adin Ross opens a GTA 6 game case on stream and realizes the disc is missing.",
+    "model": "gemini/gemini-3.5-flash-lite"
+   },
+   "windows": [
+    {
+     "t": 9.8,
+     "score": 4.0,
+     "x": 0.5,
+     "face": true,
+     "what": "showing the empty case",
+     "sc": 0,
+     "ss": 8.5,
+     "se": 11.4
+    },
+    {
+     "t": 21.5,
+     "score": 4.0,
+     "x": 0.5,
+     "face": true,
+     "what": "reacting to the missing disc",
+     "sc": 1,
+     "ss": 20.6,
+     "se": 22.9
+    },
+    {
+     "t": 25.6,
+     "score": 4.0,
+     "x": 0.5,
+     "face": true,
+     "what": "reacting",
+     "sc": 2,
+     "ss": 24.6,
+     "se": 27.0
+    },
+    {
+     "t": 13.5,
+     "score": 4.0,
+     "x": 0.5,
+     "face": true,
+     "what": "looking down at the case",
+     "sc": 3,
+     "ss": 12.5,
+     "se": 15.0
+    },
+    {
+     "t": 6.5,
+     "score": 4.0,
+     "x": 0.5,
+     "face": true,
+     "what": "opening the case",
+     "sc": 4,
+     "ss": 5.6,
+     "se": 9.4
+    }
+   ],
+   "tiles": [
+    {
+     "t": 2.28,
+     "score": 3.5,
+     "x": 0.5
+    },
+    {
+     "t": 6.04,
+     "score": 3.5,
+     "x": 0.5
+    },
+    {
+     "t": 9.81,
+     "score": 3.5,
+     "x": 0.5
+    },
+    {
+     "t": 13.57,
+     "score": 2.5,
+     "x": 0.5
+    },
+    {
+     "t": 17.33,
+     "score": 2.5,
+     "x": 0.5
+    },
+    {
+     "t": 21.1,
+     "score": 3.5,
+     "x": 0.5
+    },
+    {
+     "t": 24.86,
+     "score": 3.5,
+     "x": 0.5
+    }
+   ],
+   "usable": true,
+   "said": {
+    "by": "",
+    "lang": "",
+    "words": []
+   },
+   "stills_cut": true
+  },
+  "face_adinross": {
+   "kind": "photo",
+   "file": "face_adinross.jpg",
+   "person": "real",
+   "by": "Adin Ross",
+   "handle": "",
+   "credit": "PHOTO · LOU WOP · WIKIMEDIA COMMONS (CC BY 3.0)",
+   "page": "https://genzhype.com/topic/adin-ross-gta-6-early-copy-no-disc/",
+   "about": "photo of Adin Ross (Wikimedia Commons (American live streamer (born 2000)))",
+   "w": 497,
+   "h": 653,
+   "dur": 0.0,
+   "face_of": "Adin Ross",
+   "eyes": {
+    "kind": "talking",
+    "relevant": true,
+    "exact": true,
+    "shows": "the face of Adin Ross"
+   },
+   "windows": [
+    {
+     "t": 0.0,
+     "score": 4.0,
+     "x": 0.5,
+     "face": true,
+     "what": "the face of Adin Ross"
+    }
+   ],
+   "looked": "gemini/gemini-3.5-flash-lite",
+   "score": 4.0,
+   "subjects": [
+    {
+     "id": "s1",
+     "name": "young man with dark curly hair and a beard",
+     "x": 0.52,
+     "y": 0.5,
+     "h": 0.85
+    }
+   ],
+   "seen": "A young man with dark curly hair and a beard looks forward wearing a white t-shirt.",
+   "caption": "",
+   "light": 0.402,
+   "usable": true,
+   "logo": false
+  }
+ },
+ "kind": "story",
+ "form": "the moment",
+ "opening": {
+  "written": [
+   "Ten thousand dollars for a game case. Streamer Adin Ross bought early access to GTA Six. Then he opened it live on stream. Free code for everyone.",
+   "Ten thousand dollars, zero game discs. Adin Ross bought GTA Six six days early. Then he flashed the code on camera. That was fast.",
+   "Adin Ross spent ten thousand dollars. He wanted GTA Six six days before release. The physical case held no disc inside. Just expensive plastic.",
+   "Look at this plastic game case. Adin Ross paid ten thousand dollars for it. Inside was a code, and he showed it. The humans love live leaks.",
+   "Ten grand for early access. Adin Ross unboxed GTA Six on Kick. He found no disc and leaked the code. Gone in seconds."
+  ],
+  "writer_pick": "Ten thousand dollars for a game case. Streamer Adin Ross bought early access to GTA Six. Then he opened it live on stream. Free code for everyone.",
+  "in_form": 5,
+  "scores": [
+   [
+    "Ten thousand dollars for a game case. Streamer Adin Ross bought early access to GTA Six. Then he opened it live on stream. Free code for everyone.",
+    6.0
+   ],
+   [
+    "Ten thousand dollars, zero game discs. Adin Ross bought GTA Six six days early. Then he flashed the code on camera. That was fast.",
+    4.0
+   ],
+   [
+    "Adin Ross spent ten thousand dollars. He wanted GTA Six six days before release. The physical case held no disc inside. Just expensive plastic.",
+    3.0
+   ],
+   [
+    "Look at this plastic game case. Adin Ross paid ten thousand dollars for it. Inside was a code, and he showed it. The humans love live leaks.",
+    2.0
+   ],
+   [
+    "Ten grand for early access. Adin Ross unboxed GTA Six on Kick. He found no disc and leaked the code. Gone in seconds.",
+    9.0
+   ]
+  ],
+  "why": "Short, punches hard with facts, and leaves me wondering who grabbed it.",
+  "by": "gemini/gemini-3.6-flash",
+  "picked": "Ten grand for early access. Adin Ross unboxed GTA Six on Kick. He found no disc and leaked the code. Gone in seconds."
+ },
+ "left_open": [
+  "141 spoken words: cut to 125 at most",
+  "line 4 says an account name with digits (\"@Dirk_mp4's\"): say \"a TikToker\" or \"one account\" instead, and show the name on a \"chip\""
+ ],
+ "fact_checked": true,
+ "unsupported_left": 0,
+ "closing_used": "written for this video"
+}
