@@ -1,0 +1,13 @@
+127 account(s) to read
+
+  Welcome to CloakBrowser - stealth Chromium for automation
+  https://github.com/CloakHQ/CloakBrowser
+
+  CloakBrowser needs a license key.
+
+  Get one free (the latest build, 1 concurrent session):
+  https://cloakbrowser.dev/#claim=QiQgIjJANZTQh5RMf8r67DJs3-4BK0g7hDFatMuSjxM
+  After you confirm, the key is also emailed to you.
+
+browser did not start: CloakBrowserLicenseError: No CloakBrowser license key. Get one free: https://cloakbrowser.dev/#claim=QiQgIjJANZTQh5RMf8r67DJs3-4BK0g7hDFatMuSjxM (or run: cloakbrowser login), then launch again.
+read 0 of 127
