@@ -1,1 +1,1 @@
-Buffer: organizations query failed: [{"message": "Too many requests from this client. Please try again later. You can raise your Buffer API limit: https://publish.buffer.com/settings/api?cta=publicApi-rateLimit-hint-upgrade-1&upgradePathName=apiRateLimit-upgrade", "extensions": {"code": "RATE_LIMIT_EXCEEDED", "window": "30d"}}]
+Buffer: organizations query failed: [{"message": "Access token is not valid", "extensions": {"code": "UNAUTHENTICATED"}}]
